@@ -134,3 +134,7 @@ func (ucloud *SUCloudGuestDriver) ValidateGuestChangeConfigInput(ctx context.Con
 
 	return confs, nil
 }
+
+func (self *SUCloudGuestDriver) IsNeedCleanDisksAfterUndeploy() bool {
+	return false
+}

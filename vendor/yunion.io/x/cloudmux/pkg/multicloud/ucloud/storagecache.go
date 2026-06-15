@@ -69,7 +69,7 @@ func (self *SStoragecache) GetICloudImages() ([]cloudprovider.ICloudImage, error
 }
 
 func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudImage, error) {
-	images, err := self.region.GetImages("", "Custom")
+	images, err := self.region.GetImages("Custom", "")
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetImages")
 	}
@@ -83,8 +83,11 @@ func (self *SStoragecache) GetICustomizedCloudImages() ([]cloudprovider.ICloudIm
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
 	image, err := self.region.GetImage(extId)
+	if err != nil {
+		return nil, err
+	}
 	image.storageCache = self
-	return &image, err
+	return &image, nil
 }
 
 func (self *SStoragecache) GetPath() string {
@@ -206,11 +209,6 @@ func (self *SStoragecache) uploadImage(ctx context.Context, image *cloudprovider
 		callback(100)
 	}
 	return imgId, err
-}
-
-// https://docs.ucloud.cn/api/uhost-api/create_custom_image
-func (self *SRegion) createIImage(snapshotId, imageName, imageDesc string) (string, error) {
-	return "", cloudprovider.ErrNotSupported
 }
 
 /*func (self *SRegion) GetBucketDomain(name string) (string, error) {

@@ -188,3 +188,7 @@ func (self *SRockbaseProvider) GetObjectCannedAcls(regionId string) []string {
 func (self *SRockbaseProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }
+
+func (self *SRockbaseProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}

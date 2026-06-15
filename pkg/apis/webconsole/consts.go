@@ -43,4 +43,6 @@ const (
 	CNWARE      = "cnware"
 	KSYUN       = "ksyun"
 	ECLOUD      = "ecloud"
+	ROCKBASE    = "rockbase"
+	UCLOUD      = "ucloud"
 )

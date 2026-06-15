@@ -134,3 +134,7 @@ func (rockbase *SRockbaseGuestDriver) ValidateGuestChangeConfigInput(ctx context
 
 	return confs, nil
 }
+
+func (self *SRockbaseGuestDriver) IsNeedCleanDisksAfterUndeploy() bool {
+	return false
+}
