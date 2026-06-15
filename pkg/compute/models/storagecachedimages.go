@@ -384,7 +384,7 @@ func (sci *SStoragecachedimage) ValidateDeleteCondition(ctx context.Context, inf
 	if sci.Status != api.CACHED_IMAGE_STATUS_CACHE_FAILED {
 		cnt, err := sci.getReferenceCount()
 		if err != nil {
-			return httperrors.NewInternalServerError("getReferenceCount fail %s", err)
+			return httperrors.NewInternalServerError("getReferenceCount failed %s", err)
 		}
 		if cnt > 0 {
 			return httperrors.NewNotEmptyError("Image is in use")

@@ -174,7 +174,7 @@ func (self *SGoogleGuestDriver) ValidateCreateData(ctx context.Context, userCred
 		return nil, err
 	}
 	if len(input.Networks) > 2 {
-		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
+		return nil, httperrors.NewInputParameterError("multiple NICs are not supported")
 	}
 	localDisk := 0
 	for i, disk := range input.Disks {
@@ -204,7 +204,7 @@ func (self *SGoogleGuestDriver) ValidateCreateData(ctx context.Context, userCred
 			return nil, httperrors.NewInputParameterError("Unknown google storage type %s", disk.Backend)
 		}
 		if i == 0 && disk.Backend == api.STORAGE_GOOGLE_LOCAL_SSD {
-			return nil, httperrors.NewInputParameterError("System disk does not support %s disk", disk.Backend)
+			return nil, httperrors.NewInputParameterError("system disk does not support %s disks", disk.Backend)
 		}
 		if disk.SizeMb < minGB*1024 || disk.SizeMb > maxGB*1024 {
 			return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of %dGB ~ %dGB", disk.Backend, minGB, maxGB)

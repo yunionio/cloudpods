@@ -342,7 +342,7 @@ func (drv *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx contex
 
 func (drv *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	if input.Cdrom != "" {
-		return nil, httperrors.NewInputParameterError("%s not support cdrom params", input.Hypervisor)
+		return nil, httperrors.NewInputParameterError("%s does not support cdrom params", input.Hypervisor)
 	}
 	var vpc *models.SVpc = nil
 	for _, network := range input.Networks {

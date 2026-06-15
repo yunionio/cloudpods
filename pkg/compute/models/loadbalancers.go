@@ -494,7 +494,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(
 			return nil, httperrors.NewInvalidStatusError("eip %s status not ready", eip.Name)
 		}
 		if len(eip.AssociateType) > 0 {
-			return nil, httperrors.NewInvalidStatusError("eip %s alread associate %s", eip.Name, eip.AssociateType)
+			return nil, httperrors.NewInvalidStatusError("eip %s already associated with %s", eip.Name, eip.AssociateType)
 		}
 		if eip.ManagerId != input.ManagerId {
 			return nil, httperrors.NewInputParameterError("lb manager %s does not match eip manager %s", input.ManagerId, eip.ManagerId)
@@ -1674,7 +1674,7 @@ func (lb *SLoadbalancer) IsEipAssociable() error {
 		return errors.Wrap(err, "GetElasticIp")
 	}
 	if len(eips) > 0 {
-		return httperrors.NewInvalidStatusError("already associate with eip")
+		return httperrors.NewInvalidStatusError("already associated with EIP")
 	}
 	return nil
 }
@@ -1682,7 +1682,7 @@ func (lb *SLoadbalancer) IsEipAssociable() error {
 // 绑定弹性公网IP, 仅支持kvm
 func (lb *SLoadbalancer) PerformAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LoadbalancerAssociateEipInput) (jsonutils.JSONObject, error) {
 	if lb.IsManaged() {
-		return nil, httperrors.NewUnsupportOperationError("not support managed lb")
+		return nil, httperrors.NewUnsupportOperationError("managed load balancer is not supported")
 	}
 	err := lb.IsEipAssociable()
 	if err != nil {
@@ -1718,7 +1718,7 @@ func (lb *SLoadbalancer) PerformAssociateEip(ctx context.Context, userCred mccli
 	}
 
 	if eipRegion.Id != instRegion.Id {
-		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different region")
+		return nil, httperrors.NewInputParameterError("cannot associate EIP and instance in different regions")
 	}
 
 	if len(eip.NetworkId) > 0 {
@@ -1728,7 +1728,7 @@ func (lb *SLoadbalancer) PerformAssociateEip(ctx context.Context, userCred mccli
 		}
 		for _, net := range nets {
 			if net.Id == eip.NetworkId {
-				return nil, httperrors.NewInputParameterError("cannot associate eip with same network")
+				return nil, httperrors.NewInputParameterError("cannot associate EIP with the same network")
 			}
 		}
 	}
@@ -1737,12 +1737,12 @@ func (lb *SLoadbalancer) PerformAssociateEip(ctx context.Context, userCred mccli
 	if eipZone != nil {
 		insZone, _ := lb.GetZone()
 		if eipZone.Id != insZone.Id {
-			return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different zone")
+			return nil, httperrors.NewInputParameterError("cannot associate EIP and instance in different zones")
 		}
 	}
 
 	if lb.ManagerId != eip.ManagerId {
-		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different provider")
+		return nil, httperrors.NewInputParameterError("cannot associate EIP and instance with different providers")
 	}
 
 	err = eip.AssociateLoadbalancer(ctx, userCred, lb)
@@ -1765,7 +1765,7 @@ func (lb *SLoadbalancer) PerformAssociateEip(ctx context.Context, userCred mccli
 // 解绑弹性公网IP，仅支持kvm
 func (lb *SLoadbalancer) PerformDissociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LoadbalancerDissociateEipInput) (jsonutils.JSONObject, error) {
 	if lb.IsManaged() {
-		return nil, httperrors.NewUnsupportOperationError("not support managed lb")
+		return nil, httperrors.NewUnsupportOperationError("managed load balancer is not supported")
 	}
 
 	eips, err := lb.GetEips()

@@ -310,10 +310,10 @@ func (self *SInterVpcNetwork) PerformAddvpc(ctx context.Context, userCred mcclie
 		return nil, httperrors.NewGeneralError(err)
 	}
 	if vpcCloudProvider.Provider != cloudProvider.Provider {
-		return nil, httperrors.NewNotSupportedError("vpc joint interVpcNetwork on different cloudprovider is not supported")
+		return nil, httperrors.NewNotSupportedError("joining inter-VPC network across different cloud providers is not supported")
 	}
 	if vpcCloudProvider.AccessUrl != cloudProvider.AccessUrl {
-		return nil, httperrors.NewNotSupportedError("vpc joint interVpcNetwork on different cloudEnv is not supported")
+		return nil, httperrors.NewNotSupportedError("joining inter-VPC network across different cloud environments is not supported")
 	}
 
 	q := InterVpcNetworkVpcManager.Query().Equals("vpc_id", vpc.Id)
@@ -323,7 +323,7 @@ func (self *SInterVpcNetwork) PerformAddvpc(ctx context.Context, userCred mcclie
 		return nil, httperrors.NewGeneralError(err)
 	}
 	if len(vpcNetworkjoints) > 0 {
-		return nil, httperrors.NewInputParameterError("vpc %s already connected to a interVpcNetwork", vpc.Id)
+		return nil, httperrors.NewInputParameterError("VPC %s is already connected to an inter-VPC network", vpc.Id)
 	}
 
 	err = self.StartInterVpcNetworkAddVpcTask(ctx, userCred, vpc)

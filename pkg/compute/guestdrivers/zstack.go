@@ -121,7 +121,7 @@ func (self *SZStackGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 }
 
 func (self *SZStackGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
-	return httperrors.NewInputParameterError("%s not support create eip, it only support bind eip", self.GetHypervisor())
+	return httperrors.NewInputParameterError("%s does not support creating EIP; only binding EIP is supported", self.GetHypervisor())
 }
 
 func (self *SZStackGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
@@ -130,10 +130,10 @@ func (self *SZStackGuestDriver) ValidateCreateData(ctx context.Context, userCred
 		return nil, err
 	}
 	if len(input.Networks) > 2 {
-		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
+		return nil, httperrors.NewInputParameterError("multiple NICs are not supported")
 	}
 	if len(input.Eip) > 0 || input.EipBw > 0 {
-		return nil, httperrors.NewUnsupportOperationError("%s not support create virtual machine with eip", self.GetHypervisor())
+		return nil, httperrors.NewUnsupportOperationError("%s does not support creating virtual machine with eip", self.GetHypervisor())
 	}
 	return input, nil
 }

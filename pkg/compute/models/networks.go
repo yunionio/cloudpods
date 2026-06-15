@@ -1165,7 +1165,7 @@ func isValidNetworkInfo(ctx context.Context, userCred mcclient.TokenCredential, 
 			} else {
 				used, err := net.isAddressUsed(ctx, netConfig.Address)
 				if err != nil {
-					return httperrors.NewInternalServerError("isAddressUsed fail %s", err)
+					return httperrors.NewInternalServerError("isAddressUsed failed %s", err)
 				}
 				if used && netConfig.Address != reuseAddr {
 					return httperrors.NewInputParameterError("Address %s has been used", netConfig.Address)
@@ -1195,7 +1195,7 @@ func isValidNetworkInfo(ctx context.Context, userCred mcclient.TokenCredential, 
 			} else {
 				used, err := net.isAddress6Used(ctx, netConfig.Address6)
 				if err != nil {
-					return httperrors.NewInternalServerError("isAddress6Used fail %s", err)
+					return httperrors.NewInternalServerError("isAddress6Used failed %s", err)
 				}
 				if used && netConfig.Address6 != reuseAddr6 {
 					return httperrors.NewInputParameterError("v6 address %s has been used", netConfig.Address6)
@@ -1215,7 +1215,7 @@ func isValidNetworkInfo(ctx context.Context, userCred mcclient.TokenCredential, 
 		}
 		freeCnt, err := net.getFreeAddressCount()
 		if err != nil {
-			return httperrors.NewInternalServerError("getFreeAddressCount fail %s", err)
+			return httperrors.NewInternalServerError("getFreeAddressCount failed %s", err)
 		}
 		if reuseAddr != "" {
 			freeCnt += 1
@@ -1565,7 +1565,7 @@ func (net *SNetwork) reserveIpWithDurationAndStatus(ctx context.Context, userCre
 		}
 		used, err = net.isAddress6Used(ctx, addr6.String())
 		if err != nil {
-			return httperrors.NewInternalServerError("isAddress6Used fail %s", err)
+			return httperrors.NewInternalServerError("isAddress6Used failed %s", err)
 		}
 		addrType = api.AddressTypeIPv6
 		ipstr = addr6.String()
@@ -1579,7 +1579,7 @@ func (net *SNetwork) reserveIpWithDurationAndStatus(ctx context.Context, userCre
 		}
 		used, err = net.isAddressUsed(ctx, ipstr)
 		if err != nil {
-			return httperrors.NewInternalServerError("isAddressUsed fail %s", err)
+			return httperrors.NewInternalServerError("isAddressUsed failed %s", err)
 		}
 		addrType = api.AddressTypeIPv4
 	} else {
@@ -2360,7 +2360,7 @@ func (snet *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 
 	if input.IsAutoAlloc != nil && *input.IsAutoAlloc {
 		if snet.ServerType != api.NETWORK_TYPE_GUEST && snet.ServerType != api.NETWORK_TYPE_HOSTLOCAL {
-			return input, httperrors.NewInputParameterError("network server_type %s not support auto alloc", snet.ServerType)
+			return input, httperrors.NewInputParameterError("network server_type %s does not support auto allocation", snet.ServerType)
 		}
 	}
 
@@ -2634,16 +2634,16 @@ func (snet *SNetwork) isOneCloudVpcNetwork() bool {
 /*func parseIpToIntArray(ip string) ([]int, error) {
 	ipSp := strings.Split(strings.Trim(ip, "."), ".")
 	if len(ipSp) > 4 {
-		return nil, httperrors.NewInputParameterError("Parse Ip Failed")
+		return nil, httperrors.NewInputParameterError("failed to parse IP address")
 	}
 	ipIa := []int{}
 	for i := 0; i < len(ipSp); i++ {
 		val, err := strconv.Atoi(ipSp[i])
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("Parse Ip Failed")
+			return nil, httperrors.NewInputParameterError("failed to parse IP address")
 		}
 		if val < 0 || val > 255 {
-			return nil, httperrors.NewInputParameterError("Parse Ip Failed")
+			return nil, httperrors.NewInputParameterError("failed to parse IP address")
 		}
 		ipIa = append(ipIa, val)
 	}
@@ -3223,7 +3223,7 @@ func (snet *SNetwork) CheckInvalidToMerge(ctx context.Context, net *SNetwork, al
 	}*/
 
 	if len(failReason) > 0 {
-		err := httperrors.NewInputParameterError("Invalid Target Network %s: inconsist %s", net.GetId(), strings.Join(failReason, ","))
+		err := httperrors.NewInputParameterError("invalid target network %s: inconsistent %s", net.GetId(), strings.Join(failReason, ","))
 		return "", "", err
 	}
 
@@ -3327,7 +3327,7 @@ func (snet *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 		} else {
 			input.Name, err = db.GenerateName(ctx, NetworkManager, userCred, fmt.Sprintf("%s#", snet.Name))
 			if err != nil {
-				return httperrors.NewInternalServerError("GenerateName fail %s", err)
+				return httperrors.NewInternalServerError("GenerateName failed %s", err)
 			}
 		}
 
@@ -3514,7 +3514,7 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 
 			newNetwork.Name, err = db.GenerateName(ctx, NetworkManager, userCred, fmt.Sprintf("%s#", nm.Name))
 			if err != nil {
-				return httperrors.NewInternalServerError("GenerateName fail %s", err)
+				return httperrors.NewInternalServerError("GenerateName failed %s", err)
 			}
 
 			return NetworkManager.TableSpec().Insert(ctx, newNetwork)

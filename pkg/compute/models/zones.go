@@ -1041,7 +1041,7 @@ func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mc
 	input.CloudregionId = region.Id
 	input.Status = api.ZONE_ENABLE
 	if region.Provider != api.CLOUD_PROVIDER_ONECLOUD {
-		return nil, httperrors.NewNotSupportedError("not support create %s zone", region.Provider)
+		return nil, httperrors.NewNotSupportedError("creating %s zones is not supported for this region", region.Provider)
 	}
 
 	input.StatusStandaloneResourceCreateInput, err = manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)

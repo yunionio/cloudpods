@@ -357,7 +357,7 @@ func (self *SHost) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccli
 	}
 
 	if len(guests) > 1 {
-		return nil, httperrors.NewInvalidStatusError("a recycle host shoud not allocate more than 1 guest")
+		return nil, httperrors.NewInvalidStatusError("a recycle host should not allocate more than 1 guest")
 	}
 
 	if !guests[0].IsInStatus(api.VM_READY, api.VM_RUNNING) {

@@ -89,7 +89,7 @@ func (self *SGuestdisk) ValidateUpdateData(ctx context.Context, userCred mcclien
 			Filter(sqlchemy.NotEquals(guestdisk.Field("disk_id"), self.DiskId)).
 			Filter(sqlchemy.Equals(guestdisk.Field("index"), index)).CountWithError()
 		if err != nil {
-			return input, httperrors.NewInternalServerError("check disk index uniqueness fail %s", err)
+			return input, httperrors.NewInternalServerError("check disk index uniqueness failed %s", err)
 		}
 		if count > 0 {
 			return input, httperrors.NewInputParameterError("DISK Index %d has been occupied", index)
@@ -106,7 +106,7 @@ func (self *SGuestdisk) ValidateUpdateData(ctx context.Context, userCred mcclien
 			cacheMode = input.CacheMode
 		}
 		if input.AioMode == "native" && cacheMode != "none" {
-			return input, httperrors.NewBadRequestError("Aio mode %s with cache mode %s not supported", input.AioMode, cacheMode)
+			return input, httperrors.NewBadRequestError("AIO mode %s with cache mode %s is not supported", input.AioMode, cacheMode)
 		}
 	}
 

@@ -72,10 +72,10 @@ type SGlobalVpc struct {
 func (self *SGlobalVpc) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	vpcs, err := self.GetVpcs()
 	if err != nil {
-		return httperrors.NewInternalServerError("GetVpcs fail %s", err)
+		return httperrors.NewInternalServerError("GetVpcs failed %s", err)
 	}
 	if len(vpcs) > 0 {
-		return httperrors.NewNotEmptyError("global vpc has associate %d vpcs", len(vpcs))
+		return httperrors.NewNotEmptyError("global vpc is associated with %d VPCs", len(vpcs))
 	}
 	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx, nil)
 }
@@ -436,7 +436,7 @@ func (self *SGlobalVpc) PerformSyncstatus(ctx context.Context, userCred mcclient
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("Globalvpc has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("Globalvpc has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, self.StartSyncstatusTask(ctx, userCred, "")

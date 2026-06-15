@@ -145,7 +145,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			return nil, errors.Wrap(err, "ChooseHostStorage")
 		}
 		if defaultStorage == nil {
-			return nil, httperrors.NewInsufficientResourceError("no valid storage on host")
+			return nil, httperrors.NewInsufficientResourceError("no available storage on host")
 		}
 		input.PreferHost = baremetal.Id
 		input.DefaultStorageType = defaultStorage.StorageType
@@ -158,7 +158,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 		if len(input.Schedtags) > 0 {
 			input.Schedtags, err = SchedtagManager.ValidateSchedtags(ctx, userCred, input.Schedtags)
 			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid aggregate_strategy: %s", err)
+				return nil, httperrors.NewInputParameterError("invalid schedtags: %s", err)
 			}
 		}
 

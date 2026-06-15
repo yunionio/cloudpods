@@ -92,7 +92,7 @@ func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mc
 		count, err := BaremetalagentManager.Query().Equals("manager_uri", mangerUri).
 			NotEquals("id", self.Id).CountWithError()
 		if err != nil {
-			return input, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
+			return input, httperrors.NewInternalServerError("check agent uniqueness failed %s", err)
 		}
 		if count > 0 {
 			return input, httperrors.NewConflictError("Conflict manager_uri %s", mangerUri)
@@ -119,7 +119,7 @@ func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, u
 	}
 	count, err := manager.Query().Equals("manager_uri", mangerUri).CountWithError()
 	if err != nil {
-		return input, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
+		return input, httperrors.NewInternalServerError("check agent uniqueness failed %s", err)
 	}
 	if count > 0 {
 		return input, httperrors.NewDuplicateResourceError("Duplicate manager_uri %s", mangerUri)

@@ -770,7 +770,7 @@ func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context, info *api.Sn
 	if gotypes.IsNil(info) {
 		count, err := InstanceSnapshotJointManager.Query().Equals("snapshot_id", self.Id).CountWithError()
 		if err != nil {
-			return httperrors.NewInternalServerError("Fetch instance snapshot error %s", err)
+			return httperrors.NewInternalServerError("fetch instance snapshot failed %s", err)
 		}
 		if count > 0 {
 			return httperrors.NewBadRequestError("snapshot referenced by instance snapshot")
@@ -839,7 +839,7 @@ func (self *SSnapshot) PerformSyncstatus(ctx context.Context, userCred mcclient.
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("Snapshot has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("Snapshot has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "SnapshotSyncstatusTask", "")
@@ -863,16 +863,16 @@ func (self *SSnapshotManager) GetConvertSnapshot(deleteSnapshot *SSnapshot) (*SS
 func (self *SSnapshotManager) PerformDeleteDiskSnapshots(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SnapshotDeleteDiskSnapshotsInput) (jsonutils.JSONObject, error) {
 	disk, err := DiskManager.FetchById(input.DiskId)
 	if disk != nil {
-		return nil, httperrors.NewBadRequestError("Cannot Delete disk %s snapshots, disk exist", input.DiskId)
+		return nil, httperrors.NewBadRequestError("Cannot delete disk %s snapshots, disk still exists", input.DiskId)
 	}
 	snapshots := self.GetDiskSnapshots(input.DiskId)
 	if snapshots == nil || len(snapshots) == 0 {
-		return nil, httperrors.NewNotFoundError("Disk %s dose not have snapshot", input.DiskId)
+		return nil, httperrors.NewNotFoundError("Disk %s does not have snapshot", input.DiskId)
 	}
 	snapshotIds := []string{}
 	for i := 0; i < len(snapshots); i++ {
 		if snapshots[i].FakeDeleted == false {
-			return nil, httperrors.NewBadRequestError("Can not delete disk snapshots, have manual snapshot")
+			return nil, httperrors.NewBadRequestError("Cannot delete disk snapshots, has manual snapshots")
 		}
 		snapshotIds = append(snapshotIds, snapshots[i].Id)
 	}

@@ -336,7 +336,7 @@ func (manager *SSchedtagManager) ValidateCreateData(ctx context.Context, userCre
 		input.ResourceType = HostManager.KeywordPlural()
 	}
 	if !utils.IsInStringArray(input.ResourceType, manager.GetResourceTypes()) {
-		return nil, httperrors.NewInputParameterError("Not support resource_type %s", input.ResourceType)
+		return nil, httperrors.NewInputParameterError("resource type %s is not supported", input.ResourceType)
 	}
 
 	var err error
@@ -394,24 +394,24 @@ func (self *SSchedtag) ValidateUpdateData(ctx context.Context, userCred mcclient
 func (self *SSchedtag) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
 	cnt, err := self.GetObjectCount()
 	if err != nil {
-		return httperrors.NewInternalServerError("GetObjectCount fail %s", err)
+		return httperrors.NewInternalServerError("GetObjectCount failed %s", err)
 	}
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Tag is associated with %s", self.ResourceType)
 	}
 	cnt, err = self.getDynamicSchedtagCount()
 	if err != nil {
-		return httperrors.NewInternalServerError("getDynamicSchedtagCount fail %s", err)
+		return httperrors.NewInternalServerError("getDynamicSchedtagCount failed %s", err)
 	}
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("tag has dynamic rules")
 	}
 	cnt, err = self.getSchedPoliciesCount()
 	if err != nil {
-		return httperrors.NewInternalServerError("getSchedPoliciesCount fail %s", err)
+		return httperrors.NewInternalServerError("getSchedPoliciesCount failed %s", err)
 	}
 	if cnt > 0 {
-		return httperrors.NewNotEmptyError("tag is associate with sched policies")
+		return httperrors.NewNotEmptyError("tag is associated with scheduling policies")
 	}
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx, nil)
 }

@@ -247,15 +247,15 @@ func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 
 func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
 	if len(input.MasterInstanceId) > 0 && input.Engine == api.DBINSTANCE_TYPE_SQLSERVER {
-		return input, httperrors.NewInputParameterError("Not support create read-only dbinstance for %s", input.Engine)
+		return input, httperrors.NewInputParameterError("Creating read-only DB instance for %s is not supported", input.Engine)
 	}
 
 	if len(input.Name) < 4 || len(input.Name) > 64 {
-		return input, httperrors.NewInputParameterError("Huawei dbinstance name length shoud be 4~64 characters")
+		return input, httperrors.NewInputParameterError("Huawei dbinstance name length should be 4~64 characters")
 	}
 
 	if input.DiskSizeGB < 40 || input.DiskSizeGB > 4000 {
-		return input, httperrors.NewInputParameterError("%s require disk size must in 40 ~ 4000 GB", self.GetProvider())
+		return input, httperrors.NewInputParameterError("%s disk size must be in range 40~4000 GB", self.GetProvider())
 	}
 
 	if input.DiskSizeGB%10 > 0 {
@@ -307,7 +307,7 @@ func (self *SHuaWeiRegionDriver) IsSupportedBillingCycle(bc billing.SBillingCycl
 
 func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceAccountCreateInput) (api.DBInstanceAccountCreateInput, error) {
 	if utils.IsInStringArray(instance.Engine, []string{api.DBINSTANCE_TYPE_POSTGRESQL, api.DBINSTANCE_TYPE_SQLSERVER}) {
-		return input, httperrors.NewInputParameterError("Not support create account for huawei cloud %s instance", instance.Engine)
+		return input, httperrors.NewInputParameterError("Creating account for Huawei Cloud %s instance is not supported", instance.Engine)
 	}
 	if len(input.Name) == len(input.Password) {
 		for i := range input.Name {
@@ -322,14 +322,14 @@ func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceAccountData(ctx context
 
 func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceDatabaseCreateInput) (api.DBInstanceDatabaseCreateInput, error) {
 	if utils.IsInStringArray(instance.Engine, []string{api.DBINSTANCE_TYPE_POSTGRESQL, api.DBINSTANCE_TYPE_SQLSERVER}) {
-		return input, httperrors.NewInputParameterError("Not support create database for huawei cloud %s instance", instance.Engine)
+		return input, httperrors.NewInputParameterError("Creating database for Huawei Cloud %s instance is not supported", instance.Engine)
 	}
 	return input, nil
 }
 
 func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceBackupCreateInput) (api.DBInstanceBackupCreateInput, error) {
 	if len(input.Name) < 4 || len(input.Name) > 64 {
-		return input, httperrors.NewInputParameterError("Huawei DBInstance backup name length shoud be 4~64 characters")
+		return input, httperrors.NewInputParameterError("Huawei DBInstance backup name length should be 4~64 characters")
 	}
 
 	if len(input.Databases) > 0 && instance.Engine != api.DBINSTANCE_TYPE_SQLSERVER {
@@ -352,7 +352,7 @@ func (self *SHuaWeiRegionDriver) IsSupportDBInstancePublicConnection() bool {
 }
 
 func (self *SHuaWeiRegionDriver) ValidateResetDBInstancePassword(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, account string) error {
-	return httperrors.NewUnsupportOperationError("Huawei current not support reset dbinstance account password")
+	return httperrors.NewUnsupportOperationError("Huawei Cloud does not support resetting DB instance account passwords")
 }
 
 func (self *SHuaWeiRegionDriver) IsSupportKeepDBInstanceManualBackup() bool {
@@ -372,10 +372,10 @@ func (self *SHuaWeiRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.
 // https://support.huaweicloud.com/api-rds/rds_09_0009.html
 func (self *SHuaWeiRegionDriver) ValidateDBInstanceRecovery(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, backup *models.SDBInstanceBackup, input api.SDBInstanceRecoveryConfigInput) error {
 	if backup.Engine == api.DBINSTANCE_TYPE_POSTGRESQL {
-		return httperrors.NewNotSupportedError("%s not support recovery", backup.Engine)
+		return httperrors.NewNotSupportedError("%s does not support recovery", backup.Engine)
 	}
 	if backup.DBInstanceId == instance.Id && instance.Engine != api.DBINSTANCE_TYPE_SQLSERVER {
-		return httperrors.NewNotSupportedError("Huawei %s rds not support recovery from it self rds backup", instance.Engine)
+		return httperrors.NewNotSupportedError("Huawei %s rds does not support recovery from its own rds backup", instance.Engine)
 	}
 	if len(input.Databases) > 0 {
 		if instance.Engine != api.DBINSTANCE_TYPE_SQLSERVER {
@@ -384,7 +384,7 @@ func (self *SHuaWeiRegionDriver) ValidateDBInstanceRecovery(ctx context.Context,
 		invalidDbs := []string{"rdsadmin", "master", "msdb", "tempdb", "model"}
 		for _, db := range input.Databases {
 			if utils.IsInStringArray(strings.ToLower(db), invalidDbs) {
-				return httperrors.NewInputParameterError("New databases name can not be one of %s", invalidDbs)
+				return httperrors.NewInputParameterError("database name cannot be one of %s", invalidDbs)
 			}
 		}
 	}
@@ -455,7 +455,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheData(ctx context.Cont
 }
 
 func (self *SHuaWeiRegionDriver) ValidateCreateElasticcacheAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewUnsupportOperationError("%s not support create account", self.GetProvider())
+	return nil, httperrors.NewUnsupportOperationError("%s does not support creating account", self.GetProvider())
 }
 
 func (self *SHuaWeiRegionDriver) RequestElasticcacheAccountResetPassword(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {
@@ -513,7 +513,7 @@ func (self *SHuaWeiRegionDriver) RequestUpdateElasticcacheAuthMode(ctx context.C
 
 func (self *SHuaWeiRegionDriver) AllowCreateElasticcacheBackup(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, elasticcache *models.SElasticcache) error {
 	if elasticcache.LocalCategory == api.ELASTIC_CACHE_ARCH_TYPE_SINGLE {
-		return httperrors.NewBadRequestError("huawei %s mode elastic not support create backup", elasticcache.LocalCategory)
+		return httperrors.NewBadRequestError("huawei %s mode elastic does not support creating backup", elasticcache.LocalCategory)
 	}
 
 	return nil
@@ -586,7 +586,7 @@ func (self *SHuaWeiRegionDriver) RequestAssociateEipForNAT(ctx context.Context, 
 
 func (self *SHuaWeiRegionDriver) ValidateCreateNatGateway(ctx context.Context, userCred mcclient.TokenCredential, input api.NatgatewayCreateInput) (api.NatgatewayCreateInput, error) {
 	if len(input.Eip) > 0 || input.EipBw > 0 {
-		return input, httperrors.NewInputParameterError("Huawei nat not support associate eip")
+		return input, httperrors.NewInputParameterError("Huawei NAT does not support EIP association")
 	}
 	return input, nil
 }
@@ -618,7 +618,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Co
 }
 
 func (self *SHuaWeiRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
-	return nil, httperrors.NewNotSupportedError("not support update security group rule")
+	return nil, httperrors.NewNotSupportedError("updating security group rules is not supported")
 }
 
 func (self *SHuaWeiRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(q *sqlchemy.SQuery) *sqlchemy.SQuery, error) {

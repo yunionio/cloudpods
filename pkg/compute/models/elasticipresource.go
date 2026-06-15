@@ -32,7 +32,7 @@ func ValidateAssociateEip(obj IEipAssociateInstance) error {
 
 	if vpc != nil {
 		if !vpc.IsSupportAssociateEip() {
-			return httperrors.NewNotSupportedError("resource %s in vpc %s external access mode %s is not support accociate eip", obj.GetName(), vpc.GetName(), vpc.ExternalAccessMode)
+			return httperrors.NewNotSupportedError("resource %s in VPC %s with external access mode %s does not support EIP association", obj.GetName(), vpc.GetName(), vpc.ExternalAccessMode)
 		}
 	}
 

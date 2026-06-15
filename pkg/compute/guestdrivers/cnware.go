@@ -191,7 +191,7 @@ func (self *SCNwareGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 }
 
 func (self *SCNwareGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerCreateEipInput) error {
-	return httperrors.NewInputParameterError("%s not support create eip, it only support bind eip", self.GetHypervisor())
+	return httperrors.NewInputParameterError("%s does not support creating EIP; only binding EIP is supported", self.GetHypervisor())
 }
 
 func (self *SCNwareGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *api.ServerCreateInput) (*api.ServerCreateInput, error) {

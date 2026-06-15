@@ -83,7 +83,7 @@ func (man *SSchedtagJointsManager) ValidateCreateData(ctx context.Context, userC
 	}
 	resourceType := man.GetMasterManager().KeywordPlural()
 	if !utils.IsInStringArray(resourceType, SchedtagManager.GetResourceTypes()) {
-		return nil, httperrors.NewInputParameterError("Not support resource_type %s", resourceType)
+		return nil, httperrors.NewInputParameterError("resource type %s is not supported", resourceType)
 	}
 	schedtag := man.FetchSchedtagById(schedtagId)
 	if schedtag == nil {
@@ -96,7 +96,7 @@ func (man *SSchedtagJointsManager) ValidateCreateData(ctx context.Context, userC
 	input := apis.JoinResourceBaseCreateInput{}
 	err = data.Unmarshal(&input)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal JointResourceCreateInput fail %s", err)
+		return nil, httperrors.NewInternalServerError("unmarshal JointResourceCreateInput failed %s", err)
 	}
 	input, err = man.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {

@@ -114,7 +114,7 @@ func (manager *SWireManager) ValidateCreateData(
 	}
 
 	if input.Mtu < 0 || input.Mtu > 1000000 {
-		return input, httperrors.NewOutOfRangeError("mtu must be range of 0~1000000")
+		return input, httperrors.NewOutOfRangeError("mtu must be in range 0~1000000")
 	}
 
 	if input.VpcId == "" {
@@ -170,7 +170,7 @@ func (wire *SWire) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 
 func (wire *SWire) ValidateDeleteCondition(ctx context.Context, info *api.WireDetails) error {
 	if wire.Id == api.DEFAULT_HOST_LOCAL_WIRE_ID {
-		return httperrors.NewProtectedResourceError("not allow to delete default host local wire")
+		return httperrors.NewProtectedResourceError("not allowed to delete default host local wire")
 	}
 	if gotypes.IsNil(info) {
 		info = &api.WireDetails{}

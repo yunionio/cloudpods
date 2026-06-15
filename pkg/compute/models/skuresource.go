@@ -40,7 +40,7 @@ func PerformActionSyncSkus(ctx context.Context, userCred mcclient.TokenCredentia
 		NatSkuManager.Keyword(),
 		NasSkuManager.Keyword(),
 	}) {
-		return nil, httperrors.NewUnsupportOperationError("resource %s is not support sync skus", resourceKey)
+		return nil, httperrors.NewUnsupportOperationError("resource %s does not support syncing SKUs", resourceKey)
 	}
 
 	if len(input.Provider) == 0 && len(input.CloudregionIds) == 0 {

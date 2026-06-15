@@ -54,7 +54,7 @@ func (driver *SOpenStackHostDriver) GetStoragecacheQuota(host *models.SHost) int
 
 func (self *SOpenStackHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, input *api.DiskResetInput) (*api.DiskResetInput, error) {
 	if len(guests) > 0 {
-		return nil, httperrors.NewBadRequestError("can not reset with disk associate with guests")
+		return nil, httperrors.NewBadRequestError("cannot reset disk that is associated with guest(s)")
 	}
 	return input, nil
 }

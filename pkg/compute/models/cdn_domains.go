@@ -442,7 +442,7 @@ func (manager *SCDNDomainManager) ValidateCreateData(
 		return input, errors.Wrapf(err, "GetProvider")
 	}
 	if !cloudprovider.IsSupportCDN(pp) {
-		return input, httperrors.NewNotSupportedError("%s not support cdn", provider.Provider)
+		return input, httperrors.NewNotSupportedError("%s does not support cdn", provider.Provider)
 	}
 	input, err = GetRegionDriver(provider.Provider).ValidateCreateCdnData(ctx, userCred, input)
 	if err != nil {
@@ -617,7 +617,7 @@ func (self *SCDNDomain) PerformSyncstatus(ctx context.Context, userCred mcclient
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("CDN domain has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("CDN domain has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, self.StartSyncstatus(ctx, userCred, "")

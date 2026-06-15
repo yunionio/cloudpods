@@ -72,7 +72,7 @@ func (manager *SPolicyDefinitionManager) ListItemFilter(ctx context.Context, q *
 }
 
 func (manager *SPolicyDefinitionManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.PolicyDefinitionCreateInput) (api.PolicyDefinitionCreateInput, error) {
-	return input, httperrors.NewUnsupportOperationError("not support create definition")
+	return input, httperrors.NewUnsupportOperationError("creating policy definitions is not supported")
 }
 
 func (manager *SPolicyDefinitionManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.PolicyDefinitionListInput) (*sqlchemy.SQuery, error) {

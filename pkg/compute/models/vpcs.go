@@ -238,7 +238,7 @@ func (svpc *SVpc) ValidateUpdateData(ctx context.Context, userCred mcclient.Toke
 
 func (svpc *SVpc) ValidateDeleteCondition(ctx context.Context, info *api.VpcDetails) error {
 	if svpc.Id == api.DEFAULT_VPC_ID {
-		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
+		return httperrors.NewProtectedResourceError("not allowed to delete default vpc")
 	}
 
 	if gotypes.IsNil(info) {
@@ -1251,7 +1251,7 @@ func (manager *SVpcManager) ListItemFilter(
 		q = q.NotIn("id", sq.SubQuery())
 		account := interVpc.GetCloudaccount()
 		if account == nil {
-			return nil, httperrors.NewNotSupportedError("not supported for inter vpc network %s", interVpc.Name)
+			return nil, httperrors.NewNotSupportedError("not supported for inter-VPC network %s", interVpc.Name)
 		}
 		vpcs := VpcManager.Query().SubQuery()
 		managers := CloudproviderManager.Query().SubQuery()

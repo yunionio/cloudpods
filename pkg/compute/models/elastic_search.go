@@ -669,7 +669,7 @@ func (self *SElasticSearch) PerformSyncstatus(ctx context.Context, userCred mccl
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("ElasticSearch has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("ElasticSearch has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "ElasticSearchSyncstatusTask", "")

@@ -1081,14 +1081,14 @@ func (hh *SHost) validateDeleteCondition(ctx context.Context, purge bool) error 
 	}
 	cnt, err := hh.GetGuestCount()
 	if err != nil {
-		return httperrors.NewInternalServerError("getGuestCount fail %s", err)
+		return httperrors.NewInternalServerError("getGuestCount failed %s", err)
 	}
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Not an empty host")
 	}
 	cnt, err = hh.GetBackupGuestCount()
 	if err != nil {
-		return httperrors.NewInternalServerError("GetBackupGuestCount fail %s", err)
+		return httperrors.NewInternalServerError("GetBackupGuestCount failed %s", err)
 	}
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Not an empty host")
@@ -1099,10 +1099,10 @@ func (hh *SHost) validateDeleteCondition(ctx context.Context, purge bool) error 
 		if storage != nil && storage.IsLocal() {
 			cnt, err := storage.GetDiskCount()
 			if err != nil {
-				return httperrors.NewInternalServerError("GetDiskCount fail %s", err)
+				return httperrors.NewInternalServerError("GetDiskCount failed %s", err)
 			}
 			if cnt > 0 {
-				return httperrors.NewNotEmptyError("Local host storage is not empty???")
+				return httperrors.NewNotEmptyError("local host storage is not empty")
 			}
 		}
 
@@ -4620,7 +4620,7 @@ func (manager *SHostManager) inputUniquenessCheck(input api.HostAccessAttributes
 			}
 			cnt, err := q.CountWithError()
 			if err != nil {
-				return input, httperrors.NewInternalServerError("check %s duplication fail %s", key, err)
+				return input, httperrors.NewInternalServerError("check %s duplication failed %s", key, err)
 			}
 			if cnt > 0 {
 				return input, httperrors.NewConflictError("duplicate %s %s", key, val)
@@ -4641,7 +4641,7 @@ func (manager *SHostManager) inputUniquenessCheck(input api.HostAccessAttributes
 			}
 			cnt, err := q.CountWithError()
 			if err != nil {
-				return input, httperrors.NewInternalServerError("check access_mac duplication fail %s", err)
+				return input, httperrors.NewInternalServerError("check access_mac duplication failed %s", err)
 			}
 			if cnt > 0 {
 				return input, httperrors.NewConflictError("duplicate access_mac %s", accessMac)
@@ -4722,7 +4722,7 @@ func (manager *SHostManager) ValidateCreateData(
 		}
 		zoneObj, _ := net.GetZone()
 		if zoneObj == nil {
-			return input, httperrors.NewInputParameterError("IPMI network has no zone???")
+			return input, httperrors.NewInputParameterError("IPMI network has no associated zone")
 		}
 		originZoneId := input.ZoneId
 		if len(originZoneId) > 0 && originZoneId != zoneObj.GetId() {
@@ -4789,7 +4789,7 @@ func (manager *SHostManager) ValidateCreateData(
 
 			zoneObj, _ := accessNet.GetZone()
 			if zoneObj == nil {
-				return input, httperrors.NewInputParameterError("Access network has no zone???")
+				return input, httperrors.NewInputParameterError("access network has no associated zone")
 			}
 			originZoneId := input.ZoneId // data.GetString("zone_id")
 			if len(originZoneId) > 0 && originZoneId != zoneObj.GetId() {
@@ -4901,7 +4901,7 @@ func (hh *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 			}
 			zoneObj, _ := net.GetZone()
 			if zoneObj == nil {
-				return input, httperrors.NewInputParameterError("IPMI network has not zone???")
+				return input, httperrors.NewInputParameterError("IPMI network has no associated zone")
 			}
 			if zoneObj.GetId() != hh.ZoneId {
 				return input, httperrors.NewInputParameterError("New IPMI address located in another zone!")
@@ -5358,7 +5358,7 @@ func (hh *SHost) PerformReportDmesg(ctx context.Context, userCred mcclient.Token
 
 func (hh *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SHostPingInput) (jsonutils.JSONObject, error) {
 	if hh.HostType == api.HOST_TYPE_BAREMETAL {
-		return nil, httperrors.NewNotSupportedError("ping host type %s not support", hh.HostType)
+		return nil, httperrors.NewNotSupportedError("ping is not supported for host type %s", hh.HostType)
 	}
 	if input.WithData {
 		// piggyback storage stats info
@@ -5557,7 +5557,7 @@ func (hh *SHost) PerformReserveCpus(
 	query jsonutils.JSONObject, input api.HostReserveCpusInput,
 ) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(hh.HostType, []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER}) {
-		return nil, httperrors.NewNotSupportedError("host type %s not support reserve cpus", hh.HostType)
+		return nil, httperrors.NewNotSupportedError("host type %s does not support CPU reservation", hh.HostType)
 	}
 
 	if input.Cpus == "" {
@@ -6656,7 +6656,7 @@ func (hh *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclient
 	hostOwnerId := hh.GetOwnerId()
 	if userCred.GetProjectDomainId() != hostOwnerId.GetProjectDomainId() {
 		if !db.IsAdminAllowPerform(ctx, userCred, hh, "convert-hypervisor") {
-			return nil, httperrors.NewNotSufficientPrivilegeError("require system previleges to convert host in other domain")
+			return nil, httperrors.NewNotSufficientPrivilegeError("requires system privileges to convert host in other domain")
 		}
 		firstProject, err := db.TenantCacheManager.FindFirstProjectOfDomain(ctx, hostOwnerId.GetProjectDomainId())
 		if err != nil {
@@ -6678,7 +6678,7 @@ func (hh *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclient
 		}
 		uniq, err := hh.isAlterNameUnique(name)
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("isAlterNameUnique fail %s", err)
+			return nil, httperrors.NewInternalServerError("isAlterNameUnique failed %s", err)
 		}
 		if !uniq {
 			return nil, httperrors.NewDuplicateNameError(name, hh.Id)
@@ -7247,7 +7247,7 @@ func (host *SHost) GetSchedtagJointManager() ISchedtagJointManager {
 
 func (host *SHost) PerformHostExitMaintenance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(host.Status, []string{api.BAREMETAL_MAINTAIN_FAIL, api.BAREMETAL_MAINTAINING}) {
-		return nil, httperrors.NewInvalidStatusError("host status %s can't exit maintenance", host.Status)
+		return nil, httperrors.NewInvalidStatusError("host in status %s cannot exit maintenance", host.Status)
 	}
 	err := host.SetStatus(ctx, userCred, api.HOST_STATUS_RUNNING, "exit maintenance")
 	if err != nil {
@@ -7259,10 +7259,10 @@ func (host *SHost) PerformHostExitMaintenance(ctx context.Context, userCred mccl
 
 func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if host.HostType != api.HOST_TYPE_HYPERVISOR {
-		return nil, httperrors.NewBadRequestError("host type %s can't do host maintenance", host.HostType)
+		return nil, httperrors.NewBadRequestError("host type %s does not support maintenance mode", host.HostType)
 	}
 	if host.HostStatus == api.BAREMETAL_START_MAINTAIN {
-		return nil, httperrors.NewBadRequestError("unsupport on host status %s", host.HostStatus)
+		return nil, httperrors.NewBadRequestError("operation not supported on host in status %s", host.HostStatus)
 	}
 
 	var preferHostId string

@@ -334,7 +334,7 @@ func (self *SMongoDB) PerformSyncstatus(ctx context.Context, userCred mcclient.T
 		return nil, err
 	}
 	if count > 0 {
-		return nil, httperrors.NewBadRequestError("MongoDB has %d task active, can't sync status", count)
+		return nil, httperrors.NewBadRequestError("MongoDB has %d active tasks and cannot sync status", count)
 	}
 
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "MongoDBSyncstatusTask", "")

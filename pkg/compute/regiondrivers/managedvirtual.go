@@ -2252,7 +2252,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheBackup
 
 	ec := elasticcacheV.Model.(*models.SElasticcache)
 	if !utils.IsInStringArray(ec.Status, []string{api.ELASTIC_CACHE_STATUS_RUNNING}) {
-		return nil, httperrors.NewInputParameterError("can not make backup in status %s", ec.Status)
+		return nil, httperrors.NewInputParameterError("cannot make backup in status %s", ec.Status)
 	}
 
 	data.Set("backup_mode", jsonutils.NewString(api.BACKUP_MODE_MANUAL))
