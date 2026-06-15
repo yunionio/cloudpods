@@ -24,6 +24,7 @@ type AiRoutingModelListInput struct {
 	AiRoutingId  string `json:"ai_routing_id"`
 	AiProviderId string `json:"ai_provider_id"`
 	AiModelId    string `json:"ai_model_id"`
+	LlmId        string `json:"llm_id"`
 	Enabled      *bool  `json:"enabled"`
 }
 
@@ -35,6 +36,7 @@ type AiRoutingModelCreateInput struct {
 	AiModelId    string `json:"ai_model_id"`
 	Priority     int    `json:"priority"`
 	ModelPattern string `json:"model_pattern"`
+	LlmId        string `json:"llm_id"`
 	Enabled      *bool  `json:"enabled"`
 }
 
@@ -46,6 +48,7 @@ type AiRoutingModelUpdateInput struct {
 	AiModelId    string `json:"ai_model_id,omitempty"`
 	Priority     int    `json:"priority,omitzero"`
 	ModelPattern string `json:"model_pattern,omitempty"`
+	LlmId        string `json:"llm_id,omitempty"`
 	Enabled      *bool  `json:"enabled,omitempty"`
 }
 
@@ -57,5 +60,6 @@ type AiRoutingModelDetails struct {
 	AiModelId    string `json:"ai_model_id"`
 	Priority     int    `json:"priority"`
 	ModelPattern string `json:"model_pattern"`
+	LlmId        string `json:"llm_id"`
 	Enabled      bool   `json:"enabled"`
 }

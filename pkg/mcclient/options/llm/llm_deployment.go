@@ -86,6 +86,8 @@ type LLMDeploymentCreateOptions struct {
 	AutoGpuMemoryUtilization *bool    `token:"auto-gpu-memory-utilization" help:"calculate GPU memory utilization from model VRAM and GPU memory" json:"auto_gpu_memory_utilization"`
 	RestartOnError           *bool    `help:"restart on error" json:"restart_on_error"`
 	AccessPolicy             string   `help:"access policy" choices:"public|authed|allowed_users" json:"access_policy"`
+	AutoRegisterAiproxy      *bool    `help:"auto register running replicas with aiproxy (default true; use --auto-register-aiproxy=false to disable)" json:"auto_register_aiproxy"`
+	AiproxyModelPrefix       string   `help:"deprecated; no longer affects aiproxy client model alias" json:"aiproxy_model_prefix"`
 }
 
 func (o *LLMDeploymentCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -233,6 +235,8 @@ type LLMDeploymentUpdateOptions struct {
 	GpuUtilization           *float64 `token:"gpu-utilization" help:"Alias of --gpu-memory-utilization" json:"-"`
 	AutoGpuMemoryUtilization *bool    `token:"auto-gpu-memory-utilization" help:"calculate GPU memory utilization from model VRAM and GPU memory" json:"auto_gpu_memory_utilization"`
 	AccessPolicy             string   `help:"access policy" json:"access_policy"`
+	AutoRegisterAiproxy      *bool    `help:"auto register running replicas with aiproxy (default true; use --auto-register-aiproxy=false to disable)" json:"auto_register_aiproxy"`
+	AiproxyModelPrefix       *string  `help:"deprecated; no longer affects aiproxy client model alias" json:"aiproxy_model_prefix"`
 }
 
 func (o *LLMDeploymentUpdateOptions) GetId() string {
@@ -260,6 +264,30 @@ func (o *LLMDeploymentDeleteOptions) GetId() string {
 
 func (o *LLMDeploymentDeleteOptions) Params() (jsonutils.JSONObject, error) {
 	return options.StructToParams(o)
+}
+
+type LLMDeploymentRegisterAiproxyOptions struct {
+	options.BaseIdOptions
+}
+
+func (o *LLMDeploymentRegisterAiproxyOptions) GetId() string {
+	return o.ID
+}
+
+func (o *LLMDeploymentRegisterAiproxyOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.NewDict(), nil
+}
+
+type LLMDeploymentUnregisterAiproxyOptions struct {
+	options.BaseIdOptions
+}
+
+func (o *LLMDeploymentUnregisterAiproxyOptions) GetId() string {
+	return o.ID
+}
+
+func (o *LLMDeploymentUnregisterAiproxyOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.NewDict(), nil
 }
 
 func applyGpuUtilizationAlias(params *jsonutils.JSONDict, gpuMemoryUtilization, gpuUtilization *float64) error {

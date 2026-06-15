@@ -100,6 +100,11 @@ func (task *LLMDeploymentDeleteTask) deleteDeployment(ctx context.Context, model
 	// only SKUs automatically created for this deployment.
 	skuId := deploymentManagedSkuIdForCascade(model)
 
+	// Safety net: ensure aiproxy catalog/routing rows are removed before the deployment row goes away.
+	if err := models.DeleteDeploymentAiproxyResources(ctx, model.Id); err != nil {
+		log.Warningf("LLMDeploymentDeleteTask: delete aiproxy resources for %s: %v", model.Name, err)
+	}
+
 	if err := model.RealDelete(ctx, task.UserCred); err != nil {
 		log.Errorf("LLMDeploymentDeleteTask: RealDelete deployment %s: %s", model.Id, err)
 		task.taskFailed(ctx, model, err)

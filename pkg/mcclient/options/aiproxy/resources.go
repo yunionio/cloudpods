@@ -39,7 +39,9 @@ func mergeJSONStringField(params *jsonutils.JSONDict, key, raw string) error {
 type AiProviderListOptions struct {
 	options.BaseListOptions
 
-	ProviderKey string `help:"filter by provider_key"`
+	ProviderKey     string `help:"filter by provider_key"`
+	LlmDeploymentId string `help:"filter by llm_deployment_id" json:"llm_deployment_id"`
+	LlmId           string `help:"filter by llm_id" json:"llm_id"`
 }
 
 func (o *AiProviderListOptions) Params() (jsonutils.JSONObject, error) {
@@ -53,9 +55,11 @@ type AiProviderShowOptions struct {
 type AiProviderCreateOptions struct {
 	options.BaseCreateOptions
 
-	ProviderKey string `help:"provider key (catalog identifier)" json:"provider_key"`
-	Config      string `help:"provider config as JSON object string" json:"-"`
-	Enabled     *bool  `json:"enabled,omitempty"`
+	ProviderKey     string `help:"provider key (catalog identifier)" json:"provider_key"`
+	Config          string `help:"provider config as JSON object string" json:"-"`
+	LlmDeploymentId string `help:"source llm_deployment id" json:"llm_deployment_id"`
+	LlmId           string `help:"source llm instance id" json:"llm_id"`
+	Enabled         *bool  `json:"enabled,omitempty"`
 }
 
 func (o *AiProviderCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -68,12 +72,14 @@ func (o *AiProviderCreateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type AiProviderUpdateOptions struct {
-	ID          string `help:"ID or name" json:"-"`
-	Name        string `json:"name,omitempty"`
-	Desc        string `json:"description,omitempty"`
-	ProviderKey string `json:"provider_key,omitempty"`
-	Config      string `help:"provider config JSON" json:"-"`
-	Enabled     *bool  `json:"enabled,omitempty"`
+	ID              string `help:"ID or name" json:"-"`
+	Name            string `json:"name,omitempty"`
+	Desc            string `json:"description,omitempty"`
+	ProviderKey     string `json:"provider_key,omitempty"`
+	Config          string `help:"provider config JSON" json:"-"`
+	LlmDeploymentId string `json:"llm_deployment_id,omitempty"`
+	LlmId           string `json:"llm_id,omitempty"`
+	Enabled         *bool  `json:"enabled,omitempty"`
 }
 
 func (o *AiProviderUpdateOptions) GetId() string {
@@ -281,9 +287,10 @@ type AiVirtualKeyDeleteOptions struct {
 type AiRoutingListOptions struct {
 	options.BaseListOptions
 
-	ModelPattern  string `json:"model_pattern"`
-	AiProxyNodeId string `json:"ai_proxy_node_id"`
-	Enabled       *bool  `help:"filter by enabled flag" json:"enabled"`
+	ModelPattern    string `json:"model_pattern"`
+	AiProxyNodeId   string `json:"ai_proxy_node_id"`
+	LlmDeploymentId string `help:"filter by llm_deployment_id" json:"llm_deployment_id"`
+	Enabled         *bool  `help:"filter by enabled flag" json:"enabled"`
 }
 
 func (o *AiRoutingListOptions) Params() (jsonutils.JSONObject, error) {
@@ -297,12 +304,13 @@ type AiRoutingShowOptions struct {
 type AiRoutingCreateOptions struct {
 	apis.SharableVirtualResourceCreateInput
 
-	Priority      int    `json:"priority,omitzero"`
-	ModelPattern  string `json:"model_pattern,omitempty"`
-	AiProxyNodeId string `json:"ai_proxy_node_id,omitempty"`
-	Models        string `help:"routing models JSON array: [{ai_provider_id,ai_model_id,priority|weight,model_pattern?}]" json:"-"`
-	Enabled       *bool  `help:"turn on enabled flag" json:"enabled,omitempty"`
-	Disabled      *bool  `help:"turn off enabled flag" json:"disabled,omitempty"`
+	Priority        int    `json:"priority,omitzero"`
+	ModelPattern    string `json:"model_pattern,omitempty"`
+	AiProxyNodeId   string `json:"ai_proxy_node_id,omitempty"`
+	LlmDeploymentId string `help:"source llm_deployment id" json:"llm_deployment_id"`
+	Models          string `help:"routing models JSON array: [{ai_provider_id,ai_model_id,priority|weight,model_pattern?,llm_id?}]" json:"-"`
+	Enabled         *bool  `help:"turn on enabled flag" json:"enabled,omitempty"`
+	Disabled        *bool  `help:"turn off enabled flag" json:"disabled,omitempty"`
 }
 
 func (o *AiRoutingCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -316,11 +324,12 @@ func (o *AiRoutingCreateOptions) Params() (jsonutils.JSONObject, error) {
 type AiRoutingUpdateOptions struct {
 	apis.SharableVirtualResourceBaseUpdateInput
 
-	ID            string `help:"ID or name" json:"-"`
-	Priority      int    `json:"priority,omitzero"`
-	ModelPattern  string `json:"model_pattern,omitempty"`
-	AiProxyNodeId string `json:"ai_proxy_node_id,omitempty"`
-	Enabled       *bool  `json:"enabled,omitempty"`
+	ID              string `help:"ID or name" json:"-"`
+	Priority        int    `json:"priority,omitzero"`
+	ModelPattern    string `json:"model_pattern,omitempty"`
+	AiProxyNodeId   string `json:"ai_proxy_node_id,omitempty"`
+	LlmDeploymentId string `json:"llm_deployment_id,omitempty"`
+	Enabled         *bool  `json:"enabled,omitempty"`
 }
 
 func (o *AiRoutingUpdateOptions) GetId() string {
@@ -368,6 +377,7 @@ type AiRoutingModelListOptions struct {
 	AiRoutingId  string `help:"filter by ai_routing id or name" json:"ai_routing_id"`
 	AiProviderId string `json:"ai_provider_id"`
 	AiModelId    string `json:"ai_model_id"`
+	LlmId        string `help:"filter by llm_id" json:"llm_id"`
 }
 
 func (o *AiRoutingModelListOptions) Params() (jsonutils.JSONObject, error) {
@@ -386,6 +396,7 @@ type AiRoutingModelCreateOptions struct {
 	AiModelId    string `help:"ai_model id or name" json:"ai_model_id"`
 	Priority     int    `help:"lower value = higher priority within routing" json:"priority,omitzero"`
 	ModelPattern string `help:"optional client model glob/prefix" json:"model_pattern,omitempty"`
+	LlmId        string `help:"source llm instance id" json:"llm_id"`
 	Enabled      *bool  `json:"enabled,omitempty"`
 }
 

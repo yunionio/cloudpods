@@ -179,3 +179,41 @@ func fetchEnabledAiProvider(ctx context.Context, userCred mcclient.TokenCredenti
 func defaultAiModelName(providerName, modelKey string) string {
 	return catalogModelId(providerName, modelKey)
 }
+
+func ensureUniqueAiProviderLlmId(ctx context.Context, llmId, excludeId string) error {
+	llmId = strings.TrimSpace(llmId)
+	if llmId == "" {
+		return nil
+	}
+	q := AiProviderManager.Query().Equals("llm_id", llmId)
+	if excludeId != "" {
+		q = q.NotEquals("id", excludeId)
+	}
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return errors.Wrap(err, "count ai_provider by llm_id")
+	}
+	if cnt > 0 {
+		return errors.Wrapf(httperrors.ErrConflict, "ai_provider for llm_id %q already exists", llmId)
+	}
+	return nil
+}
+
+func ensureUniqueAiRoutingLlmDeploymentId(ctx context.Context, llmDeploymentId, excludeId string) error {
+	llmDeploymentId = strings.TrimSpace(llmDeploymentId)
+	if llmDeploymentId == "" {
+		return nil
+	}
+	q := AiRoutingManager.Query().Equals("llm_deployment_id", llmDeploymentId)
+	if excludeId != "" {
+		q = q.NotEquals("id", excludeId)
+	}
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return errors.Wrap(err, "count ai_routing by llm_deployment_id")
+	}
+	if cnt > 0 {
+		return errors.Wrapf(httperrors.ErrConflict, "ai_routing for llm_deployment_id %q already exists", llmDeploymentId)
+	}
+	return nil
+}
