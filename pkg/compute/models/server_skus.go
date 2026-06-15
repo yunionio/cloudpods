@@ -969,24 +969,20 @@ func (manager *SServerSkuManager) ListItemFilter(
 		q = q.IsTrue("enabled")
 	}
 
-	zoneStr := query.ZoneId
-	if len(zoneStr) > 0 {
-		zoneObj, err := validators.ValidateModel(ctx, userCred, ZoneManager, &zoneStr)
-		if err != nil {
-			return nil, err
-		}
-		zone := zoneObj.(*SZone)
-		region, err := zone.GetRegion()
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetRegion %s", zone.Name)
-		}
+	if len(query.ZoneIds) > 0 {
+		zones := ZoneManager.Query("id")
+		zones = zones.Filter(sqlchemy.OR(sqlchemy.In(zones.Field("id"), query.ZoneIds), sqlchemy.In(zones.Field("name"), query.ZoneIds)))
+
+		regionIds := ZoneManager.Query("cloudregion_id")
+		regionIds = regionIds.Filter(sqlchemy.OR(sqlchemy.In(regionIds.Field("id"), query.CloudregionId), sqlchemy.In(regionIds.Field("name"), query.CloudregionId))).Distinct()
+
 		q = q.Filter(
 			sqlchemy.OR(
 				sqlchemy.AND(
-					sqlchemy.Equals(q.Field("cloudregion_id"), region.Id),
+					sqlchemy.In(q.Field("cloudregion_id"), regionIds.SubQuery()),
 					sqlchemy.IsNullOrEmpty(q.Field("zone_id")),
 				),
-				sqlchemy.Equals(q.Field("zone_id"), zone.Id),
+				sqlchemy.In(q.Field("zone_id"), zones.SubQuery()),
 			),
 		)
 	}
