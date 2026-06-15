@@ -30,7 +30,7 @@ type SRegion struct {
 	multicloud.SNoLbRegion
 	client *SRockbaseClient
 
-	RegionID    string `json:"Region"`
+	RegionId    string `json:"Region"`
 	LocalName   string `json:"LocalName"`
 	CountryCode string `json:"CountryCode"`
 	Category    string `json:"Category"`
@@ -39,7 +39,7 @@ type SRegion struct {
 }
 
 func (self *SRegion) GetId() string {
-	return self.RegionID
+	return self.RegionId
 }
 
 func (self *SRegion) GetName() string {
@@ -154,7 +154,7 @@ func (self *SRegion) GetEip(eipId string) (*SEip, error) {
 	}
 
 	for i := range eips {
-		if eips[i].EIPID == eipId {
+		if eips[i].EIPId == eipId {
 			eips[i].region = self
 			return &eips[i], nil
 		}
@@ -255,7 +255,7 @@ func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSn
 	}
 
 	for i := range snapshots {
-		if snapshots[i].SnapshotID == snapshotId {
+		if snapshots[i].SnapshotId == snapshotId {
 			snapshot := snapshots[i]
 			snapshot.region = self
 			return &snapshot, nil
@@ -398,7 +398,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	}
 
 	for i := range instances {
-		if instances[i].UHostID == instanceId {
+		if instances[i].UHostId == instanceId {
 			return &instances[i], nil
 		}
 	}

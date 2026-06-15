@@ -188,3 +188,7 @@ func (self *SUcloudProvider) GetObjectCannedAcls(regionId string) []string {
 func (self *SUcloudProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
 }
+
+func (self *SUcloudProvider) GetMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	return self.client.GetMetrics(opts)
+}

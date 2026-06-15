@@ -44,7 +44,7 @@ type SBucket struct {
 	// projectId string
 
 	Domain        Domain   `json:"Domain"`
-	BucketID      string   `json:"BucketId"`
+	BucketId      string   `json:"BucketId"`
 	Region        string   `json:"Region"`
 	CreateTime    int64    `json:"CreateTime"`
 	Biz           string   `json:"Biz"`
@@ -53,7 +53,7 @@ type SBucket struct {
 	Type          string   `json:"Type"`
 	Tag           string   `json:"Tag"`
 	HasUserDomain int64    `json:"HasUserDomain"`
-	CDNDomainID   []string `json:"CdnDomainId"`
+	CDNDomainId   []string `json:"CdnDomainId"`
 }
 
 type Domain struct {
@@ -254,7 +254,7 @@ func (b *SBucket) GetProjectId() string {
 }
 
 func (b *SBucket) GetGlobalId() string {
-	return b.BucketID
+	return b.BucketId
 }
 
 func (b *SBucket) GetName() string {

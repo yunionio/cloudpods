@@ -82,7 +82,7 @@ func (self *SecurityGroupRule) GetPriority() int {
 
 func (self *SecurityGroupRule) Delete() error {
 	params := NewUcloudParams()
-	params.Set("FWId", self.secgroup.FWID)
+	params.Set("FWId", self.secgroup.FWId)
 	idx := 0
 	for _, rule := range self.secgroup.Rule {
 		if rule.GetGlobalId() == self.GetGlobalId() {

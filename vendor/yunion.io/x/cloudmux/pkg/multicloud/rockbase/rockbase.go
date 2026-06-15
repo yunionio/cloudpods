@@ -271,10 +271,10 @@ func (self *SRockbaseClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	subAccounts := make([]cloudprovider.SSubAccount, 0)
 	for _, project := range projects {
 		subAccount := cloudprovider.SSubAccount{}
-		subAccount.Id = project.ProjectID
+		subAccount.Id = project.ProjectId
 		subAccount.Name = fmt.Sprintf("%s-%s", self.cpcfg.Name, project.ProjectName)
 		// ucloud账号ID中可能包含/。因此使用::作为分割符号
-		subAccount.Account = fmt.Sprintf("%s::%s", self.accessKeyId, project.ProjectID)
+		subAccount.Account = fmt.Sprintf("%s::%s", self.accessKeyId, project.ProjectId)
 		subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 
 		subAccounts = append(subAccounts, subAccount)

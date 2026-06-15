@@ -34,8 +34,8 @@ type SSecurityGroup struct {
 	region *SRegion
 
 	CreateTime    int64               `json:"CreateTime"`
-	FWID          string              `json:"FWId"`
-	GroupID       string              `json:"GroupId"`
+	FWId          string              `json:"FWId"`
+	GroupId       string              `json:"GroupId"`
 	Name          string              `json:"Name"`
 	Remark        string              `json:"Remark"`
 	ResourceCount int                 `json:"ResourceCount"`
@@ -49,7 +49,7 @@ func (self *SSecurityGroup) GetProjectId() string {
 }
 
 func (self *SSecurityGroup) GetId() string {
-	return self.FWID
+	return self.FWId
 }
 
 func (self *SSecurityGroup) GetName() string {
@@ -133,7 +133,7 @@ func (self *SRegion) CreateSecurityGroup(name, description string) (string, erro
 
 func (self *SSecurityGroup) CreateRule(opts *cloudprovider.SecurityGroupRuleCreateOptions) (cloudprovider.ISecurityGroupRule, error) {
 	params := NewUcloudParams()
-	params.Set("FWId", self.FWID)
+	params.Set("FWId", self.FWId)
 	idx := 0
 	for _, rule := range self.Rule {
 		params.Set(fmt.Sprintf("Rule.%d", idx), rule.String())
@@ -210,5 +210,5 @@ func (self *SRegion) GetSecurityGroups(secGroupId string, resourceId string, nam
 }
 
 func (self *SSecurityGroup) Delete() error {
-	return self.region.DeleteSecurityGroup(self.FWID)
+	return self.region.DeleteSecurityGroup(self.FWId)
 }
