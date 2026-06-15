@@ -51,6 +51,7 @@ func StartService() {
 		opts.ModelCatalogURL,
 		time.Duration(opts.LLMCatalogRefreshIntervalMinutes)*time.Minute,
 	)
+	startBackgroundWorkers(context.Background(), opts)
 
 	// if !opts.IsSlaveNode {
 	// 	models.InitializeCronjobs(app.GetContext())

@@ -109,7 +109,13 @@ func (task *LLMSyncStatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			}
 			task.setLLMStatus(ctx, llm, srv.Status, "stop server")
 		} else {
-			task.setLLMStatus(ctx, llm, srv.Status, "WaitServerStatus")
+			resolved, err := models.ResolveLLMStatusFromServerDetails(ctx, llm, srv)
+			if err != nil {
+				return nil, errors.Wrap(err, "ResolveLLMStatusFromServerDetails")
+			}
+			if resolved.Update {
+				task.setLLMStatus(ctx, llm, resolved.Status, resolved.Reason)
+			}
 		}
 
 		volume, _ := llm.GetVolume()
