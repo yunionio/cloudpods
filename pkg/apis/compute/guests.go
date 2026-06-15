@@ -404,7 +404,7 @@ type GuestDiskInfo struct {
 	Throughput    int    `json:"throughput"`
 	Bps           int    `json:"bps"`
 	ImageId       string `json:"image_id,omitempty"`
-	Image         string `json:"image,omitemtpy"`
+	Image         string `json:"image,omitempty"`
 	StorageId     string `json:"storage_id"`
 	Preallocation string `json:"preallocation"`
 }
