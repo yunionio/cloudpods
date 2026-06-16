@@ -22,6 +22,7 @@ const (
 	HOST_TYPE_ALIYUN         = "aliyun"
 	HOST_TYPE_APSARA         = "apsara"
 	HOST_TYPE_AWS            = "aws"
+	HOST_TYPE_DEDICATED      = "dedicated"
 	HOST_TYPE_QCLOUD         = "qcloud"
 	HOST_TYPE_AZURE          = "azure"
 	HOST_TYPE_HUAWEI         = "huawei"
@@ -53,7 +54,7 @@ const (
 	HOST_TYPE_UIS            = "uis"
 	HOST_TYPE_CAS            = "cas"
 	HOST_TYPE_CNWARE         = "cnware"
-	HOST_TYPE_ROCKBASE  = "rockbase"
+	HOST_TYPE_ROCKBASE       = "rockbase"
 
 	// # possible status
 	HOST_ONLINE  = "online"
