@@ -12,4 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package provider // import "yunion.io/x/cloudmux/pkg/multicloud/rockbase/provider"
+package hostdrivers
+
+import (
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/compute/models"
+)
+
+type SAwsDedicatedHostDriver struct {
+	SAwsHostDriver
+}
+
+func init() {
+	driver := SAwsDedicatedHostDriver{}
+	models.RegisterHostDriver(&driver)
+}
+
+func (self *SAwsDedicatedHostDriver) GetHostType() string {
+	return api.HOST_TYPE_DEDICATED
+}
