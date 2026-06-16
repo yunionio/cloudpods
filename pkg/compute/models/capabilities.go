@@ -315,7 +315,7 @@ func GetAvailableHostCount(ctx context.Context, userCred mcclient.TokenCredentia
 
 	domainId, _ := query.GetString("domain_id")
 	q := HostManager.Query().Equals("enabled", true).
-		Equals("host_status", "online").Equals("host_type", api.HOST_TYPE_HYPERVISOR)
+		Equals("host_status", "online").In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER, api.HOST_TYPE_KVM})
 	if len(domainId) > 0 {
 		ownerId := &db.SOwnerId{DomainId: domainId}
 		q = HostManager.FilterByOwner(ctx, q, HostManager, userCred, ownerId, rbacscope.ScopeDomain)
