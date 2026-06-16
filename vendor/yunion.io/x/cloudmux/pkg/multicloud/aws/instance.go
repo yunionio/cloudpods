@@ -77,8 +77,9 @@ type SInstance struct {
 	multicloud.SInstanceBase
 	AwsTags
 
-	host *SHost
-	img  *SImage
+	host          *SHost
+	dedicatedHost *SDedicatedHost
+	img           *SImage
 
 	AmiLaunchIndex        int64                        `xml:"amiLaunchIndex"`
 	Architecture          string                       `xml:"architecture"`
@@ -281,7 +282,20 @@ func (self *SInstance) GetExpiredAt() time.Time {
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
+	if self.dedicatedHost != nil {
+		return self.dedicatedHost
+	}
 	return self.host
+}
+
+func (self *SInstance) GetIHostId() string {
+	if self.dedicatedHost != nil {
+		return self.dedicatedHost.GetGlobalId()
+	}
+	if self.host != nil {
+		return self.host.GetGlobalId()
+	}
+	return ""
 }
 
 func (self *SInstance) GetThroughput() int {
@@ -767,6 +781,7 @@ func (self *SRegion) GetInstanceIdByImageId(imageId string) (string, error) {
 func (self *SRegion) CreateInstance(name string, image *SImage, instanceType string, subnetId string, secgroupIds []string,
 	zoneId string, desc string, disks []cloudprovider.SDiskInfo, ipAddr string,
 	keypair string, userData string, tags map[string]string, enableMonitorAgent bool,
+	dedicatedHostId string,
 ) (*SInstance, error) {
 	params, devNames := map[string]string{}, image.GetBlockDeviceNames()
 	for i, disk := range disks {
@@ -832,6 +847,10 @@ func (self *SRegion) CreateInstance(name string, image *SImage, instanceType str
 	params["MaxCount"] = "1"
 	params["MinCount"] = "1"
 	params["Placement.AvailabilityZone"] = zoneId
+	if len(dedicatedHostId) > 0 {
+		params["Placement.HostId"] = dedicatedHostId
+		params["Placement.Tenancy"] = "host"
+	}
 	params["Monitoring.Enabled"] = fmt.Sprintf("%v", enableMonitorAgent)
 	// keypair
 	if len(keypair) > 0 {
@@ -946,6 +965,7 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 		userdata,
 		nil,
 		false,
+		"",
 	)
 	if err == nil {
 		defer self.DeleteVM(vm.InstanceId)

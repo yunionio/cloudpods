@@ -115,6 +115,9 @@ type InstanceType struct {
 	MemoryInfo   struct {
 		SizeInMiB int `xml:"sizeInMiB"`
 	} `xml:"memoryInfo"`
+	VCpuInfo struct {
+		DefaultVCpus int `xml:"defaultVCpus"`
+	} `xml:"vCpuInfo"`
 }
 
 func (self *SRegion) GetInstanceType(name string) (*InstanceType, error) {

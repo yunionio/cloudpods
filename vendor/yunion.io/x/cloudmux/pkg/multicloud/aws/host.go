@@ -61,10 +61,13 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 		return nil, errors.Wrap(err, "GetInstances")
 	}
 
-	ivms := make([]cloudprovider.ICloudVM, len(vms))
+	ivms := make([]cloudprovider.ICloudVM, 0, len(vms))
 	for i := 0; i < len(vms); i += 1 {
-		vms[i].host = self
-		ivms[i] = &vms[i]
+		if len(vms[i].Placement.HostId) > 0 {
+			continue
+		}
+		bindInstanceHost(&vms[i], self.zone, self)
+		ivms = append(ivms, &vms[i])
 	}
 	return ivms, nil
 }
@@ -76,7 +79,10 @@ func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	}
 	for i := range vms {
 		if vms[i].InstanceId == id {
-			vms[i].host = self
+			if len(vms[i].Placement.HostId) > 0 {
+				return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", id)
+			}
+			bindInstanceHost(&vms[i], self.zone, self)
 			return &vms[i], nil
 		}
 	}
@@ -154,7 +160,7 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "GetInstance")
 	}
-	inst.host = self
+	bindInstanceHost(inst, self.zone, self)
 	return inst, nil
 }
 
@@ -165,7 +171,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	if err != nil {
 		return nil, errors.Wrap(err, "_createVM")
 	}
-	vm.host = self
+	bindInstanceHost(vm, self.zone, self)
 	return vm, err
 }
 
@@ -203,7 +209,7 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 	}
 	disks := append([]cloudprovider.SDiskInfo{sysDisk}, dataDisks...)
 
-	instance, err := self.zone.region.CreateInstance(name, img, instanceType, networkId, secgroupIds, self.zone.ZoneName, desc, disks, ipAddr, keypair, userData, tags, enableMonitorAgent)
+	instance, err := self.zone.region.CreateInstance(name, img, instanceType, networkId, secgroupIds, self.zone.ZoneName, desc, disks, ipAddr, keypair, userData, tags, enableMonitorAgent, "")
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateInstance")
 	}
