@@ -327,7 +327,6 @@ func SharableManagerFilterByOwner(ctx context.Context, manager IStandaloneModelM
 				}
 			}
 		} else {
-			log.Debugf("res_scope: %s view_scope: %s", resScope, scope)
 			// system view
 			if userCred != nil {
 				result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
