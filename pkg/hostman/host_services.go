@@ -143,6 +143,8 @@ func (host *SHostService) RunService() {
 		cronManager.AddJobEveryFewDays(
 			"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
 		cronManager.AddJobEveryFewDays(
+			"CleanRecycleServerFiles", 1, 3, 0, 0, guestman.CleanRecycleServerFiles, false)
+		cronManager.AddJobEveryFewDays(
 			"CleanImageCachefiles", 1, 3, 0, 0, storageman.CleanImageCachefiles, options.HostOptions.ImageCacheCleanupOnStartup)
 		cronManager.Start()
 	}

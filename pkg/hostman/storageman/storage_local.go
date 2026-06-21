@@ -1005,6 +1005,6 @@ func (s *SLocalStorage) CloneDiskFromStorage(ctx context.Context, srcStorage ISt
 }
 
 func (s *SLocalStorage) CleanRecycleDiskfiles(ctx context.Context) {
-	cleanDailyFiles(s.Path, _RECYCLE_BIN_, options.HostOptions.RecycleDiskfileKeepDays)
-	cleanDailyFiles(s.Path, _IMGSAVE_BACKUPS_, options.HostOptions.RecycleDiskfileKeepDays)
+	CleanDailyFiles(s.Path, _RECYCLE_BIN_, options.HostOptions.RecycleDiskfileKeepDays)
+	CleanDailyFiles(s.Path, _IMGSAVE_BACKUPS_, options.HostOptions.RecycleDiskfileKeepDays)
 }
