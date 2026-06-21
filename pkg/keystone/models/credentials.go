@@ -133,7 +133,7 @@ func (manager *SCredentialManager) ValidateCreateData(
 	} else if projectId == api.DEFAULT_PROJECT {
 		// do nothing
 	} else {
-		_, err := ProjectManager.FetchById(projectId)
+		projectObj, err := ProjectManager.FetchById(projectId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return input, httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), projectId)
@@ -141,6 +141,7 @@ func (manager *SCredentialManager) ValidateCreateData(
 				return input, httperrors.NewGeneralError(err)
 			}
 		}
+		input.ProjectId = projectObj.GetId()
 	}
 	if len(input.Name) == 0 {
 		input.Name = fmt.Sprintf("%s-%s-%s", input.Type, projectId, userId)
@@ -250,10 +251,10 @@ func (manager *SCredentialManager) ResourceScope() rbacscope.TRbacScope {
 
 func (manager *SCredentialManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
-		if scope == rbacscope.ScopeUser {
-			if len(owner.GetUserId()) > 0 {
-				q = q.Equals("user_id", owner.GetUserId())
-			}
+		q = q.Equals("user_id", owner.GetUserId())
+		ownerProjectId := owner.GetProjectId()
+		if len(ownerProjectId) > 0 {
+			q = q.In("project_id", []string{ownerProjectId, api.DEFAULT_PROJECT})
 		}
 	}
 	return q
