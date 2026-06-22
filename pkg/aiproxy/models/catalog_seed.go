@@ -125,7 +125,7 @@ func catalogProviderId(providerKey string) string {
 }
 
 func catalogProviderExists(providerId string) (bool, error) {
-	cnt, err := AiProviderManager.Query().Equals("id", providerId).CountWithError()
+	cnt, err := AiProviderManager.RawQuery().Equals("id", providerId).CountWithError()
 	if err != nil {
 		return false, errors.Wrap(err, "count catalog ai_provider")
 	}
@@ -133,7 +133,7 @@ func catalogProviderExists(providerId string) (bool, error) {
 }
 
 func catalogModelExists(modelId string) (bool, error) {
-	cnt, err := AiModelManager.Query().Equals("id", modelId).CountWithError()
+	cnt, err := AiModelManager.RawQuery().Equals("id", modelId).CountWithError()
 	if err != nil {
 		return false, errors.Wrap(err, "count catalog ai_model")
 	}

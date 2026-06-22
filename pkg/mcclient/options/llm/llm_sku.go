@@ -13,7 +13,7 @@ import (
 type LLMSkuListOptions struct {
 	options.BaseListOptions
 
-	LLMType    string `json:"llm_type" choices:"ollama|vllm|sglang|dify|comfyui|openclaw|hermes-agent|desktop"`
+	LLMType    string `json:"llm_type" choices:"ollama|vllm|sglang|dify|comfyui|openclaw|hermes-agent|llm-router|desktop"`
 	Source     string `json:"source" help:"filter by source (huggingface, model_scope, local_path)"`
 	Categories string `json:"categories" help:"filter by category (llm, embedding, image, ...)"`
 }
@@ -36,7 +36,7 @@ type LLMSkuCreateOptions struct {
 	MountedModels []string `help:"mounted models, <model_id> e.g. qwen2:0.5b-dup" json:"mounted_models"`
 
 	LLM_IMAGE_ID string `json:"llm_image_id"`
-	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm|sglang|comfyui|hermes-agent|desktop"`
+	LLM_TYPE     string `json:"llm_type" choices:"ollama|vllm|sglang|comfyui|hermes-agent|llm-router|desktop"`
 
 	// Model source
 	Source              string `help:"model source: huggingface, model_scope, local_path" json:"source"`
@@ -67,6 +67,14 @@ type LLMSkuCreateOptions struct {
 	HermesModel         string `token:"hermes-model" help:"model name for Hermes" json:"-"`
 	HermesApiKey        string `token:"hermes-api-key" help:"API key for Hermes custom provider; defaults to EMPTY when omitted" json:"-"`
 	HermesContextLength int    `token:"hermes-context-length" help:"Hermes model.context_length" json:"-"`
+
+	RouterMethod               string   `token:"router-method" help:"LLM router method, e.g. routerdc" json:"-"`
+	RouterConfigPath           string   `token:"router-config-path" help:"LLM router config path inside container" json:"-"`
+	RouterModelDir             string   `token:"router-model-dir" help:"LLM router model directory inside container" json:"-"`
+	RouterRoutePath            string   `token:"router-route-path" help:"LLM router route API path, e.g. /v1/route" json:"-"`
+	RouterHealthPath           string   `token:"router-health-path" help:"LLM router health API path, e.g. /health" json:"-"`
+	RouterCandidateMappingPath string   `token:"router-candidate-mapping-path" help:"LLM router candidate mapping path inside container" json:"-"`
+	RouterEnv                  []string `token:"router-env" help:"LLM router env in format key=value; repeatable" json:"-"`
 }
 
 func (o *LLMSkuCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -126,8 +134,47 @@ func (o *LLMSkuCreateOptions) Params() (jsonutils.JSONObject, error) {
 			spec := &api.LLMSpec{HermesAgent: hermesSpec}
 			dict.Set("llm_spec", jsonutils.Marshal(spec))
 		}
+	case string(api.LLM_CONTAINER_LLM_ROUTER):
+		routerSpec, err := newLLMRouterSpecFromArgs(o)
+		if err != nil {
+			return nil, err
+		}
+		dict.Set("llm_spec", jsonutils.Marshal(&api.LLMSpec{LLMRouter: routerSpec}))
 	}
 	return dict, nil
+}
+
+func newLLMRouterSpecFromArgs(o *LLMSkuCreateOptions) (*api.LLMSpecLLMRouter, error) {
+	method := strings.TrimSpace(o.RouterMethod)
+	if method == "" {
+		return nil, errors.Error("--router-method is required when llm_type=llm-router")
+	}
+	envs, err := newLLMRouterEnvsFromArgs(o.RouterEnv)
+	if err != nil {
+		return nil, err
+	}
+	return &api.LLMSpecLLMRouter{
+		RouterMethod:         method,
+		ConfigPath:           strings.TrimSpace(o.RouterConfigPath),
+		ModelDir:             strings.TrimSpace(o.RouterModelDir),
+		RoutePath:            strings.TrimSpace(o.RouterRoutePath),
+		HealthPath:           strings.TrimSpace(o.RouterHealthPath),
+		CandidateMappingPath: strings.TrimSpace(o.RouterCandidateMappingPath),
+		CustomizedEnvs:       envs,
+	}, nil
+}
+
+func newLLMRouterEnvsFromArgs(args []string) ([]*api.LLMRouterEnv, error) {
+	envs := make([]*api.LLMRouterEnv, 0, len(args))
+	for _, arg := range args {
+		key, val, ok := strings.Cut(arg, "=")
+		key = strings.TrimSpace(key)
+		if !ok || key == "" {
+			return nil, errors.Errorf("invalid --router-env %q, expected key=value", arg)
+		}
+		envs = append(envs, &api.LLMRouterEnv{Key: key, Value: strings.TrimSpace(val)})
+	}
+	return envs, nil
 }
 
 func (o *LLMSkuCreateOptions) buildModelSpec() (*api.InstantModelImportInput, error) {

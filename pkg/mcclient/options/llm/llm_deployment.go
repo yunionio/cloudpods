@@ -47,7 +47,7 @@ type LLMDeploymentCreateOptions struct {
 	// Mode B/C: SKU spec (all sku-* flags collapse into sku_spec)
 	SkuName          string   `help:"SKU name (default: <deploy-name>-sku)" json:"-"`
 	SkuLLMImageId    string   `help:"container image id (for SkuSpec)" json:"-"`
-	SkuLLMType       string   `help:"container llm type" choices:"ollama|vllm|comfyui|sglang|dify" json:"-"`
+	SkuLLMType       string   `help:"container llm type" choices:"ollama|vllm|comfyui|sglang|dify|llm-router" json:"-"`
 	SkuCpu           int      `help:"SKU CPU cores" json:"-"`
 	SkuMemory        int      `help:"SKU memory MB" json:"-"`
 	SkuDiskSize      int      `help:"SKU disk size MB" json:"-"`

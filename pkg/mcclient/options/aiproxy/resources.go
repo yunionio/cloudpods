@@ -283,6 +283,7 @@ type AiRoutingListOptions struct {
 
 	ModelPattern  string `json:"model_pattern"`
 	AiProxyNodeId string `json:"ai_proxy_node_id"`
+	RouterEnabled *bool  `help:"filter by router enabled flag" json:"router_enabled"`
 	Enabled       *bool  `help:"filter by enabled flag" json:"enabled"`
 }
 
@@ -297,12 +298,17 @@ type AiRoutingShowOptions struct {
 type AiRoutingCreateOptions struct {
 	apis.SharableVirtualResourceCreateInput
 
-	Priority      int    `json:"priority,omitzero"`
-	ModelPattern  string `json:"model_pattern,omitempty"`
-	AiProxyNodeId string `json:"ai_proxy_node_id,omitempty"`
-	Models        string `help:"routing models JSON array: [{ai_provider_id,ai_model_id,priority|weight,model_pattern?}]" json:"-"`
-	Enabled       *bool  `help:"turn on enabled flag" json:"enabled,omitempty"`
-	Disabled      *bool  `help:"turn off enabled flag" json:"disabled,omitempty"`
+	Priority             int    `json:"priority,omitzero"`
+	ModelPattern         string `json:"model_pattern,omitempty"`
+	AiProxyNodeId        string `json:"ai_proxy_node_id,omitempty"`
+	RouterEnabled        *bool  `help:"enable external model router" json:"router_enabled,omitempty"`
+	RouterUrl            string `help:"external router base URL, e.g. http://192.168.6.60:20000" json:"router_url,omitempty"`
+	RouterRoutePath      string `help:"external router route path, default /v1/route" json:"router_route_path,omitempty"`
+	RouterTimeoutSeconds int    `help:"external router timeout seconds, default 3" json:"router_timeout_seconds,omitzero"`
+	RouterFallbackPolicy string `help:"router failure policy: priority or fail_closed" json:"router_fallback_policy,omitempty"`
+	Models               string `help:"routing models JSON array: [{ai_provider_id,ai_model_id,priority|weight,model_pattern?}]" json:"-"`
+	Enabled              *bool  `help:"turn on enabled flag" json:"enabled,omitempty"`
+	Disabled             *bool  `help:"turn off enabled flag" json:"disabled,omitempty"`
 }
 
 func (o *AiRoutingCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -316,11 +322,16 @@ func (o *AiRoutingCreateOptions) Params() (jsonutils.JSONObject, error) {
 type AiRoutingUpdateOptions struct {
 	apis.SharableVirtualResourceBaseUpdateInput
 
-	ID            string `help:"ID or name" json:"-"`
-	Priority      int    `json:"priority,omitzero"`
-	ModelPattern  string `json:"model_pattern,omitempty"`
-	AiProxyNodeId string `json:"ai_proxy_node_id,omitempty"`
-	Enabled       *bool  `json:"enabled,omitempty"`
+	ID                   string `help:"ID or name" json:"-"`
+	Priority             int    `json:"priority,omitzero"`
+	ModelPattern         string `json:"model_pattern,omitempty"`
+	AiProxyNodeId        string `json:"ai_proxy_node_id,omitempty"`
+	RouterEnabled        *bool  `help:"enable or disable external model router" json:"router_enabled,omitempty"`
+	RouterUrl            string `help:"external router base URL" json:"router_url,omitempty"`
+	RouterRoutePath      string `help:"external router route path" json:"router_route_path,omitempty"`
+	RouterTimeoutSeconds int    `help:"external router timeout seconds" json:"router_timeout_seconds,omitzero"`
+	RouterFallbackPolicy string `help:"router failure policy: priority or fail_closed" json:"router_fallback_policy,omitempty"`
+	Enabled              *bool  `json:"enabled,omitempty"`
 }
 
 func (o *AiRoutingUpdateOptions) GetId() string {
