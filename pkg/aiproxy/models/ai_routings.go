@@ -37,6 +37,9 @@ type SAiRouting struct {
 	db.SEnabledResourceBase
 
 	Priority int `default:"100" nullable:"false" list:"user" create:"optional" update:"user"`
+	// ModelKey exactly matches the client request "model" (case-insensitive).
+	// When non-empty and matched, takes precedence over ModelPattern during routing.
+	ModelKey string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	// ModelPattern optionally matches the requested model id (implementation-specific glob/prefix).
 	ModelPattern string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	// AiProxyNodeId optionally binds the rule to one aiproxy instance (ai_proxy_node id).
@@ -82,6 +85,9 @@ func (manager *SAiRoutingManager) ListItemFilter(
 	if v := strings.TrimSpace(query.ModelPattern); v != "" {
 		q = q.Equals("model_pattern", v)
 	}
+	if v := strings.TrimSpace(query.ModelKey); v != "" {
+		q = q.Equals("model_key", v)
+	}
 	if v := strings.TrimSpace(query.AiProxyNodeId); v != "" {
 		q = q.Equals("ai_proxy_node_id", v)
 	}
@@ -110,6 +116,7 @@ func (manager *SAiRoutingManager) FetchCustomizeColumns(
 		routing := objs[i].(*SAiRouting)
 		rows[i].SharableVirtualResourceDetails = sharableRows[i]
 		rows[i].Priority = routing.Priority
+		rows[i].ModelKey = routing.ModelKey
 		rows[i].ModelPattern = routing.ModelPattern
 		rows[i].AiProxyNodeId = routing.AiProxyNodeId
 		rows[i].RouterEnabled = routing.RouterEnabled
@@ -183,6 +190,20 @@ func normalizeAiRoutingRouterTimeoutSeconds(timeout int) int {
 	return timeout
 }
 
+func normalizeAiRoutingModelKey(key string) (string, error) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return "", nil
+	}
+	if strings.Contains(key, "*") {
+		return "", errors.Wrap(httperrors.ErrInputParameter, "model_key must not contain '*'")
+	}
+	if len(key) > 256 {
+		return "", errors.Wrap(httperrors.ErrInputParameter, "model_key too long")
+	}
+	return key, nil
+}
+
 func normalizeAiRoutingRouterCreate(input *api.AiRoutingCreateInput) error {
 	input.RouterUrl = strings.TrimSpace(input.RouterUrl)
 	input.RouterRoutePath = normalizeAiRoutingRouterRoutePath(input.RouterRoutePath)
@@ -253,6 +274,13 @@ func (routing *SAiRouting) ValidateUpdateData(
 	} else if query.Contains("ai_proxy_node_id") {
 		input.AiProxyNodeId = ""
 	}
+	if query.Contains("model_key") {
+		var err error
+		input.ModelKey, err = normalizeAiRoutingModelKey(input.ModelKey)
+		if err != nil {
+			return input, err
+		}
+	}
 	if err := normalizeAiRoutingRouterUpdate(routing, query, input); err != nil {
 		return input, err
 	}
@@ -278,7 +306,11 @@ func (manager *SAiRoutingManager) ValidateCreateData(
 	}
 	input.Models = validatedModels
 
-	input.AiProxyNodeId, err = validateAiProxyNodeId(ctx, userCred, input.AiProxyNodeId)
+	input.AiProxyNodeId, err = resolveAiProxyNodeIdForCreate(ctx, userCred, input.AiProxyNodeId)
+	if err != nil {
+		return input, err
+	}
+	input.ModelKey, err = normalizeAiRoutingModelKey(input.ModelKey)
 	if err != nil {
 		return input, err
 	}

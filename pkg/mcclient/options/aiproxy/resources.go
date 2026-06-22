@@ -39,7 +39,9 @@ func mergeJSONStringField(params *jsonutils.JSONDict, key, raw string) error {
 type AiProviderListOptions struct {
 	options.BaseListOptions
 
-	ProviderKey string `help:"filter by provider_key"`
+	ProviderKey     string `help:"filter by provider_key"`
+	LlmDeploymentId string `help:"filter by llm_deployment_id" json:"llm_deployment_id"`
+	LlmId           string `help:"filter by llm_id" json:"llm_id"`
 }
 
 func (o *AiProviderListOptions) Params() (jsonutils.JSONObject, error) {
@@ -53,9 +55,11 @@ type AiProviderShowOptions struct {
 type AiProviderCreateOptions struct {
 	options.BaseCreateOptions
 
-	ProviderKey string `help:"provider key (catalog identifier)" json:"provider_key"`
-	Config      string `help:"provider config as JSON object string" json:"-"`
-	Enabled     *bool  `json:"enabled,omitempty"`
+	ProviderKey     string `help:"provider key (catalog identifier)" json:"provider_key"`
+	Config          string `help:"provider config as JSON object string" json:"-"`
+	LlmDeploymentId string `help:"source llm_deployment id" json:"llm_deployment_id"`
+	LlmId           string `help:"source llm instance id" json:"llm_id"`
+	Enabled         *bool  `json:"enabled,omitempty"`
 }
 
 func (o *AiProviderCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -68,12 +72,14 @@ func (o *AiProviderCreateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type AiProviderUpdateOptions struct {
-	ID          string `help:"ID or name" json:"-"`
-	Name        string `json:"name,omitempty"`
-	Desc        string `json:"description,omitempty"`
-	ProviderKey string `json:"provider_key,omitempty"`
-	Config      string `help:"provider config JSON" json:"-"`
-	Enabled     *bool  `json:"enabled,omitempty"`
+	ID              string `help:"ID or name" json:"-"`
+	Name            string `json:"name,omitempty"`
+	Desc            string `json:"description,omitempty"`
+	ProviderKey     string `json:"provider_key,omitempty"`
+	Config          string `help:"provider config JSON" json:"-"`
+	LlmDeploymentId string `json:"llm_deployment_id,omitempty"`
+	LlmId           string `json:"llm_id,omitempty"`
+	Enabled         *bool  `json:"enabled,omitempty"`
 }
 
 func (o *AiProviderUpdateOptions) GetId() string {
@@ -433,8 +439,8 @@ type AiRoutingModelDeleteOptions struct {
 type AiProxyNodeListOptions struct {
 	options.BaseListOptions
 
-	Address string `help:"filter by address" json:"address"`
-	Domain  string `help:"filter by domain" json:"domain"`
+	Address       string `help:"filter by address" json:"address"`
+	AccessAddress string `help:"filter by access address" json:"access_address"`
 }
 
 func (o *AiProxyNodeListOptions) Params() (jsonutils.JSONObject, error) {
@@ -448,10 +454,10 @@ type AiProxyNodeShowOptions struct {
 type AiProxyNodeCreateOptions struct {
 	options.BaseCreateOptions
 
-	Address   string `help:"reachable base URL (https://host:port or host:port)" json:"address"`
-	Domain    string `help:"optional hostname without scheme or port" json:"domain,omitempty"`
-	HbTimeout int    `help:"heartbeat timeout in seconds (default 120)" json:"hb_timeout,omitzero"`
-	Enabled   *bool  `help:"turn on enabled flag" json:"enabled,omitempty"`
+	Address       string `help:"reachable base URL (https://host:port or host:port)" json:"address"`
+	AccessAddress string `help:"optional public access URL (https://host:port or host:port)" json:"access_address,omitempty"`
+	HbTimeout     int    `help:"heartbeat timeout in seconds (default 120)" json:"hb_timeout,omitzero"`
+	Enabled       *bool  `help:"turn on enabled flag" json:"enabled,omitempty"`
 }
 
 func (o *AiProxyNodeCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -459,13 +465,13 @@ func (o *AiProxyNodeCreateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type AiProxyNodeUpdateOptions struct {
-	ID        string `help:"ID or name" json:"-"`
-	Name      string `json:"name,omitempty"`
-	Desc      string `json:"description,omitempty"`
-	Address   string `help:"reachable base URL" json:"address,omitempty"`
-	Domain    string `help:"hostname without scheme or port; empty string clears" json:"domain,omitempty"`
-	HbTimeout int    `help:"heartbeat timeout in seconds" json:"hb_timeout,omitzero"`
-	Enabled   *bool  `json:"enabled,omitempty"`
+	ID            string `help:"ID or name" json:"-"`
+	Name          string `json:"name,omitempty"`
+	Desc          string `json:"description,omitempty"`
+	Address       string `help:"reachable base URL" json:"address,omitempty"`
+	AccessAddress string `help:"public access URL; empty string clears" json:"access_address,omitempty"`
+	HbTimeout     int    `help:"heartbeat timeout in seconds" json:"hb_timeout,omitzero"`
+	Enabled       *bool  `json:"enabled,omitempty"`
 }
 
 func (o *AiProxyNodeUpdateOptions) GetId() string {

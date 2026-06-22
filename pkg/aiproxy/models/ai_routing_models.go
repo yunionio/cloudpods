@@ -108,6 +108,13 @@ func (manager *SAiRoutingModelManager) FetchCustomizeColumns(
 	baseRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range objs {
 		rows[i].StandaloneResourceDetails = baseRows[i]
+		rm := objs[i].(*SAiRoutingModel)
+		rows[i].AiRoutingId = rm.AiRoutingId
+		rows[i].AiProviderId = rm.AiProviderId
+		rows[i].AiModelId = rm.AiModelId
+		rows[i].Priority = rm.Priority
+		rows[i].ModelPattern = rm.ModelPattern
+		rows[i].Enabled = rm.Enabled.IsTrue()
 	}
 	return rows
 }
@@ -372,7 +379,7 @@ func pickAiRoutingModelFromEntries(
 	}
 
 	if routing != nil && routing.RouterEnabled {
-		candidates := buildAiRoutingModelCandidates(allEntries, modelsById)
+		candidates := buildAiRoutingModelCandidates(routing, allEntries, modelsById)
 		if len(candidates) == 0 {
 			return routerFallbackPick(routing, allEntries[0], errors.Wrap(httperrors.ErrInvalidStatus, "router has no candidate models"))
 		}
@@ -412,13 +419,13 @@ func pickAiRoutingModelFromEntries(
 	return matches[0], nil
 }
 
-func buildAiRoutingModelCandidates(entries []*SAiRoutingModel, modelsById map[string]*SAiModel) []aiRoutingModelCandidate {
+func buildAiRoutingModelCandidates(routing *SAiRouting, entries []*SAiRoutingModel, modelsById map[string]*SAiModel) []aiRoutingModelCandidate {
 	candidates := make([]aiRoutingModelCandidate, 0, len(entries))
 	for _, entry := range entries {
 		if entry == nil {
 			continue
 		}
-		name := clientFacingModelID(entry, modelsById[entry.AiModelId])
+		name := clientFacingModelID(routing, entry, modelsById[entry.AiModelId])
 		if name == "" {
 			continue
 		}

@@ -38,19 +38,19 @@ import (
 )
 
 const (
-	defaultAiProxyNodeHbTimeout = 120
-	defaultPrimaryAiProxyNodeId = "primary"
-	maxAiProxyNodeDomainLen     = 256
+	defaultAiProxyNodeHbTimeout    = 120
+	defaultPrimaryAiProxyNodeId    = "primary"
+	maxAiProxyNodeAccessAddressLen = 256
 )
 
-// SAiProxyNode records an aiproxy instance reachable address and optional domain name.
+// SAiProxyNode records an aiproxy instance reachable address and optional public access URL.
 type SAiProxyNode struct {
 	db.SEnabledStatusStandaloneResourceBase
 
-	Address   string    `width:"256" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user" index:"true"`
-	Domain    string    `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
-	LastSeen  time.Time `nullable:"true" list:"user"`
-	HbTimeout int       `nullable:"false" default:"120" list:"user" create:"optional" update:"user"`
+	Address       string    `width:"256" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user" index:"true"`
+	AccessAddress string    `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	LastSeen      time.Time `nullable:"true" list:"user"`
+	HbTimeout     int       `nullable:"false" default:"120" list:"user" create:"optional" update:"user"`
 }
 
 type SAiProxyNodeManager struct {
@@ -87,18 +87,18 @@ func (manager *SAiProxyNodeManager) InitializeData() error {
 	node.Name = defaultPrimaryAiProxyNodeId
 	node.Description = "Default primary aiproxy node"
 	node.Address = addr
-	domain := ""
+	accessAddress := ""
 	if existing, err := manager.FetchById(defaultPrimaryAiProxyNodeId); err == nil {
-		domain = strings.TrimSpace(existing.(*SAiProxyNode).Domain)
+		accessAddress = strings.TrimSpace(existing.(*SAiProxyNode).AccessAddress)
 	}
-	if domain == "" {
-		d, err := DomainFromApiServer(nil)
+	if accessAddress == "" {
+		a, err := AccessAddressFromApiServer(nil)
 		if err != nil {
 			return err
 		}
-		domain = d
+		accessAddress = a
 	}
-	node.Domain = domain
+	node.AccessAddress = accessAddress
 	node.HbTimeout = defaultAiProxyNodeHbTimeout
 	node.LastSeen = time.Now()
 	node.SetEnabled(true)
@@ -138,18 +138,15 @@ func normalizeAiProxyNodeAddress(raw string) (string, error) {
 	return fmt.Sprintf("http://%s", address), nil
 }
 
-func normalizeAiProxyNodeDomain(domain string) (string, error) {
-	domain = strings.TrimSpace(domain)
-	if domain == "" {
+func normalizeAiProxyNodeAccessAddress(raw string) (string, error) {
+	accessAddress := strings.TrimSpace(raw)
+	if accessAddress == "" {
 		return "", nil
 	}
-	if len(domain) > maxAiProxyNodeDomainLen {
-		return "", errors.Wrapf(httperrors.ErrInputParameter, "domain too long (max %d)", maxAiProxyNodeDomainLen)
+	if len(accessAddress) > maxAiProxyNodeAccessAddressLen {
+		return "", errors.Wrapf(httperrors.ErrInputParameter, "access_address too long (max %d)", maxAiProxyNodeAccessAddressLen)
 	}
-	if strings.Contains(domain, "://") || strings.ContainsAny(domain, "/:") {
-		return "", errors.Wrap(httperrors.ErrInputParameter, "domain must be a hostname without scheme or port")
-	}
-	return domain, nil
+	return normalizeAiProxyNodeAddress(accessAddress)
 }
 
 func aiProxyNodeDisplayName(address string) string {
@@ -179,8 +176,8 @@ func AdvertiseAddressFromOptions(opts *options.SAiProxyOptions) (string, error) 
 	return normalizeAiProxyNodeAddress(fmt.Sprintf("%s://%s:%d", scheme, host, opts.Port))
 }
 
-// DomainFromApiServer derives ai_proxy_node.domain from --api-server (hostname only).
-func DomainFromApiServer(opts *options.SAiProxyOptions) (string, error) {
+// AccessAddressFromApiServer derives ai_proxy_node.access_address from --api-server.
+func AccessAddressFromApiServer(opts *options.SAiProxyOptions) (string, error) {
 	if opts == nil {
 		opts = &options.Options
 	}
@@ -188,22 +185,7 @@ func DomainFromApiServer(opts *options.SAiProxyOptions) (string, error) {
 	if raw == "" {
 		return "", nil
 	}
-	host := raw
-	if strings.Contains(raw, "://") {
-		u, err := url.Parse(raw)
-		if err != nil {
-			return "", errors.Wrapf(err, "parse api_server %q", raw)
-		}
-		host = strings.TrimSpace(u.Hostname())
-	} else if strings.ContainsAny(raw, "/:") {
-		if h, _, err := net.SplitHostPort(raw); err == nil {
-			host = h
-		}
-	}
-	if host == "" {
-		return "", nil
-	}
-	return normalizeAiProxyNodeDomain(host)
+	return normalizeAiProxyNodeAccessAddress(raw)
 }
 
 func (manager *SAiProxyNodeManager) ListItemFilter(
@@ -219,8 +201,8 @@ func (manager *SAiProxyNodeManager) ListItemFilter(
 	if addr := strings.TrimSpace(query.Address); addr != "" {
 		q = q.Equals("address", addr)
 	}
-	if domain := strings.TrimSpace(query.Domain); domain != "" {
-		q = q.Equals("domain", domain)
+	if accessAddress := strings.TrimSpace(query.AccessAddress); accessAddress != "" {
+		q = q.Equals("access_address", accessAddress)
 	}
 	return q, nil
 }
@@ -259,7 +241,7 @@ func (manager *SAiProxyNodeManager) ValidateCreateData(
 	if err != nil {
 		return input, err
 	}
-	input.Domain, err = normalizeAiProxyNodeDomain(input.Domain)
+	input.AccessAddress, err = normalizeAiProxyNodeAccessAddress(input.AccessAddress)
 	if err != nil {
 		return input, err
 	}
@@ -287,9 +269,9 @@ func (manager *SAiProxyNodeManager) PerformRegister(
 		hbTimeout = defaultAiProxyNodeHbTimeout
 	}
 	nodeId := aiProxyNodeId(addr)
-	domain := ""
+	accessAddress := ""
 	if existing, err := manager.FetchById(nodeId); err == nil {
-		domain = existing.(*SAiProxyNode).Domain
+		accessAddress = existing.(*SAiProxyNode).AccessAddress
 	} else if errors.Cause(err) != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "fetch ai_proxy_node")
 	}
@@ -298,7 +280,7 @@ func (manager *SAiProxyNodeManager) PerformRegister(
 	node.Id = nodeId
 	node.Name = aiProxyNodeDisplayName(addr)
 	node.Address = addr
-	node.Domain = domain
+	node.AccessAddress = accessAddress
 	node.HbTimeout = hbTimeout
 	node.LastSeen = time.Now()
 	node.SetEnabled(true)
@@ -327,8 +309,8 @@ func (node *SAiProxyNode) ValidateUpdateData(
 			return input, err
 		}
 	}
-	if query.Contains("domain") {
-		input.Domain, err = normalizeAiProxyNodeDomain(input.Domain)
+	if query.Contains("access_address") {
+		input.AccessAddress, err = normalizeAiProxyNodeAccessAddress(input.AccessAddress)
 		if err != nil {
 			return input, err
 		}

@@ -109,11 +109,11 @@ climc ai-proxy-node-register --address https://standby-host:30938 --hb-timeout 1
 ```bash
 climc ai-proxy-node-create standby-1 \
   --address https://standby-host:30938 \
-  --domain aiproxy-standby.example.com \
+  --access-address https://aiproxy-standby.example.com:443 \
   --hb-timeout 120 \
   --enabled
 
-climc ai-proxy-node-update primary --address https://primary-host:30938 --domain aiproxy.example.com
+climc ai-proxy-node-update primary --address https://primary-host:30938 --access-address https://aiproxy.example.com:443
 climc ai-proxy-node-enable primary
 climc ai-proxy-node-disable <node-id>
 ```
@@ -123,6 +123,8 @@ climc ai-proxy-node-disable <node-id>
 ```bash
 climc ai-routing-update aiproxy-ft-routing --ai-proxy-node-id primary
 ```
+
+创建 `ai_routing` 时若省略 `--ai-proxy-node-id`，默认绑定 `primary` 节点；更新时显式传空值仍可清空绑定（任意 aiproxy 节点均可匹配）。
 
 ## 1. 检查 Keystone endpoint
 
@@ -192,11 +194,14 @@ Virtual key 归属当前 climc 用户的 **项目**；后续 `ai_routing` 须在
 
 将项目内请求 `model=qwen-turbo` 指到 catalog 的 aliyun/qwen-turbo。
 
+**精确匹配**：`--model-key qwen-turbo` 与请求 body 中 `model` 完全一致时命中（优先于 `--model-pattern` 通配规则）。
+
 `models` 里 `ai_model_id` 使用 catalog 固定 id（与 name 相同，如 `aliyun-qwen-turbo`），或在指定 `ai_provider_id` 时也可填 **model_key**（如 `qwen-turbo`）：
 
 ```bash
 climc ai-routing-create aiproxy-ft-routing \
   --priority 10 \
+  --model-key qwen-turbo \
   --models '[{"ai_provider_id":"aliyun","ai_model_id":"qwen-turbo","priority":1}]'
 ```
 
