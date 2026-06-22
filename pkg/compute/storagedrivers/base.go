@@ -63,7 +63,7 @@ func (self *SBaseStorageDriver) ValidateCreateSnapshotData(ctx context.Context, 
 		return httperrors.NewBadRequestError("Disk %s dosen't attach guest ?", disk.Id)
 	}
 	guest := guests[0]
-	if len(guest.BackupHostId) > 0 {
+	if len(guest.BackupHostId) > 0 || guest.GetMetadata(ctx, api.QUORUM_CHILD_INDEX, userCred) != "" {
 		return httperrors.NewBadRequestError(
 			"Disk attached Guest has backup, Can't create snapshot")
 	}
