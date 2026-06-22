@@ -18,8 +18,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/service/wafv2"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -58,7 +56,7 @@ type SWebAcl struct {
 	multicloud.SResourceBase
 	AwsTags
 	region *SRegion
-	*wafv2.WebACL
+	*sWafWebACL
 
 	scope     string
 	LockToken string
@@ -112,80 +110,71 @@ func (self *SRegion) ListWebACLs(scope string) ([]SWebAcl, error) {
 	if scope == SCOPE_CLOUDFRONT && self.RegionId != "us-east-1" {
 		return []SWebAcl{}, nil
 	}
-	client, err := self.getWafClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getWafClient")
-	}
 	ret := []SWebAcl{}
-	input := wafv2.ListWebACLsInput{}
-	input.SetScope(scope)
+	params := map[string]interface{}{"Scope": scope}
 	for {
-		resp, err := client.ListWebACLs(&input)
+		resp := struct {
+			WebACLs    []SWebAcl
+			NextMarker string
+		}{}
+		err := self.wafRequest("ListWebACLs", params, &resp)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ListWebACLs")
 		}
-		part := []SWebAcl{}
-		jsonutils.Update(&part, resp.WebACLs)
-		ret = append(ret, part...)
-		if resp.NextMarker == nil || len(*resp.NextMarker) == 0 {
+		ret = append(ret, resp.WebACLs...)
+		if len(resp.NextMarker) == 0 {
 			break
 		}
-		input.SetNextMarker(*resp.NextMarker)
+		params["NextMarker"] = resp.NextMarker
 	}
 	return ret, nil
 }
 
 func (self *SRegion) GetWebAcl(id, name, scope string) (*SWebAcl, error) {
-	client, err := self.getWafClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getWafClient")
+	params := map[string]interface{}{
+		"Id":    id,
+		"Name":  name,
+		"Scope": scope,
 	}
-	input := wafv2.GetWebACLInput{}
-	input.SetId(id)
-	input.SetName(name)
-	input.SetScope(scope)
-	resp, err := client.GetWebACL(&input)
+	resp := struct {
+		WebACL    *sWafWebACL
+		LockToken string
+	}{}
+	err := self.wafRequest("GetWebACL", params, &resp)
 	if err != nil {
-		if _, ok := err.(*wafv2.WAFNonexistentItemException); ok {
+		if strings.Contains(err.Error(), "WAFNonexistentItemException") {
 			return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", err.Error())
 		}
 		return nil, errors.Wrapf(err, "GetWebAcl")
 	}
-	ret := &SWebAcl{region: self, scope: scope, WebACL: resp.WebACL, LockToken: *resp.LockToken}
+	ret := &SWebAcl{region: self, scope: scope, sWafWebACL: resp.WebACL, LockToken: resp.LockToken}
 	return ret, nil
 }
 
 func (self *SRegion) DeleteWebAcl(id, name, scope, lockToken string) error {
-	client, err := self.getWafClient()
-	if err != nil {
-		return errors.Wrapf(err, "getWafClient")
+	params := map[string]interface{}{
+		"Id":        id,
+		"Name":      name,
+		"Scope":     scope,
+		"LockToken": lockToken,
 	}
-	input := wafv2.DeleteWebACLInput{}
-	input.SetId(id)
-	input.SetName(name)
-	input.SetScope(scope)
-	input.SetLockToken(lockToken)
-	_, err = client.DeleteWebACL(&input)
+	err := self.wafRequest("DeleteWebACL", params, nil)
 	return errors.Wrapf(err, "DeleteWebACL")
 }
 
 func (self *SRegion) ListResourcesForWebACL(resType, arn string) ([]string, error) {
-	client, err := self.getWafClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getWafClient")
+	params := map[string]interface{}{
+		"ResourceType": resType,
+		"WebACLArn":    arn,
 	}
-	input := wafv2.ListResourcesForWebACLInput{}
-	input.SetResourceType(resType)
-	input.SetWebACLArn(arn)
-	resp, err := client.ListResourcesForWebACL(&input)
+	resp := struct {
+		ResourceArns []string
+	}{}
+	err := self.wafRequest("ListResourcesForWebACL", params, &resp)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ListResourcesForWebACL")
 	}
-	ret := []string{}
-	for _, id := range resp.ResourceArns {
-		ret = append(ret, *id)
-	}
-	return ret, nil
+	return resp.ResourceArns, nil
 }
 
 func (self *SRegion) GetICloudWafInstanceById(id string) (cloudprovider.ICloudWafInstance, error) {
@@ -249,11 +238,11 @@ func (self *SWebAcl) GetStatus() string {
 
 func (self *SWebAcl) GetDefaultAction() *cloudprovider.DefaultAction {
 	ret := &cloudprovider.DefaultAction{}
-	if self.WebACL.DefaultAction == nil {
+	if self.sWafWebACL.DefaultAction == nil {
 		self.Refresh()
 	}
-	if self.WebACL.DefaultAction != nil {
-		action := self.WebACL.DefaultAction
+	if self.sWafWebACL.DefaultAction != nil {
+		action := self.sWafWebACL.DefaultAction
 		if action.Allow != nil {
 			ret.Action = cloudprovider.WafActionAllow
 		} else if action.Block != nil {
@@ -268,7 +257,7 @@ func (self *SWebAcl) Refresh() error {
 	if err != nil {
 		return errors.Wrapf(err, "GetWebAcl")
 	}
-	self.WebACL = acl.WebACL
+	self.sWafWebACL = acl.sWafWebACL
 	return jsonutils.Update(self, acl)
 }
 
@@ -285,285 +274,248 @@ func (self *SRegion) CreateICloudWafInstance(opts *cloudprovider.WafCreateOption
 }
 
 func (self *SRegion) CreateWebAcl(name, desc string, wafType cloudprovider.TWafType, action *cloudprovider.DefaultAction) (*SWebAcl, error) {
-	input := wafv2.CreateWebACLInput{}
-	input.SetName(name)
-	if len(desc) > 0 {
-		input.SetDescription(desc)
-	}
+	var scope string
 	switch wafType {
 	case cloudprovider.WafTypeRegional, cloudprovider.WafTypeCloudFront:
-		input.SetScope(strings.ToUpper(string(wafType)))
+		scope = strings.ToUpper(string(wafType))
 	default:
 		return nil, errors.Errorf("invalid waf type %s", wafType)
 	}
+	params := map[string]interface{}{
+		"Name":  name,
+		"Scope": scope,
+		"VisibilityConfig": &sWafVisibilityConfig{
+			SampledRequestsEnabled:   true,
+			CloudWatchMetricsEnabled: true,
+			MetricName:               name,
+		},
+	}
+	if len(desc) > 0 {
+		params["Description"] = desc
+	}
 	if action != nil {
-		defaultAction := wafv2.DefaultAction{}
+		defaultAction := &sWafDefaultAction{}
 		switch action.Action {
 		case cloudprovider.WafActionAllow:
-			defaultAction.Allow = &wafv2.AllowAction{}
+			defaultAction.Allow = &sWafAllowAction{}
 		case cloudprovider.WafActionBlock:
-			defaultAction.Block = &wafv2.BlockAction{}
+			defaultAction.Block = &sWafBlockAction{}
 		}
-		input.SetDefaultAction(&defaultAction)
+		params["DefaultAction"] = defaultAction
 	}
-	visib := &wafv2.VisibilityConfig{}
-	visib.SetSampledRequestsEnabled(true)
-	visib.SetCloudWatchMetricsEnabled(true)
-	visib.SetMetricName(name)
-	input.SetVisibilityConfig(visib)
-	client, err := self.getWafClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getWafClient")
-	}
-	output, err := client.CreateWebACL(&input)
+	resp := struct {
+		Summary struct {
+			Id string
+		}
+	}{}
+	err := self.wafRequest("CreateWebACL", params, &resp)
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateWebAcl")
 	}
-	return self.GetWebAcl(*output.Summary.Id, name, *input.Scope)
+	return self.GetWebAcl(resp.Summary.Id, name, scope)
 }
 
-func reverseConvertField(opts cloudprovider.SWafStatement) *wafv2.FieldToMatch {
-	ret := &wafv2.FieldToMatch{}
+func reverseConvertField(opts cloudprovider.SWafStatement) *sWafFieldToMatch {
+	ret := &sWafFieldToMatch{}
 	switch opts.MatchField {
 	case cloudprovider.WafMatchFieldBody:
-		body := &wafv2.Body{}
-		ret.SetBody(body)
+		ret.Body = &sWafBody{}
 	case cloudprovider.WafMatchFieldJsonBody:
 	case cloudprovider.WafMatchFieldMethod:
-		method := &wafv2.Method{}
-		ret.SetMethod(method)
+		ret.Method = &sWafMethod{}
 	case cloudprovider.WafMatchFieldQuery:
 		switch opts.MatchFieldKey {
 		case "SingleArgument":
-			query := &wafv2.SingleQueryArgument{}
-			ret.SetSingleQueryArgument(query)
+			ret.SingleQueryArgument = &sWafSingleQueryArgument{}
 		case "AllArguments":
-			query := &wafv2.AllQueryArguments{}
-			ret.SetAllQueryArguments(query)
+			ret.AllQueryArguments = &sWafAllQueryArguments{}
 		default:
-			query := &wafv2.QueryString{}
-			ret.SetQueryString(query)
+			ret.QueryString = &sWafQueryString{}
 		}
 	case cloudprovider.WafMatchFiledHeader:
-		head := &wafv2.SingleHeader{}
-		head.SetName(opts.MatchFieldKey)
-		ret.SetSingleHeader(head)
+		ret.SingleHeader = &sWafSingleHeader{Name: awsWafString(opts.MatchFieldKey)}
 	case cloudprovider.WafMatchFiledUriPath:
-		uri := &wafv2.UriPath{}
-		ret.SetUriPath(uri)
+		ret.UriPath = &sWafUriPath{}
 	}
 	return ret
 }
 
-func reverseConvertStatement(statement cloudprovider.SWafStatement) *wafv2.Statement {
-	ret := &wafv2.Statement{}
-	trans := []*wafv2.TextTransformation{}
+func reverseConvertStatement(statement cloudprovider.SWafStatement) *sWafStatement {
+	ret := &sWafStatement{}
+	trans := []*sWafTextTransformation{}
 	if statement.Transformations != nil {
 		for i, tran := range *statement.Transformations {
-			t := &wafv2.TextTransformation{}
+			t := &sWafTextTransformation{Priority: awsWafInt64(int64(i))}
 			switch tran {
 			case cloudprovider.WafTextTransformationNone:
-				t.SetType(wafv2.TextTransformationTypeNone)
+				t.Type = awsWafString(wafTextTransformationTypeNone)
 			case cloudprovider.WafTextTransformationLowercase:
-				t.SetType(wafv2.TextTransformationTypeLowercase)
+				t.Type = awsWafString(wafTextTransformationTypeLowercase)
 			case cloudprovider.WafTextTransformationCmdLine:
-				t.SetType(wafv2.TextTransformationTypeCmdLine)
+				t.Type = awsWafString(wafTextTransformationTypeCmdLine)
 			case cloudprovider.WafTextTransformationUrlDecode:
-				t.SetType(wafv2.TextTransformationTypeUrlDecode)
+				t.Type = awsWafString(wafTextTransformationTypeUrlDecode)
 			case cloudprovider.WafTextTransformationHtmlEntityDecode:
-				t.SetType(wafv2.TextTransformationTypeHtmlEntityDecode)
+				t.Type = awsWafString(wafTextTransformationTypeHtmlEntityDecode)
 			case cloudprovider.WafTextTransformationCompressWithSpace:
-				t.SetType(wafv2.TextTransformationTypeCompressWhiteSpace)
+				t.Type = awsWafString(wafTextTransformationTypeCompressWhiteSpace)
 			}
-			t.SetPriority(int64(i))
 			trans = append(trans, t)
 		}
 	}
-	rules := []*wafv2.ExcludedRule{}
+	rules := []*sWafExcludedRule{}
 	if statement.ExcludeRules != nil {
 		for _, r := range *statement.ExcludeRules {
 			name := r.Name
-			rules = append(rules, &wafv2.ExcludedRule{
-				Name: &name,
-			})
+			rules = append(rules, &sWafExcludedRule{Name: &name})
 		}
 	}
 	field := reverseConvertField(statement)
 	switch statement.Type {
 	case cloudprovider.WafStatementTypeRate:
-		rate := &wafv2.RateBasedStatement{}
+		rate := &sWafRateBasedStatement{AggregateKeyType: awsWafString("IP")}
 		limit := int(0)
 		if statement.MatchFieldValues != nil && len(*statement.MatchFieldValues) == 1 {
 			limit, _ = strconv.Atoi((*statement.MatchFieldValues)[0])
 		}
-		rate.SetLimit(int64(limit))
-		fd := &wafv2.ForwardedIPConfig{}
+		rate.Limit = awsWafInt64(int64(limit))
 		if len(statement.ForwardedIPHeader) > 0 {
-			fd.SetHeaderName(statement.ForwardedIPHeader)
-			rate.SetForwardedIPConfig(fd)
+			rate.ForwardedIPConfig = &sWafForwardedIPConfig{HeaderName: awsWafString(statement.ForwardedIPHeader)}
 		}
-		ret.SetRateBasedStatement(rate)
+		ret.RateBasedStatement = rate
 	case cloudprovider.WafStatementTypeIPSet:
-		ipset := &wafv2.IPSetReferenceStatement{}
-		ipset.SetARN(statement.IPSetId)
-		fd := &wafv2.IPSetForwardedIPConfig{}
+		ipset := &sWafIPSetReferenceStatement{ARN: awsWafString(statement.IPSetId)}
 		if len(statement.ForwardedIPHeader) > 0 {
-			fd.SetHeaderName(statement.ForwardedIPHeader)
-			ipset.SetIPSetForwardedIPConfig(fd)
+			ipset.IPSetForwardedIPConfig = &sWafIPSetForwardedIPConfig{HeaderName: awsWafString(statement.ForwardedIPHeader)}
 		}
-		ret.SetIPSetReferenceStatement(ipset)
+		ret.IPSetReferenceStatement = ipset
 	case cloudprovider.WafStatementTypeXssMatch:
-		xss := &wafv2.XssMatchStatement{}
-		if len(trans) > 0 {
-			xss.SetTextTransformations(trans)
-		}
-		field := &wafv2.FieldToMatch{}
-		xss.SetFieldToMatch(field)
-		xss.SetTextTransformations(trans)
-		ret.SetXssMatchStatement(xss)
+		xss := &sWafXssMatchStatement{FieldToMatch: field, TextTransformations: trans}
+		ret.XssMatchStatement = xss
 	case cloudprovider.WafStatementTypeSize:
-		size := &wafv2.SizeConstraintStatement{}
-		size.SetFieldToMatch(field)
+		size := &sWafSizeConstraintStatement{FieldToMatch: field}
 		value := int(0)
 		if statement.MatchFieldValues != nil && len(*statement.MatchFieldValues) == 1 {
 			value, _ = strconv.Atoi((*statement.MatchFieldValues)[0])
 		}
-		size.SetSize(int64(value))
-		ret.SetSizeConstraintStatement(size)
+		size.Size = awsWafInt64(int64(value))
+		ret.SizeConstraintStatement = size
 	case cloudprovider.WafStatementTypeGeoMatch:
-		geo := &wafv2.GeoMatchStatement{}
+		geo := &sWafGeoMatchStatement{}
 		values := []*string{}
 		if statement.MatchFieldValues != nil {
 			for i := range *statement.MatchFieldValues {
 				v := (*statement.MatchFieldValues)[i]
 				values = append(values, &v)
 			}
-			geo.SetCountryCodes(values)
+			geo.CountryCodes = values
 		}
-		fd := &wafv2.ForwardedIPConfig{}
 		if len(statement.ForwardedIPHeader) > 0 {
-			fd.SetHeaderName(statement.ForwardedIPHeader)
-			geo.SetForwardedIPConfig(fd)
+			geo.ForwardedIPConfig = &sWafForwardedIPConfig{HeaderName: awsWafString(statement.ForwardedIPHeader)}
 		}
-		ret.SetGeoMatchStatement(geo)
+		ret.GeoMatchStatement = geo
 	case cloudprovider.WafStatementTypeRegexSet:
-		regex := &wafv2.RegexPatternSetReferenceStatement{}
-		regex.SetARN(statement.RegexSetId)
-		if len(trans) > 0 {
-			regex.SetTextTransformations(trans)
+		regex := &sWafRegexPatternSetReferenceStatement{
+			ARN:                 awsWafString(statement.RegexSetId),
+			FieldToMatch:        field,
+			TextTransformations: trans,
 		}
-		regex.SetFieldToMatch(field)
-		ret.SetRegexPatternSetReferenceStatement(regex)
+		ret.RegexPatternSetReferenceStatement = regex
 	case cloudprovider.WafStatementTypeByteMatch:
-		bm := &wafv2.ByteMatchStatement{}
-		if len(trans) > 0 {
-			bm.SetTextTransformations(trans)
+		bm := &sWafByteMatchStatement{
+			FieldToMatch:        field,
+			SearchString:        []byte(statement.SearchString),
+			TextTransformations: trans,
 		}
-		bm.SetSearchString([]byte(statement.SearchString))
 		if len(statement.Operator) > 0 {
-			bm.SetPositionalConstraint(string(statement.Operator))
+			bm.PositionalConstraint = awsWafString(string(statement.Operator))
 		}
-		bm.SetFieldToMatch(field)
-		ret.SetByteMatchStatement(bm)
+		ret.ByteMatchStatement = bm
 	case cloudprovider.WafStatementTypeRuleGroup:
-		rg := &wafv2.RuleGroupReferenceStatement{}
-		rg.SetARN(statement.RuleGroupId)
-		if len(rules) > 0 {
-			rg.SetExcludedRules(rules)
-		}
-		ret.SetRuleGroupReferenceStatement(rg)
+		rg := &sWafRuleGroupReferenceStatement{ARN: awsWafString(statement.RuleGroupId), ExcludedRules: rules}
+		ret.RuleGroupReferenceStatement = rg
 	case cloudprovider.WafStatementTypeSqliMatch:
-		sqli := &wafv2.SqliMatchStatement{}
-		if len(trans) > 0 {
-			sqli.SetTextTransformations(trans)
-		}
-		sqli.SetFieldToMatch(field)
-		ret.SetSqliMatchStatement(sqli)
+		sqli := &sWafSqliMatchStatement{FieldToMatch: field, TextTransformations: trans}
+		ret.SqliMatchStatement = sqli
 	case cloudprovider.WafStatementTypeLabelMatch:
 	case cloudprovider.WafStatementTypeManagedRuleGroup:
-		rg := &wafv2.ManagedRuleGroupStatement{}
-		rg.SetName(statement.ManagedRuleGroupName)
-		rg.SetVendorName("aws")
-		if len(rules) > 0 {
-			rg.SetExcludedRules(rules)
+		rg := &sWafManagedRuleGroupStatement{
+			Name:          awsWafString(statement.ManagedRuleGroupName),
+			VendorName:    awsWafString("aws"),
+			ExcludedRules: rules,
 		}
-		ret.SetManagedRuleGroupStatement(rg)
+		ret.ManagedRuleGroupStatement = rg
 	}
 	return ret
 }
 
 func (self *SWebAcl) AddRule(opts *cloudprovider.SWafRule) (cloudprovider.ICloudWafRule, error) {
-	input := &wafv2.UpdateWebACLInput{}
-	input.SetLockToken(self.LockToken)
-	input.SetId(*self.Id)
-	input.SetName(*self.Name)
-	input.SetScope(self.scope)
-	input.SetDescription(*self.Description)
-	input.SetDefaultAction(self.DefaultAction)
-	input.SetVisibilityConfig(self.WebACL.VisibilityConfig)
 	rules := self.Rules
-	rule := &wafv2.Rule{}
-	rule.SetName(opts.Name)
-	rule.SetPriority(int64(opts.Priority))
-	action := &wafv2.RuleAction{}
+	rule := &sWafRuleItem{
+		Name:     awsWafString(opts.Name),
+		Priority: awsWafInt64(int64(opts.Priority)),
+	}
 	if opts.Action != nil {
+		action := &sWafRuleAction{}
 		switch opts.Action.Action {
 		case cloudprovider.WafActionAllow:
-			allow := &wafv2.AllowAction{}
-			action.SetAllow(allow)
+			action.Allow = &sWafAllowAction{}
 		case cloudprovider.WafActionBlock:
-			block := &wafv2.BlockAction{}
-			action.SetBlock(block)
+			action.Block = &sWafBlockAction{}
 		case cloudprovider.WafActionCount:
-			count := &wafv2.CountAction{}
-			action.SetCount(count)
+			action.Count = &sWafCountAction{}
 		}
+		rule.Action = action
 	}
-	rule.SetAction(action)
-	visib := &wafv2.VisibilityConfig{}
-	visib.SetSampledRequestsEnabled(false)
-	visib.SetCloudWatchMetricsEnabled(true)
-	visib.SetMetricName(opts.Name)
-	rule.SetVisibilityConfig(visib)
-	statement := &wafv2.Statement{}
+	rule.VisibilityConfig = &sWafVisibilityConfig{
+		SampledRequestsEnabled:   false,
+		CloudWatchMetricsEnabled: true,
+		MetricName:               opts.Name,
+	}
+	statement := &sWafStatement{}
 	switch opts.StatementCondition {
 	case cloudprovider.WafStatementConditionOr:
-		ss := &wafv2.OrStatement{}
+		ss := &sWafOrStatement{}
 		for _, s := range opts.Statements {
 			ss.Statements = append(ss.Statements, reverseConvertStatement(s))
 		}
-		statement.SetOrStatement(ss)
+		statement.OrStatement = ss
 	case cloudprovider.WafStatementConditionAnd:
-		ss := &wafv2.AndStatement{}
+		ss := &sWafAndStatement{}
 		for _, s := range opts.Statements {
 			ss.Statements = append(ss.Statements, reverseConvertStatement(s))
 		}
-		statement.SetAndStatement(ss)
+		statement.AndStatement = ss
 	case cloudprovider.WafStatementConditionNot:
-		ss := &wafv2.NotStatement{}
+		ss := &sWafNotStatement{}
 		for _, s := range opts.Statements {
-			ss.SetStatement(reverseConvertStatement(s))
+			ss.Statement = reverseConvertStatement(s)
 			break
 		}
-		statement.SetNotStatement(ss)
+		statement.NotStatement = ss
 	case cloudprovider.WafStatementConditionNone:
 		for _, s := range opts.Statements {
 			statement = reverseConvertStatement(s)
 			break
 		}
 	}
-	rule.SetStatement(statement)
+	rule.Statement = statement
 	rules = append(rules, rule)
-	input.SetRules(rules)
-	client, err := self.region.getWafClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getWafClient")
+	params := map[string]interface{}{
+		"LockToken":        self.LockToken,
+		"Id":               *self.Id,
+		"Name":             *self.Name,
+		"Scope":            self.scope,
+		"Description":      *self.Description,
+		"DefaultAction":    self.DefaultAction,
+		"VisibilityConfig": self.VisibilityConfig,
+		"Rules":            rules,
 	}
-	_, err = client.UpdateWebACL(input)
+	err := self.region.wafRequest("UpdateWebACL", params, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "UpdateWebACL")
 	}
-	ret := &sWafRule{waf: self, Rule: rule}
+	ret := &sWafRule{waf: self, sWafRuleItem: rule}
 	return ret, nil
 }
 

@@ -19,9 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudtrail"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -76,6 +73,18 @@ type SEvent struct {
 	Username string `type:"string"`
 }
 
+type sCloudTrailEvent struct {
+	AccessKeyId     string
+	CloudTrailEvent string
+	EventId         string
+	EventName       string
+	EventSource     string
+	EventTime       float64
+	ReadOnly        string
+	Resources       []SEventResource
+	Username        string
+}
+
 func (self *SEvent) GetName() string {
 	return self.EventName
 }
@@ -113,45 +122,36 @@ func (self *SEvent) GetCreatedAt() time.Time {
 	return self.EventTime
 }
 
-func (self *SRegion) getAwsCloudtrailSession() (*session.Session, error) {
-	session, err := self.getAwsSession()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.getDefaultSession()")
-	}
-	session.ClientConfig(CLOUD_TRAIL_SERVICE_NAME)
-	return session, nil
+func cloudTrailUnixTime(t time.Time) float64 {
+	return float64(t.UnixNano()) / float64(time.Second)
 }
 
 func (self *SRegion) LookupEvents(start, end time.Time, withReadEvent bool) ([]SEvent, error) {
-	s, err := self.getAwsCloudtrailSession()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getAwsCloudtrailSession")
-	}
-	client := cloudtrail.New(s)
-	input := &cloudtrail.LookupEventsInput{LookupAttributes: []*cloudtrail.LookupAttribute{}}
+	params := map[string]interface{}{}
 	if !start.IsZero() {
-		input.SetStartTime(start)
+		params["StartTime"] = cloudTrailUnixTime(start)
 	}
 	if !end.IsZero() {
-		input.SetEndTime(end)
+		params["EndTime"] = cloudTrailUnixTime(end)
 	}
 	if !withReadEvent {
-		readonly := "ReadOnly"
-		val := "false"
-		input.LookupAttributes = append(input.LookupAttributes, &cloudtrail.LookupAttribute{
-			AttributeKey:   &readonly,
-			AttributeValue: &val,
-		})
-	}
-	events := []SEvent{}
-	nextToken := ""
-	for {
-		if len(nextToken) > 0 {
-			input.SetNextToken(nextToken)
+		params["LookupAttributes"] = []map[string]string{
+			{
+				"AttributeKey":   "ReadOnly",
+				"AttributeValue": "false",
+			},
 		}
-		var output *cloudtrail.LookupEventsOutput = nil
+	}
+
+	events := []SEvent{}
+	for {
+		ret := struct {
+			Events    []sCloudTrailEvent
+			NextToken string
+		}{}
+		var err error
 		for {
-			output, err = client.LookupEvents(input)
+			err = self.cloudtrailRequest("LookupEvents", params, &ret)
 			if err != nil {
 				if strings.Contains(err.Error(), "ThrottlingException") {
 					log.Warningf("LookupEvents ThrottlingException, try after 3 seconds")
@@ -162,28 +162,27 @@ func (self *SRegion) LookupEvents(start, end time.Time, withReadEvent bool) ([]S
 			}
 			break
 		}
-		for i := range output.Events {
-			err := FillZero(output.Events[i])
-			if err != nil {
-				return nil, errors.Wrapf(err, "FillZero")
-			}
-			event := SEvent{}
-			err = jsonutils.Update(&event, jsonutils.Marshal(output.Events[i]))
-			if err != nil {
-				return nil, errors.Wrapf(err, "jsonutils.Update")
+		for _, evt := range ret.Events {
+			event := SEvent{
+				AccessKeyId:     evt.AccessKeyId,
+				CloudTrailEvent: evt.CloudTrailEvent,
+				EventId:         evt.EventId,
+				EventName:       evt.EventName,
+				EventSource:     evt.EventSource,
+				EventTime:       time.Unix(0, int64(evt.EventTime*float64(time.Second))),
+				ReadOnly:        evt.ReadOnly,
+				Resources:       evt.Resources,
+				Username:        evt.Username,
 			}
 			if strings.Contains(event.CloudTrailEvent, "awsRegion") && !strings.Contains(event.CloudTrailEvent, fmt.Sprintf(`"awsRegion":"%s"`, self.RegionId)) {
 				continue
 			}
 			events = append(events, event)
 		}
-		nextToken = ""
-		if output.NextToken != nil {
-			nextToken = *output.NextToken
-		}
-		if len(nextToken) == 0 {
+		if len(ret.NextToken) == 0 {
 			break
 		}
+		params["NextToken"] = ret.NextToken
 	}
 	return events, nil
 }

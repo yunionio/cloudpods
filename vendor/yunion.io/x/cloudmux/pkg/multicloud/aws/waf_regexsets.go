@@ -15,8 +15,6 @@
 package aws
 
 import (
-	"github.com/aws/aws-sdk-go/service/wafv2"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -84,57 +82,52 @@ func (self *SRegion) ListRegexSets(scope string) ([]SWafRegexSet, error) {
 	if scope == SCOPE_CLOUDFRONT && self.RegionId != "us-east-1" {
 		return []SWafRegexSet{}, nil
 	}
-	client, err := self.getWafClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getWafClient")
-	}
 	ret := []SWafRegexSet{}
-	input := wafv2.ListRegexPatternSetsInput{}
-	input.SetScope(scope)
+	params := map[string]interface{}{"Scope": scope}
 	for {
-		resp, err := client.ListRegexPatternSets(&input)
+		resp := struct {
+			RegexPatternSets []SWafRegexSet
+			NextMarker       string
+		}{}
+		err := self.wafRequest("ListRegexPatternSets", params, &resp)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ListRegexPatternSets")
 		}
-		part := []SWafRegexSet{}
-		jsonutils.Update(&part, resp.RegexPatternSets)
-		ret = append(ret, part...)
-		if resp.NextMarker == nil || len(*resp.NextMarker) == 0 {
+		ret = append(ret, resp.RegexPatternSets...)
+		if len(resp.NextMarker) == 0 {
 			break
 		}
-		input.SetNextMarker(*resp.NextMarker)
+		params["NextMarker"] = resp.NextMarker
 	}
 	return ret, nil
 }
 
 func (self *SRegion) GetRegexSet(id, name, scope string) (*SWafRegexSet, error) {
-	client, err := self.getWafClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getWafClient")
+	params := map[string]interface{}{
+		"Id":    id,
+		"Name":  name,
+		"Scope": scope,
 	}
-	input := wafv2.GetRegexPatternSetInput{}
-	input.SetId(id)
-	input.SetName(name)
-	input.SetScope(scope)
-	resp, err := client.GetRegexPatternSet(&input)
+	resp := struct {
+		RegexPatternSet map[string]interface{}
+		LockToken       string
+	}{}
+	err := self.wafRequest("GetRegexPatternSet", params, &resp)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetRegexPatternSet")
 	}
-	ret := &SWafRegexSet{LockToken: *resp.LockToken}
+	ret := &SWafRegexSet{LockToken: resp.LockToken}
 	return ret, jsonutils.Update(ret, resp.RegexPatternSet)
 }
 
 func (self *SRegion) DeleteRegexSet(id, name, scope, lockToken string) error {
-	client, err := self.getWafClient()
-	if err != nil {
-		return errors.Wrapf(err, "getWafClient")
+	params := map[string]interface{}{
+		"Id":        id,
+		"Name":      name,
+		"Scope":     scope,
+		"LockToken": lockToken,
 	}
-	input := wafv2.DeleteRegexPatternSetInput{}
-	input.SetId(id)
-	input.SetName(name)
-	input.SetScope(scope)
-	input.SetLockToken(lockToken)
-	_, err = client.DeleteRegexPatternSet(&input)
+	err := self.wafRequest("DeleteRegexPatternSet", params, nil)
 	return errors.Wrapf(err, "DeleteRegexPatternSet")
 }
 

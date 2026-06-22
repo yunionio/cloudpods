@@ -67,6 +67,22 @@ func (self *SAwsClient) invoke(regionId, serviceName, serviceId, apiVersion stri
 		metadata.TargetPrefix = "DynamoDB_20120810"
 		metadata.JSONVersion = "1.0"
 	}
+	if serviceName == ORG_SERVICE_NAME {
+		metadata.TargetPrefix = "AWSOrganizationsV20161128"
+		metadata.JSONVersion = "1.1"
+	}
+	if serviceName == CLOUD_TRAIL_SERVICE_NAME {
+		metadata.TargetPrefix = "com.amazonaws.cloudtrail.v20131101.CloudTrail_20131101"
+		metadata.JSONVersion = "1.1"
+	}
+	if serviceName == CE_SERVICE_NAME {
+		metadata.TargetPrefix = "AWSInsightsIndexService"
+		metadata.JSONVersion = "1.1"
+	}
+	if serviceName == WAF_SERVICE_NAME {
+		metadata.TargetPrefix = "AWSWAF_20190729"
+		metadata.JSONVersion = "1.1"
+	}
 
 	if self.debug {
 		logLevel := aws.LogLevelType(uint(aws.LogDebugWithRequestErrors) + uint(aws.LogDebugWithHTTPBody))
@@ -107,6 +123,10 @@ func jsonInvoke(cli *client.Client, apiName, path string, params map[string]inte
 		KINESIS_SERVICE_NAME,
 		DYNAMODB_SERVICE_NAME,
 		PRICING_SERVICE_NAME,
+		ORG_SERVICE_NAME,
+		CLOUD_TRAIL_SERVICE_NAME,
+		CE_SERVICE_NAME,
+		WAF_SERVICE_NAME,
 	}) {
 		method = "POST"
 	}
