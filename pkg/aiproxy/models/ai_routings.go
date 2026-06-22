@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -40,6 +41,13 @@ type SAiRouting struct {
 	ModelPattern string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	// AiProxyNodeId optionally binds the rule to one aiproxy instance (ai_proxy_node id).
 	AiProxyNodeId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+
+	// Router fields optionally call an external model router before selecting an ai_routing_model.
+	RouterEnabled        bool   `default:"false" nullable:"false" list:"user" create:"optional" update:"user"`
+	RouterUrl            string `width:"512" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	RouterRoutePath      string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	RouterTimeoutSeconds int    `default:"0" nullable:"false" list:"user" create:"optional" update:"user"`
+	RouterFallbackPolicy string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 type SAiRoutingManager struct {
@@ -77,6 +85,9 @@ func (manager *SAiRoutingManager) ListItemFilter(
 	if v := strings.TrimSpace(query.AiProxyNodeId); v != "" {
 		q = q.Equals("ai_proxy_node_id", v)
 	}
+	if query.RouterEnabled != nil {
+		q = q.Equals("router_enabled", *query.RouterEnabled)
+	}
 	q, err = manager.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
@@ -96,8 +107,18 @@ func (manager *SAiRoutingManager) FetchCustomizeColumns(
 	sharableRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	routingIds := make([]string, len(objs))
 	for i := range objs {
+		routing := objs[i].(*SAiRouting)
 		rows[i].SharableVirtualResourceDetails = sharableRows[i]
-		routingIds[i] = objs[i].(*SAiRouting).Id
+		rows[i].Priority = routing.Priority
+		rows[i].ModelPattern = routing.ModelPattern
+		rows[i].AiProxyNodeId = routing.AiProxyNodeId
+		rows[i].RouterEnabled = routing.RouterEnabled
+		rows[i].RouterUrl = routing.RouterUrl
+		rows[i].RouterRoutePath = routing.RouterRoutePath
+		rows[i].RouterTimeoutSeconds = routing.RouterTimeoutSeconds
+		rows[i].RouterFallbackPolicy = routing.RouterFallbackPolicy
+		rows[i].Enabled = routing.GetEnabled()
+		routingIds[i] = routing.Id
 	}
 	if fields == nil || fields.Contains("routing_models") {
 		for i, rid := range routingIds {
@@ -132,6 +153,80 @@ func (routing *SAiRouting) PerformEnable(ctx context.Context, userCred mcclient.
 	return nil, nil
 }
 
+func normalizeAiRoutingRouterFallbackPolicy(policy string) (string, error) {
+	policy = strings.ToLower(strings.TrimSpace(policy))
+	switch policy {
+	case "":
+		return api.AiRoutingRouterFallbackPriority, nil
+	case api.AiRoutingRouterFallbackPriority, api.AiRoutingRouterFallbackFailClosed:
+		return policy, nil
+	default:
+		return "", errors.Wrapf(httperrors.ErrInputParameter, "unsupported router_fallback_policy %q", policy)
+	}
+}
+
+func normalizeAiRoutingRouterRoutePath(routePath string) string {
+	routePath = strings.TrimSpace(routePath)
+	if routePath == "" {
+		return api.AiRoutingRouterDefaultRoutePath
+	}
+	if !strings.HasPrefix(routePath, "/") {
+		return "/" + routePath
+	}
+	return routePath
+}
+
+func normalizeAiRoutingRouterTimeoutSeconds(timeout int) int {
+	if timeout <= 0 {
+		return api.AiRoutingRouterDefaultTimeoutSeconds
+	}
+	return timeout
+}
+
+func normalizeAiRoutingRouterCreate(input *api.AiRoutingCreateInput) error {
+	input.RouterUrl = strings.TrimSpace(input.RouterUrl)
+	input.RouterRoutePath = normalizeAiRoutingRouterRoutePath(input.RouterRoutePath)
+	input.RouterTimeoutSeconds = normalizeAiRoutingRouterTimeoutSeconds(input.RouterTimeoutSeconds)
+	policy, err := normalizeAiRoutingRouterFallbackPolicy(input.RouterFallbackPolicy)
+	if err != nil {
+		return err
+	}
+	input.RouterFallbackPolicy = policy
+	if input.RouterEnabled && input.RouterUrl == "" {
+		return errors.Wrap(httperrors.ErrInputParameter, "router_url is required when router_enabled is true")
+	}
+	return nil
+}
+
+func normalizeAiRoutingRouterUpdate(routing *SAiRouting, query jsonutils.JSONObject, input *api.AiRoutingUpdateInput) error {
+	effectiveEnabled := routing.RouterEnabled
+	if input.RouterEnabled != nil {
+		effectiveEnabled = *input.RouterEnabled
+	}
+	effectiveUrl := strings.TrimSpace(routing.RouterUrl)
+	if query.Contains("router_url") {
+		input.RouterUrl = strings.TrimSpace(input.RouterUrl)
+		effectiveUrl = input.RouterUrl
+	}
+	if query.Contains("router_route_path") {
+		input.RouterRoutePath = normalizeAiRoutingRouterRoutePath(input.RouterRoutePath)
+	}
+	if query.Contains("router_timeout_seconds") {
+		input.RouterTimeoutSeconds = normalizeAiRoutingRouterTimeoutSeconds(input.RouterTimeoutSeconds)
+	}
+	if query.Contains("router_fallback_policy") {
+		policy, err := normalizeAiRoutingRouterFallbackPolicy(input.RouterFallbackPolicy)
+		if err != nil {
+			return err
+		}
+		input.RouterFallbackPolicy = policy
+	}
+	if effectiveEnabled && effectiveUrl == "" {
+		return errors.Wrap(httperrors.ErrInputParameter, "router_url is required when router_enabled is true")
+	}
+	return nil
+}
+
 func (routing *SAiRouting) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
 	if err := db.EnabledPerformEnable(routing, ctx, userCred, false); err != nil {
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
@@ -158,6 +253,9 @@ func (routing *SAiRouting) ValidateUpdateData(
 	} else if query.Contains("ai_proxy_node_id") {
 		input.AiProxyNodeId = ""
 	}
+	if err := normalizeAiRoutingRouterUpdate(routing, query, input); err != nil {
+		return input, err
+	}
 	return input, nil
 }
 
@@ -182,6 +280,9 @@ func (manager *SAiRoutingManager) ValidateCreateData(
 
 	input.AiProxyNodeId, err = validateAiProxyNodeId(ctx, userCred, input.AiProxyNodeId)
 	if err != nil {
+		return input, err
+	}
+	if err := normalizeAiRoutingRouterCreate(&input); err != nil {
 		return input, err
 	}
 

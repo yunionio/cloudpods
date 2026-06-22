@@ -986,6 +986,10 @@ func (llm *SLLM) GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.Toke
 	return llm.GetLLMContainerDriver().GetLLMAccessUrlInfo(ctx, userCred, llm, input)
 }
 
+func (llm *SLLM) GetDetailsUrl(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*api.LLMAccessUrlInfo, error) {
+	return llm.GetLLMAccessUrlInfo(ctx, userCred, query)
+}
+
 func GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, input *LLMAccessInfoInput, protocol string, defaultPort int) (*api.LLMAccessUrlInfo, error) {
 	port := defaultPort
 	accessUrl := input.ServerIp

@@ -30,6 +30,7 @@ type LLMSpec struct {
 	ComfyUI     *LLMSpecComfyUI     `json:"comfyui,omitempty"`
 	OpenClaw    *LLMSpecOpenClaw    `json:"openclaw,omitempty"`
 	HermesAgent *LLMSpecHermesAgent `json:"hermes_agent,omitempty"`
+	LLMRouter   *LLMSpecLLMRouter   `json:"llm_router,omitempty"`
 }
 
 func (s *LLMSpec) String() string {
@@ -40,7 +41,7 @@ func (s *LLMSpec) IsZero() bool {
 	if s == nil {
 		return true
 	}
-	return s.Ollama == nil && s.Vllm == nil && s.SGLang == nil && s.Dify == nil && s.ComfyUI == nil && s.OpenClaw == nil && s.HermesAgent == nil
+	return s.Ollama == nil && s.Vllm == nil && s.SGLang == nil && s.Dify == nil && s.ComfyUI == nil && s.OpenClaw == nil && s.HermesAgent == nil && s.LLMRouter == nil
 }
 
 // LLMSpecOllama holds type-specific fields for ollama SKUs.
@@ -193,6 +194,43 @@ func (s *LLMSpecHermesAgent) IsZero() bool {
 		return true
 	}
 	return s.LLMId == "" && s.LLMUrl == "" && s.Model == "" && s.ApiKey == "" && s.ContextLength == 0
+}
+
+type LLMRouterEnv struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type LLMRouterArg struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type LLMSpecLLMRouter struct {
+	Runtime              string                 `json:"runtime"`
+	RouterMethod         string                 `json:"router_method"`
+	ConfigPath           string                 `json:"config_path,omitempty"`
+	ModelDir             string                 `json:"model_dir,omitempty"`
+	RoutePath            string                 `json:"route_path,omitempty"`
+	HealthPath           string                 `json:"health_path,omitempty"`
+	CandidateMappingPath string                 `json:"candidate_mapping_path,omitempty"`
+	CustomizedEnvs       []*LLMRouterEnv        `json:"customized_envs,omitempty"`
+	CustomizedArgs       []*LLMRouterArg        `json:"customized_args,omitempty"`
+	Extra                map[string]interface{} `json:"extra,omitempty"`
+}
+
+func (s *LLMSpecLLMRouter) String() string {
+	return jsonutils.Marshal(s).String()
+}
+
+func (s *LLMSpecLLMRouter) IsZero() bool {
+	if s == nil {
+		return true
+	}
+	return s.Runtime == "" && s.RouterMethod == "" && s.ConfigPath == "" &&
+		s.ModelDir == "" && s.RoutePath == "" && s.HealthPath == "" &&
+		s.CandidateMappingPath == "" && len(s.CustomizedEnvs) == 0 &&
+		len(s.CustomizedArgs) == 0 && len(s.Extra) == 0
 }
 
 func init() {
