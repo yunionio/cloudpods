@@ -62,6 +62,13 @@ func validateAiProxyNodeId(ctx context.Context, userCred mcclient.TokenCredentia
 	return node.Id, nil
 }
 
+func resolveAiProxyNodeIdForCreate(ctx context.Context, userCred mcclient.TokenCredential, idOrName string) (string, error) {
+	if strings.TrimSpace(idOrName) == "" {
+		idOrName = defaultPrimaryAiProxyNodeId
+	}
+	return validateAiProxyNodeId(ctx, userCred, idOrName)
+}
+
 func proxyNodeScopeMatches(routingNodeId, currentNodeId string) bool {
 	routingNodeId = strings.TrimSpace(routingNodeId)
 	if routingNodeId == "" {

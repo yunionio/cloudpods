@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/llm"
@@ -115,6 +116,16 @@ func (task *LLMDeleteTask) OnLLMContainerDeleteComplete(ctx context.Context, llm
 
 	// Capture LLMDeploymentId before deletion for self-healing reconcile
 	llmDeploymentId := llm.LLMDeploymentId
+	if len(llmDeploymentId) > 0 {
+		if depObj, err := models.GetLLMDeploymentManager().FetchById(llmDeploymentId); err == nil {
+			dep := depObj.(*models.SLLMDeployment)
+			if dep.AutoRegisterAiproxy {
+				if err := models.UnsyncLlmInstance(ctx, task.UserCred, dep, llm.Id); err != nil {
+					log.Warningf("LLMDeleteTask: unsync aiproxy for llm %s: %v", llm.Id, err)
+				}
+			}
+		}
+	}
 
 	err = llm.RealDelete(ctx, task.UserCred)
 	if err != nil {
