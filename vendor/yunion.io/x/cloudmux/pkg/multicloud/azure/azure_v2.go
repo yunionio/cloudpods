@@ -22,13 +22,16 @@ import (
 )
 
 const (
-	ENV_NAME_CHINA  = "AzureChinaCloud"
-	ENV_NAME_GLOBAL = "AzurePublicCloud"
+	ENV_NAME_CHINA        = "AzureChinaCloud"
+	ENV_NAME_GLOBAL       = "AzurePublicCloud"
+	ENV_NAME_GERMAN       = "AzureGermanCloud"
+	ENV_NAME_US_GOVERNMENT = "AzureUSGovernmentCloud"
 
-	SERVICE_MANAGEMENT = "management"
-	SERVICE_GRAPH      = "graph"
-	SERVICE_AAD        = "aad"
-	SERVICE_STORAGE    = "storage"
+	SERVICE_MANAGEMENT    = "management"
+	SERVICE_GRAPH         = "graph"
+	SERVICE_AAD           = "aad"
+	SERVICE_STORAGE       = "storage"
+	SERVICE_LOGANALYTICS  = "loganalytics"
 )
 
 var azServices = map[string]map[string]string{
@@ -47,6 +50,11 @@ var azServices = map[string]map[string]string{
 	SERVICE_STORAGE: {
 		ENV_NAME_GLOBAL: "https://%s.blob.core.windows.net",
 		ENV_NAME_CHINA:  "https://%s.blob.core.chinacloudapi.cn",
+	},
+	SERVICE_LOGANALYTICS: {
+		ENV_NAME_GLOBAL:        "https://api.loganalytics.io",
+		ENV_NAME_CHINA:         "https://api.loganalytics.azure.cn",
+		ENV_NAME_US_GOVERNMENT: "https://api.loganalytics.us",
 	},
 }
 

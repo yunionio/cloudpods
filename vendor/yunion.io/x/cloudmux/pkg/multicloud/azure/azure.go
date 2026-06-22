@@ -37,9 +37,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/go-autorest/autorest"
-	azureenv "github.com/Azure/go-autorest/autorest/azure"
-	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
@@ -60,24 +57,10 @@ const (
 	AZURE_API_VERSION = "2016-02-01"
 )
 
-type TAzureResource string
-
-var (
-	DefaultResource      = TAzureResource("default")
-	LoganalyticsResource = TAzureResource("loganalytics")
-)
-
-type azureAuthClient struct {
-	client *autorest.Client
-	domain string
-}
-
 type SAzureClient struct {
 	*AzureClientConfig
 
-	clientCache map[TAzureResource]*azureAuthClient
-	lock        sync.Mutex
-	tokenLock   sync.Mutex
+	tokenLock  sync.Mutex
 	tokenMap    map[string]*Token
 	httpClient  *http.Client
 
@@ -135,7 +118,6 @@ func NewAzureClient(cfg *AzureClientConfig) (*SAzureClient, error) {
 	client := SAzureClient{
 		AzureClientConfig: cfg,
 		debug:             cfg.debug,
-		clientCache:       map[TAzureResource]*azureAuthClient{},
 		tokenMap:          map[string]*Token{},
 		ctx:               context.Background(),
 	}
@@ -154,76 +136,9 @@ func NewAzureClient(cfg *AzureClientConfig) (*SAzureClient, error) {
 	return &client, nil
 }
 
-func (self *SAzureClient) getClient(resource TAzureResource) (*azureAuthClient, error) {
-	self.lock.Lock()
-	defer self.lock.Unlock()
-	_client, ok := self.clientCache[resource]
-	if ok {
-		return _client, nil
-	}
-	ret := &azureAuthClient{}
-	client := autorest.NewClientWithUserAgent("Yunion API")
-	conf := auth.NewClientCredentialsConfig(self.clientId, self.clientSecret, self.tenantId)
-	env, err := azureenv.EnvironmentFromName(self.envName)
-	if err != nil {
-		return nil, errors.Wrapf(err, "azureenv.EnvironmentFromName(%s)", self.envName)
-	}
-
-	httpClient := self.cpcfg.AdaptiveTimeoutHttpClient()
-	transport, _ := httpClient.Transport.(*http.Transport)
-	httpClient.Transport = cloudprovider.GetCheckTransport(transport, func(req *http.Request) (func(resp *http.Response) error, error) {
-		if self.cpcfg.ReadOnly {
-			if req.Method == "GET" || (req.Method == "POST" && strings.HasSuffix(req.URL.Path, "oauth2/token")) {
-				return nil, nil
-			}
-			return nil, errors.Wrapf(cloudprovider.ErrAccountReadOnly, "%s %s", req.Method, req.URL.Path)
-		}
-		return nil, nil
-	})
-	client.Sender = httpClient
-
-	switch resource {
-	case LoganalyticsResource:
-		ret.domain = env.ResourceIdentifiers.OperationalInsights
-		conf.Resource = env.ResourceIdentifiers.OperationalInsights
-		if conf.Resource == "N/A" && self.envName == "AzureChinaCloud" {
-			ret.domain = "https://api.loganalytics.azure.cn"
-			conf.Resource = ret.domain
-		}
-	default:
-		ret.domain = env.ResourceManagerEndpoint
-		conf.Resource = env.ResourceManagerEndpoint
-	}
-	conf.AADEndpoint = env.ActiveDirectoryEndpoint
-	{
-		spt, err := conf.ServicePrincipalToken()
-		if err != nil {
-			return nil, errors.Wrapf(err, "ServicePrincipalToken")
-		}
-		spt.SetSender(httpClient)
-		client.Authorizer = autorest.NewBearerAuthorizer(spt)
-	}
-	if self.debug {
-		client.RequestInspector = LogRequest()
-	}
-	ret.client = &client
-	self.clientCache[resource] = ret
-	return ret, nil
-}
-
-func (self *SAzureClient) getDefaultClient() (*azureAuthClient, error) {
-	return self.getClient(DefaultResource)
-}
-
-func (self *SAzureClient) getLoganalyticsClient() (*azureAuthClient, error) {
-	return self.getClient(LoganalyticsResource)
-}
-
 func (self *SAzureClient) jsonRequest(method, path string, body jsonutils.JSONObject, params url.Values, showErrorMsg bool) (jsonutils.JSONObject, error) {
-	cli, err := self.getDefaultClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getDefaultClient")
-	}
+	domain := azServices[SERVICE_MANAGEMENT][self.envName]
+	var err error
 	defer func() {
 		if err != nil && showErrorMsg {
 			bj := ""
@@ -235,7 +150,7 @@ func (self *SAzureClient) jsonRequest(method, path string, body jsonutils.JSONOb
 	}()
 	var resp jsonutils.JSONObject
 	for i := 0; i < 2; i++ {
-		resp, err = jsonRequest(cli.client, method, cli.domain, path, body, params, self.debug)
+		resp, err = self.doJsonRequest(method, domain, path, body, params)
 		if err != nil {
 			if ae, ok := err.(*AzureResponseError); ok {
 				switch ae.AzureError.Code {
@@ -267,15 +182,15 @@ func (self *SAzureClient) jsonRequest(method, path string, body jsonutils.JSONOb
 }
 
 func (self *SAzureClient) ljsonRequest(method, path string, body jsonutils.JSONObject, params url.Values) (jsonutils.JSONObject, error) {
-	cli, err := self.getLoganalyticsClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getLoganalyticsClient")
+	domain := azServices[SERVICE_LOGANALYTICS][self.envName]
+	if len(domain) == 0 {
+		return nil, errors.Errorf("log analytics is not available in %s", self.envName)
 	}
 	if params == nil {
 		params = url.Values{}
 	}
 	params.Set("api-version", "2021-12-01-preview")
-	return jsonRequest(cli.client, method, cli.domain, path, body, params, self.debug)
+	return self.doJsonRequest(method, domain, path, body, params)
 }
 
 func (self *SAzureClient) put(path string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -666,12 +581,98 @@ func (self *SAzureClient) update(body jsonutils.JSONObject, retVal interface{}) 
 	return nil
 }
 
-func jsonRequest(client *autorest.Client, method, domain, baseUrl string, body jsonutils.JSONObject, params url.Values, debug bool) (jsonutils.JSONObject, error) {
-	result, err := _jsonRequest(client, method, domain, baseUrl, body, params, debug)
+func (self *SAzureClient) doJsonRequest(method, domain, path string, body jsonutils.JSONObject, params url.Values) (jsonutils.JSONObject, error) {
+	uri := fmt.Sprintf("%s/%s?%s", strings.TrimSuffix(domain, "/"), strings.TrimPrefix(path, "/"), params.Encode())
+	parsedUrl, err := url.Parse(strings.TrimSuffix(domain, "/"))
+	if err != nil {
+		return nil, errors.Wrapf(err, "url.Parse(%s)", domain)
+	}
+	token, err := self.auth(fmt.Sprintf("https://%s", parsedUrl.Host))
+	if err != nil {
+		return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "auth: %v", err)
+	}
+	req := httputils.NewJsonRequest(httputils.THttpMethod(method), uri, body)
+	header := http.Header{}
+	header.Set("Authorization", token)
+	req.SetHeader(header)
+	ae := AzureResponseError{}
+	cli := httputils.NewJsonClient(self)
+	respHeader, respBody, err := cli.Send(self.ctx, req, &ae, self.debug)
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	locationFunc := func(head http.Header) string {
+		for _, k := range []string{"Azure-Asyncoperation", "Location"} {
+			link := head.Get(k)
+			if len(link) > 0 {
+				return link
+			}
+		}
+		return ""
+	}
+	location := locationFunc(respHeader)
+	if len(location) > 0 && (respBody == nil || respBody.IsZero() || !respBody.Contains("id")) {
+		err = cloudprovider.Wait(time.Second*10, time.Minute*30, func() (bool, error) {
+			locationUrl, err := url.Parse(location)
+			if err != nil {
+				return false, errors.Wrapf(err, "url.Parse(%s)", location)
+			}
+			if len(locationUrl.Query().Get("api-version")) == 0 {
+				q, _ := url.ParseQuery(locationUrl.RawQuery)
+				q.Set("api-version", params.Get("api-version"))
+				locationUrl.RawQuery = q.Encode()
+			}
+			pollReq := httputils.NewJsonRequest(httputils.GET, locationUrl.String(), nil)
+			pollReq.SetHeader(header)
+			lae := AzureResponseError{}
+			_header, _body, _err := cli.Send(self.ctx, pollReq, &lae, self.debug)
+			if _err != nil {
+				if utils.IsInStringArray(lae.AzureError.Code, []string{"OSProvisioningTimedOut", "OSProvisioningClientError", "OSProvisioningInternalError"}) {
+					respBody = _body
+					return true, nil
+				}
+				return false, errors.Wrapf(_err, "cli.Send(%s)", location)
+			}
+			if retryAfter := _header.Get("Retry-After"); len(retryAfter) > 0 {
+				sleepTime, _ := strconv.Atoi(retryAfter)
+				time.Sleep(time.Second * time.Duration(sleepTime))
+				return false, nil
+			}
+			if _body != nil {
+				task := struct {
+					Status     string
+					Properties struct {
+						Output *jsonutils.JSONDict
+					}
+				}{}
+				_body.Unmarshal(&task)
+				if len(task.Status) == 0 {
+					respBody = _body
+					return true, nil
+				}
+				switch task.Status {
+				case "InProgress":
+					log.Debugf("process %s %s InProgress", method, path)
+					return false, nil
+				case "Succeeded":
+					log.Debugf("process %s %s Succeeded", method, path)
+					if task.Properties.Output != nil {
+						respBody = task.Properties.Output
+					}
+					return true, nil
+				case "Failed":
+					return false, fmt.Errorf("%s %s failed", method, path)
+				default:
+					return false, fmt.Errorf("Unknow status %s %s %s", task.Status, method, path)
+				}
+			}
+			return false, nil
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "time out for waiting %s %s", method, uri)
+		}
+	}
+	return respBody, nil
 }
 
 // {"odata.error":{"code":"Authorization_RequestDenied","message":{"lang":"en","value":"Insufficient privileges to complete the operation."},"requestId":"b776ba11-5cae-4fb9-b80d-29552e3caedd","date":"2020-10-29T09:05:23"}}
@@ -719,91 +720,6 @@ func (ae *AzureResponseError) ParseErrorFromJsonResponse(statusCode int, status 
 		return ae
 	}
 	return nil
-}
-
-func _jsonRequest(client *autorest.Client, method, domain, path string, body jsonutils.JSONObject, params url.Values, debug bool) (jsonutils.JSONObject, error) {
-	uri := fmt.Sprintf("%s/%s?%s", strings.TrimSuffix(domain, "/"), strings.TrimPrefix(path, "/"), params.Encode())
-	req := httputils.NewJsonRequest(httputils.THttpMethod(method), uri, body)
-	ae := AzureResponseError{}
-	cli := httputils.NewJsonClient(client)
-	header, body, err := cli.Send(context.TODO(), req, &ae, debug)
-	if err != nil {
-		if strings.Contains(err.Error(), "azure.BearerAuthorizer#WithAuthorization") {
-			return nil, errors.Wrapf(cloudprovider.ErrInvalidAccessKey, "%s", err.Error())
-		}
-		return nil, err
-	}
-	locationFunc := func(head http.Header) string {
-		for _, k := range []string{"Azure-Asyncoperation", "Location"} {
-			link := head.Get(k)
-			if len(link) > 0 {
-				return link
-			}
-		}
-		return ""
-	}
-	location := locationFunc(header)
-	if len(location) > 0 && (body == nil || body.IsZero() || !body.Contains("id")) {
-		err = cloudprovider.Wait(time.Second*10, time.Minute*30, func() (bool, error) {
-			locationUrl, err := url.Parse(location)
-			if err != nil {
-				return false, errors.Wrapf(err, "url.Parse(%s)", location)
-			}
-			if len(locationUrl.Query().Get("api-version")) == 0 {
-				q, _ := url.ParseQuery(locationUrl.RawQuery)
-				q.Set("api-version", params.Get("api-version"))
-				locationUrl.RawQuery = q.Encode()
-			}
-			req := httputils.NewJsonRequest(httputils.GET, locationUrl.String(), nil)
-			lae := AzureResponseError{}
-			_header, _body, _err := cli.Send(context.TODO(), req, &lae, debug)
-			if _err != nil {
-				if utils.IsInStringArray(lae.AzureError.Code, []string{"OSProvisioningTimedOut", "OSProvisioningClientError", "OSProvisioningInternalError"}) {
-					body = _body
-					return true, nil
-				}
-				return false, errors.Wrapf(_err, "cli.Send(%s)", location)
-			}
-			if retryAfter := _header.Get("Retry-After"); len(retryAfter) > 0 {
-				sleepTime, _ := strconv.Atoi(retryAfter)
-				time.Sleep(time.Second * time.Duration(sleepTime))
-				return false, nil
-			}
-			if _body != nil {
-				task := struct {
-					Status     string
-					Properties struct {
-						Output *jsonutils.JSONDict
-					}
-				}{}
-				_body.Unmarshal(&task)
-				if len(task.Status) == 0 {
-					body = _body
-					return true, nil
-				}
-				switch task.Status {
-				case "InProgress":
-					log.Debugf("process %s %s InProgress", method, path)
-					return false, nil
-				case "Succeeded":
-					log.Debugf("process %s %s Succeeded", method, path)
-					if task.Properties.Output != nil {
-						body = task.Properties.Output
-					}
-					return true, nil
-				case "Failed":
-					return false, fmt.Errorf("%s %s failed", method, path)
-				default:
-					return false, fmt.Errorf("Unknow status %s %s %s", task.Status, method, path)
-				}
-			}
-			return false, nil
-		})
-		if err != nil {
-			return nil, errors.Wrapf(err, "time out for waiting %s %s", method, uri)
-		}
-	}
-	return body, nil
 }
 
 func (self *SAzureClient) ListRegions() ([]SRegion, error) {
@@ -974,15 +890,14 @@ func (self *SAzureClient) GetStorageClasses(regionExtId string) ([]string, error
 }
 
 func (self *SAzureClient) GetAccessEnv() string {
-	env, _ := azureenv.EnvironmentFromName(self.envName)
-	switch env.Name {
-	case azureenv.PublicCloud.Name:
+	switch self.envName {
+	case ENV_NAME_GLOBAL:
 		return api.CLOUD_ACCESS_ENV_AZURE_GLOBAL
-	case azureenv.ChinaCloud.Name:
+	case ENV_NAME_CHINA:
 		return api.CLOUD_ACCESS_ENV_AZURE_CHINA
-	case azureenv.GermanCloud.Name:
+	case ENV_NAME_GERMAN:
 		return api.CLOUD_ACCESS_ENV_AZURE_GERMAN
-	case azureenv.USGovernmentCloud.Name:
+	case ENV_NAME_US_GOVERNMENT:
 		return api.CLOUD_ACCESS_ENV_AZURE_US_GOVERNMENT
 	default:
 		return api.CLOUD_ACCESS_ENV_AZURE_CHINA

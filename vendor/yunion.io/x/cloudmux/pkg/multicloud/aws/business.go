@@ -15,14 +15,9 @@
 package aws
 
 import (
-	"context"
 	"sort"
 	"strconv"
 	"time"
-
-	aws2 "github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/costexplorer"
-	cetypes "github.com/aws/aws-sdk-go-v2/service/costexplorer/types"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/pkg/errors"
@@ -43,6 +38,20 @@ type SMonthBillServiceFee struct {
 	Service string `json:"service"`
 	Amount  string `json:"amount"`
 	Unit    string `json:"unit"`
+}
+
+type sMetricValue struct {
+	Amount string
+	Unit   string
+}
+
+type sCostGroup struct {
+	Keys    []string
+	Metrics map[string]sMetricValue
+}
+
+type sResultByTime struct {
+	Groups []sCostGroup
 }
 
 func getMonthDateRange(month string) (string, string, error) {
@@ -67,26 +76,24 @@ func (self *SAwsClient) GetMonthBill(month string) (*SMonthBill, error) {
 		return nil, err
 	}
 
-	cfg, err := self.getConfig(context.Background(), self.getCostExplorerRegion(), true)
-	if err != nil {
-		return nil, errors.Wrap(err, "getConfig")
-	}
-
-	ceCli := costexplorer.NewFromConfig(cfg)
-	resp, err := ceCli.GetCostAndUsage(context.Background(), &costexplorer.GetCostAndUsageInput{
-		TimePeriod: &cetypes.DateInterval{
-			Start: aws2.String(startDate),
-			End:   aws2.String(endDate),
+	params := map[string]interface{}{
+		"TimePeriod": map[string]string{
+			"Start": startDate,
+			"End":   endDate,
 		},
-		Granularity: cetypes.GranularityMonthly,
-		Metrics:     []string{"UnblendedCost"},
-		GroupBy: []cetypes.GroupDefinition{
+		"Granularity": "MONTHLY",
+		"Metrics":     []string{"UnblendedCost"},
+		"GroupBy": []map[string]string{
 			{
-				Type: cetypes.GroupDefinitionTypeDimension,
-				Key:  aws2.String("SERVICE"),
+				"Type": "DIMENSION",
+				"Key":  "SERVICE",
 			},
 		},
-	})
+	}
+	resp := struct {
+		ResultsByTime []sResultByTime
+	}{}
+	err = self.ceRequest("GetCostAndUsage", params, &resp)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetCostAndUsage")
 	}
@@ -96,7 +103,7 @@ func (self *SAwsClient) GetMonthBill(month string) (*SMonthBill, error) {
 		StartDate:   startDate,
 		EndDate:     endDate,
 		Metric:      "UnblendedCost",
-		Granularity: string(cetypes.GranularityMonthly),
+		Granularity: "MONTHLY",
 		Services:    make([]SMonthBillServiceFee, 0),
 	}
 
@@ -111,9 +118,9 @@ func (self *SAwsClient) GetMonthBill(month string) (*SMonthBill, error) {
 				continue
 			}
 			if len(ret.Currency) == 0 {
-				ret.Currency = aws2.ToString(metric.Unit)
+				ret.Currency = metric.Unit
 			}
-			amount := aws2.ToString(metric.Amount)
+			amount := metric.Amount
 			if len(amount) > 0 {
 				if val, parseErr := strconv.ParseFloat(amount, 64); parseErr == nil {
 					total += val
@@ -122,7 +129,7 @@ func (self *SAwsClient) GetMonthBill(month string) (*SMonthBill, error) {
 			ret.Services = append(ret.Services, SMonthBillServiceFee{
 				Service: group.Keys[0],
 				Amount:  amount,
-				Unit:    aws2.ToString(metric.Unit),
+				Unit:    metric.Unit,
 			})
 		}
 	}
