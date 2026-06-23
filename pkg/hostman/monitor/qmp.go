@@ -637,16 +637,20 @@ func (m *QmpMonitor) Migrate(
 		cb = func(res *Response) {
 			callback(m.actionResult(res))
 		}
+		args = map[string]interface{}{
+			"uri": destStr,
+		}
 		cmd = &Command{
 			Execute: "migrate",
-			Args: map[string]interface{}{
-				"uri": destStr,
-				"blk": copyFull,
-				"inc": copyIncremental,
-			},
 		}
 	)
-
+	if copyFull {
+		args["blk"] = copyFull
+	}
+	if copyIncremental {
+		args["inc"] = copyIncremental
+	}
+	cmd.Args = args
 	m.Query(cmd, cb)
 }
 

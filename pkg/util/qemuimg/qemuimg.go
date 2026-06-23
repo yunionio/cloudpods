@@ -880,7 +880,11 @@ func (img *SQemuImage) Rebase(backPath string, force bool) error {
 	if force {
 		args = append(args, "-u")
 	}
-	args = append(args, "-b", backPath)
+	backImg, err := NewQemuImage(backPath)
+	if err != nil {
+		return errors.Wrapf(err, "failed parse backpath %s", backPath)
+	}
+	args = append(args, "-b", backPath, "-F", backImg.Format.String())
 	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
 	if runtime.GOOS == "darwin" {
 		args = args[2:]
