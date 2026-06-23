@@ -218,9 +218,14 @@ func completionsStreamWithKeyFailover(
 		if compProv.OpenAICompletionsStreamPassthrough() {
 			ch, uerr = upstream.ChatCompletionStream(reqCtx, upReq)
 		} else {
+			cancel()
 			return nil, &upstream.Error{StatusCode: http.StatusBadRequest, Message: "streaming completions not supported for provider"}
 		}
-		cancel()
+		if uerr != nil {
+			cancel()
+		} else {
+			ch = streamChunksWithCancel(ch, cancel)
+		}
 		if uerr == nil {
 			return ch, nil
 		}
