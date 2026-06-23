@@ -678,11 +678,7 @@ func generateTpmDevOptions(tpm *desc.SGuestTpm) []string {
 func getMigrateOptions(drvOpt QemuOptions, input *GenerateStartOptionsInput) []string {
 	opts := make([]string, 0)
 	if input.NeedMigrate {
-		if input.LiveMigrateUseTLS {
-			opts = append(opts, "-incoming defer")
-		} else {
-			opts = append(opts, fmt.Sprintf("-incoming tcp:[::]:%d", input.LiveMigratePort))
-		}
+		opts = append(opts, "-incoming defer")
 	} else if input.GuestDesc.IsSlave {
 		opts = append(opts, fmt.Sprintf("-incoming tcp:[::]:%d", input.LiveMigratePort))
 	}
