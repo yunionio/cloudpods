@@ -162,9 +162,9 @@ func (task *LLMCreateTask) OnLLMRefreshStatusComplete(ctx context.Context, llm *
 			task.taskFailed(ctx, llm, errors.Wrap(err, "WaitServerStatus VM_RUNNING"))
 			return
 		}
-		_, err = llm.WaitContainerStatus(ctx, task.GetUserCred(), []string{computeapi.CONTAINER_STATUS_RUNNING}, 120)
+		_, err = llm.WaitServiceReady(ctx, task.GetUserCred(), 0)
 		if err != nil {
-			task.taskFailed(ctx, llm, errors.Wrap(err, "WaitContainerStatus"))
+			task.taskFailed(ctx, llm, errors.Wrap(err, "WaitServiceReady"))
 			return
 		}
 		err = llm.GetLLMContainerDriver().StartLLM(ctx, task.GetUserCred(), llm)

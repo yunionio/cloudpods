@@ -78,6 +78,7 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 			ImageCredentialId: image.CredentialId,
 			EnableLxcfs:       true,
 			AlwaysRestart:     true,
+			StartupProbe:      newLLMHTTPStartupProbe(api.LLM_OLLAMA_DEFAULT_PORT, "/api/tags"),
 		},
 	}
 

@@ -12,19 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package container
-
-import (
-	"time"
-)
-
-// CommandRunner interface allows to run command in a container.
-type CommandRunner interface {
-	// RunInContainer synchronously executes the command in the container, and returns the output.
-	RunInContainer(podId string, containerId string, cmd []string, timeout time.Duration) ([]byte, error)
-}
-
-type PodNetNSRunner interface {
-	// RunInPodNetNS synchronously executes run in the pod network namespace.
-	RunInPodNetNS(podId string, run func() error) error
-}
+// Package http contains HTTP probe helpers.
+package http

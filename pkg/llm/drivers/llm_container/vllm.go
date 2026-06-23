@@ -431,7 +431,8 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	if sku != nil {
 		backendParameters = sku.BackendParameters
 	}
-	startScript := buildVLLMEntrypointScript(len(postOverlays) > 0, tensorParallelSize, backendParameters, effSpec)
+	hasMountedModels := len(postOverlays) > 0
+	startScript := buildVLLMEntrypointScript(hasMountedModels, tensorParallelSize, backendParameters, effSpec)
 	envs := []*commonapi.ContainerKeyValue{
 		{
 			Key:   "HUGGING_FACE_HUB_CACHE",
@@ -462,6 +463,9 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 			AlwaysRestart:     true,
 			Envs:              envs,
 		},
+	}
+	if hasMountedModels {
+		spec.StartupProbe = newLLMHTTPStartupProbe(api.LLM_VLLM_DEFAULT_PORT, "/v1/models")
 	}
 
 	// GPU Devices

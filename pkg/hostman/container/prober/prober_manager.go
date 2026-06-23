@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/pkg/util/wait"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/container/prober/results"
 	"yunion.io/x/onecloud/pkg/hostman/container/status"
@@ -87,6 +88,8 @@ type Manager interface {
 	Start()
 
 	SetDirtyContainer(ctrId string, reason string)
+
+	GetContainerStartupStatus(ctrId string) (string, bool)
 }
 
 type manager struct {
@@ -138,11 +141,33 @@ func (m *manager) cleanDirtyContainer(ctrId string) {
 	m.dirtyContainers.Delete(ctrId)
 }
 
+func (m *manager) GetContainerStartupStatus(ctrId string) (string, bool) {
+	if _, ok := m.dirtyContainers.Load(ctrId); ok {
+		return computeapi.CONTAINER_STATUS_PROBING, true
+	}
+	result, ok := m.startupManager.Get(ctrId)
+	if !ok {
+		return "", false
+	}
+	switch result.Result {
+	case results.Success:
+		return computeapi.CONTAINER_STATUS_RUNNING, true
+	case results.Failure:
+		if result.IsNetFailedError() {
+			return computeapi.CONTAINER_STATUS_NET_FAILED, true
+		}
+		return computeapi.CONTAINER_STATUS_PROBE_FAILED, true
+	default:
+		return computeapi.CONTAINER_STATUS_PROBING, true
+	}
+}
+
 // Start syncing probe status. This should only be called once.
 func (m *manager) Start() {
 	// start syncing readiness.
 	//go wait.Forever(m.updateReadiness, 0)
 	// start syncing startup.
+	log.Infof("[startup-probe-trace] manager start")
 	go wait.Forever(m.updateStartup, 0)
 }
 
@@ -151,14 +176,17 @@ func (m *manager) AddPod(pod IPod) {
 	defer m.workerLock.Unlock()
 
 	key := probeKey{podUid: pod.GetId()}
-	for _, c := range pod.GetContainers() {
+	containers := pod.GetContainers()
+	log.Infof("[startup-probe-trace] AddPod pod=%s name=%s containers=%d", pod.GetId(), pod.GetName(), len(containers))
+	for _, c := range containers {
 		key.containerName = c.Name
 		if c.Spec.StartupProbe != nil {
 			key.probeType = apis.ContainerProbeTypeStartup
 			if _, ok := m.workers[key]; ok {
-				log.Errorf("Startup probe already exists: %s:%s", pod.GetName(), c.Name)
-				return
+				log.Infof("[startup-probe-trace] startup worker exists pod=%s container=%s", pod.GetId(), c.Id)
+				continue
 			}
+			log.Infof("[startup-probe-trace] create startup worker pod=%s container=%s name=%s period=%d timeout=%d failure=%d success=%d", pod.GetId(), c.Id, c.Name, c.Spec.StartupProbe.PeriodSeconds, c.Spec.StartupProbe.TimeoutSeconds, c.Spec.StartupProbe.FailureThreshold, c.Spec.StartupProbe.SuccessThreshold)
 			w := newWorker(m, key.probeType, pod, c)
 			m.workers[key] = w
 			go w.run()
