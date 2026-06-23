@@ -51,6 +51,7 @@ func StartService() {
 		opts.ModelCatalogURL,
 		time.Duration(opts.LLMCatalogRefreshIntervalMinutes)*time.Minute,
 	)
+	startBackgroundWorkers(context.Background(), opts)
 
 	models.GetLLMImagesCatalogManager().Start(
 		context.Background(),

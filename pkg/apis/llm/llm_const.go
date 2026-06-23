@@ -13,6 +13,8 @@ const (
 
 	/* 启动失败 */
 	LLM_STATUS_START_FAIL = "start_fail"
+	/* 探测中 */
+	LLM_STATUS_PROBING = "probing"
 	/* 停机失败 */
 	LLM_STATUS_STOP_FAILED = "stop_fail"
 
