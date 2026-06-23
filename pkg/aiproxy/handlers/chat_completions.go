@@ -82,6 +82,19 @@ func flushIf(w http.ResponseWriter) {
 	}
 }
 
+// streamChunksWithCancel forwards chunks until ch closes, then releases reqCtx.
+func streamChunksWithCancel(ch <-chan upstream.StreamChunk, cancel context.CancelFunc) <-chan upstream.StreamChunk {
+	out := make(chan upstream.StreamChunk, 16)
+	go func() {
+		defer cancel()
+		defer close(out)
+		for chunk := range ch {
+			out <- chunk
+		}
+	}()
+	return out
+}
+
 // chatCompletionsHandler implements OpenAI-compatible POST /openai/v1/chat/completions.
 // Auth is the ai_virtual_key only (Authorization: Bearer <vk> or X-Ai-Virtual-Key).
 // Upstream is resolved: ai_virtual_key -> project ai_routing -> ai_routing_model -> ai_key (by catalog model_key).
@@ -287,7 +300,11 @@ func chatCompletionStreamWithKeyFailover(
 		}
 		reqCtx, cancel := context.WithTimeout(ctx, timeout)
 		ch, uerr := providerStreamChunks(reqCtx, up, upReq, prov)
-		cancel()
+		if uerr != nil {
+			cancel()
+		} else {
+			ch = streamChunksWithCancel(ch, cancel)
+		}
 		if uerr == nil {
 			return ch, nil
 		}
