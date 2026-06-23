@@ -863,6 +863,105 @@ func listItemDomainFilter(q *sqlchemy.SQuery, providers []string, domainId strin
 	return q
 }
 
+func serverSkuZoneAvailabilityCondition(q *sqlchemy.SQuery, zoneId, regionId string) sqlchemy.ICondition {
+	return sqlchemy.OR(
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("cloudregion_id"), regionId),
+			sqlchemy.IsNullOrEmpty(q.Field("zone_id")),
+		),
+		sqlchemy.Equals(q.Field("zone_id"), zoneId),
+	)
+}
+
+type skuZoneInfo struct {
+	zoneId   string
+	regionId string
+}
+
+func resolveServerSkuZoneInfos(ctx context.Context, userCred mcclient.TokenCredential, zoneList []string) ([]skuZoneInfo, error) {
+	infos := make([]skuZoneInfo, 0, len(zoneList))
+	seen := map[string]bool{}
+	regionIds := map[string]bool{}
+	for _, zoneStr := range zoneList {
+		if len(zoneStr) == 0 {
+			continue
+		}
+		zoneObj, err := validators.ValidateModel(ctx, userCred, ZoneManager, &zoneStr)
+		if err != nil {
+			return nil, err
+		}
+		zone := zoneObj.(*SZone)
+		if seen[zone.Id] {
+			continue
+		}
+		seen[zone.Id] = true
+		region, err := zone.GetRegion()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetRegion %s", zone.Name)
+		}
+		regionIds[region.Id] = true
+		infos = append(infos, skuZoneInfo{zoneId: zone.Id, regionId: region.Id})
+	}
+	if len(regionIds) > 1 {
+		return nil, httperrors.NewInputParameterError("zone_ids must be in the same cloudregion")
+	}
+	return infos, nil
+}
+
+// filterServerSkuByZones filters SKUs whose name is available in all requested zones
+// within the same cloudregion. A SKU name is considered available in a zone when there
+// is a row with zone_id matching the zone, or a region-level row with empty zone_id.
+func filterServerSkuByZones(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, zoneList []string) (*sqlchemy.SQuery, error) {
+	zoneInfos, err := resolveServerSkuZoneInfos(ctx, userCred, zoneList)
+	if err != nil {
+		return nil, err
+	}
+	if len(zoneInfos) == 0 {
+		return q, nil
+	}
+	regionId := zoneInfos[0].regionId
+	if len(zoneInfos) == 1 {
+		q = q.Filter(serverSkuZoneAvailabilityCondition(q, zoneInfos[0].zoneId, regionId))
+		return q, nil
+	}
+
+	zoneIds := make([]string, len(zoneInfos))
+	for i := range zoneInfos {
+		zoneIds[i] = zoneInfos[i].zoneId
+	}
+
+	matchQ := ServerSkuManager.Query("name", "provider", "cloudregion_id")
+	matchQ = matchQ.Filter(sqlchemy.Equals(matchQ.Field("cloudregion_id"), regionId))
+	matchQ = matchQ.Filter(serverSkuZoneAvailabilityCondition(matchQ, zoneInfos[0].zoneId, regionId))
+	matchQ = matchQ.Distinct()
+	for i := 1; i < len(zoneInfos); i++ {
+		subQ := ServerSkuManager.Query("name", "provider", "cloudregion_id")
+		subQ = subQ.Filter(sqlchemy.Equals(subQ.Field("cloudregion_id"), regionId))
+		subQ = subQ.Filter(serverSkuZoneAvailabilityCondition(subQ, zoneInfos[i].zoneId, regionId))
+		subQ = subQ.Distinct()
+		subSQ := subQ.SubQuery()
+		matchQ = matchQ.Join(subSQ, sqlchemy.AND(
+			sqlchemy.Equals(matchQ.Field("name"), subSQ.Field("name")),
+			sqlchemy.Equals(matchQ.Field("provider"), subSQ.Field("provider")),
+			sqlchemy.Equals(matchQ.Field("cloudregion_id"), subSQ.Field("cloudregion_id")),
+		))
+	}
+	matchSubQ := matchQ.SubQuery()
+	q = q.Join(matchSubQ, sqlchemy.AND(
+		sqlchemy.Equals(q.Field("name"), matchSubQ.Field("name")),
+		sqlchemy.Equals(q.Field("provider"), matchSubQ.Field("provider")),
+		sqlchemy.Equals(q.Field("cloudregion_id"), matchSubQ.Field("cloudregion_id")),
+	))
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.In(q.Field("zone_id"), zoneIds),
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("cloudregion_id"), regionId),
+			sqlchemy.IsNullOrEmpty(q.Field("zone_id")),
+		),
+	))
+	return q, nil
+}
+
 // 主机套餐规格列表
 func (manager *SServerSkuManager) ListItemFilter(
 	ctx context.Context,
@@ -969,22 +1068,12 @@ func (manager *SServerSkuManager) ListItemFilter(
 		q = q.IsTrue("enabled")
 	}
 
-	if len(query.ZoneIds) > 0 {
-		zones := ZoneManager.Query("id")
-		zones = zones.Filter(sqlchemy.OR(sqlchemy.In(zones.Field("id"), query.ZoneIds), sqlchemy.In(zones.Field("name"), query.ZoneIds)))
-
-		regionIds := ZoneManager.Query("cloudregion_id")
-		regionIds = regionIds.Filter(sqlchemy.OR(sqlchemy.In(regionIds.Field("id"), query.CloudregionId), sqlchemy.In(regionIds.Field("name"), query.CloudregionId))).Distinct()
-
-		q = q.Filter(
-			sqlchemy.OR(
-				sqlchemy.AND(
-					sqlchemy.In(q.Field("cloudregion_id"), regionIds.SubQuery()),
-					sqlchemy.IsNullOrEmpty(q.Field("zone_id")),
-				),
-				sqlchemy.In(q.Field("zone_id"), zones.SubQuery()),
-			),
-		)
+	if zoneList := query.ZoneList(); len(zoneList) > 0 {
+		var err error
+		q, err = filterServerSkuByZones(ctx, userCred, q, zoneList)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	q, err = managedResourceFilterByRegion(ctx, q, query.RegionalFilterListInput, "", nil)
