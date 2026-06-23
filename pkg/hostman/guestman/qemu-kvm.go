@@ -1288,7 +1288,6 @@ func (s *SKVMGuestInstance) onMonitorConnected(ctx context.Context) {
 }
 
 func (s *SKVMGuestInstance) setDestMigrateTLS(ctx context.Context, data *jsonutils.JSONDict) {
-	port, _ := data.Int("live_migrate_dest_port")
 	s.Monitor.ObjectAdd("tls-creds-x509", map[string]string{
 		"dir":         s.getPKIDirPath(),
 		"endpoint":    "server",
@@ -1304,15 +1303,20 @@ func (s *SKVMGuestInstance) setDestMigrateTLS(ctx context.Context, data *jsonuti
 				hostutils.TaskFailed(ctx, fmt.Sprintf("Migrate set tls-creds tls0 error: %s", res))
 				return
 			}
-			address := fmt.Sprintf("tcp:0:%d", port)
-			s.Monitor.MigrateIncoming(address, func(res string) {
-				if strings.Contains(strings.ToLower(res), "error") {
-					hostutils.TaskFailed(ctx, fmt.Sprintf("Migrate set incoming %q error: %s", address, res))
-					return
-				}
-				hostutils.TaskComplete(ctx, data)
-			})
+			s.startMigrateIncoming(ctx, data)
 		})
+	})
+}
+
+func (s *SKVMGuestInstance) startMigrateIncoming(ctx context.Context, data *jsonutils.JSONDict) {
+	port, _ := data.Int("live_migrate_dest_port")
+	address := fmt.Sprintf("tcp:0:%d", port)
+	s.Monitor.MigrateIncoming(address, func(res string) {
+		if strings.Contains(strings.ToLower(res), "error") {
+			hostutils.TaskFailed(ctx, fmt.Sprintf("Migrate set incoming %q error: %s", address, res))
+			return
+		}
+		hostutils.TaskComplete(ctx, data)
 	})
 }
 
@@ -1618,7 +1622,7 @@ func (s *SKVMGuestInstance) guestRun(ctx context.Context) {
 			return
 		}
 
-		if s.hasVirtioBlkDriver() {
+		if version.GT(s.QemuVersion, "4.0.2") || s.hasVirtioBlkDriver() {
 			// virtio driver bind iothread, need migrate use driver mirror
 			nbdServerPort := s.manager.GetNBDServerFreePort()
 			defer s.manager.unsetPort(nbdServerPort)
@@ -1635,7 +1639,7 @@ func (s *SKVMGuestInstance) guestRun(ctx context.Context) {
 		if s.LiveMigrateUseTls {
 			s.setDestMigrateTLS(ctx, body)
 		} else {
-			hostutils.TaskComplete(ctx, body)
+			s.startMigrateIncoming(ctx, body)
 		}
 	} else if s.IsSlave() {
 		s.startQemuBuiltInNbdServer(ctx)
