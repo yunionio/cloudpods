@@ -171,7 +171,7 @@ func BuildDeploymentResolvedGpuMemoryLLMSpec(ctx context.Context, userCred mccli
 func maxMountedModelSizeMB(sku *SLLMSku) (int64, error) {
 	modelIds := sku.GetMountedModels()
 	if len(modelIds) == 0 {
-		return 0, errors.Wrap(httperrors.ErrInputParameter, "auto_gpu_memory_utilization requires mounted_models")
+		return 0, httperrors.NewInputParameterError("auto_gpu_memory_utilization requires mounted models: configure mounted_models on the LLM SKU")
 	}
 	var maxSize int64
 	for _, modelId := range modelIds {
@@ -192,7 +192,7 @@ func maxMountedModelSizeMB(sku *SLLMSku) (int64, error) {
 
 func minGpuMemoryMB(ctx context.Context, userCred mcclient.TokenCredential, devices *api.Devices) (int64, error) {
 	if devices == nil || len(*devices) == 0 {
-		return 0, errors.Wrap(httperrors.ErrInputParameter, "auto_gpu_memory_utilization requires devices")
+		return 0, httperrors.NewInputParameterError("auto_gpu_memory_utilization requires GPU devices: configure GPU on the LLM SKU")
 	}
 	var minMemory int64
 	for i := range *devices {

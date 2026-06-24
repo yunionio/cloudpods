@@ -185,6 +185,7 @@ y18n-lang     := en-US,zh-CN
 y18n-packages := \
 		yunion.io/x/onecloud/cmd/apigateway \
 		yunion.io/x/onecloud/cmd/keystone \
+		yunion.io/x/onecloud/cmd/llm \
 		yunion.io/x/onecloud/cmd/monitor \
 		yunion.io/x/onecloud/cmd/region \
 		yunion.io/x/onecloud/cmd/yunionconf \
