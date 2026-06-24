@@ -478,6 +478,10 @@ func (drv *SBaseGuestDriver) RequestChangeDiskStorage(ctx context.Context, userC
 	return cloudprovider.ErrNotImplemented
 }
 
+func (drv *SBaseGuestDriver) RequestResetUefiFirmwareVars(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
+	return nil
+}
+
 func (drv *SBaseGuestDriver) RequestSwitchToTargetStorageDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerChangeDiskStorageInternalInput, task taskman.ITask) error {
 	return cloudprovider.ErrNotImplemented
 }

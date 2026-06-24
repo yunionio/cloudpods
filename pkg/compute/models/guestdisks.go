@@ -65,7 +65,7 @@ type SGuestdisk struct {
 
 	ImagePath string `width:"256" charset:"ascii" nullable:"false" get:"user" create:"required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
-	Driver    string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"user"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
+	Driver    string `width:"32" charset:"ascii" nullable:"true" list:"user"`               // Column(VARCHAR(32, charset='ascii'), nullable=True)
 	CacheMode string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"user"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
 	AioMode   string `width:"32" charset:"ascii" nullable:"true" get:"user" update:"user"`  // Column(VARCHAR(32, charset='ascii'), nullable=True)
 	Iops      int    `nullable:"true" default:"0" list:"user" update:"user"`

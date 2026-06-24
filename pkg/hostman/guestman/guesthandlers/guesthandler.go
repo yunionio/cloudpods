@@ -115,6 +115,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			"start-rescue":             guestStartRescue,
 			"guest-screen-dump":        guestScreenDump,
 			"upload-status":            guestUploadStatus,
+			"reset-uefi-vars":          guestResetUefiVars,
 		} {
 			app.AddHandler("POST",
 				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
@@ -1025,6 +1026,11 @@ func qgaGetOsInfo(ctx context.Context, userCred mcclient.TokenCredential, sid st
 func guestScreenDump(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	gm := guestman.GetGuestManager()
 	return gm.RequestGuestScreenDump(sid)
+}
+
+func guestResetUefiVars(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	gm := guestman.GetGuestManager()
+	return gm.ResetGuestUefiVars(sid)
 }
 
 // prepare rescue files
