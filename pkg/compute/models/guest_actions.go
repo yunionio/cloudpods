@@ -5675,7 +5675,7 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 		}
 	}
 
-	if len(self.BackupHostId) > 0 {
+	if len(self.BackupHostId) > 0 || self.GetMetadata(ctx, api.QUORUM_CHILD_INDEX, userCred) != "" {
 		return nil, input, httperrors.NewBadRequestError("Can't do instance snapshot with backup guest")
 	}
 
