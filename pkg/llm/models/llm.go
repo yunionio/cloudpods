@@ -111,9 +111,39 @@ func ValidateRequireDevices(
 		effectiveDevices = sku.Devices
 	}
 	if devicesIsEmpty(effectiveDevices) {
-		return errors.Wrapf(httperrors.ErrInputParameter, "devices is required for %s: specify in request or set on sku", llmType)
+		return httperrors.NewInputParameterError("GPU devices are required for %s: set GPU in the request or configure GPU on the LLM SKU", llmType)
 	}
 	return nil
+}
+
+var llmContainerTypesRequireGPUDevices = map[api.LLMContainerType]struct{}{
+	api.LLM_CONTAINER_VLLM:    {},
+	api.LLM_CONTAINER_SGLANG:  {},
+	api.LLM_CONTAINER_OLLAMA:  {},
+	api.LLM_CONTAINER_COMFYUI: {},
+}
+
+// ValidateDeploymentDevices ensures the deployment SKU (existing or sku_spec) has GPU devices when required by llm_type.
+func ValidateDeploymentDevices(llmType string, sku *SLLMSku) error {
+	if sku == nil || llmType == "" {
+		return nil
+	}
+	if _, ok := llmContainerTypesRequireGPUDevices[api.LLMContainerType(llmType)]; !ok {
+		return nil
+	}
+	return ValidateRequireDevices(llmType, nil, nil, sku)
+}
+
+func skuFromLLMSkuCreateInput(input *api.LLMSkuCreateInput) *SLLMSku {
+	if input == nil {
+		return nil
+	}
+	return &SLLMSku{
+		LLMType: input.LLMType,
+		SLLMSkuBase: SLLMSkuBase{
+			Devices: input.Devices,
+		},
+	}
 }
 
 // ValidateRequireMountedModels errors if neither input nor existing llm nor sku supplies mounted_models. For create, pass nil/empty for llmCurMountedModels.
@@ -131,7 +161,7 @@ func ValidateRequireMountedModels(
 		effectiveModels = sku.GetMountedModels()
 	}
 	if len(effectiveModels) == 0 {
-		return errors.Wrapf(httperrors.ErrInputParameter, "mounted_models is required for %s: specify in request or set on sku", llmType)
+		return httperrors.NewInputParameterError("mounted models are required for %s: set mounted_models in the request or configure models on the LLM SKU", llmType)
 	}
 	return nil
 }
@@ -190,7 +220,7 @@ func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclien
 	drv := lSku.GetLLMContainerDriver()
 	input, err = drv.ValidateLLMCreateData(ctx, userCred, lSku, input)
 	if err != nil {
-		return input, errors.Wrap(err, "validate LLM create data")
+		return input, err
 	}
 
 	return input, nil
@@ -569,7 +599,7 @@ func (llm *SLLM) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 	drv := sku.GetLLMContainerDriver()
 	out, err := drv.ValidateLLMUpdateData(ctx, userCred, llm, sku, &input)
 	if err != nil {
-		return input, errors.Wrap(err, "validate LLM update data")
+		return input, err
 	}
 	if out != nil {
 		input = *out
