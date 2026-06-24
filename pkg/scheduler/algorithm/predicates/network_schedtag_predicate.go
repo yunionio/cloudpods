@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
@@ -29,20 +30,37 @@ import (
 
 type NetworkSchedtagPredicate struct {
 	*BaseSchedtagPredicate
+	*NetworkBasePredicate
 }
 
 func (p *NetworkSchedtagPredicate) Name() string {
 	return "network_schedtag"
 }
 
+func NewNetworkSchedtagPredicate() core.FitPredicate {
+	return &NetworkSchedtagPredicate{
+		BaseSchedtagPredicate: NewBaseSchedtagPredicate(),
+		NetworkBasePredicate:  NewNetworkBasePredicate(),
+	}
+}
+
 func (p *NetworkSchedtagPredicate) Clone() core.FitPredicate {
 	return &NetworkSchedtagPredicate{
 		BaseSchedtagPredicate: NewBaseSchedtagPredicate(),
+		NetworkBasePredicate:  p.NetworkBasePredicate.Clone(),
 	}
 }
 
 func (p *NetworkSchedtagPredicate) PreExecute(ctx context.Context, u *core.Unit, cs []core.Candidater) (bool, error) {
-	return p.BaseSchedtagPredicate.PreExecute(ctx, p, u, cs)
+	ok, err := p.BaseSchedtagPredicate.PreExecute(ctx, p, u, cs)
+	if err != nil {
+		return false, errors.Wrap(err, "schedtag predicate")
+	}
+	ok, err = p.NetworkBasePredicate.PreExecute(ctx, u, cs)
+	if err != nil {
+		return false, errors.Wrap(err, "network predicate")
+	}
+	return ok, nil
 }
 
 type netW struct {
@@ -99,7 +117,9 @@ func (p *NetworkSchedtagPredicate) IsResourceMatchInput(ctx context.Context, inp
 func (p *NetworkSchedtagPredicate) IsResourceFitInput(ctx context.Context, u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
 	network := res.(*api.CandidateNetwork)
 	net := input.(*netW)
-	return IsNetworkAvailable(ctx, c, u.SchedData(), net.NetworkConfig, network, p.GetNetworkTypes(net.NetType), nil)
+	return IsNetworkAvailable(ctx, c, u.SchedData(), net.NetworkConfig, network, p.GetNetworkTypes(net.NetType), func(id string) int {
+		return p.GetFreePort(id, c)
+	})
 }
 
 func (p *NetworkSchedtagPredicate) GetNetworkTypes(specifyType string) []string {
