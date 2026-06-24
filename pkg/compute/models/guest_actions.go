@@ -806,7 +806,10 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 	db.OpsLog.LogEvent(model, db.ACT_CREATE, model.GetShortDesc(ctx), userCred)
 	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CREATE, "", userCred, true)
 
-	pendingUsage, pendingRegionUsage := getGuestResourceRequirements(ctx, userCred, *createInput, userCred, 1, false)
+	pendingUsage, pendingRegionUsage, err := getGuestResourceRequirements(ctx, userCred, *createInput, userCred, 1, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "getGuestResourceRequirements")
+	}
 	task, err := taskman.TaskManager.NewTask(ctx,
 		"GuestCloneTask",
 		model.(db.IStandaloneModel),

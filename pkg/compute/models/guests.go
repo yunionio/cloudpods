@@ -1548,47 +1548,110 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 }
 
 func serverCreateInput2ComputeQuotaKeys(input api.ServerCreateInput, ownerId mcclient.IIdentityProvider) (SComputeResourceKeys, error) {
-	var keys SComputeResourceKeys
+	zone, provider, brand, err := resolveServerCreateQuotaScope(input)
+	if err != nil {
+		return SComputeResourceKeys{}, err
+	}
+
+	hypervisor := input.Hypervisor
+	if len(hypervisor) == 0 {
+		hypervisor = api.HYPERVISOR_KVM
+	}
+	providerStr := input.Provider
+	if len(providerStr) == 0 {
+		providerStr = brand
+	}
+
+	driver, err := GetDriver(hypervisor, providerStr)
+	if err != nil {
+		return SComputeResourceKeys{}, err
+	}
+	keys := driver.GetComputeQuotaKeys(rbacscope.ScopeProject, ownerId, brand)
+
+	if provider != nil {
+		account, _ := provider.GetCloudaccount()
+		if account != nil {
+			keys.Provider = account.Provider
+			keys.Brand = account.Brand
+			keys.CloudEnv = account.GetCloudEnv()
+			keys.AccountId = account.Id
+		}
+		keys.ManagerId = provider.Id
+	}
+	if zone != nil {
+		keys.ZoneId = zone.Id
+		keys.RegionId = zone.CloudregionId
+	} else if len(input.PreferRegion) > 0 {
+		keys.RegionId = input.PreferRegion
+	}
+
+	return keys, nil
+}
+
+func resolveServerCreateQuotaScope(input api.ServerCreateInput) (*SZone, *SCloudprovider, string, error) {
+	var zone *SZone
+	var provider *SCloudprovider
+	brand := ""
+
 	if len(input.PreferHost) > 0 {
 		hostObj, err := HostManager.FetchById(input.PreferHost)
 		if err != nil {
-			return keys, err
+			return nil, nil, "", err
 		}
 		host := hostObj.(*SHost)
-		input.PreferZone = host.ZoneId
-		keys.ZoneId = host.ZoneId
+		if len(host.ZoneId) > 0 {
+			zoneObj, err := ZoneManager.FetchById(host.ZoneId)
+			if err != nil {
+				return nil, nil, "", err
+			}
+			zone = zoneObj.(*SZone)
+		}
+		provider = host.GetCloudprovider()
 	}
-	if len(input.PreferWire) > 0 {
+	if zone == nil && len(input.PreferWire) > 0 {
 		wireObj, err := WireManager.FetchById(input.PreferWire)
 		if err != nil {
-			return keys, err
+			return nil, nil, "", err
 		}
 		wire := wireObj.(*SWire)
 		if len(wire.ZoneId) > 0 {
-			input.PreferZone = wire.ZoneId
-			keys.ZoneId = wire.ZoneId
+			zoneObj, err := ZoneManager.FetchById(wire.ZoneId)
+			if err != nil {
+				return nil, nil, "", err
+			}
+			zone = zoneObj.(*SZone)
 		}
 	}
-	if len(input.PreferZone) > 0 {
-		zoneObj, err := ZoneManager.FetchById(input.PreferZone)
+	preferZone := input.PreferZone
+	if zone == nil && len(preferZone) > 0 {
+		zoneObj, err := ZoneManager.FetchById(preferZone)
 		if err != nil {
-			return keys, err
+			return nil, nil, "", err
 		}
-		zone := zoneObj.(*SZone)
-		input.PreferRegion = zone.CloudregionId
-		keys.ZoneId = zone.Id
-		keys.RegionId = zone.CloudregionId
+		zone = zoneObj.(*SZone)
 	}
-	if len(input.PreferRegion) > 0 {
+	if provider == nil && len(input.PreferManager) > 0 {
+		managerObj, err := CloudproviderManager.FetchById(input.PreferManager)
+		if err != nil {
+			return nil, nil, "", err
+		}
+		provider = managerObj.(*SCloudprovider)
+	}
+	if zone != nil {
+		region, err := zone.GetRegion()
+		if err != nil {
+			return nil, nil, "", errors.Wrapf(err, "GetRegion")
+		}
+		brand = region.Provider
+	} else if len(input.PreferRegion) > 0 {
 		regionObj, err := CloudregionManager.FetchById(input.PreferRegion)
 		if err != nil {
-			return keys, err
+			return nil, nil, "", err
 		}
-		region := regionObj.(*SCloudregion)
-		keys.RegionId = region.GetId()
-		keys.Brand = region.Provider
+		brand = regionObj.(*SCloudregion).Provider
 	}
-	return keys, nil
+
+	return zone, provider, brand, nil
 }
 
 func (manager *SGuestManager) BatchPreValidate(
@@ -2638,11 +2701,14 @@ func (manager *SGuestManager) checkCreateQuota(
 	hasBackup bool,
 	count int,
 ) error {
-	req, regionReq := getGuestResourceRequirements(ctx, userCred, input, ownerId, count, hasBackup)
+	req, regionReq, err := getGuestResourceRequirements(ctx, userCred, input, ownerId, count, hasBackup)
+	if err != nil {
+		return errors.Wrap(err, "getGuestResourceRequirements")
+	}
 	log.Debugf("computeQuota: %s", jsonutils.Marshal(req))
 	log.Debugf("regionQuota: %s", jsonutils.Marshal(regionReq))
 
-	err := quotas.CheckSetPendingQuota(ctx, userCred, &req)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &req)
 	if err != nil {
 		return errors.Wrap(err, "quotas.CheckSetPendingQuota")
 	}
@@ -2684,7 +2750,7 @@ func getGuestResourceRequirements(
 	ownerId mcclient.IIdentityProvider,
 	count int,
 	hasBackup bool,
-) (SQuota, SRegionQuota) {
+) (SQuota, SRegionQuota, error) {
 	vcpuCount := input.VcpuCount
 	if vcpuCount == 0 {
 		vcpuCount = 1
@@ -2748,10 +2814,13 @@ func getGuestResourceRequirements(
 		//Ebw:   eBw * count,
 		Eip: eipCnt * count,
 	}
-	keys, _ := serverCreateInput2ComputeQuotaKeys(input, ownerId)
+	keys, err := serverCreateInput2ComputeQuotaKeys(input, ownerId)
+	if err != nil {
+		return SQuota{}, SRegionQuota{}, errors.Wrap(err, "serverCreateInput2ComputeQuotaKeys")
+	}
 	req.SetKeys(keys)
 	regionReq.SetKeys(keys.SRegionalCloudResourceKeys)
-	return req, regionReq
+	return req, regionReq, nil
 }
 
 func (guest *SGuest) getGuestBackupResourceRequirements(ctx context.Context, userCred mcclient.TokenCredential) SQuota {
@@ -2954,8 +3023,15 @@ func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.I
 	if len(input.InstanceSnapshotId) > 0 {
 		manager.SetPropertiesWithInstanceSnapshot(ctx, userCred, input.InstanceSnapshotId, items)
 	}
-	pendingUsage, pendingRegionUsage := getGuestResourceRequirements(ctx, userCred, input, ownerId, len(items), input.Backup)
-	err := RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, pendingRegionUsage, "GuestBatchCreateTask", input.ParentTaskId)
+	pendingUsage, pendingRegionUsage, err := getGuestResourceRequirements(ctx, userCred, input, ownerId, len(items), input.Backup)
+	if err != nil {
+		for i := range items {
+			guest := items[i].(*SGuest)
+			guest.SetStatus(ctx, userCred, api.VM_CREATE_FAILED, err.Error())
+		}
+		return
+	}
+	err = RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, pendingRegionUsage, "GuestBatchCreateTask", input.ParentTaskId)
 	if err != nil {
 		for i := range items {
 			guest := items[i].(*SGuest)

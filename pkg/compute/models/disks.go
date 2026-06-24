@@ -544,47 +544,7 @@ func (man *SDiskManager) BatchCreateValidateCreateData(ctx context.Context, user
 }
 
 func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclient.IIdentityProvider) (SComputeResourceKeys, error) {
-	var keys SComputeResourceKeys
-	if len(input.PreferHost) > 0 {
-		hostObj, err := HostManager.FetchById(input.PreferHost)
-		if err != nil {
-			return keys, err
-		}
-		host := hostObj.(*SHost)
-		input.PreferZone = host.ZoneId
-		keys.ZoneId = host.ZoneId
-	}
-	if len(input.PreferWire) > 0 {
-		wireObj, err := WireManager.FetchById(input.PreferWire)
-		if err != nil {
-			return keys, err
-		}
-		wire := wireObj.(*SWire)
-		if len(wire.ZoneId) > 0 {
-			input.PreferZone = wire.ZoneId
-			keys.ZoneId = wire.ZoneId
-		}
-	}
-	if len(input.PreferZone) > 0 {
-		zoneObj, err := ZoneManager.FetchById(input.PreferZone)
-		if err != nil {
-			return keys, err
-		}
-		zone := zoneObj.(*SZone)
-		input.PreferRegion = zone.CloudregionId
-		keys.ZoneId = zone.Id
-		keys.RegionId = zone.CloudregionId
-	}
-	if len(input.PreferRegion) > 0 {
-		regionObj, err := CloudregionManager.FetchById(input.PreferRegion)
-		if err != nil {
-			return keys, err
-		}
-		region := regionObj.(*SCloudregion)
-		keys.RegionId = region.GetId()
-		keys.Brand = region.Provider
-	}
-	return keys, nil
+	return serverCreateInput2ComputeQuotaKeys(*input.ToServerCreateInput(), ownerId)
 }
 
 func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DiskCreateInput) (api.DiskCreateInput, error) {
@@ -669,7 +629,10 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		encInput := input.EncryptedResourceCreateInput
 		input = *serverInput.ToDiskCreateInput()
 		input.EncryptedResourceCreateInput = encInput
-		quotaKey, _ = diskCreateInput2ComputeQuotaKeys(input, ownerId)
+		quotaKey, err = diskCreateInput2ComputeQuotaKeys(input, ownerId)
+		if err != nil {
+			return input, errors.Wrap(err, "diskCreateInput2ComputeQuotaKeys")
+		}
 	}
 
 	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
@@ -817,7 +780,7 @@ func (disk *SDisk) SetStorageByHost(hostId string, diskConfig *api.DiskConfig, s
 	return err
 }
 
-func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DiskCreateInput, count int) SQuota {
+func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DiskCreateInput, count int) (SQuota, error) {
 	req := SQuota{
 		Storage: input.SizeMb * count,
 	}
@@ -834,10 +797,14 @@ func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCre
 			input.Hypervisor,
 		)
 	} else {
-		quotaKey, _ = diskCreateInput2ComputeQuotaKeys(input, ownerId)
+		var err error
+		quotaKey, err = diskCreateInput2ComputeQuotaKeys(input, ownerId)
+		if err != nil {
+			return SQuota{}, errors.Wrap(err, "diskCreateInput2ComputeQuotaKeys")
+		}
 	}
 	req.SetKeys(quotaKey)
-	return req
+	return req, nil
 }
 
 func (disk *SDisk) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
@@ -882,7 +849,14 @@ func (manager *SDiskManager) OnCreateComplete(ctx context.Context, items []db.IM
 		log.Errorf("!!!data.Unmarshal api.DiskCreateInput fail %s", err)
 	}
 
-	pendingUsage := getDiskResourceRequirements(ctx, userCred, ownerId, input, len(items))
+	pendingUsage, err := getDiskResourceRequirements(ctx, userCred, ownerId, input, len(items))
+	if err != nil {
+		for i := range items {
+			disk := items[i].(*SDisk)
+			disk.SetStatus(ctx, userCred, api.DISK_ALLOC_FAILED, err.Error())
+		}
+		return
+	}
 	parentTaskId, _ := data[0].GetString("parent_task_id")
 	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, SRegionQuota{}, "DiskBatchCreateTask", parentTaskId)
 }
