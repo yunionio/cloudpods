@@ -482,9 +482,9 @@
             "translation": "无效的地址%s"
         },
         {
-            "id": "comment too long (%d\u003e=%d)",
-            "message": "comment too long (%d\u003e=%d)",
-            "translation": "描述文本过长（%d\u003e=%d）"
+            "id": "comment too long (%d>=%d)",
+            "message": "comment too long (%d>=%d)",
+            "translation": "描述文本过长（%d>=%d）"
         },
         {
             "id": "comment contains non-printable char: %v",
@@ -1142,13 +1142,13 @@
             "translation": "名字长度超过%d"
         },
         {
-            "id": "input key too long \u003e %d",
-            "message": "input key too long \u003e %d",
+            "id": "input key too long > %d",
+            "message": "input key too long > %d",
             "translation": "输入键名长度超过%d"
         },
         {
-            "id": "input value too long \u003e %d",
-            "message": "input value too long \u003e %d",
+            "id": "input value too long > %d",
+            "message": "input value too long > %d",
             "translation": "输入键值长度超过%d"
         },
         {
@@ -1902,14 +1902,14 @@
             "translation": "端口范围起始 %d 大于 %d"
         },
         {
-            "id": "port range start %d \u003c= %d",
-            "message": "port range start %d \u003c= %d",
-            "translation": "端口范围起始 %d \u003c= %d"
+            "id": "port range start %d <= %d",
+            "message": "port range start %d <= %d",
+            "translation": "端口范围起始 %d <= %d"
         },
         {
-            "id": "port range end %d \u003e %d",
-            "message": "port range end %d \u003e %d",
-            "translation": "端口范围结束 %d \u003e %d"
+            "id": "port range end %d > %d",
+            "message": "port range end %d > %d",
+            "translation": "端口范围结束 %d > %d"
         },
         {
             "id": "port number %d isn't within %d to %d",
@@ -1989,7 +1989,7 @@
         {
             "id": "GetGuestCount failed %s",
             "message": "GetGuestCount failed %s",
-            "translation": ""
+            "translation": "GetGuestCount失败: %s"
         },
         {
             "id": "host has been occupied",
@@ -2274,7 +2274,7 @@
         {
             "id": "BackupCount failed %s",
             "message": "BackupCount failed %s",
-            "translation": ""
+            "translation": "BackupCount失败: %s"
         },
         {
             "id": "storage has been used",
@@ -2344,7 +2344,7 @@
         {
             "id": "GetIObject failed %s",
             "message": "GetIObject failed %s",
-            "translation": ""
+            "translation": "GetIObject失败: %s"
         },
         {
             "id": "object count limit exceeds",
@@ -2394,7 +2394,7 @@
         {
             "id": "GetIObject failed: %s",
             "message": "GetIObject failed: %s",
-            "translation": ""
+            "translation": "GetIObject失败: %s"
         },
         {
             "id": "object size limit exceeds",
@@ -2404,7 +2404,7 @@
         {
             "id": "bucket.GetQuotaKeys failed %s",
             "message": "bucket.GetQuotaKeys failed %s",
-            "translation": ""
+            "translation": "bucket.GetQuotaKeys失败: %s"
         },
         {
             "id": "put object failed: %s",
@@ -2524,7 +2524,7 @@
         {
             "id": "iBucket.GetIObject failed: %s",
             "message": "iBucket.GetIObject failed: %s",
-            "translation": ""
+            "translation": "iBucket.GetIObject失败: %s"
         },
         {
             "id": "The image has been cached on storages",
@@ -2609,7 +2609,7 @@
         {
             "id": "check uniqueness failed %s",
             "message": "check uniqueness failed %s",
-            "translation": ""
+            "translation": "检查唯一性失败: %s"
         },
         {
             "id": "The account has been registered",
@@ -3394,7 +3394,7 @@
         {
             "id": "disk.GetQuotaKeys failed %s",
             "message": "disk.GetQuotaKeys failed %s",
-            "translation": ""
+            "translation": "disk.GetQuotaKeys失败: %s"
         },
         {
             "id": "Duplicate image name %s",
@@ -3444,7 +3444,7 @@
         {
             "id": "GetGuestDiskCount for disk %s failed %s",
             "message": "GetGuestDiskCount for disk %s failed %s",
-            "translation": ""
+            "translation": "获取磁盘 %s 的虚拟机磁盘数量失败: %s"
         },
         {
             "id": "Diskinfo index %d: both imageID and size are absent",
@@ -3484,7 +3484,7 @@
         {
             "id": "GetSnapshotCount failed %s",
             "message": "GetSnapshotCount failed %s",
-            "translation": ""
+            "translation": "GetSnapshotCount失败: %s"
         },
         {
             "id": "not allowed to purge virtual disk must not have snapshots",
@@ -3619,7 +3619,7 @@
         {
             "id": "unmarshal StandaloneResourceCreateInput failed %s",
             "message": "unmarshal StandaloneResourceCreateInput failed %s",
-            "translation": ""
+            "translation": "解析 StandaloneResourceCreateInput 失败: %s"
         },
         {
             "id": "resource type %s is not supported",
@@ -3954,7 +3954,7 @@
         {
             "id": "GetVpcs failed %s",
             "message": "GetVpcs failed %s",
-            "translation": ""
+            "translation": "GetVpcs失败: %s"
         },
         {
             "id": "global vpc is associated with %d VPCs",
@@ -4324,7 +4324,7 @@
         {
             "id": "check isAttach2Disk failed %s",
             "message": "check isAttach2Disk failed %s",
-            "translation": ""
+            "translation": "检查是否挂载磁盘失败: %s"
         },
         {
             "id": "Cannot keep detached disk",
@@ -4342,8 +4342,8 @@
             "translation": "找不到透传设备%s"
         },
         {
-            "id": "guest attach gpu count must \u003e 0",
-            "message": "guest attach gpu count must \u003e 0",
+            "id": "guest attach gpu count must > 0",
+            "message": "guest attach gpu count must > 0",
             "translation": "GPU数量必须大于1"
         },
         {
@@ -4464,7 +4464,7 @@
         {
             "id": "check mac uniqueness failed %s",
             "message": "check mac uniqueness failed %s",
-            "translation": ""
+            "translation": "检查 MAC 唯一性失败: %s"
         },
         {
             "id": "mac addr %s has been occupied",
@@ -4654,7 +4654,7 @@
         {
             "id": "GuestDisksHasSnapshot failed %s",
             "message": "GuestDisksHasSnapshot failed %s",
-            "translation": ""
+            "translation": "GuestDisksHasSnapshot失败: %s"
         },
         {
             "id": "Cannot create backup with snapshot",
@@ -4852,13 +4852,13 @@
             "translation": "虚机状态%s无法设定io限速"
         },
         {
-            "id": "disk %s bps must \u003e 0",
-            "message": "disk %s bps must \u003e 0",
+            "id": "disk %s bps must > 0",
+            "message": "disk %s bps must > 0",
             "translation": "磁盘 %s bps必须大于0"
         },
         {
-            "id": "disk %s iops must \u003e 0",
-            "message": "disk %s iops must \u003e 0",
+            "id": "disk %s iops must > 0",
+            "message": "disk %s iops must > 0",
             "translation": "磁盘 %s iops必须大于0"
         },
         {
@@ -4982,8 +4982,8 @@
             "translation": "从快照恢复失败：%s"
         },
         {
-            "id": "count must \u003e 0",
-            "message": "count must \u003e 0",
+            "id": "count must > 0",
+            "message": "count must > 0",
             "translation": "count必须大于0"
         },
         {
@@ -5374,7 +5374,7 @@
         {
             "id": "check disk index uniqueness failed %s",
             "message": "check disk index uniqueness failed %s",
-            "translation": ""
+            "translation": "检查磁盘索引唯一性失败: %s"
         },
         {
             "id": "DISK Index %d has been occupied",
@@ -5642,6 +5642,11 @@
             "translation": "类别%s在策略定义%s(%s)中无效"
         },
         {
+            "id": "os_type is required",
+            "message": "os_type is required",
+            "translation": "os_type 为必填项"
+        },
+        {
             "id": "unsupported os_type: %s, supported types: %v",
             "message": "unsupported os_type: %s, supported types: %v",
             "translation": "不支持的os_type: %s，支持的类型: %v"
@@ -5869,17 +5874,17 @@
         {
             "id": "getGuestCount failed %s",
             "message": "getGuestCount failed %s",
-            "translation": ""
+            "translation": "getGuestCount失败: %s"
         },
         {
             "id": "GetBackupGuestCount failed %s",
             "message": "GetBackupGuestCount failed %s",
-            "translation": ""
+            "translation": "GetBackupGuestCount失败: %s"
         },
         {
             "id": "GetDiskCount failed %s",
             "message": "GetDiskCount failed %s",
-            "translation": ""
+            "translation": "GetDiskCount失败: %s"
         },
         {
             "id": "local host storage is not empty",
@@ -5899,7 +5904,7 @@
         {
             "id": "check %s duplication failed %s",
             "message": "check %s duplication failed %s",
-            "translation": ""
+            "translation": "检查 %s 重复失败: %s"
         },
         {
             "id": "duplicate %s %s",
@@ -5914,7 +5919,7 @@
         {
             "id": "check access_mac duplication failed %s",
             "message": "check access_mac duplication failed %s",
-            "translation": ""
+            "translation": "检查 access_mac 重复失败: %s"
         },
         {
             "id": "duplicate access_mac %s",
@@ -6239,7 +6244,7 @@
         {
             "id": "isAlterNameUnique failed %s",
             "message": "isAlterNameUnique failed %s",
-            "translation": ""
+            "translation": "isAlterNameUnique失败: %s"
         },
         {
             "id": "Convert error: %s",
@@ -6302,18 +6307,18 @@
             "translation": "非裸金属服务器中无法执行同步配置操作"
         },
         {
-            "id": "reserved cpu must \u003e= 0",
-            "message": "reserved cpu must \u003e= 0",
+            "id": "reserved cpu must >= 0",
+            "message": "reserved cpu must >= 0",
             "translation": "预留CPU数必须为非负整数"
         },
         {
-            "id": "reserved memory must \u003e= 0",
-            "message": "reserved memory must \u003e= 0",
+            "id": "reserved memory must >= 0",
+            "message": "reserved memory must >= 0",
             "translation": "预留内存大小必须为非负整数"
         },
         {
-            "id": "reserved storage must \u003e= 0",
-            "message": "reserved storage must \u003e= 0",
+            "id": "reserved storage must >= 0",
+            "message": "reserved storage must >= 0",
             "translation": "预留存储必须为非负整数"
         },
         {
@@ -6349,12 +6354,12 @@
         {
             "id": "GetGuestDiskCount failed %s",
             "message": "GetGuestDiskCount failed %s",
-            "translation": ""
+            "translation": "GetGuestDiskCount失败: %s"
         },
         {
             "id": "GetGuestnicsCount failed %s",
             "message": "GetGuestnicsCount failed %s",
-            "translation": ""
+            "translation": "GetGuestnicsCount失败: %s"
         },
         {
             "id": "cannot delete instance backup in current status",
@@ -6557,9 +6562,9 @@
             "translation": "%s：时间错误：%s"
         },
         {
-            "id": "%s: new time is in the future: %s \u003e %s",
-            "message": "%s: new time is in the future: %s \u003e %s",
-            "translation": "%s：新指定时间在未来：%s \u003e %s"
+            "id": "%s: new time is in the future: %s > %s",
+            "message": "%s: new time is in the future: %s > %s",
+            "translation": "%s：新指定时间在未来：%s > %s"
         },
         {
             "id": "use yum requires valid repo_base_url",
@@ -7094,7 +7099,7 @@
         {
             "id": "isAddressUsed failed %s",
             "message": "isAddressUsed failed %s",
-            "translation": ""
+            "translation": "isAddressUsed失败: %s"
         },
         {
             "id": "Address %s has been used",
@@ -7114,7 +7119,7 @@
         {
             "id": "isAddress6Used failed %s",
             "message": "isAddress6Used failed %s",
-            "translation": ""
+            "translation": "isAddress6Used失败: %s"
         },
         {
             "id": "v6 address %s has been used",
@@ -7129,7 +7134,7 @@
         {
             "id": "getFreeAddressCount failed %s",
             "message": "getFreeAddressCount failed %s",
-            "translation": ""
+            "translation": "getFreeAddressCount失败: %s"
         },
         {
             "id": "network %s(%s) has no free addresses",
@@ -7489,7 +7494,7 @@
         {
             "id": "GenerateName failed %s",
             "message": "GenerateName failed %s",
-            "translation": ""
+            "translation": "GenerateName失败: %s"
         },
         {
             "id": "Generate ifname hint failed %s",
@@ -7754,7 +7759,7 @@
         {
             "id": "unmarshal JointResourceCreateInput failed %s",
             "message": "unmarshal JointResourceCreateInput failed %s",
-            "translation": ""
+            "translation": "解析 JointResourceCreateInput 失败: %s"
         },
         {
             "id": "Invalid schedtag %s",
@@ -7774,7 +7779,7 @@
         {
             "id": "GetObjectCount failed %s",
             "message": "GetObjectCount failed %s",
-            "translation": ""
+            "translation": "GetObjectCount失败: %s"
         },
         {
             "id": "Tag is associated with %s",
@@ -7784,7 +7789,7 @@
         {
             "id": "getDynamicSchedtagCount failed %s",
             "message": "getDynamicSchedtagCount failed %s",
-            "translation": ""
+            "translation": "getDynamicSchedtagCount失败: %s"
         },
         {
             "id": "tag has dynamic rules",
@@ -7794,7 +7799,7 @@
         {
             "id": "getSchedPoliciesCount failed %s",
             "message": "getSchedPoliciesCount failed %s",
-            "translation": ""
+            "translation": "getSchedPoliciesCount失败: %s"
         },
         {
             "id": "tag is associated with scheduling policies",
@@ -7905,6 +7910,11 @@
             "id": "not allowed to delete public cloud instance_type: %s",
             "message": "not allowed to delete public cloud instance_type: %s",
             "translation": "不允许删除公有云instance_type: %s"
+        },
+        {
+            "id": "zone_ids must be in the same cloudregion",
+            "message": "zone_ids must be in the same cloudregion",
+            "translation": "zone_ids 必须属于同一区域"
         },
         {
             "id": "duplicate instanceType %s",
@@ -8022,8 +8032,8 @@
             "translation": "Snapshot有 %d 个活跃任务，无法同步状态"
         },
         {
-            "id": "Cannot delete disk %s snapshots, disk still exists",
-            "message": "Cannot delete disk %s snapshots, disk still exists",
+            "id": "Cannot Delete disk %s snapshots, disk exist",
+            "message": "Cannot Delete disk %s snapshots, disk exist",
             "translation": "无法删除磁盘 %s 的快照，磁盘仍然存在"
         },
         {
@@ -8044,7 +8054,7 @@
         {
             "id": "getReferenceCount failed %s",
             "message": "getReferenceCount failed %s",
-            "translation": ""
+            "translation": "getReferenceCount失败: %s"
         },
         {
             "id": "Image is in use",
@@ -8472,8 +8482,8 @@
             "translation": "主实例内在大于等于64GB，最多可创建10个只读实例"
         },
         {
-            "id": "Master dbinstance memory \u003c64GB, up to 5 read-only instances are allowed to be created",
-            "message": "Master dbinstance memory \u003c64GB, up to 5 read-only instances are allowed to be created",
+            "id": "Master dbinstance memory <64GB, up to 5 read-only instances are allowed to be created",
+            "message": "Master dbinstance memory <64GB, up to 5 read-only instances are allowed to be created",
             "translation": "主实例内在小于64GB，最多可创建5个只读实例"
         },
         {
@@ -8952,9 +8962,9 @@
             "translation": "不允许访问admin key"
         },
         {
-            "id": "Snapshot reference(by disk) count \u003e 0, cannot delete",
-            "message": "Snapshot reference(by disk) count \u003e 0, cannot delete",
-            "translation": "快照引用(按磁盘)数量\u003e0，无法删除"
+            "id": "Snapshot reference(by disk) count > 0, cannot delete",
+            "message": "Snapshot reference(by disk) count > 0, cannot delete",
+            "translation": "快照引用(按磁盘)数量>0，无法删除"
         },
         {
             "id": "Disk %s is not attached to a guest",
@@ -9872,9 +9882,144 @@
             "translation": "不允许获取使用量"
         },
         {
+            "id": "invalid url %q",
+            "message": "invalid url %q",
+            "translation": "无效的 URL: %q"
+        },
+        {
+            "id": "only http(s) urls are allowed",
+            "message": "only http(s) urls are allowed",
+            "translation": "仅允许 http(s) URL"
+        },
+        {
+            "id": "upstream host %s is not in the proxy allow list",
+            "message": "upstream host %s is not in the proxy allow list",
+            "translation": "上游主机 %s 不在代理白名单中"
+        },
+        {
+            "id": "GPU devices are required for %s: set GPU in the request or configure GPU on the LLM SKU",
+            "message": "GPU devices are required for %s: set GPU in the request or configure GPU on the LLM SKU",
+            "translation": "%s 需要配置 GPU 设备：请在请求中设置 GPU，或在推理模板中配置 GPU"
+        },
+        {
+            "id": "mounted models are required for %s: set mounted_models in the request or configure models on the LLM SKU",
+            "message": "mounted models are required for %s: set mounted_models in the request or configure models on the LLM SKU",
+            "translation": "%s 需要配置挂载模型：请在请求中设置 mounted_models，或在推理模板中配置挂载模型"
+        },
+        {
+            "id": "LLM is being used by %d MCPAgents",
+            "message": "LLM is being used by %d MCPAgents",
+            "translation": "LLM 正被 %d 个 MCP Agent 使用"
+        },
+        {
+            "id": "invalid provider_type %q",
+            "message": "invalid provider_type %q",
+            "translation": "无效的 provider_type: %q"
+        },
+        {
+            "id": "provider_type %q is not supported",
+            "message": "provider_type %q is not supported",
+            "translation": "不支持的 provider_type: %q"
+        },
+        {
+            "id": "provider_type %q does not support listing models",
+            "message": "provider_type %q does not support listing models",
+            "translation": "provider_type %q 不支持列出模型"
+        },
+        {
+            "id": "list models from %q via %q: %v",
+            "message": "list models from %q via %q: %v",
+            "translation": "通过 %q 从 %q 列出模型失败: %v"
+        },
+        {
+            "id": "Not found host by public_ip %s",
+            "message": "Not found host by public_ip %s",
+            "translation": "未找到公网 IP 为 %s 的主机"
+        },
+        {
+            "id": "app container driver %s not found",
+            "message": "app container driver %s not found",
+            "translation": "找不到应用容器驱动 %s"
+        },
+        {
+            "id": "auto_gpu_memory_utilization requires mounted models: configure mounted_models on the LLM SKU",
+            "message": "auto_gpu_memory_utilization requires mounted models: configure mounted_models on the LLM SKU",
+            "translation": "开启 auto_gpu_memory_utilization 需要先在推理模板中配置挂载模型（mounted_models）"
+        },
+        {
+            "id": "auto_gpu_memory_utilization requires GPU devices: configure GPU on the LLM SKU",
+            "message": "auto_gpu_memory_utilization requires GPU devices: configure GPU on the LLM SKU",
+            "translation": "开启 auto_gpu_memory_utilization 需要先在推理模板中配置 GPU 设备"
+        },
+        {
+            "id": "LLM is not running",
+            "message": "LLM is not running",
+            "translation": "LLM 未运行"
+        },
+        {
+            "id": "ModelId %s not found",
+            "message": "ModelId %s not found",
+            "translation": "找不到模型 ID %s"
+        },
+        {
+            "id": "url %s not found",
+            "message": "url %s not found",
+            "translation": "找不到 URL %s"
+        },
+        {
+            "id": "no available models found in LLM instance %s",
+            "message": "no available models found in LLM instance %s",
+            "translation": "LLM 实例 %s 中无可用模型"
+        },
+        {
+            "id": "Parse query string %q: %v",
+            "message": "Parse query string %q: %v",
+            "translation": "解析查询字符串 %q 失败: %v"
+        },
+        {
+            "id": "model set %s not found",
+            "message": "model set %s not found",
+            "translation": "找不到模型集 %s"
+        },
+        {
+            "id": "missing model set id",
+            "message": "missing model set id",
+            "translation": "缺少模型集 ID"
+        },
+        {
+            "id": "model spec %s not found",
+            "message": "model spec %s not found",
+            "translation": "找不到模型规格 %s"
+        },
+        {
             "id": "Unauthorized",
             "message": "Unauthorized",
             "translation": "未授权"
+        },
+        {
+            "id": "system admin required",
+            "message": "system admin required",
+            "translation": "需要系统管理员权限"
+        },
+        {
+            "id": "images catalog item %s not found",
+            "message": "images catalog item %s not found",
+            "translation": "找不到镜像目录项 %s"
+        },
+        {
+            "id": "invalid body: %v",
+            "message": "invalid body: %v",
+            "translation": "无效的请求体: %v"
+        },
+        {
+            "id": "invalid input: %v",
+            "message": "invalid input: %v",
+            "translation": "无效的输入: %v"
+        },
+        {
+            "id": "no default MCP agent set (set one agent with default_agent=true)",
+            "message": "no default MCP agent set (set one agent with default_agent=true)",
+            "translation": "未设置默认 MCP Agent（请将某个 Agent 的 default_agent 设为 true）"
         },
         {
             "id": "InvalidToken",
@@ -10077,9 +10222,9 @@
             "translation": "不支持的execution_error_state %s"
         },
         {
-            "id": "metric %s is invalid format, usage \u003cmeasurement\u003e.\u003cfield\u003e",
-            "message": "metric %s is invalid format, usage \u003cmeasurement\u003e.\u003cfield\u003e",
-            "translation": "metric %s 格式无效，用法 \u003cmeasurement\u003e.\u003cfield\u003e"
+            "id": "metric %s is invalid format, usage <measurement>.<field>",
+            "message": "metric %s is invalid format, usage <measurement>.<field>",
+            "translation": "metric %s 格式无效，用法 <measurement>.<field>"
         },
         {
             "id": "Cannot change state on pause alert",

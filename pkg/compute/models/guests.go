@@ -2445,7 +2445,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 
 func validateKickstartConfig(config *api.KickstartConfig) error {
 	if config.OSType == "" {
-		return httperrors.NewMissingParameterError("os_type")
+		return httperrors.NewInputParameterError("os_type is required")
 	}
 
 	if !utils.IsInStringArray(config.OSType, api.KICKSTART_VALID_OS_TYPES) {
