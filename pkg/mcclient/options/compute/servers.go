@@ -1651,6 +1651,16 @@ func (o *ServerScreenDumpOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
 }
 
+type ServerChangeDiskDriverOptions struct {
+	ServerIdOptions
+	DISK_ID string
+	DRIVER  string `help:"Driver of vDisk" choices:"virtio|ide|sata|scsi|pvscsi"`
+}
+
+func (o *ServerChangeDiskDriverOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
 type ServerSetNetworkNumQueues struct {
 	ServerIdOptions
 	MacAddr   string `help:"server network mac addr"`
