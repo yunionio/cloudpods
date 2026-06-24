@@ -290,3 +290,33 @@ type LLMSkuUpdateInput struct {
 // 	DifySSRFImageId     string `json:"dify_ssrf_image_id"`
 // 	DifyWeaviateImageId string `json:"dify_weaviate_image_id"`
 // }
+
+// LLMSchedulableCheckInput is the query params for
+// GET /llm_skus/{id}/schedulable-check
+type LLMSchedulableCheckInput struct {
+	GpuCount int `json:"gpu_count,omitempty"`
+}
+
+// LLMSchedulableHostInfo describes GPU availability on one candidate host.
+type LLMSchedulableHostInfo struct {
+	HostId        string `json:"host_id"`
+	HostName      string `json:"host_name"`
+	GpuAvailable  int    `json:"gpu_available"`
+	BestGpuVramMb int    `json:"best_gpu_vram_mb"`
+	BestGpuModel  string `json:"best_gpu_model,omitempty"`
+}
+
+// LLMSchedulableCheckOutput mirrors GPUStack's ModelEvaluationResult:
+// a yes/no verdict plus per-host detail so the caller can surface a
+// meaningful message ("not enough VRAM on any host", "host X qualifies", …).
+type LLMSchedulableCheckOutput struct {
+	Schedulable        bool                     `json:"schedulable"`
+	VramClaimMb        int                      `json:"vram_claim_mb"`
+	PerDevMinMb        int                      `json:"per_dev_min_mb"`
+	GpuCount           int                      `json:"gpu_count"`
+	Reason             string                   `json:"reason,omitempty"`
+	FilteredCandidates jsonutils.JSONObject     `json:"filtered_candidates,omitempty"`
+	Hosts              []LLMSchedulableHostInfo `json:"hosts,omitempty"`
+	TotalGpuHosts      int                      `json:"total_gpu_hosts"`
+	QualifiedHosts     int                      `json:"qualified_hosts"`
+}

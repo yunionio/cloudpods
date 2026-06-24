@@ -292,3 +292,8 @@ func (o *LLMSkuUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	return dict, nil
 }
+
+type LLMSkuSchedulableCheckOptions struct {
+	options.BaseIdOptions
+	GpuCount int `help:"Number of GPUs to validate (default 1)" json:"gpu_count"`
+}
