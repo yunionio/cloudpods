@@ -80,7 +80,7 @@ func imagesGenerationsHandler(ctx context.Context, w http.ResponseWriter, r *htt
 
 	resp, uerr := imagesGenerationsWithKeyFailover(ctx, up, dict, 180*time.Second)
 	if uerr != nil {
-		writeUpstreamError(w, uerr)
+		writeUpstreamError(ctx, w, uerr)
 		return
 	}
 	out := resp.Body
