@@ -794,6 +794,34 @@ func (model *SInstantModel) ValidateDeleteCondition(ctx context.Context, info js
 	return nil
 }
 
+func (model *SInstantModel) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return model.StartDeleteTask(ctx, userCred, query, "")
+}
+
+func (model *SInstantModel) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, parentTaskId string) error {
+	model.SetStatus(ctx, userCred, commonapis.STATUS_DELETING, "")
+	params := jsonutils.NewDict()
+	if query != nil && jsonutils.QueryBoolean(query, "purge", false) {
+		params.Set("purge", jsonutils.JSONTrue)
+	}
+	if len(model.ImageId) > 0 {
+		params.Set("image_id", jsonutils.NewString(model.ImageId))
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMInstantModelDeleteTask", model, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask LLMInstantModelDeleteTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
+func (model *SInstantModel) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
+func (model *SInstantModel) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return model.SSharableVirtualResourceBase.Delete(ctx, userCred)
+}
+
 func (model *SInstantModel) ValidateUpdateCondition(ctx context.Context) error {
 	if model.Enabled.IsTrue() {
 		return errors.Wrap(errors.ErrInvalidStatus, "cannot update when enabled")
@@ -1140,6 +1168,29 @@ func sanitizeInstantModelImportCacheComponent(s string) string {
 	return strings.Trim(b.String(), "-")
 }
 
+func (model *SInstantModel) updateImportStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
+	if model.Status == status {
+		return nil
+	}
+	oldStatus := model.Status
+	_, err := db.Update(model, func() error {
+		model.Status = status
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "Update")
+	}
+	db.CallStatusChanegdNotifyHook(ctx, userCred, oldStatus, status, model)
+	if userCred != nil {
+		notes := fmt.Sprintf("%s=>%s", oldStatus, status)
+		if len(reason) > 0 {
+			notes = fmt.Sprintf("%s: %s", notes, reason)
+		}
+		db.OpsLog.LogEvent(model, db.ACT_UPDATE_STATUS, notes, userCred)
+	}
+	return nil
+}
+
 func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, input apis.InstantModelImportInput) (tmpDir string, err error) {
 	progress := newInstantModelImportProgressUpdater(model)
 	progress.set(0, true)
@@ -1174,6 +1225,11 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 	progress.set(apis.InstantModelImportDownloadProgressEnd, true)
 	log.Infof("Downloaded model %s:%s with modelId: %s to %s", input.ModelName, input.ModelTag, modelId, tmpDir)
 
+	if err = model.updateImportStatus(ctx, userCred, apis.INSTANT_MODEL_STATUS_PACKAGING, "packaging model files"); err != nil {
+		err = errors.Wrap(err, "updateImportStatus packaging")
+		return
+	}
+
 	// create tar.gz archive from downloaded files
 	imagePath := fmt.Sprintf("%s/model.tgz", tmpDir)
 	_ = os.Remove(imagePath)
@@ -1182,6 +1238,11 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 		return
 	}
 	progress.set(apis.InstantModelImportArchiveProgress, true)
+
+	if err = model.updateImportStatus(ctx, userCred, imageapi.IMAGE_STATUS_SAVING, "uploading model archive"); err != nil {
+		err = errors.Wrap(err, "updateImportStatus saving")
+		return
+	}
 
 	// upload the image
 	imageId, err := func() (string, error) {
@@ -1205,6 +1266,8 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 		imgParams.GenerateName = fmt.Sprintf("%s-%s", safeModelName, strings.TrimSpace(input.ModelTag))
 		imgParams.DiskFormat = "tgz"
 		imgParams.Size = &imgFileSize
+		protected := false
+		imgParams.Protected = &protected
 		imgParams.Properties = map[string]string{
 			"llm_type":   string(input.LlmType),
 			"model_name": input.ModelName,
@@ -1238,7 +1301,6 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 		model.ModelId = modelId
 		model.ImageId = imageId
 		model.Mounts = mounts
-		model.Status = imageapi.IMAGE_STATUS_SAVING
 		if shouldAutoRenameInstantModelImportName(model.Name, model.LlmType, input.ModelName, input.ModelTag) {
 			suffix := extractInstantModelImportNameSuffix(model.Name)
 			model.Name = buildInstantModelFinalName(model.LlmType, modelId, input.ModelTag, suffix)
