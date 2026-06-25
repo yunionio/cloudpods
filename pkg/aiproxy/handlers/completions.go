@@ -104,7 +104,7 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	if !isStream {
 		resp, uerr := completionsWithKeyFailover(ctx, up, dict, isStream, timeout)
 		if uerr != nil {
-			writeUpstreamError(w, uerr)
+			writeUpstreamError(ctx, w, uerr)
 			return
 		}
 		out := resp.Body
@@ -119,7 +119,7 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 	ch, uerr := completionsStreamWithKeyFailover(ctx, up, dict, isStream, compProv, timeout)
 	if uerr != nil {
-		writeUpstreamError(w, uerr)
+		writeUpstreamError(ctx, w, uerr)
 		return
 	}
 

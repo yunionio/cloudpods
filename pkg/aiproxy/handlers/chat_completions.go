@@ -54,7 +54,10 @@ func upstreamErrorStatusCode(uerr *upstream.Error) int {
 	return uerr.StatusCode
 }
 
-func writeUpstreamError(w http.ResponseWriter, uerr *upstream.Error) {
+func writeUpstreamError(ctx context.Context, w http.ResponseWriter, uerr *upstream.Error) {
+	if ctx.Err() != nil {
+		return
+	}
 	status := http.StatusBadGateway
 	if uerr != nil && uerr.StatusCode > 0 {
 		status = uerr.StatusCode
@@ -164,7 +167,7 @@ func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.
 	if !isStream {
 		resp, uerr := chatCompletionWithKeyFailover(ctx, up, dict, isStream, timeout)
 		if uerr != nil {
-			writeUpstreamError(w, uerr)
+			writeUpstreamError(ctx, w, uerr)
 			return
 		}
 		body := resp.Body
@@ -179,7 +182,7 @@ func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.
 
 	ch, uerr := chatCompletionStreamWithKeyFailover(ctx, up, dict, isStream, prov, timeout)
 	if uerr != nil {
-		writeUpstreamError(w, uerr)
+		writeUpstreamError(ctx, w, uerr)
 		return
 	}
 

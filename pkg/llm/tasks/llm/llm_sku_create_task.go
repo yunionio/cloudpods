@@ -63,6 +63,10 @@ func (task *LLMSkuCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 	if err := task.SaveParams(extra); err != nil {
 		log.Warningf("LLMSkuCreateTask persist imported instant model id: %s", err)
 	}
+	if err := sku.AttachMountedModel(ctx, task.UserCred, instantModel.GetId()); err != nil {
+		task.taskFailed(ctx, sku, errors.Wrapf(err, "attach InstantModel %s to SKU", instantModel.GetId()))
+		return
+	}
 }
 
 func (task *LLMSkuCreateTask) OnInstantModelReady(ctx context.Context, sku *models.SLLMSku, body jsonutils.JSONObject) {
