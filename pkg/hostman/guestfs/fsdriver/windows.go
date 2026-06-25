@@ -15,6 +15,7 @@
 package fsdriver
 
 import (
+	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"path"
@@ -432,8 +433,6 @@ func (w *SWindowsRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, pub
 	tool.CheckPath()
 	success := false
 
-	// symbol ^ is escape character is batch file.
-	password = strings.ReplaceAll(password, "^", "")
 	if rinfo != nil && version.GE(rinfo.Version, "6.1") {
 		success = w.deployPublicKeyByGuest(account, password)
 	} else {
@@ -471,6 +470,10 @@ func (w *SWindowsRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, pub
 	return secret, nil
 }
 
+func encodeWindowsScriptPassword(passwd string) string {
+	return base64.StdEncoding.EncodeToString([]byte(passwd))
+}
+
 func (w *SWindowsRootFs) deployPublicKeyByGuest(uname, passwd string) bool {
 	if !w.deploySetupCompleteScripts(uname, passwd) {
 		return false
@@ -485,13 +488,14 @@ func (w *SWindowsRootFs) deployPublicKeyByGuest(uname, passwd string) bool {
 	w.appendGuestBootScript("chgpwd", bootScript)
 	logPath := w.guestDebugLogPath
 	chksum := stringutils2.GetMD5Hash(passwd + logPath[(len(logPath)-10):])
+	passwdEnc := encodeWindowsScriptPassword(passwd)
 
 	chgpwdScript := strings.Join([]string{
 		w.MakeGuestDebugCmd("change password step 1"),
 		strings.Join([]string{
 			`%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`,
 			` -executionpolicy bypass %SystemRoot%\chgpwd.ps1`,
-			fmt.Sprintf(" %s %s %s %s", uname, passwd, chksum, logPath),
+			fmt.Sprintf(" %s %s %s %s", uname, passwdEnc, chksum, logPath),
 		}, ""),
 		`del %SystemRoot%\chgpwd.ps1`,
 		w.MakeGuestDebugCmd("change password step 2"),
@@ -514,9 +518,10 @@ func (w *SWindowsRootFs) deploySetupCompleteScripts(uname, passwd string) bool {
 	if w.putGuestScriptContents("/windows/chgpwd_setup.ps1", WinScriptChangePassword) != nil {
 		return false
 	}
+	passwdEnc := encodeWindowsScriptPassword(passwd)
 	cmds := []string{
 		`%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -executionpolicy bypass %SystemRoot%\chgpwd_setup.ps1 ` +
-			fmt.Sprintf("%s %s", uname, passwd),
+			fmt.Sprintf("%s %s", uname, passwdEnc),
 		"Net stop wuauserv",
 	}
 	for _, v := range [][3]string{
