@@ -310,6 +310,9 @@ func (v *vllm) ValidateLLMSkuCreateData(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return nil, err
 	}
+	if err := applyVLLMToolCallDefaults(ctx, input); err != nil {
+		return nil, err
+	}
 
 	// Reuse ValidateLLMCreateSpec; ensure llm_spec.vllm always exists for vLLM SKU.
 	spec, err := v.ValidateLLMCreateSpec(ctx, userCred, nil, input.LLMSpec)
