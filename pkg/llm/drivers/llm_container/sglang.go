@@ -108,6 +108,9 @@ func (s *sglang) ValidateLLMSkuCreateData(ctx context.Context, userCred mcclient
 	if err != nil {
 		return nil, err
 	}
+	if err := applySGLangToolCallDefaults(ctx, input); err != nil {
+		return nil, err
+	}
 
 	spec, err := s.ValidateLLMCreateSpec(ctx, userCred, nil, input.LLMSpec)
 	if err != nil {

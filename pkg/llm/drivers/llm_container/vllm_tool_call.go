@@ -63,7 +63,7 @@ func applyVLLMToolCallDefaults(ctx context.Context, input *api.LLMSkuCreateInput
 		input.LLMSpec.Vllm = &api.LLMSpecVllm{}
 	}
 
-	candidates := collectVLLMToolCallCandidates(ctx, input)
+	candidates := collectToolCallCandidates(ctx, input)
 	profile, matched := resolveVLLMToolCallProfile(candidates)
 	explicitAutoChoice := inputHasVLLMRuntimeArg(input, vllmArgEnableAutoToolChoice)
 	explicitParser := inputHasVLLMRuntimeArg(input, vllmArgToolCallParser)
@@ -85,13 +85,13 @@ func applyVLLMToolCallDefaults(ctx context.Context, input *api.LLMSkuCreateInput
 	return nil
 }
 
-func collectVLLMToolCallCandidates(ctx context.Context, input *api.LLMSkuCreateInput) []string {
+func collectToolCallCandidates(ctx context.Context, input *api.LLMSkuCreateInput) []string {
 	if input == nil {
 		return nil
 	}
 	out := make([]string, 0, 8+len(input.MountedModels)*3)
 	add := func(s string) {
-		s = normalizeVLLMToolCallCandidate(s)
+		s = normalizeToolCallCandidate(s)
 		if s != "" {
 			out = append(out, s)
 		}
@@ -134,7 +134,7 @@ func collectVLLMToolCallCandidates(ctx context.Context, input *api.LLMSkuCreateI
 	return out
 }
 
-func normalizeVLLMToolCallCandidate(s string) string {
+func normalizeToolCallCandidate(s string) string {
 	return strings.ToLower(strings.TrimSpace(s))
 }
 
@@ -183,7 +183,7 @@ func candidatesContainAll(needles ...string) func([]string) bool {
 func normalizeNeedles(needles []string) []string {
 	out := make([]string, 0, len(needles))
 	for _, needle := range needles {
-		needle = normalizeVLLMToolCallCandidate(needle)
+		needle = normalizeToolCallCandidate(needle)
 		if needle != "" {
 			out = append(out, needle)
 		}
