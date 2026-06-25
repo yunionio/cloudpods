@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 
@@ -233,7 +232,6 @@ func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential,
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("=========request model: %s, pick routing: %s", reqModel, jsonutils.Marshal(routing).PrettyString())
 	if routing == nil {
 		return nil, errors.Wrap(httperrors.ErrNotFound, "no ai_routing matched for virtual key project on this aiproxy node")
 	}

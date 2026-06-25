@@ -80,7 +80,7 @@ func embeddingsHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 
 	resp, uerr := embeddingsWithKeyFailover(ctx, up, dict, 60*time.Second)
 	if uerr != nil {
-		writeUpstreamError(w, uerr)
+		writeUpstreamError(ctx, w, uerr)
 		return
 	}
 	out := resp.Body

@@ -15,6 +15,8 @@
 package handlers
 
 import (
+	"time"
+
 	"yunion.io/x/onecloud/pkg/aiproxy/models"
 	"yunion.io/x/onecloud/pkg/aiproxy/options"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -24,7 +26,11 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 )
 
-const openaiCompatAPIPrefix = "/ai/openai/v1"
+const (
+	openaiCompatAPIPrefix     = "/ai/openai/v1"
+	openaiLongProcessTimeout  = 2 * time.Hour
+	openaiShortProcessTimeout = 5 * time.Minute
+)
 
 func InitHandlers(app *appsrv.Application, isSlave bool) {
 	db.InitAllManagers()
@@ -36,10 +42,14 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 
 	db.AddScopeResourceCountHandler("", app)
 
-	app.AddHandler2("POST", openaiCompatAPIPrefix+"/chat/completions", chatCompletionsHandler, nil, "aiproxy_openai_v1_chat_completions", nil)
-	app.AddHandler2("POST", openaiCompatAPIPrefix+"/completions", completionsHandler, nil, "aiproxy_openai_v1_completions", nil)
-	app.AddHandler2("POST", openaiCompatAPIPrefix+"/embeddings", embeddingsHandler, nil, "aiproxy_openai_v1_embeddings", nil)
-	app.AddHandler2("POST", openaiCompatAPIPrefix+"/images/generations", imagesGenerationsHandler, nil, "aiproxy_openai_v1_images_generations", nil)
+	app.AddHandler2("POST", openaiCompatAPIPrefix+"/chat/completions", chatCompletionsHandler, nil, "aiproxy_openai_v1_chat_completions", nil).
+		SetProcessTimeout(openaiLongProcessTimeout)
+	app.AddHandler2("POST", openaiCompatAPIPrefix+"/completions", completionsHandler, nil, "aiproxy_openai_v1_completions", nil).
+		SetProcessTimeout(openaiLongProcessTimeout)
+	app.AddHandler2("POST", openaiCompatAPIPrefix+"/embeddings", embeddingsHandler, nil, "aiproxy_openai_v1_embeddings", nil).
+		SetProcessTimeout(openaiShortProcessTimeout)
+	app.AddHandler2("POST", openaiCompatAPIPrefix+"/images/generations", imagesGenerationsHandler, nil, "aiproxy_openai_v1_images_generations", nil).
+		SetProcessTimeout(openaiShortProcessTimeout)
 	app.AddHandler2("GET", openaiCompatAPIPrefix+"/models", modelsHandler, nil, "aiproxy_openai_v1_models", nil)
 	app.AddHandler2("GET", openaiCompatAPIPrefix+"/models/<model>", modelRetrieveHandler, nil, "aiproxy_openai_v1_models_retrieve", nil)
 
