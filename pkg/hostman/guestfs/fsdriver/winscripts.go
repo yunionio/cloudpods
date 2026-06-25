@@ -17,7 +17,7 @@ package fsdriver
 const WinScriptChangePassword = `
 
 $username = $args[0]
-$passwd = $args[1]
+$passwd = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($args[1]))
 $loghash = $args[2]
 $logpath = $args[3]
 Function ChangePassword($u, $p) {
