@@ -134,7 +134,8 @@ type LLMDeploymentCreateInput struct {
 	GpuSelector *GpuSelector `json:"gpu_selector"`
 	// Explicit GPU memory utilization fraction for inference backend.
 	GpuMemoryUtilization *float64 `json:"gpu_memory_utilization,omitempty"`
-	// Calculate GPU memory utilization from mounted model VRAM and GPU memory.
+	// Calculate GPU memory utilization from mounted model VRAM and GPU memory
+	// (default true for supported backends; pass false to disable).
 	AutoGpuMemoryUtilization *bool `json:"auto_gpu_memory_utilization,omitempty"`
 	// Host label selector for scheduling (JSON)
 	WorkerSelector map[string]string `json:"worker_selector"`
