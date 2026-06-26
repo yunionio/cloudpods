@@ -6648,6 +6648,40 @@ func (self *SGuest) StartGuestChangeStorageTask(ctx context.Context, userCred mc
 	return nil
 }
 
+func (self *SGuest) PerformChangeDiskDriver(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ServerChangeDiskDriverInput) (jsonutils.JSONObject, error) {
+	if self.Status != api.VM_READY {
+		return nil, httperrors.NewInvalidStatusError("can't change disk driver in guest status %s", self.Status)
+	}
+	gd := self.GetGuestDisk(input.DiskId)
+	if gd == nil {
+		return nil, httperrors.NewBadRequestError("failed get guest disk by disk id %s", input.DiskId)
+	}
+	if input.Driver == gd.Driver {
+		return nil, nil
+	}
+	if !utils.IsInStringArray(input.Driver, []string{api.DISK_DRIVER_VIRTIO, api.DISK_DRIVER_PVSCSI, api.DISK_DRIVER_IDE, api.DISK_DRIVER_SCSI}) {
+		return nil, httperrors.NewInputParameterError("unknown driver %s", input.Driver)
+	}
+	_, err := db.Update(gd, func() error {
+		gd.Driver = input.Driver
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed update disk driver")
+	}
+	if self.Bios == api.VM_BOOT_MODE_UEFI {
+		drv, err := self.GetDriver()
+		if err != nil {
+			return nil, err
+		}
+		err = drv.RequestResetUefiFirmwareVars(ctx, userCred, self)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed reset uefi fw vars")
+		}
+	}
+	return nil, nil
+}
+
 func (self *SGuest) PerformChangeDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ServerChangeDiskStorageInput) (*api.ServerChangeDiskStorageInput, error) {
 	// validate input
 	if input.DiskId == "" {
