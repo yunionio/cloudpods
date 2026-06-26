@@ -83,7 +83,7 @@ type LLMDeploymentCreateOptions struct {
 	DistributedInference     *bool    `help:"enable distributed inference" json:"distributed_inference"`
 	GpuMemoryUtilization     *float64 `token:"gpu-memory-utilization" help:"GPU memory utilization fraction for backend runtime (0-1)" json:"gpu_memory_utilization"`
 	GpuUtilization           *float64 `token:"gpu-utilization" help:"Alias of --gpu-memory-utilization" json:"-"`
-	AutoGpuMemoryUtilization *bool    `token:"auto-gpu-memory-utilization" help:"calculate GPU memory utilization from model VRAM and GPU memory" json:"auto_gpu_memory_utilization"`
+	AutoGpuMemoryUtilization *bool    `token:"auto-gpu-memory-utilization" help:"calculate GPU memory utilization from model VRAM and GPU memory (default true for supported backends; use false to disable)" json:"auto_gpu_memory_utilization"`
 	RestartOnError           *bool    `help:"restart on error" json:"restart_on_error"`
 	AccessPolicy             string   `help:"access policy" choices:"public|authed|allowed_users" json:"access_policy"`
 	AutoRegisterAiproxy      *bool    `help:"auto register running replicas with aiproxy (default true; use --auto-register-aiproxy=false to disable)" json:"auto_register_aiproxy"`
@@ -233,7 +233,7 @@ type LLMDeploymentUpdateOptions struct {
 	PlacementStrategy        string   `help:"placement strategy" json:"placement_strategy"`
 	GpuMemoryUtilization     *float64 `token:"gpu-memory-utilization" help:"GPU memory utilization fraction for backend runtime (0-1)" json:"gpu_memory_utilization"`
 	GpuUtilization           *float64 `token:"gpu-utilization" help:"Alias of --gpu-memory-utilization" json:"-"`
-	AutoGpuMemoryUtilization *bool    `token:"auto-gpu-memory-utilization" help:"calculate GPU memory utilization from model VRAM and GPU memory" json:"auto_gpu_memory_utilization"`
+	AutoGpuMemoryUtilization *bool    `token:"auto-gpu-memory-utilization" help:"calculate GPU memory utilization from model VRAM and GPU memory (default true for supported backends; use false to disable)" json:"auto_gpu_memory_utilization"`
 	AccessPolicy             string   `help:"access policy" json:"access_policy"`
 	AutoRegisterAiproxy      *bool    `help:"auto register running replicas with aiproxy (default true; use --auto-register-aiproxy=false to disable)" json:"auto_register_aiproxy"`
 	AiproxyModelPrefix       *string  `help:"deprecated; no longer affects aiproxy client model alias" json:"aiproxy_model_prefix"`

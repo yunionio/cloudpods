@@ -145,6 +145,7 @@ func (man *SLLMDeploymentManager) ValidateCreateData(
 		if err := validateDeploymentGpuMemoryUtilization(input.GpuMemoryUtilization, input.AutoGpuMemoryUtilization, lSku.LLMType); err != nil {
 			return input, err
 		}
+		defaultDeploymentAutoGpuMemoryUtilization(input, lSku.LLMType)
 		if err := ValidateDeploymentDevices(lSku.LLMType, lSku); err != nil {
 			return input, err
 		}
@@ -176,6 +177,7 @@ func (man *SLLMDeploymentManager) ValidateCreateData(
 		if err := validateDeploymentGpuMemoryUtilization(input.GpuMemoryUtilization, input.AutoGpuMemoryUtilization, input.SkuSpec.LLMType); err != nil {
 			return input, err
 		}
+		defaultDeploymentAutoGpuMemoryUtilization(input, input.SkuSpec.LLMType)
 		if err := ValidateDeploymentDevices(input.SkuSpec.LLMType, skuFromLLMSkuCreateInput(input.SkuSpec)); err != nil {
 			return input, err
 		}
