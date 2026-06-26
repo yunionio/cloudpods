@@ -958,6 +958,18 @@ func (self *SKVMGuestDriver) RequestChangeDiskStorage(ctx context.Context, userC
 	return err
 }
 
+func (self *SKVMGuestDriver) RequestResetUefiFirmwareVars(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
+	host, err := guest.GetHost()
+	if err != nil {
+		return err
+	}
+	body := jsonutils.NewDict()
+	header := mcclient.GetTokenHeaders(userCred)
+	url := fmt.Sprintf("%s/servers/%s/reset-uefi-vars", host.ManagerUri, guest.GetId())
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	return err
+}
+
 func (self *SKVMGuestDriver) RequestSwitchToTargetStorageDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerChangeDiskStorageInternalInput, task taskman.ITask) error {
 	host, err := guest.GetHost()
 	if err != nil {

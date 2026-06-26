@@ -1065,6 +1065,11 @@ type ServerChangeDiskStorageInput struct {
 	KeepOriginDisk  bool   `json:"keep_origin_disk"`
 }
 
+type ServerChangeDiskDriverInput struct {
+	DiskId string `json:"disk_id"`
+	Driver string `json:"driver"`
+}
+
 type ServerChangeDiskStorageInternalInput struct {
 	ServerChangeDiskStorageInput
 	StorageId      string             `json:"storage_id"`

@@ -77,16 +77,12 @@ func init() {
 	type ServerDiskUpdateOptions struct {
 		SERVER string `help:"ID or Name of server"`
 		DISK   string `help:"ID or Name of Disk"`
-		Driver string `help:"Driver of vDisk" choices:"virtio|ide|sata|scsi|pvscsi"`
 		Cache  string `help:"Cache mode of vDisk" choices:"writethrough|none|writeback|directsync"`
 		Aio    string `help:"Asynchronous IO mode of vDisk" choices:"native|threads"`
 		Index  int64  `help:"Index of vDisk" default:"-1"`
 	}
 	R(&ServerDiskUpdateOptions{}, "server-disk-update", "Update details of a virtual disk of a virtual server", func(s *mcclient.ClientSession, args *ServerDiskUpdateOptions) error {
 		params := jsonutils.NewDict()
-		if len(args.Driver) > 0 {
-			params.Add(jsonutils.NewString(args.Driver), "driver")
-		}
 		if len(args.Cache) > 0 {
 			params.Add(jsonutils.NewString(args.Cache), "cache_mode")
 		}

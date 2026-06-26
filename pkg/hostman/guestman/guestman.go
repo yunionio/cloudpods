@@ -2044,6 +2044,27 @@ func SyncGuestNicsTraffics(guestNicsTraffics *compute.GuestNicTrafficSyncInput) 
 	}
 }
 
+func (m *SGuestManager) ResetGuestUefiVars(sid string) (*jsonutils.JSONDict, error) {
+	guest, _ := m.GetServer(sid)
+	if guest == nil {
+		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
+	}
+	kvmGuest, ok := guest.(*SKVMGuestInstance)
+	if !ok {
+		return nil, httperrors.NewBadRequestError("guest %s not kvm instance", sid)
+	}
+	if kvmGuest.IsRunning() {
+		return nil, httperrors.NewBadRequestError("Can't reset ovmf vars in guest %s running", sid)
+	}
+	varsPath := kvmGuest.getOvmfVarsPath()
+	if fileutils2.Exists(varsPath) {
+		if err := os.Remove(varsPath); err != nil {
+			return nil, errors.Wrapf(err, "remove ovmf vars file %s", varsPath)
+		}
+	}
+	return nil, nil
+}
+
 var guestManager *SGuestManager
 
 func Stop() {
