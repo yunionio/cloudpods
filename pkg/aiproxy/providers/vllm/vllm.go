@@ -33,7 +33,16 @@ func patchVLLMRequest(body *jsonutils.JSONDict, stream bool) {
 	}
 	if !stream {
 		body.Remove("stream_options")
+		return
 	}
+	opts := jsonutils.NewDict()
+	if obj, err := body.Get("stream_options"); err == nil {
+		if dict, ok := obj.(*jsonutils.JSONDict); ok {
+			opts = dict
+		}
+	}
+	opts.Set("include_usage", jsonutils.JSONTrue)
+	body.Set("stream_options", opts)
 }
 
 // New returns the vLLM OpenAI-compatible provider adapter.
