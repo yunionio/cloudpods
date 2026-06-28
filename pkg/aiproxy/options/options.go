@@ -24,6 +24,17 @@ type SAiProxyOptions struct {
 
 	AdvertiseAddress             string `help:"Standby node address advertised to clients, e.g. http://10.0.0.2:30889; default derives from bind address and port" default:""`
 	NodeHeartbeatIntervalSeconds int    `help:"Interval in seconds for standby node registration heartbeat" default:"60"`
+
+	ChatLogEnabled               bool   `help:"Enable OpenAI chat request JSONL logs" default:"true"`
+	ChatLogLocalDir              string `help:"Local directory for chat JSONL logs" default:"/tmp/aiproxy-chatlog"`
+	ChatLogUploadEnabled         bool   `help:"Upload closed chat log hour files to MinIO/S3" default:"true"`
+	ChatLogUploadIntervalSeconds int    `help:"Chat log upload interval in seconds" default:"10"`
+	ChatLogMinioEndpoint         string `help:"MinIO/S3 endpoint for chat log upload" default:"http://monitor-minio.onecloud-monitoring.svc:9000"`
+	ChatLogMinioAccessKey        string `help:"MinIO/S3 access key for chat log upload" default:"monitor-admin"`
+	ChatLogMinioSecretKey        string `help:"MinIO/S3 secret key for chat log upload" default:"monitor-admin"`
+	ChatLogMinioBucket           string `help:"MinIO/S3 bucket for chat log upload" default:"aiproxy-chat"`
+	ChatLogMinioSecure           bool   `help:"Use HTTPS for MinIO/S3 endpoint without scheme" default:"false"`
+	ChatLogMinioPrefix           string `help:"MinIO/S3 object key prefix for chat logs" default:""`
 }
 
 var (

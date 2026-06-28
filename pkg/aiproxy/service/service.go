@@ -15,12 +15,14 @@
 package service
 
 import (
+	"context"
 	"os"
 	"time"
 
 	"yunion.io/x/log"
 	_ "yunion.io/x/sqlchemy/backends"
 
+	"yunion.io/x/onecloud/pkg/aiproxy/chatlog"
 	"yunion.io/x/onecloud/pkg/aiproxy/handlers"
 	"yunion.io/x/onecloud/pkg/aiproxy/models"
 	"yunion.io/x/onecloud/pkg/aiproxy/options"
@@ -45,6 +47,21 @@ func StartService() {
 	if err := models.InitLocalProxyNodeId(opts, opts.IsSlaveNode); err != nil {
 		log.Fatalf("init local proxy node id: %v", err)
 	}
+	chatlog.Configure(chatlog.Options{
+		Enabled:               opts.ChatLogEnabled,
+		LocalDir:              opts.ChatLogLocalDir,
+		UploadEnabled:         opts.ChatLogUploadEnabled,
+		UploadIntervalSeconds: opts.ChatLogUploadIntervalSeconds,
+		MinioEndpoint:         opts.ChatLogMinioEndpoint,
+		MinioAccessKey:        opts.ChatLogMinioAccessKey,
+		MinioSecretKey:        opts.ChatLogMinioSecretKey,
+		MinioBucket:           opts.ChatLogMinioBucket,
+		MinioSecure:           opts.ChatLogMinioSecure,
+		MinioPrefix:           opts.ChatLogMinioPrefix,
+	})
+	uploadCtx, stopUpload := context.WithCancel(context.Background())
+	defer stopUpload()
+	chatlog.StartUploader(uploadCtx)
 
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
