@@ -268,6 +268,7 @@ func (p *StoragePredicate) Execute(ctx context.Context, u *core.Unit, c core.Can
 		}
 		freeStr := fmt.Sprintf("%s=%v(%v)", freePrex, capacity.free, getStorageFreeStr(backend, mediumType, useRsvd, isActual))
 		msg := reqStr + ", " + freeStr
+		msg = candidate.GetGpuReservedResourceFromGetter(getter).AppendStorageHint(msg, useRsvd)
 		h.AppendPredicateFailMsg(msg)
 	}
 
@@ -280,7 +281,8 @@ func (p *StoragePredicate) Execute(ctx context.Context, u *core.Unit, c core.Can
 			}
 			capacity, actualCapacity, err := getStorageCapacity(be, medium, req.GetMax(), req.GetTotal(), useRsvd)
 			if err != nil {
-				h.Exclude(err.Error())
+				msg := candidate.GetGpuReservedResourceFromGetter(getter).AppendStorageHint(err.Error(), useRsvd)
+				h.Exclude(msg)
 				return h.GetResult()
 			}
 			tmpCap := utils.Min(capacity.capacity, actualCapacity.capacity)
