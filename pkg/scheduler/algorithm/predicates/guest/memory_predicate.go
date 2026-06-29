@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
+	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
@@ -66,6 +67,9 @@ func (p *MemoryPredicate) Execute(ctx context.Context, u *core.Unit, c core.Cand
 	if freeMemSize < reqMemSize {
 		totalMemSize := getter.TotalMemorySize(useRsvd)
 		h.AppendInsufficientResourceError(reqMemSize, totalMemSize, freeMemSize)
+		if hint := candidate.GetGpuReservedResourceFromGetter(getter).AppendMemoryHint("", useRsvd); hint != "" {
+			h.AppendPredicateFailMsg(hint)
+		}
 	}
 
 	if cpuNumaFree := getter.GetFreeCpuNuma(); cpuNumaFree != nil {
