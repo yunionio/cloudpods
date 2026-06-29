@@ -1,6 +1,8 @@
 package models
 
 import (
+	"context"
+
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -20,6 +22,9 @@ func InitDB() error {
 		} else {
 			log.Infof("Manager %s initializeData PASS!", manager.Keyword())
 		}
+	}
+	if err := BackfillOrphanLLMDeployments(context.Background()); err != nil {
+		log.Errorf("BackfillOrphanLLMDeployments: %s", err)
 	}
 	return nil
 }
