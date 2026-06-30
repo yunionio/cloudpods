@@ -99,15 +99,18 @@ type SLLMDeployment struct {
 	// Instance template — captured at create time so scale-up can re-create
 	// new SLLM replicas with the same network / start / mount settings as the originals.
 	// Scale request bodies don't carry these fields.
-	Nets      *api.LLMDeploymentNets `charset:"utf8" length:"medium" nullable:"true" list:"user"`
-	AutoStart bool                   `nullable:"false" default:"false" list:"user"`
-	HostPaths *api.HostPaths         `charset:"utf8" length:"medium" nullable:"true" list:"user"`
+	Nets        *api.LLMDeploymentNets `charset:"utf8" length:"medium" nullable:"true" list:"user"`
+	AutoStart   bool                   `nullable:"false" default:"false" list:"user"`
+	HostPaths   *api.HostPaths         `charset:"utf8" length:"medium" nullable:"true" list:"user"`
+	PreferHosts []string               `charset:"utf8" length:"medium" nullable:"true" list:"user" create:"optional" update:"user"`
 
 	// Aiproxy integration (llm sync writes aiproxy catalog via mcclient).
 	AutoRegisterAiproxy bool                 `nullable:"false" default:"false" list:"user" create:"optional" update:"user"`
 	AiproxyModelPrefix  string               `width:"128" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	AiproxyRoutingId    string               `width:"128" charset:"ascii" nullable:"true" list:"user"`
 	AiproxyBindings     *api.AiproxyBindings `charset:"utf8" length:"long" nullable:"true" list:"user"`
+	// Gateway registration/sync progress (independent from replica-health status).
+	AiproxySyncStatus string `width:"32" charset:"ascii" nullable:"false" default:"disabled" list:"user"`
 }
 
 func (man *SLLMDeploymentManager) ValidateCreateData(
@@ -145,7 +148,11 @@ func (man *SLLMDeploymentManager) ValidateCreateData(
 		if err := validateDeploymentGpuMemoryUtilization(input.GpuMemoryUtilization, input.AutoGpuMemoryUtilization, lSku.LLMType); err != nil {
 			return input, err
 		}
-		defaultDeploymentAutoGpuMemoryUtilization(input, lSku.LLMType)
+		defaultDeploymentAutoGpuMemoryUtilization(input, lSku, lSku.LLMType)
+		disableDeploymentAutoGpuMemoryUtilizationForLocalPath(input, lSku)
+		if err := validateLocalPathDeploymentPreferHosts(ctx, userCred, input, lSku); err != nil {
+			return input, err
+		}
 		if err := ValidateDeploymentDevices(lSku.LLMType, lSku); err != nil {
 			return input, err
 		}
@@ -174,11 +181,16 @@ func (man *SLLMDeploymentManager) ValidateCreateData(
 				input.ModelSpec.LlmType = api.LLMContainerType(input.SkuSpec.LLMType)
 			}
 		}
+		skuInput := skuFromLLMSkuCreateInput(input.SkuSpec)
 		if err := validateDeploymentGpuMemoryUtilization(input.GpuMemoryUtilization, input.AutoGpuMemoryUtilization, input.SkuSpec.LLMType); err != nil {
 			return input, err
 		}
-		defaultDeploymentAutoGpuMemoryUtilization(input, input.SkuSpec.LLMType)
-		if err := ValidateDeploymentDevices(input.SkuSpec.LLMType, skuFromLLMSkuCreateInput(input.SkuSpec)); err != nil {
+		defaultDeploymentAutoGpuMemoryUtilization(input, skuInput, input.SkuSpec.LLMType)
+		disableDeploymentAutoGpuMemoryUtilizationForLocalPath(input, skuInput)
+		if err := validateLocalPathDeploymentPreferHosts(ctx, userCred, input, skuInput); err != nil {
+			return input, err
+		}
+		if err := ValidateDeploymentDevices(input.SkuSpec.LLMType, skuInput); err != nil {
 			return input, err
 		}
 	}
@@ -327,6 +339,8 @@ func (man *SLLMDeploymentManager) FetchCustomizeColumns(
 		res[i].AutoRegisterAiproxy = models[i].AutoRegisterAiproxy
 		res[i].AiproxyModelPrefix = models[i].AiproxyModelPrefix
 		res[i].AiproxyRoutingId = models[i].AiproxyRoutingId
+		res[i].AiproxySyncStatus = models[i].AiproxySyncStatus
+		res[i].PreferHosts = models[i].PreferHosts
 	}
 
 	// Batch fetch SKU data for source/backend/categories info
@@ -416,13 +430,15 @@ type SyncReadyReplicasOptions struct {
 // to the deployment row, and transitions the deployment status based on replica
 // health:
 //
-//	ready_replicas == 0 && desired > 0  → deploying
+//	ready_replicas == 0 && desired > 0  → deploying (or create_fail / start_fail)
 //	0 < ready_replicas < desired        → partial
 //	ready_replicas == desired           → ready
-//	replica create/start failure          → create_fail (unless some replicas run)
+//	replica create_fail with 0 running  → create_fail
+//	replica start_fail with 0 running   → start_fail
 //
-// Failure / lifecycle statuses (create_fail, deleting, importing_model, etc.)
-// are not overridden once set.
+// Failure / lifecycle statuses (deleting, importing_model, etc.) are not
+// overridden once set. create_fail and start_fail may recover to ready/partial
+// when replicas become healthy again (e.g. after syncstatus or auto-restart).
 //
 // Call after create/scale tasks finish and on every instance status change.
 func (model *SLLMDeployment) SyncReadyReplicas(ctx context.Context, userCred mcclient.TokenCredential, opts ...SyncReadyReplicasOptions) error {
@@ -451,7 +467,7 @@ func (model *SLLMDeployment) SyncReadyReplicas(ctx context.Context, userCred mcc
 	if desired == "" {
 		return nil
 	}
-	if !canUpdateReplicaHealthStatus(model.Status) {
+	if !canUpdateReplicaHealthStatus(model.Status, desired) {
 		return nil
 	}
 	oldStatus := model.Status
@@ -483,8 +499,10 @@ type deploymentReplicaStatusRow struct {
 }
 
 type deploymentReplicaStatusSummary struct {
-	Running    int
-	HasFailure bool
+	Running          int
+	HasCreateFailure bool
+	HasStartFailure  bool
+	HasProbing       bool
 }
 
 func summarizeDeploymentReplicaStatuses(rows []deploymentReplicaStatusRow) deploymentReplicaStatusSummary {
@@ -493,10 +511,12 @@ func summarizeDeploymentReplicaStatuses(rows []deploymentReplicaStatusRow) deplo
 		switch rows[i].Status {
 		case api.LLM_STATUS_RUNNING:
 			summary.Running++
-		default:
-			if isDeploymentReplicaFailureStatus(rows[i].Status) {
-				summary.HasFailure = true
-			}
+		case api.LLM_STATUS_CREATE_FAIL:
+			summary.HasCreateFailure = true
+		case api.LLM_STATUS_START_FAIL:
+			summary.HasStartFailure = true
+		case api.LLM_STATUS_PROBING:
+			summary.HasProbing = true
 		}
 	}
 	return summary
@@ -511,8 +531,12 @@ func computeDeploymentReplicaStatus(summary deploymentReplicaStatusSummary, desi
 		return api.STATUS_READY
 	case summary.Running > 0:
 		return api.LLM_DEPLOYMENT_STATUS_PARTIAL
-	case summary.HasFailure:
+	case summary.HasCreateFailure:
 		return api.LLM_STATUS_CREATE_FAIL
+	case summary.HasStartFailure:
+		return api.LLM_STATUS_START_FAIL
+	case summary.HasProbing:
+		return api.LLM_DEPLOYMENT_STATUS_DEPLOYING
 	default:
 		return api.LLM_DEPLOYMENT_STATUS_DEPLOYING
 	}
@@ -529,17 +553,22 @@ func isDeploymentReplicaFailureStatus(status string) bool {
 
 // canUpdateReplicaHealthStatus reports whether replica-health-driven status can
 // override the current deployment value. Early lifecycle and terminal failure /
-// delete states must not be clobbered.
-func canUpdateReplicaHealthStatus(current string) bool {
+// delete states must not be clobbered, except create_fail and start_fail may
+// recover when replicas are running again.
+func canUpdateReplicaHealthStatus(current, desired string) bool {
+	if current == api.LLM_STATUS_CREATE_FAIL {
+		return desired == api.STATUS_READY || desired == api.LLM_DEPLOYMENT_STATUS_PARTIAL
+	}
+	if current == api.LLM_STATUS_START_FAIL {
+		return desired == api.STATUS_READY || desired == api.LLM_DEPLOYMENT_STATUS_PARTIAL
+	}
 	switch current {
 	case api.LLM_DEPLOYMENT_STATUS_IMPORTING_MODEL,
 		api.LLM_DEPLOYMENT_STATUS_IMPORT_MODEL_FAILED,
 		api.LLM_DEPLOYMENT_STATUS_CREATING_SKU,
 		api.LLM_DEPLOYMENT_STATUS_CREATE_SKU_FAILED,
-		api.LLM_STATUS_CREATE_FAIL,
 		api.LLM_STATUS_DELETING,
-		api.LLM_STATUS_DELETE_FAILED,
-		api.LLM_DEPLOYMENT_STATUS_AIPROXY_SYNCING:
+		api.LLM_STATUS_DELETE_FAILED:
 		return false
 	}
 	return true
@@ -597,11 +626,19 @@ func (model *SLLMDeployment) PostCreate(ctx context.Context, userCred mcclient.T
 		if input.HostPaths != nil && !input.HostPaths.IsZero() {
 			model.HostPaths = input.HostPaths
 		}
+		if len(input.PreferHosts) > 0 {
+			model.PreferHosts = append([]string(nil), input.PreferHosts...)
+		}
 		if input.AutoRegisterAiproxy != nil {
 			model.AutoRegisterAiproxy = *input.AutoRegisterAiproxy
 		}
 		if input.AiproxyModelPrefix != "" {
 			model.AiproxyModelPrefix = strings.TrimSpace(input.AiproxyModelPrefix)
+		}
+		if model.AutoRegisterAiproxy {
+			model.AiproxySyncStatus = api.AIPROXY_SYNC_STATUS_PENDING
+		} else {
+			model.AiproxySyncStatus = api.AIPROXY_SYNC_STATUS_DISABLED
 		}
 		return nil
 	}); err != nil {
@@ -628,7 +665,7 @@ func (model *SLLMDeployment) StartCreateTask(ctx context.Context, userCred mccli
 }
 
 func (model *SLLMDeployment) StartSyncReplicasTask(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
-	model.SetStatus(ctx, userCred, "syncing", "")
+	model.SetStatus(ctx, userCred, api.LLM_DEPLOYMENT_STATUS_SYNCING, "")
 	params, _ := data.(*jsonutils.JSONDict)
 	if params == nil {
 		params = jsonutils.NewDict()
@@ -667,6 +704,7 @@ func (model *SLLMDeployment) PerformRegisterAiproxy(
 ) (jsonutils.JSONObject, error) {
 	if _, err := db.Update(model, func() error {
 		model.AutoRegisterAiproxy = true
+		model.AiproxySyncStatus = api.AIPROXY_SYNC_STATUS_PENDING
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "enable auto_register_aiproxy")
@@ -689,6 +727,146 @@ func (model *SLLMDeployment) PerformUnregisterAiproxy(
 		return nil, err
 	}
 	return nil, nil
+}
+
+// canRestartDeploymentStatus reports whether a deployment may be restarted.
+func canRestartDeploymentStatus(status string) bool {
+	switch status {
+	case api.STATUS_READY,
+		api.LLM_DEPLOYMENT_STATUS_PARTIAL,
+		api.LLM_STATUS_RUNNING:
+		return true
+	}
+	return false
+}
+
+func (model *SLLMDeployment) ValidateRestartInput(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input *api.LLMDeploymentRestartInput,
+) error {
+	if !canRestartDeploymentStatus(model.Status) {
+		return httperrors.NewInvalidStatusError("invalid deployment status %s", model.Status)
+	}
+	var rows []struct {
+		Id string `json:"id"`
+	}
+	err := GetLLMManager().Query("id").Equals("llm_deployment_id", model.Id).All(&rows)
+	if err != nil {
+		return errors.Wrap(err, "fetch deployment instances")
+	}
+	if len(rows) == 0 {
+		return httperrors.NewInvalidStatusError("no instances under deployment")
+	}
+	restartable := 0
+	for i := range rows {
+		llmObj, err := GetLLMManager().FetchById(rows[i].Id)
+		if err != nil {
+			continue
+		}
+		llm := llmObj.(*SLLM)
+		if _, err := llm.ValidateRestartInput(ctx, userCred, &api.LLMRestartInput{}); err == nil {
+			restartable++
+		}
+	}
+	if restartable == 0 {
+		return httperrors.NewInvalidStatusError("no restartable instances")
+	}
+	return nil
+}
+
+func (model *SLLMDeployment) PerformRestart(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.LLMDeploymentRestartInput,
+) (jsonutils.JSONObject, error) {
+	if err := model.ValidateRestartInput(ctx, userCred, input); err != nil {
+		return nil, err
+	}
+	if err := model.StartRestartTask(ctx, userCred); err != nil {
+		return nil, errors.Wrap(err, "StartRestartTask")
+	}
+	return nil, nil
+}
+
+func (model *SLLMDeployment) StartRestartTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMDeploymentRestartTask", model, userCred, nil, "", "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask LLMDeploymentRestartTask")
+	}
+	return task.ScheduleRun(nil)
+}
+
+// canSyncDeploymentStatus reports whether a deployment may sync replica statuses.
+func canSyncDeploymentStatus(status string) bool {
+	switch status {
+	case api.LLM_STATUS_DELETING,
+		api.LLM_STATUS_START_DELETE,
+		api.LLM_STATUS_DELETED,
+		api.LLM_STATUS_DELETE_FAILED,
+		"creating",
+		api.LLM_DEPLOYMENT_STATUS_IMPORTING_MODEL,
+		api.LLM_DEPLOYMENT_STATUS_CREATING_SKU,
+		api.LLM_DEPLOYMENT_STATUS_SYNCING:
+		return false
+	}
+	return true
+}
+
+func (model *SLLMDeployment) ValidateSyncstatusInput(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input *api.LLMDeploymentSyncstatusInput,
+) error {
+	if !canSyncDeploymentStatus(model.Status) {
+		return httperrors.NewInvalidStatusError("invalid deployment status %s", model.Status)
+	}
+	var rows []struct {
+		Id    string `json:"id"`
+		CmpId string `json:"cmp_id"`
+	}
+	err := GetLLMManager().Query("id", "cmp_id").Equals("llm_deployment_id", model.Id).All(&rows)
+	if err != nil {
+		return errors.Wrap(err, "fetch deployment instances")
+	}
+	if len(rows) == 0 {
+		return httperrors.NewInvalidStatusError("no instances under deployment")
+	}
+	syncable := 0
+	for i := range rows {
+		if rows[i].CmpId != "" {
+			syncable++
+		}
+	}
+	if syncable == 0 {
+		return httperrors.NewInvalidStatusError("no syncable instances")
+	}
+	return nil
+}
+
+func (model *SLLMDeployment) PerformSyncstatus(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.LLMDeploymentSyncstatusInput,
+) (jsonutils.JSONObject, error) {
+	if err := model.ValidateSyncstatusInput(ctx, userCred, input); err != nil {
+		return nil, err
+	}
+	if err := model.StartSyncStatusTask(ctx, userCred); err != nil {
+		return nil, errors.Wrap(err, "StartSyncStatusTask")
+	}
+	return nil, nil
+}
+
+func (model *SLLMDeployment) StartSyncStatusTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	model.SetStatus(ctx, userCred, api.LLM_DEPLOYMENT_STATUS_SYNCING, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMDeploymentSyncStatusTask", model, userCred, nil, "", "", nil)
+	if err != nil {
+		return errors.Wrap(err, "NewTask LLMDeploymentSyncStatusTask")
+	}
+	return task.ScheduleRun(nil)
 }
 
 func (model *SLLMDeployment) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

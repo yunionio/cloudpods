@@ -27,9 +27,9 @@ climc llm-deployment-register-aiproxy my-qwen
 climc llm-deployment-unregister-aiproxy my-qwen
 ```
 
-`unregister-aiproxy` 会清理 aiproxy 侧资源，并将 `auto_register_aiproxy` 置为 false，同时清空 `aiproxy_bindings`。deployment `status` 恢复为副本健康态（`ready` / `partial` / `deploying` 等）。
+`unregister-aiproxy` 会清理 aiproxy 侧资源，并将 `auto_register_aiproxy` 置为 false，同时清空 `aiproxy_bindings`，`aiproxy_sync_status` 置为 `disabled`。deployment `status` 保持副本健康态（`ready` / `partial` / `deploying` 等），不再被网关同步覆盖。
 
-网关同步阶段通过 deployment `status` 表达：`aiproxy_pending`、`aiproxy_syncing`、`aiproxy_partial`、`aiproxy_sync_failed`；全部同步成功后恢复为 `ready` 或 `partial`。
+网关同步进度通过独立字段 `aiproxy_sync_status` 表达：`disabled`、`pending`、`syncing`、`synced`、`partial`、`failed`。
 
 ## 查看对应关系
 

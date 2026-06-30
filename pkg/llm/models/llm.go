@@ -138,12 +138,20 @@ func skuFromLLMSkuCreateInput(input *api.LLMSkuCreateInput) *SLLMSku {
 	if input == nil {
 		return nil
 	}
-	return &SLLMSku{
-		LLMType: input.LLMType,
+	sku := &SLLMSku{
+		LLMType:   input.LLMType,
+		Source:    input.Source,
+		LocalPath: input.LocalPath,
 		SLLMSkuBase: SLLMSkuBase{
-			Devices: input.Devices,
+			Devices:     input.Devices,
+			VramClaimMb: input.VramClaimMb,
+			HostPaths:   input.HostPaths,
 		},
 	}
+	if len(input.PreferHosts) > 0 {
+		sku.PreferHosts = append([]string(nil), input.PreferHosts...)
+	}
+	return sku
 }
 
 // ValidateRequireMountedModels errors if neither input nor existing llm nor sku supplies mounted_models. For create, pass nil/empty for llmCurMountedModels.
@@ -153,6 +161,9 @@ func ValidateRequireMountedModels(
 	llmCurMountedModels []string,
 	sku *SLLMSku,
 ) error {
+	if sku != nil && SkuHasLocalHostPathModel(sku) {
+		return nil
+	}
 	effectiveModels := llmCurMountedModels
 	if inputMountedModels != nil {
 		effectiveModels = inputMountedModels
@@ -715,7 +726,7 @@ func (llm *SLLM) ServerCreate(ctx context.Context, userCred mcclient.TokenCreden
 	if nil != err {
 		return "", errors.Wrap(err, "GetPodCreateInput")
 	}
-	log.Infoln("PodCreateInput Data: ", jsonutils.Marshal(data).String())
+	log.Infof("PodCreateInput Data: %s", jsonutils.Marshal(data).String())
 
 	resp, err := compute.Servers.Create(s, jsonutils.Marshal(data))
 	if nil != err {

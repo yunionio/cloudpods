@@ -33,6 +33,12 @@ func resolveLLMStatusFromPod(currentStatus string, serverStatus string, primaryC
 	reason := fmt.Sprintf("pod status=%s primary_container_status=%s", serverStatus, primaryContainerStatus)
 
 	switch {
+	case serverStatus == computeapi.VM_READY:
+		targetStatus = api.LLM_STATUS_READY
+	case isPrimaryContainerRunning(primaryContainerStatus):
+		targetStatus = api.LLM_STATUS_RUNNING
+	case serverStatus == computeapi.VM_RUNNING && primaryContainerStatus == computeapi.CONTAINER_STATUS_PROBING:
+		targetStatus = api.LLM_STATUS_PROBING
 	case isLLMPodCrashLoopStatus(serverStatus, primaryContainerStatus) || isLLMStartupProbeFailedStatus(primaryContainerStatus):
 		if currentStatus == commonapi.STATUS_CREATING {
 			targetStatus = api.LLM_STATUS_CREATE_FAIL
@@ -41,12 +47,6 @@ func resolveLLMStatusFromPod(currentStatus string, serverStatus string, primaryC
 		}
 	case serverStatus == computeapi.POD_STATUS_CONTAINER_EXITED || primaryContainerStatus == computeapi.CONTAINER_STATUS_EXITED:
 		targetStatus = api.LLM_STATUS_START_FAIL
-	case serverStatus == computeapi.VM_RUNNING && primaryContainerStatus == computeapi.CONTAINER_STATUS_PROBING:
-		targetStatus = api.LLM_STATUS_PROBING
-	case serverStatus == computeapi.VM_RUNNING && isPrimaryContainerRunning(primaryContainerStatus):
-		targetStatus = api.LLM_STATUS_RUNNING
-	case serverStatus == computeapi.VM_READY:
-		targetStatus = api.LLM_STATUS_READY
 	default:
 		return llmStatusResolution{}
 	}
@@ -65,6 +65,9 @@ func resolveLLMStatusFromPod(currentStatus string, serverStatus string, primaryC
 }
 
 func isLLMPodCrashLoopStatus(serverStatus string, primaryContainerStatus string) bool {
+	if isPrimaryContainerRunning(primaryContainerStatus) {
+		return false
+	}
 	return serverStatus == computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF ||
 		primaryContainerStatus == computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF
 }

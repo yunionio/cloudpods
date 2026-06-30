@@ -32,8 +32,15 @@ func (task *LLMSyncStatusTask) setLLMStatus(ctx context.Context, llm *models.SLL
 	}
 }
 
+// applyResolvedLLMStatus persists the reconciled LLM status after sync completes.
+// Unlike setLLMStatus, this always writes even when invoked as a child task (e.g.
+// LLMDeploymentSyncStatusTask) so derived statuses such as ready are not dropped.
+func (task *LLMSyncStatusTask) applyResolvedLLMStatus(ctx context.Context, llm *models.SLLM, status string, reason string) {
+	llm.SetStatus(ctx, task.UserCred, status, reason)
+}
+
 func (task *LLMSyncStatusTask) taskFailed(ctx context.Context, llm *models.SLLM, err string) {
-	task.setLLMStatus(ctx, llm, computeapi.VM_SYNC_FAIL, err)
+	task.applyResolvedLLMStatus(ctx, llm, computeapi.VM_SYNC_FAIL, err)
 	db.OpsLog.LogEvent(llm, db.ACT_SYNC_STATUS, err, task.UserCred)
 	logclient.AddActionLogWithStartable(task, llm, logclient.ACT_SYNC_STATUS, err, task.UserCred, false)
 	// llm.NotifyRequest(ctx, task.GetUserCred(), notify.ActionStart, nil, false)
@@ -107,14 +114,14 @@ func (task *LLMSyncStatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			if err != nil {
 				return nil, errors.Wrap(err, "WaitServerStatus")
 			}
-			task.setLLMStatus(ctx, llm, srv.Status, "stop server")
+			task.applyResolvedLLMStatus(ctx, llm, srv.Status, "stop server")
 		} else {
 			resolved, err := models.ResolveLLMStatusFromServerDetails(ctx, llm, srv)
 			if err != nil {
 				return nil, errors.Wrap(err, "ResolveLLMStatusFromServerDetails")
 			}
 			if resolved.Update {
-				task.setLLMStatus(ctx, llm, resolved.Status, resolved.Reason)
+				task.applyResolvedLLMStatus(ctx, llm, resolved.Status, resolved.Reason)
 			}
 		}
 
@@ -122,7 +129,7 @@ func (task *LLMSyncStatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		if volume != nil {
 			disk, err := volume.GetDisk(ctx)
 			if err != nil {
-				task.setLLMStatus(ctx, llm, computeapi.VM_DISK_RESET_FAIL, errors.Wrap(err, "GetDisk").Error())
+				task.applyResolvedLLMStatus(ctx, llm, computeapi.VM_DISK_RESET_FAIL, errors.Wrap(err, "GetDisk").Error())
 				return nil, errors.Wrap(err, "GetDisk")
 			}
 			if disk.Status != computeapi.DISK_READY {
