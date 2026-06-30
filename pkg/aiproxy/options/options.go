@@ -29,6 +29,7 @@ type SAiProxyOptions struct {
 	ChatLogLocalDir              string `help:"Local directory for chat JSONL logs" default:"/tmp/aiproxy-chatlog"`
 	ChatLogUploadEnabled         bool   `help:"Upload closed chat log hour files to MinIO/S3" default:"true"`
 	ChatLogUploadIntervalSeconds int    `help:"Chat log upload interval in seconds" default:"10"`
+	ChatLogSegmentMinutes        int    `help:"Chat log file segment duration in minutes" default:"60"`
 	ChatLogMinioEndpoint         string `help:"MinIO/S3 endpoint for chat log upload" default:"http://monitor-minio.onecloud-monitoring.svc:9000"`
 	ChatLogMinioAccessKey        string `help:"MinIO/S3 access key for chat log upload" default:"monitor-admin"`
 	ChatLogMinioSecretKey        string `help:"MinIO/S3 secret key for chat log upload" default:"monitor-admin"`

@@ -52,12 +52,14 @@ func StartService() {
 		LocalDir:              opts.ChatLogLocalDir,
 		UploadEnabled:         opts.ChatLogUploadEnabled,
 		UploadIntervalSeconds: opts.ChatLogUploadIntervalSeconds,
+		SegmentMinutes:        opts.ChatLogSegmentMinutes,
 		MinioEndpoint:         opts.ChatLogMinioEndpoint,
 		MinioAccessKey:        opts.ChatLogMinioAccessKey,
 		MinioSecretKey:        opts.ChatLogMinioSecretKey,
 		MinioBucket:           opts.ChatLogMinioBucket,
 		MinioSecure:           opts.ChatLogMinioSecure,
 		MinioPrefix:           opts.ChatLogMinioPrefix,
+		Instance:              models.CurrentProxyNodeId(),
 	})
 	uploadCtx, stopUpload := context.WithCancel(context.Background())
 	defer stopUpload()
