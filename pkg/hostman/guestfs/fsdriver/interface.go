@@ -94,6 +94,7 @@ type IRootFsDriver interface {
 	DetectIsUEFISupport(IDiskPartition) bool
 	IsCloudinitInstall() bool
 	IsResizeFsPartitionSupport() bool
+	MountProcfs() bool
 
 	PrepareFsForTemplate(IDiskPartition) error
 	CleanNetworkScripts(rootFs IDiskPartition) error
