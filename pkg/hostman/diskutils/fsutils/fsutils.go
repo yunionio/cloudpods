@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -601,6 +602,25 @@ func MountRootfs(readonly bool, partitions []fsdriver.IDiskPartition) (fsdriver.
 		err = errors.Wrapf(errors.ErrNotFound, errors.NewAggregate(errs).Error())
 	}
 	return nil, err
+}
+
+func MountProcfs(mountpoint string) error {
+	mountPath := path.Join(mountpoint, "proc")
+	if output, err := procutils.NewCommand("mkdir", "-p", mountPath).Output(); err != nil {
+		return errors.Wrapf(err, "mkdir %s failed: %s", mountPath, output)
+	}
+	if output, err := procutils.NewCommand("mount", "-t", "proc", "proc", mountPath).Output(); err != nil {
+		return errors.Wrapf(err, "mount %s failed: %s", mountPath, output)
+	}
+	return nil
+}
+
+func UmountProcfs(mountpoint string) error {
+	mountPath := path.Join(mountpoint, "proc")
+	if output, err := procutils.NewCommand("umount", mountPath).Output(); err != nil {
+		return errors.Wrapf(err, "umount %s failed: %s", mountPath, output)
+	}
+	return nil
 }
 
 func DeployGuestfs(d deploy_iface.IDeployer, req *apis.DeployParams) (res *apis.DeployGuestFsResponse, err error) {
