@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
+	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
@@ -95,6 +96,9 @@ func (f *CPUPredicate) Execute(ctx context.Context, u *core.Unit, c core.Candida
 	if freeCPUCount < reqCPUCount {
 		totalCPUCount := getter.TotalCPUCount(useRsvd)
 		h.AppendInsufficientResourceError(reqCPUCount, totalCPUCount, freeCPUCount)
+		if hint := candidate.GetGpuReservedResourceFromGetter(getter).AppendCpuHint("", useRsvd); hint != "" {
+			h.AppendPredicateFailMsg(hint)
+		}
 	}
 
 	h.SetCapacity(freeCPUCount / reqCPUCount)
