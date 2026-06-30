@@ -892,6 +892,10 @@ func (d *sLinuxRootFs) ConfigSshd(loginAccount, loginPassword string, sshPort in
 	}
 }
 
+func (l *sLinuxRootFs) MountProcfs() bool {
+	return true
+}
+
 type sDebianLikeRootFs struct {
 	*sLinuxRootFs
 }

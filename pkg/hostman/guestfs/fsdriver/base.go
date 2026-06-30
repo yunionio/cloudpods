@@ -156,6 +156,10 @@ func (r *sGuestRootFsDriver) DeployQgaService(part IDiskPartition) error {
 	return nil
 }
 
+func (l *sGuestRootFsDriver) MountProcfs() bool {
+	return false
+}
+
 const (
 	modeAuthorizedKeysRWX = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
 	modeAuthorizedKeysRW  = syscall.S_IRUSR | syscall.S_IWUSR

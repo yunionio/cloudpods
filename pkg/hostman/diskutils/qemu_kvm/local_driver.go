@@ -115,10 +115,29 @@ func (d *LocalDiskDriver) DetectIsBIOSSupport(rootfs fsdriver.IRootFsDriver) boo
 }
 
 func (d *LocalDiskDriver) MountRootfs(readonly bool) (fsdriver.IRootFsDriver, error) {
-	return fsutils.MountRootfs(readonly, d.GetPartitions())
+	rootFs, err := fsutils.MountRootfs(readonly, d.GetPartitions())
+	if err != nil {
+		return nil, errors.Wrap(err, "fsutils.MountRootfs")
+	}
+	if !readonly && rootFs.MountProcfs() {
+		err = fsutils.MountProcfs(rootFs.GetPartition().GetMountPath())
+		if err != nil {
+			log.Errorf("failed to mount procfs %s: %s", rootFs.GetPartition().GetMountPath(), err)
+		} else {
+			log.Infof("mount procfs %s successfully", rootFs.GetPartition().GetMountPath())
+		}
+	}
+	return rootFs, nil
 }
 
 func (d *LocalDiskDriver) UmountRootfs(fd fsdriver.IRootFsDriver) error {
+	if fd.MountProcfs() {
+		if err := fsutils.UmountProcfs(fd.GetPartition().GetMountPath()); err != nil {
+			log.Errorf("failed to umount procfs %s: %s", fd.GetPartition().GetMountPath(), err)
+		} else {
+			log.Infof("umount procfs %s successfully", fd.GetPartition().GetMountPath())
+		}
+	}
 	if part := fd.GetPartition(); part != nil {
 		return part.Umount()
 	}
