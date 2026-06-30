@@ -85,12 +85,18 @@ const (
 	LLM_DEPLOYMENT_STATUS_DEPLOYING = "deploying"
 	// Some replicas running but not all (e.g., one died, scale-up in progress).
 	LLM_DEPLOYMENT_STATUS_PARTIAL = "partial"
+	// Replica reconcile or syncstatus in progress.
+	LLM_DEPLOYMENT_STATUS_SYNCING = "syncing"
+)
 
-	// Aiproxy gateway sync phases (stored in deployment status, not a separate column).
-	LLM_DEPLOYMENT_STATUS_AIPROXY_PENDING     = "aiproxy_pending"
-	LLM_DEPLOYMENT_STATUS_AIPROXY_SYNCING     = "aiproxy_syncing"
-	LLM_DEPLOYMENT_STATUS_AIPROXY_PARTIAL     = "aiproxy_partial"
-	LLM_DEPLOYMENT_STATUS_AIPROXY_SYNC_FAILED = "aiproxy_sync_failed"
+// AiproxySyncStatus values stored on SLLMDeployment.AiproxySyncStatus.
+const (
+	AIPROXY_SYNC_STATUS_DISABLED = "disabled"
+	AIPROXY_SYNC_STATUS_PENDING  = "pending"
+	AIPROXY_SYNC_STATUS_SYNCING  = "syncing"
+	AIPROXY_SYNC_STATUS_SYNCED   = "synced"
+	AIPROXY_SYNC_STATUS_PARTIAL  = "partial"
+	AIPROXY_SYNC_STATUS_FAILED   = "failed"
 )
 
 // LLMDeploymentCreateInput is the input for creating a new LLMDeployment deployment.
@@ -119,6 +125,8 @@ type LLMDeploymentCreateInput struct {
 	AutoStart bool `json:"auto_start"`
 	// Prefer specific host
 	PreferHost string `json:"prefer_host"`
+	// Prefer specific hosts for local_path scheduling (round-robin per replica).
+	PreferHosts []string `json:"prefer_hosts,omitempty"`
 	// Host path mounts for instances.
 	HostPaths *HostPaths `json:"host_paths,omitempty"`
 
@@ -174,6 +182,12 @@ type LLMDeploymentUpdateInput struct {
 	AiproxyModelPrefix       *string                    `json:"aiproxy_model_prefix,omitempty"`
 }
 
+type LLMDeploymentRestartInput struct {
+}
+
+type LLMDeploymentSyncstatusInput struct {
+}
+
 // Model source types
 const (
 	LLM_MODEL_SOURCE_HUGGINGFACE = "huggingface"
@@ -207,7 +221,8 @@ type LLMDeploymentDetails struct {
 	ModelScopeModelId        string   `json:"model_scope_model_id"`
 	ModelScopeFilePath       string   `json:"model_scope_file_path"`
 	LocalPath                string   `json:"local_path"`
-	Categories               string   `json:"categories"`
+	PreferHosts              []string `json:"prefer_hosts,omitempty"`
+	Categories               []string `json:"categories,omitempty"`
 	Backend                  string   `json:"backend"`
 	BackendVersion           string   `json:"backend_version"`
 	Replicas                 int      `json:"replicas"`
@@ -229,6 +244,7 @@ type LLMDeploymentDetails struct {
 	AutoRegisterAiproxy bool   `json:"auto_register_aiproxy"`
 	AiproxyModelPrefix  string `json:"aiproxy_model_prefix"`
 	AiproxyRoutingId    string `json:"aiproxy_routing_id"`
+	AiproxySyncStatus   string `json:"aiproxy_sync_status"`
 }
 
 // Per-replica aiproxy binding sync status (AiproxyInstanceBinding.sync_status).

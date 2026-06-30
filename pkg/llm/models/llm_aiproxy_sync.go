@@ -604,36 +604,98 @@ func computeAiproxyBindingSyncResult(bindings []api.AiproxyInstanceBinding, runn
 	return aiproxyBindingSyncSynced
 }
 
-func resolveDeploymentStatusAfterAiproxySync(dep *SLLMDeployment, result aiproxyBindingSyncResult) string {
+func resolveAiproxySyncStatusAfterReconcile(result aiproxyBindingSyncResult) string {
 	switch result {
 	case aiproxyBindingSyncSynced:
-		if dep.Replicas > 0 && dep.ReadyReplicas >= dep.Replicas {
-			return api.STATUS_READY
-		}
-		if dep.ReadyReplicas > 0 {
-			return api.LLM_DEPLOYMENT_STATUS_PARTIAL
-		}
-		return api.LLM_DEPLOYMENT_STATUS_AIPROXY_PENDING
+		return api.AIPROXY_SYNC_STATUS_SYNCED
 	case aiproxyBindingSyncPartial:
-		return api.LLM_DEPLOYMENT_STATUS_AIPROXY_PARTIAL
+		return api.AIPROXY_SYNC_STATUS_PARTIAL
 	case aiproxyBindingSyncFailed:
-		return api.LLM_DEPLOYMENT_STATUS_AIPROXY_SYNC_FAILED
+		return api.AIPROXY_SYNC_STATUS_FAILED
 	default:
-		return api.LLM_DEPLOYMENT_STATUS_AIPROXY_PENDING
+		return api.AIPROXY_SYNC_STATUS_PENDING
 	}
 }
 
-func deploymentStatusMessageAfterAiproxySync(dep *SLLMDeployment, result aiproxyBindingSyncResult) string {
+func aiproxySyncStatusMessage(dep *SLLMDeployment, result aiproxyBindingSyncResult) string {
 	switch result {
 	case aiproxyBindingSyncSynced:
 		return fmt.Sprintf("aiproxy synced, ready_replicas=%d/%d", dep.ReadyReplicas, dep.Replicas)
 	case aiproxyBindingSyncPartial:
-		return fmt.Sprintf("aiproxy partially synced, ready_replicas=%d/%d", dep.ReadyReplicas, dep.Replicas)
+		msg := fmt.Sprintf("aiproxy partially synced, ready_replicas=%d/%d", dep.ReadyReplicas, dep.Replicas)
+		if reason := AiproxySyncFailureReason(dep); reason != "" {
+			return msg + ": " + reason
+		}
+		return msg
 	case aiproxyBindingSyncFailed:
+		if reason := AiproxySyncFailureReason(dep); reason != "" {
+			return reason
+		}
 		return "aiproxy sync failed"
 	default:
 		return "waiting for running replicas"
 	}
+}
+
+// AiproxySyncFailureReason summarizes per-replica binding errors for logs and UI.
+func AiproxySyncFailureReason(dep *SLLMDeployment) string {
+	if dep == nil {
+		return ""
+	}
+	bindings := deploymentAiproxyBindings(dep)
+	if len(bindings) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(bindings))
+	for i := range bindings {
+		b := bindings[i]
+		if b.SyncStatus != api.AIPROXY_BINDING_SYNC_FAILED {
+			continue
+		}
+		errMsg := strings.TrimSpace(b.LastError)
+		if errMsg == "" {
+			errMsg = "unknown error"
+		}
+		if b.LlmId != "" {
+			parts = append(parts, fmt.Sprintf("llm %s: %s", b.LlmId, errMsg))
+		} else {
+			parts = append(parts, errMsg)
+		}
+	}
+	return strings.Join(parts, "; ")
+}
+
+func (dep *SLLMDeployment) SetAiproxySyncStatus(ctx context.Context, userCred mcclient.TokenCredential, status, msg string) error {
+	if dep == nil {
+		return errors.Wrap(httperrors.ErrInvalidStatus, "nil deployment")
+	}
+	if status == "" {
+		status = api.AIPROXY_SYNC_STATUS_DISABLED
+	}
+	if dep.AiproxySyncStatus == status {
+		return nil
+	}
+	if _, err := db.Update(dep, func() error {
+		dep.AiproxySyncStatus = status
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "update aiproxy_sync_status")
+	}
+	if msg != "" {
+		db.OpsLog.LogEvent(dep, "aiproxy_sync", msg, userCred)
+	}
+	return nil
+}
+
+func inferAiproxySyncStatus(dep *SLLMDeployment) string {
+	if dep == nil || !dep.AutoRegisterAiproxy {
+		return api.AIPROXY_SYNC_STATUS_DISABLED
+	}
+	bindings := deploymentAiproxyBindings(dep)
+	if len(bindings) == 0 {
+		return api.AIPROXY_SYNC_STATUS_PENDING
+	}
+	return resolveAiproxySyncStatusAfterReconcile(computeAiproxyBindingSyncResult(bindings, dep.ReadyReplicas))
 }
 
 // ReconcileDeploymentAiproxy syncs all running replicas and refreshes routing bindings.
@@ -645,7 +707,7 @@ func ReconcileDeploymentAiproxy(ctx context.Context, userCred mcclient.TokenCred
 		return nil
 	}
 
-	if err := dep.SetStatus(ctx, userCred, api.LLM_DEPLOYMENT_STATUS_AIPROXY_SYNCING, "aiproxy sync in progress"); err != nil {
+	if err := dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_SYNCING, "aiproxy sync in progress"); err != nil {
 		return errors.Wrap(err, "set aiproxy syncing status")
 	}
 
@@ -658,7 +720,7 @@ func ReconcileDeploymentAiproxy(ctx context.Context, userCred mcclient.TokenCred
 		if err := persistDeploymentAiproxyBindings(dep, dep.AiproxyRoutingId, nil); err != nil {
 			return err
 		}
-		return dep.SetStatus(ctx, userCred, api.LLM_DEPLOYMENT_STATUS_AIPROXY_PENDING, "waiting for running replicas")
+		return dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_PENDING, "waiting for running replicas")
 	}
 
 	session := aiproxyAdminSession(ctx)
@@ -667,19 +729,19 @@ func ReconcileDeploymentAiproxy(ctx context.Context, userCred mcclient.TokenCred
 	items, bindings, err := buildRoutingModelItems(ctx, userCred, dep, llms)
 	if err != nil {
 		_ = persistDeploymentAiproxyBindings(dep, dep.AiproxyRoutingId, bindings)
-		_ = dep.SetStatus(ctx, userCred, api.LLM_DEPLOYMENT_STATUS_AIPROXY_SYNC_FAILED, err.Error())
+		_ = dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_FAILED, err.Error())
 		return err
 	}
 	primaryModelKey := primaryUpstreamModelKeyFromBindings(ctx, userCred, bindings)
 	routingId, err := ensureAiRouting(session, routingName, dep, deploymentRoutingModelKey(dep, primaryModelKey))
 	if err != nil {
 		_ = persistDeploymentAiproxyBindings(dep, dep.AiproxyRoutingId, bindings)
-		_ = dep.SetStatus(ctx, userCred, api.LLM_DEPLOYMENT_STATUS_AIPROXY_SYNC_FAILED, err.Error())
+		_ = dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_FAILED, err.Error())
 		return err
 	}
 	if err := applyRoutingModels(session, routingId, items); err != nil {
 		_ = persistDeploymentAiproxyBindings(dep, routingId, bindings)
-		_ = dep.SetStatus(ctx, userCred, api.LLM_DEPLOYMENT_STATUS_AIPROXY_SYNC_FAILED, err.Error())
+		_ = dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_FAILED, err.Error())
 		return err
 	}
 
@@ -687,8 +749,8 @@ func ReconcileDeploymentAiproxy(ctx context.Context, userCred mcclient.TokenCred
 	if err := persistDeploymentAiproxyBindings(dep, routingId, bindings); err != nil {
 		return err
 	}
-	status := resolveDeploymentStatusAfterAiproxySync(dep, result)
-	return dep.SetStatus(ctx, userCred, status, deploymentStatusMessageAfterAiproxySync(dep, result))
+	syncStatus := resolveAiproxySyncStatusAfterReconcile(result)
+	return dep.SetAiproxySyncStatus(ctx, userCred, syncStatus, aiproxySyncStatusMessage(dep, result))
 }
 
 func deleteAiProviderById(session *mcclient.ClientSession, providerId string) error {
@@ -812,7 +874,7 @@ func UnsyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, d
 		if err := persistDeploymentAiproxyBindings(dep, "", nil); err != nil {
 			return err
 		}
-		return dep.SetStatus(ctx, userCred, api.LLM_DEPLOYMENT_STATUS_AIPROXY_PENDING, "waiting for running replicas")
+		return dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_PENDING, "waiting for running replicas")
 	}
 
 	if len(remaining) == 0 {
@@ -822,7 +884,7 @@ func UnsyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, d
 		if err := persistDeploymentAiproxyBindings(dep, "", nil); err != nil {
 			return err
 		}
-		return dep.SetStatus(ctx, userCred, api.LLM_DEPLOYMENT_STATUS_AIPROXY_PENDING, "waiting for running replicas")
+		return dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_PENDING, "waiting for running replicas")
 	}
 
 	items := make([]apapi.AiRoutingModelItem, 0, len(remaining))
@@ -870,8 +932,8 @@ func UnsyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, d
 	if err := persistDeploymentAiproxyBindings(dep, routingId, bindings); err != nil {
 		return err
 	}
-	status := resolveDeploymentStatusAfterAiproxySync(dep, result)
-	return dep.SetStatus(ctx, userCred, status, deploymentStatusMessageAfterAiproxySync(dep, result))
+	syncStatus := resolveAiproxySyncStatusAfterReconcile(result)
+	return dep.SetAiproxySyncStatus(ctx, userCred, syncStatus, aiproxySyncStatusMessage(dep, result))
 }
 
 func parseBindingForLlm(dep *SLLMDeployment, llmId string) (api.AiproxyInstanceBinding, error) {
@@ -909,10 +971,11 @@ func clearDeploymentAiproxyRegistrationState(dep *SLLMDeployment) {
 	dep.AutoRegisterAiproxy = false
 	dep.AiproxyRoutingId = ""
 	dep.AiproxyBindings = nil
+	dep.AiproxySyncStatus = api.AIPROXY_SYNC_STATUS_DISABLED
 }
 
 func (dep *SLLMDeployment) StartAiproxySyncTask(ctx context.Context, userCred mcclient.TokenCredential, llmId, parentTaskId string) error {
-	if dep.Status == api.LLM_DEPLOYMENT_STATUS_AIPROXY_SYNCING && parentTaskId == "" {
+	if dep.AiproxySyncStatus == api.AIPROXY_SYNC_STATUS_SYNCING && parentTaskId == "" {
 		return nil
 	}
 	params := jsonutils.NewDict()

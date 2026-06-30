@@ -1,7 +1,6 @@
 package llm_container
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -11,14 +10,9 @@ type runtimeArg struct {
 	Value string
 }
 
-func parseBackendParameterArgs(raw string, validate func(string) error) ([]runtimeArg, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
+func parseBackendParameterArgs(items []string, validate func(string) error) ([]runtimeArg, error) {
+	if len(items) == 0 {
 		return nil, nil
-	}
-	items := []string{}
-	if err := json.Unmarshal([]byte(raw), &items); err != nil {
-		items = []string{raw}
 	}
 	args := make([]runtimeArg, 0, len(items))
 	errs := make([]string, 0)
