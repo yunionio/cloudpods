@@ -47,6 +47,9 @@ type LLMOptions struct {
 	// the dashboard for model browsing). Mirrors GPUStack's /v1/proxy design.
 	HuggingFaceEndpoint string `help:"Replacement endpoint for huggingface.co (e.g., https://hf-mirror.com); empty means no substitution"`
 	HuggingFaceToken    string `help:"Optional HuggingFace bearer token; injected as Authorization header on huggingface.co requests"`
+
+	ModelScopeEndpoint string `help:"ModelScope API endpoint (e.g., https://www.modelscope.cn)" default:"https://www.modelscope.cn"`
+	ModelScopeToken    string `help:"Optional ModelScope bearer token; injected as Authorization header on modelscope.cn requests"`
 }
 
 var (

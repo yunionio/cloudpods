@@ -6,6 +6,7 @@ import (
 
 const (
 	InstantModelSourceHuggingFace = "huggingface"
+	InstantModelSourceModelScope  = "model_scope"
 )
 
 type InstantModelListInput struct {
@@ -30,6 +31,7 @@ type InstantModelImportInput struct {
 	Source    string           `json:"source,omitempty"`
 	RepoId    string           `json:"repo_id,omitempty"`
 	Revision  string           `json:"revision,omitempty"`
+	FilePath  string           `json:"file_path,omitempty"` // model_scope file glob; empty means full snapshot
 }
 
 type InstantModelCreateInput struct {

@@ -388,15 +388,16 @@ func (c *comfyui) UninstallModel(ctx context.Context, userCred mcclient.TokenCre
 	return nil
 }
 
-func (c *comfyui) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string, progress func(progress float32)) (string, []string, error) {
+func (c *comfyui) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, input api.InstantModelImportInput, progress func(progress float32)) (string, []string, error) {
 	if strings.TrimSpace(tmpDir) == "" {
 		return "", nil, errors.Error("tmpDir is empty")
 	}
-	if strings.TrimSpace(modelName) == "" {
+	modelName := resolveImportModelName(input)
+	if modelName == "" {
 		return "", nil, errors.Error("modelName is empty")
 	}
 
-	rev := resolveHfdRevision(modelTag)
+	rev := resolveImportRevision(input, resolveHfdRevision(""))
 	apiURL := fmt.Sprintf("%s/api/models/%s?revision=%s", api.LLM_COMFYUI_HF_ENDPOINT, escapeURLPathPreserveSlash(modelName), url.QueryEscape(rev))
 	log.Infof("Downloading HF model for ComfyUI via HF Mirror API: %s", func() string {
 		b, _ := json.Marshal(map[string]string{

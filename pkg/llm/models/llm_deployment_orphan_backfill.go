@@ -6,6 +6,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -20,6 +21,21 @@ var orphanLLMBackfillExcludedStatuses = []string{
 	api.LLM_STATUS_DELETING,
 	api.LLM_STATUS_DELETED,
 	api.LLM_STATUS_START_DELETE,
+}
+
+var orphanLLMBackfillSupportedTypes = []string{
+	string(api.LLM_CONTAINER_OLLAMA),
+	string(api.LLM_CONTAINER_VLLM),
+	string(api.LLM_CONTAINER_SGLANG),
+}
+
+func isOrphanLLMBackfillSupportedType(llmType string) bool {
+	for _, t := range orphanLLMBackfillSupportedTypes {
+		if llmType == t {
+			return true
+		}
+	}
+	return false
 }
 
 // BackfillOrphanLLMDeployments creates one SLLMDeployment per orphan SLLM instance
@@ -58,6 +74,9 @@ func fetchOrphanLLMsForBackfill() ([]SLLM, error) {
 	q = q.Equals("deleted", false)
 	q = q.Equals("pending_deleted", false)
 	q = q.NotIn("status", orphanLLMBackfillExcludedStatuses)
+	skuQ := GetLLMSkuManager().Query().SubQuery()
+	q = q.Join(skuQ, sqlchemy.Equals(q.Field("llm_sku_id"), skuQ.Field("id")))
+	q = q.Filter(sqlchemy.In(skuQ.Field("llm_type"), orphanLLMBackfillSupportedTypes))
 
 	var llms []SLLM
 	if err := db.FetchModelObjects(GetLLMManager(), q, &llms); err != nil {
@@ -155,6 +174,9 @@ func (man *SLLMDeploymentManager) adoptOrphanLLM(ctx context.Context, userCred m
 		return errors.Wrapf(err, "fetch LLMSku %s", llm.LLMSkuId)
 	}
 	sku := skuObj.(*SLLMSku)
+	if !isOrphanLLMBackfillSupportedType(sku.LLMType) {
+		return errors.Errorf("llm type %q is not supported for orphan backfill", sku.LLMType)
+	}
 
 	nets, err := netsFromOrphanLLM(llm)
 	if err != nil {
