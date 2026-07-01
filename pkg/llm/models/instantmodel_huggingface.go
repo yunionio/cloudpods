@@ -442,6 +442,9 @@ func (man *SInstantModelManager) GetPropertyProxy(
 	if isHuggingFaceURL(finalURL) && options.Options.HuggingFaceToken != "" {
 		req.Header.Set("Authorization", "Bearer "+options.Options.HuggingFaceToken)
 	}
+	if isModelScopeURL(finalURL) && options.Options.ModelScopeToken != "" {
+		req.Header.Set("Authorization", "Bearer "+options.Options.ModelScopeToken)
+	}
 
 	resp, err := proxyHTTPClient.Do(req)
 	if err != nil {
@@ -509,6 +512,14 @@ func isHuggingFaceURL(u string) bool {
 		return true
 	}
 	ep := strings.TrimRight(options.Options.HuggingFaceEndpoint, "/")
+	return ep != "" && strings.HasPrefix(u, ep)
+}
+
+func isModelScopeURL(u string) bool {
+	if strings.Contains(u, "modelscope.cn") {
+		return true
+	}
+	ep := strings.TrimRight(options.Options.ModelScopeEndpoint, "/")
 	return ep != "" && strings.HasPrefix(u, ep)
 }
 

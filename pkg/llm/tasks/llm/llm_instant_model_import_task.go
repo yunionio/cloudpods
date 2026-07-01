@@ -99,9 +99,7 @@ func (task *LLMInstantModelImportTask) OnImportComplete(ctx context.Context, obj
 	task.SetStageComplete(ctx, nil)
 }
 
-// fetchWeightSizeForImport dispatches by import source. Only HuggingFace is
-// supported in this phase; ModelScope / local_path / ollama silently return 0
-// (left as TODO; UI handles the unknown case gracefully).
+// fetchWeightSizeForImport dispatches by import source.
 func fetchWeightSizeForImport(ctx context.Context, input apis.InstantModelImportInput) int64 {
 	if input.Source == apis.InstantModelSourceHuggingFace && input.RepoId != "" {
 		rev := input.Revision
@@ -111,6 +109,18 @@ func fetchWeightSizeForImport(ctx context.Context, input apis.InstantModelImport
 		w, err := models.FetchHuggingFaceWeightSize(ctx, input.RepoId, rev)
 		if err != nil {
 			log.Warningf("LLMInstantModelImportTask: fetch HF weight size for %s@%s: %s", input.RepoId, rev, err)
+			return 0
+		}
+		return w
+	}
+	if input.Source == apis.InstantModelSourceModelScope && input.RepoId != "" {
+		rev := input.Revision
+		if rev == "" {
+			rev = "master"
+		}
+		w, err := models.FetchModelScopeWeightSize(ctx, input.RepoId, rev)
+		if err != nil {
+			log.Warningf("LLMInstantModelImportTask: fetch ModelScope weight size for %s@%s: %s", input.RepoId, rev, err)
 			return 0
 		}
 		return w

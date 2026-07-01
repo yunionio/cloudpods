@@ -64,6 +64,27 @@ func buildLLMSkuImportFromModelSpec(input *api.LLMSkuCreateInput) (*api.InstantM
 		importInput.ModelTag = revision
 		input.Source = api.LLM_MODEL_SOURCE_HUGGINGFACE
 		input.HuggingfaceRepoId = repoID
+	case api.InstantModelSourceModelScope:
+		if repoID == "" {
+			repoID = strings.TrimSpace(importInput.ModelName)
+		}
+		revision := strings.TrimSpace(importInput.Revision)
+		if revision == "" {
+			revision = strings.TrimSpace(importInput.ModelTag)
+		}
+		if revision == "" {
+			revision = defaultModelScopeRevision
+		}
+		filePath := strings.TrimSpace(importInput.FilePath)
+		importInput.Source = api.InstantModelSourceModelScope
+		importInput.RepoId = repoID
+		importInput.Revision = revision
+		importInput.ModelName = repoID
+		importInput.ModelTag = revision
+		importInput.FilePath = filePath
+		input.Source = api.LLM_MODEL_SOURCE_MODEL_SCOPE
+		input.ModelScopeModelId = repoID
+		input.ModelScopeFilePath = filePath
 	case "ollama":
 		importInput.Source = source
 		input.Source = source
