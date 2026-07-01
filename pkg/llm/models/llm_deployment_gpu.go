@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"encoding/json"
 	"math"
 	"strconv"
 	"strings"
@@ -44,15 +43,36 @@ func deploymentAutoGpuMemoryUtilizationEnabled(auto *bool, llmType string) bool 
 	return ok
 }
 
-func defaultDeploymentAutoGpuMemoryUtilization(input *api.LLMDeploymentCreateInput, llmType string) {
+func defaultDeploymentAutoGpuMemoryUtilization(input *api.LLMDeploymentCreateInput, sku *SLLMSku, llmType string) {
 	if input == nil || input.GpuMemoryUtilization != nil || input.AutoGpuMemoryUtilization != nil {
 		return
 	}
 	if !deploymentAutoGpuMemoryUtilizationEnabled(nil, llmType) {
 		return
 	}
+	if !skuCanAutoGpuMemoryUtilization(sku) {
+		return
+	}
 	enabled := true
 	input.AutoGpuMemoryUtilization = &enabled
+}
+
+// disableDeploymentAutoGpuMemoryUtilizationForLocalPath forces auto GPU memory utilization off for host-mounted SKUs.
+func disableDeploymentAutoGpuMemoryUtilizationForLocalPath(input *api.LLMDeploymentCreateInput, sku *SLLMSku) {
+	if input == nil || sku == nil || !SkuHasLocalHostPathModel(sku) {
+		return
+	}
+	disabled := false
+	input.AutoGpuMemoryUtilization = &disabled
+}
+
+// skuCanAutoGpuMemoryUtilization reports whether auto GPU memory utilization can be derived for sku.
+// Host-mounted local_path SKUs always opt out; use gpu_memory_utilization manually when needed.
+func skuCanAutoGpuMemoryUtilization(sku *SLLMSku) bool {
+	if sku == nil {
+		return true
+	}
+	return !SkuHasLocalHostPathModel(sku)
 }
 
 func validateDeploymentGpuMemoryUtilization(util *float64, auto *bool, llmType string) error {
@@ -154,8 +174,7 @@ func runtimeHasExplicitArg(sku *SLLMSku, keys []string) bool {
 	return false
 }
 
-func backendParametersContainRuntimeArg(raw string, keys []string) bool {
-	items := backendParameterItems(raw)
+func backendParametersContainRuntimeArg(items []string, keys []string) bool {
 	for i := range items {
 		argKey, _, ok := splitBackendParameterFlag(items[i])
 		if ok && runtimeArgKeyIn(argKey, keys) {
@@ -165,8 +184,7 @@ func backendParametersContainRuntimeArg(raw string, keys []string) bool {
 	return false
 }
 
-func tokenLimitFromBackendParameters(raw string, keys []string) (int64, bool) {
-	items := backendParameterItems(raw)
+func tokenLimitFromBackendParameters(items []string, keys []string) (int64, bool) {
 	var tokenLimit int64
 	found := false
 	for i := range items {
@@ -186,18 +204,6 @@ func tokenLimitFromBackendParameters(raw string, keys []string) (int64, bool) {
 		}
 	}
 	return tokenLimit, found
-}
-
-func backendParameterItems(raw string) []string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil
-	}
-	items := []string{}
-	if err := json.Unmarshal([]byte(raw), &items); err != nil {
-		return []string{raw}
-	}
-	return items
 }
 
 func splitBackendParameterFlag(item string) (string, string, bool) {
@@ -477,6 +483,9 @@ func BuildDeploymentResolvedGpuMemoryLLMSpec(ctx context.Context, userCred mccli
 	if deploy.GpuMemoryUtilization != nil {
 		return buildDeploymentGpuMemoryLLMSpec(deploy, sku)
 	}
+	if !skuCanAutoGpuMemoryUtilization(sku) {
+		return nil, nil
+	}
 	if !deploymentAutoGpuMemoryUtilizationEnabled(deploy.AutoGpuMemoryUtilization, sku.LLMType) {
 		return nil, nil
 	}
@@ -500,6 +509,10 @@ func BuildDeploymentResolvedGpuMemoryLLMSpec(ctx context.Context, userCred mccli
 }
 
 func maxMountedModelVramRequirementMB(sku *SLLMSku) (int64, error) {
+	if sku != nil && SkuHasLocalHostPathModel(sku) {
+		return 0, httperrors.NewInputParameterError(
+			"auto_gpu_memory_utilization is not supported for local_path SKU: set gpu_memory_utilization manually or omit both")
+	}
 	modelIds := sku.GetMountedModels()
 	if len(modelIds) == 0 {
 		return 0, httperrors.NewInputParameterError("auto_gpu_memory_utilization requires mounted models: configure mounted_models on the LLM SKU")

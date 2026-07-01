@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -58,18 +59,16 @@ type SLLMSku struct {
 	LLMSpec    *api.LLMSpec `json:"llm_spec" length:"long" list:"user" create:"optional" update:"user"`
 
 	// Model source
-	Source              string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	HuggingfaceRepoId   string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
-	HuggingfaceFilename string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
-	ModelScopeModelId   string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
-	ModelScopeFilePath  string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
-	LocalPath           string `width:"512" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
-	// Model categories, JSON array: ["llm"], ["embedding"], ["image"]
-	Categories string `charset:"utf8" length:"medium" nullable:"true" list:"user" create:"optional" update:"user"`
-	// Inference backend version
-	BackendVersion string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	// Backend CLI parameters, JSON array
-	BackendParameters string `charset:"utf8" length:"long" nullable:"true" list:"user" create:"optional" update:"user"`
+	Source              string   `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	HuggingfaceRepoId   string   `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	HuggingfaceFilename string   `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	ModelScopeModelId   string   `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	ModelScopeFilePath  string   `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	LocalPath           string   `width:"512" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	PreferHosts         []string `charset:"utf8" length:"medium" nullable:"true" list:"user" create:"optional" update:"user"`
+	Categories          []string `charset:"utf8" length:"medium" nullable:"true" list:"user" create:"optional" update:"user"`
+	BackendVersion      string   `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	BackendParameters   []string `charset:"utf8" length:"long" nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 func (man *SLLMSkuManager) ListItemFilter(
@@ -97,7 +96,7 @@ func (man *SLLMSkuManager) ListItemFilter(
 		q = q.Equals("source", input.Source)
 	}
 	if len(input.Categories) > 0 {
-		q = q.Contains("categories", input.Categories)
+		q = q.Contains("categories", fmt.Sprintf("%q", input.Categories))
 	}
 	return q, nil
 }
@@ -147,6 +146,7 @@ func (manager *SLLMSkuManager) FetchCustomizeColumns(
 		res[i].ModelScopeModelId = sku.ModelScopeModelId
 		res[i].ModelScopeFilePath = sku.ModelScopeFilePath
 		res[i].LocalPath = sku.LocalPath
+		res[i].PreferHosts = GetSkuPreferHosts(&sku)
 		res[i].Categories = sku.Categories
 		res[i].BackendVersion = sku.BackendVersion
 		res[i].BackendParameters = sku.BackendParameters
@@ -239,6 +239,16 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 	if err != nil {
 		return input, errors.Wrap(err, "validate create input")
 	}
+	if isLocalPathSkuCreate(input) {
+		if err := ValidateLocalPathSkuCreate(input); err != nil {
+			return input, err
+		}
+		resolved, err := resolvePreferHosts(ctx, userCred, input.PreferHosts)
+		if err != nil {
+			return input, err
+		}
+		input.PreferHosts = resolved
+	}
 	importInput, err := resolveLLMSkuImport(input)
 	if err != nil {
 		return input, err
@@ -249,6 +259,14 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 		input.Status = api.STATUS_READY
 	}
 	return input, nil
+}
+
+func (sku *SLLMSku) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	err := sku.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return errors.Wrap(err, "SSharableVirtualResourceBase.CustomizeCreate")
+	}
+	return nil
 }
 
 func (sku *SLLMSku) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

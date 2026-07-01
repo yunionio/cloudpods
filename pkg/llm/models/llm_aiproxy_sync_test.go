@@ -89,6 +89,7 @@ func TestClearDeploymentAiproxyRegistrationState(t *testing.T) {
 	dep.AutoRegisterAiproxy = true
 	dep.AiproxyRoutingId = "routing-1"
 	dep.AiproxyBindings = &api.AiproxyBindings{{LlmId: "llm-1"}}
+	dep.AiproxySyncStatus = api.AIPROXY_SYNC_STATUS_SYNCED
 
 	clearDeploymentAiproxyRegistrationState(dep)
 
@@ -101,45 +102,61 @@ func TestClearDeploymentAiproxyRegistrationState(t *testing.T) {
 	if dep.AiproxyBindings != nil {
 		t.Fatal("AiproxyBindings should be nil")
 	}
+	if dep.AiproxySyncStatus != api.AIPROXY_SYNC_STATUS_DISABLED {
+		t.Fatalf("AiproxySyncStatus should be disabled, got %q", dep.AiproxySyncStatus)
+	}
 }
 
-func TestResolveDeploymentStatusAfterAiproxySync(t *testing.T) {
+func TestResolveAiproxySyncStatusAfterReconcile(t *testing.T) {
 	cases := []struct {
 		name     string
-		dep      SLLMDeployment
 		result   aiproxyBindingSyncResult
 		wantStat string
 	}{
 		{
-			name:     "fully synced all replicas",
-			dep:      SLLMDeployment{Replicas: 2, ReadyReplicas: 2},
+			name:     "fully synced",
 			result:   aiproxyBindingSyncSynced,
-			wantStat: api.STATUS_READY,
-		},
-		{
-			name:     "synced partial replicas",
-			dep:      SLLMDeployment{Replicas: 2, ReadyReplicas: 1},
-			result:   aiproxyBindingSyncSynced,
-			wantStat: api.LLM_DEPLOYMENT_STATUS_PARTIAL,
+			wantStat: api.AIPROXY_SYNC_STATUS_SYNCED,
 		},
 		{
 			name:     "binding partial failure",
-			dep:      SLLMDeployment{Replicas: 2, ReadyReplicas: 2},
 			result:   aiproxyBindingSyncPartial,
-			wantStat: api.LLM_DEPLOYMENT_STATUS_AIPROXY_PARTIAL,
+			wantStat: api.AIPROXY_SYNC_STATUS_PARTIAL,
 		},
 		{
 			name:     "all bindings failed",
-			dep:      SLLMDeployment{Replicas: 1, ReadyReplicas: 1},
 			result:   aiproxyBindingSyncFailed,
-			wantStat: api.LLM_DEPLOYMENT_STATUS_AIPROXY_SYNC_FAILED,
+			wantStat: api.AIPROXY_SYNC_STATUS_FAILED,
+		},
+		{
+			name:     "pending",
+			result:   aiproxyBindingSyncPending,
+			wantStat: api.AIPROXY_SYNC_STATUS_PENDING,
 		},
 	}
 	for _, c := range cases {
-		got := resolveDeploymentStatusAfterAiproxySync(&c.dep, c.result)
+		got := resolveAiproxySyncStatusAfterReconcile(c.result)
 		if got != c.wantStat {
 			t.Fatalf("%s: got %q want %q", c.name, got, c.wantStat)
 		}
+	}
+}
+
+func TestAiproxySyncFailureReason(t *testing.T) {
+	dep := &SLLMDeployment{}
+	dep.AiproxyBindings = &api.AiproxyBindings{
+		{LlmId: "llm-1", SyncStatus: api.AIPROXY_BINDING_SYNC_SYNCED},
+		{LlmId: "llm-2", SyncStatus: api.AIPROXY_BINDING_SYNC_FAILED, LastError: "provider upsert failed"},
+	}
+	got := AiproxySyncFailureReason(dep)
+	want := "llm llm-2: provider upsert failed"
+	if got != want {
+		t.Fatalf("AiproxySyncFailureReason() = %q, want %q", got, want)
+	}
+
+	msg := aiproxySyncStatusMessage(dep, aiproxyBindingSyncFailed)
+	if msg != want {
+		t.Fatalf("aiproxySyncStatusMessage(failed) = %q, want %q", msg, want)
 	}
 }
 

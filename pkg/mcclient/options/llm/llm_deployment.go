@@ -290,6 +290,30 @@ func (o *LLMDeploymentUnregisterAiproxyOptions) Params() (jsonutils.JSONObject, 
 	return jsonutils.NewDict(), nil
 }
 
+type LLMDeploymentRestartOptions struct {
+	options.BaseIdOptions
+}
+
+func (o *LLMDeploymentRestartOptions) GetId() string {
+	return o.ID
+}
+
+func (o *LLMDeploymentRestartOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.NewDict(), nil
+}
+
+type LLMDeploymentSyncstatusOptions struct {
+	options.BaseIdOptions
+}
+
+func (o *LLMDeploymentSyncstatusOptions) GetId() string {
+	return o.ID
+}
+
+func (o *LLMDeploymentSyncstatusOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.NewDict(), nil
+}
+
 func applyGpuUtilizationAlias(params *jsonutils.JSONDict, gpuMemoryUtilization, gpuUtilization *float64) error {
 	if gpuMemoryUtilization != nil && gpuUtilization != nil {
 		return fmt.Errorf("--gpu-memory-utilization and --gpu-utilization are aliases; specify only one")

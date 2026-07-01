@@ -127,17 +127,18 @@ type LLMSkuDetails struct {
 	LLMSpec *LLMSpec `json:"llm_spec,omitempty"`
 
 	// Model source
-	Source              string `json:"source"`
-	HuggingfaceRepoId   string `json:"huggingface_repo_id"`
-	HuggingfaceFilename string `json:"huggingface_filename"`
-	ModelScopeModelId   string `json:"model_scope_model_id"`
-	ModelScopeFilePath  string `json:"model_scope_file_path"`
-	LocalPath           string `json:"local_path"`
+	Source              string   `json:"source"`
+	HuggingfaceRepoId   string   `json:"huggingface_repo_id"`
+	HuggingfaceFilename string   `json:"huggingface_filename"`
+	ModelScopeModelId   string   `json:"model_scope_model_id"`
+	ModelScopeFilePath  string   `json:"model_scope_file_path"`
+	LocalPath           string   `json:"local_path"`
+	PreferHosts         []string `json:"prefer_hosts,omitempty"`
 	// Model categories
-	Categories string `json:"categories"`
+	Categories []string `json:"categories,omitempty"`
 	// Inference backend version and parameters
-	BackendVersion    string `json:"backend_version"`
-	BackendParameters string `json:"backend_parameters"`
+	BackendVersion    string   `json:"backend_version"`
+	BackendParameters []string `json:"backend_parameters,omitempty"`
 }
 
 type MountedAppResourceDetails struct {
@@ -212,12 +213,13 @@ type LLMSkuCreateInput struct {
 	LLMSpec *LLMSpec `json:"llm_spec,omitempty"`
 
 	// Model source
-	Source              string `json:"source"`
-	HuggingfaceRepoId   string `json:"huggingface_repo_id"`
-	HuggingfaceFilename string `json:"huggingface_filename"`
-	ModelScopeModelId   string `json:"model_scope_model_id"`
-	ModelScopeFilePath  string `json:"model_scope_file_path"`
-	LocalPath           string `json:"local_path"`
+	Source              string   `json:"source"`
+	HuggingfaceRepoId   string   `json:"huggingface_repo_id"`
+	HuggingfaceFilename string   `json:"huggingface_filename"`
+	ModelScopeModelId   string   `json:"model_scope_model_id"`
+	ModelScopeFilePath  string   `json:"model_scope_file_path"`
+	LocalPath           string   `json:"local_path"`
+	PreferHosts         []string `json:"prefer_hosts,omitempty"`
 	// Model categories
 	Categories []string `json:"categories"`
 	// Inference backend version and parameters
