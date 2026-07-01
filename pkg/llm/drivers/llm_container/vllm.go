@@ -164,7 +164,7 @@ func vllmCustomizedArgsToRuntime(args []*api.VllmCustomizedArg) []runtimeArg {
 	return out
 }
 
-func appendVLLMRuntimeFlags(flags []string, backendParameters string, effSpec *api.LLMSpecVllm) []string {
+func appendVLLMRuntimeFlags(flags []string, backendParameters []string, effSpec *api.LLMSpecVllm) []string {
 	backendArgs, err := parseBackendParameterArgs(backendParameters, validateVLLMArgKey)
 	if err != nil {
 		log.Errorf("parse vllm backend parameters: %v", err)
@@ -181,7 +181,7 @@ func appendVLLMRuntimeFlags(flags []string, backendParameters string, effSpec *a
 	return appendRuntimeFlags(flags, mergedArgs)
 }
 
-func buildVLLMServeFlagsWithModelExpr(modelExpr string, servedModelNameExpr string, tensorParallelSize int, backendParameters string, effSpec *api.LLMSpecVllm) []string {
+func buildVLLMServeFlagsWithModelExpr(modelExpr string, servedModelNameExpr string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecVllm) []string {
 	flags := []string{
 		fmt.Sprintf("--model %s", modelExpr),
 		fmt.Sprintf("--served-model-name %s", servedModelNameExpr),
@@ -191,7 +191,7 @@ func buildVLLMServeFlagsWithModelExpr(modelExpr string, servedModelNameExpr stri
 	return appendVLLMRuntimeFlags(flags, backendParameters, effSpec)
 }
 
-func buildVLLMServeFlags(modelPath string, tensorParallelSize int, backendParameters string, effSpec *api.LLMSpecVllm) []string {
+func buildVLLMServeFlags(modelPath string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecVllm) []string {
 	modelQuoted := shellQuoteSingle(modelPath)
 	return buildVLLMServeFlagsWithModelExpr(
 		modelQuoted,
@@ -202,7 +202,7 @@ func buildVLLMServeFlags(modelPath string, tensorParallelSize int, backendParame
 	)
 }
 
-func buildVLLMEntrypointScript(hasMountedModels bool, tensorParallelSize int, backendParameters string, effSpec *api.LLMSpecVllm) string {
+func buildVLLMEntrypointScript(hasMountedModels bool, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecVllm) string {
 	modelsPath := shellQuoteSingle(api.LLM_VLLM_MODELS_PATH)
 	if !hasMountedModels {
 		return fmt.Sprintf("mkdir -p %s && exec sleep infinity", modelsPath)
@@ -430,11 +430,11 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	if eff := v.GetEffectiveSpec(llm, sku); eff != nil {
 		effSpec = eff.(*api.LLMSpecVllm)
 	}
-	backendParameters := ""
+	var backendParameters []string
 	if sku != nil {
 		backendParameters = sku.BackendParameters
 	}
-	hasMountedModels := len(postOverlays) > 0
+	hasMountedModels := len(postOverlays) > 0 || models.SkuHasLocalHostPathModel(sku)
 	startScript := buildVLLMEntrypointScript(hasMountedModels, tensorParallelSize, backendParameters, effSpec)
 	envs := []*commonapi.ContainerKeyValue{
 		{

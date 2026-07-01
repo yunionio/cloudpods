@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/llm/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type LLMAiproxySyncTask struct {
@@ -20,11 +21,45 @@ func init() {
 	taskman.RegisterTask(LLMAiproxySyncTask{})
 }
 
+func (task *LLMAiproxySyncTask) aiproxyLogAction() string {
+	unregister, _ := task.GetParams().Bool("unregister")
+	if unregister {
+		return logclient.ACT_UNREGISTER_AIPROXY
+	}
+	return logclient.ACT_REGISTER_AIPROXY
+}
+
+func (task *LLMAiproxySyncTask) logAiproxySync(ctx context.Context, dep *models.SLLMDeployment, err error) {
+	action := task.aiproxyLogAction()
+	if err != nil {
+		db.OpsLog.LogEvent(dep, "aiproxy_sync", err.Error(), task.UserCred)
+		logclient.AddActionLogWithStartable(task, dep, action, err, task.UserCred, false)
+		return
+	}
+	depObj, fetchErr := models.GetLLMDeploymentManager().FetchById(dep.Id)
+	if fetchErr == nil {
+		dep = depObj.(*models.SLLMDeployment)
+	}
+	if dep.AiproxySyncStatus == api.AIPROXY_SYNC_STATUS_FAILED {
+		msg := models.AiproxySyncFailureReason(dep)
+		if msg == "" {
+			msg = "aiproxy sync failed"
+		}
+		db.OpsLog.LogEvent(dep, "aiproxy_sync", msg, task.UserCred)
+		logclient.AddActionLogWithStartable(task, dep, action, msg, task.UserCred, false)
+		return
+	}
+	logclient.AddActionLogWithStartable(task, dep, action, nil, task.UserCred, true)
+}
+
 func (task *LLMAiproxySyncTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	dep := obj.(*models.SLLMDeployment)
 	if !dep.AutoRegisterAiproxy {
-		task.SetStageComplete(ctx, nil)
-		return
+		unregister, _ := task.GetParams().Bool("unregister")
+		if !unregister {
+			task.SetStageComplete(ctx, nil)
+			return
+		}
 	}
 
 	llmId, _ := task.GetParams().GetString("llm_id")
@@ -51,19 +86,11 @@ func (task *LLMAiproxySyncTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 
 	if err != nil {
 		log.Errorf("LLMAiproxySyncTask deployment=%s: %v", dep.Name, err)
-		if !isDeploymentHealthyAfterAiproxySync(dep.Status) {
-			_ = dep.SetStatus(ctx, task.UserCred, api.LLM_DEPLOYMENT_STATUS_AIPROXY_SYNC_FAILED, err.Error())
-		}
+		_ = dep.SetAiproxySyncStatus(ctx, task.UserCred, api.AIPROXY_SYNC_STATUS_FAILED, err.Error())
+		task.logAiproxySync(ctx, dep, err)
 		task.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
+	task.logAiproxySync(ctx, dep, nil)
 	task.SetStageComplete(ctx, nil)
-}
-
-func isDeploymentHealthyAfterAiproxySync(status string) bool {
-	switch status {
-	case api.STATUS_READY, api.LLM_DEPLOYMENT_STATUS_PARTIAL:
-		return true
-	}
-	return false
 }
