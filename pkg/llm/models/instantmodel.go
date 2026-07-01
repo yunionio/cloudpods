@@ -1217,7 +1217,7 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 	}
 
 	// download model from registry
-	modelId, mounts, err := drv.DownloadModel(ctx, userCred, nil, tmpDir, input.ModelName, input.ModelTag, progress.setDownloadProgress)
+	modelId, mounts, err := drv.DownloadModel(ctx, userCred, nil, tmpDir, input, progress.setDownloadProgress)
 	if err != nil {
 		err = errors.Wrap(err, "DownloadModel")
 		return

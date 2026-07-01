@@ -198,7 +198,9 @@ func (o *ollama) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image 
 // 	return err
 // }
 
-func (o *ollama) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string, progress func(progress float32)) (string, []string, error) {
+func (o *ollama) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, input api.InstantModelImportInput, progress func(progress float32)) (string, []string, error) {
+	modelName := resolveImportModelName(input)
+	modelTag := resolveImportRevision(input, "latest")
 	// 1. download manifest from registry
 	namespace, repo := getNamespaceAndRepo(modelName)
 	manifestsUrl := fmt.Sprintf(api.LLM_OLLAMA_LIBRARY_BASE_URL, fmt.Sprintf("%s/%s/manifests/%s", namespace, repo, modelTag))
