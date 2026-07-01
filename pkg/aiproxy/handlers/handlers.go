@@ -24,6 +24,7 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 const (
@@ -52,6 +53,14 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		SetProcessTimeout(openaiShortProcessTimeout)
 	app.AddHandler2("GET", openaiCompatAPIPrefix+"/models", modelsHandler, nil, "aiproxy_openai_v1_models", nil)
 	app.AddHandler2("GET", openaiCompatAPIPrefix+"/models/<model>", modelRetrieveHandler, nil, "aiproxy_openai_v1_models_retrieve", nil)
+	app.AddHandler2("GET", "/usage/overview", auth.Authenticate(usageOverviewHandler), nil, "aiproxy_usage_overview", nil)
+	app.AddHandler2("GET", "/usage/analysis", auth.Authenticate(usageAnalysisHandler), nil, "aiproxy_usage_analysis", nil)
+	app.AddHandler2("GET", "/usage/events", auth.Authenticate(usageEventsHandler), nil, "aiproxy_usage_events", nil)
+	app.AddHandler2("GET", "/usage/api-keys/options", auth.Authenticate(usageAPIKeysOptionsHandler), nil, "aiproxy_usage_api_keys_options", nil)
+	app.AddHandler2("GET", "/api/v1/usage/overview", auth.Authenticate(usageOverviewHandler), nil, "aiproxy_api_v1_usage_overview", nil)
+	app.AddHandler2("GET", "/api/v1/usage/analysis", auth.Authenticate(usageAnalysisHandler), nil, "aiproxy_api_v1_usage_analysis", nil)
+	app.AddHandler2("GET", "/api/v1/usage/events", auth.Authenticate(usageEventsHandler), nil, "aiproxy_api_v1_usage_events", nil)
+	app.AddHandler2("GET", "/api/v1/usage/api-keys/options", auth.Authenticate(usageAPIKeysOptionsHandler), nil, "aiproxy_api_v1_usage_api_keys_options", nil)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,
