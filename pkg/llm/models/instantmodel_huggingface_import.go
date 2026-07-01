@@ -10,9 +10,13 @@ import (
 )
 
 const defaultHuggingFaceRevision = "main"
+const defaultModelScopeRevision = "master"
 
 func normalizeInstantModelSource(source string, repoID string) string {
 	source = strings.TrimSpace(source)
+	if strings.EqualFold(source, apis.InstantModelSourceModelScope) {
+		return apis.InstantModelSourceModelScope
+	}
 	if strings.EqualFold(source, apis.InstantModelSourceHuggingFace) || (source == "" && strings.TrimSpace(repoID) != "") {
 		return apis.InstantModelSourceHuggingFace
 	}
@@ -29,8 +33,15 @@ func resolveImportRepoAndRevision(input apis.InstantModelImportInput) (string, s
 	if revision == "" {
 		revision = strings.TrimSpace(input.ModelTag)
 	}
-	if source == apis.InstantModelSourceHuggingFace && repoID != "" && revision == "" {
-		revision = defaultHuggingFaceRevision
+	switch source {
+	case apis.InstantModelSourceHuggingFace:
+		if repoID != "" && revision == "" {
+			revision = defaultHuggingFaceRevision
+		}
+	case apis.InstantModelSourceModelScope:
+		if repoID != "" && revision == "" {
+			revision = defaultModelScopeRevision
+		}
 	}
 	return source, repoID, revision
 }

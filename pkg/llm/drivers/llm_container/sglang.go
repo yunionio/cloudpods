@@ -2,12 +2,8 @@ package llm_container
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/url"
-	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode"
@@ -431,88 +427,12 @@ func (s *sglang) UninstallModel(ctx context.Context, userCred mcclient.TokenCred
 	return nil
 }
 
-func (s *sglang) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, modelName string, modelTag string, progress func(progress float32)) (string, []string, error) {
-	if strings.TrimSpace(tmpDir) == "" {
-		return "", nil, errors.Error("tmpDir is empty")
+func (s *sglang) DownloadModel(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, tmpDir string, input api.InstantModelImportInput, progress func(progress float32)) (string, []string, error) {
+	source := strings.ToLower(strings.TrimSpace(input.Source))
+	if source == api.InstantModelSourceModelScope {
+		return downloadModelScopeSnapshot(ctx, llm, tmpDir, input, api.LLM_SGLANG_MODELS_PATH, progress)
 	}
-	if strings.TrimSpace(modelName) == "" {
-		return "", nil, errors.Error("modelName is empty")
-	}
-
-	modelBase := filepath.Base(modelName)
-	localDir := filepath.Join(tmpDir, "huggingface", modelBase)
-	if err := os.MkdirAll(localDir, 0755); err != nil {
-		return "", nil, errors.Wrap(err, "mkdir local model dir")
-	}
-
-	rev := resolveHfdRevision(modelTag)
-	apiURL := buildHuggingFaceModelAPIURL(api.LLM_SGLANG_HF_ENDPOINT, modelName, rev)
-	log.Infof("Downloading HF model via HF Mirror API for SGLang: %s", func() string {
-		b, _ := json.Marshal(map[string]string{
-			"model":    modelName,
-			"revision": rev,
-			"dir":      localDir,
-			"endpoint": api.LLM_SGLANG_HF_ENDPOINT,
-			"api":      apiURL,
-		})
-		return string(b)
-	}())
-	metaBody, err := llm.HttpGet(ctx, apiURL)
-	if err != nil {
-		return "", nil, errors.Wrapf(err, "fetch hf model metadata failed: %s", apiURL)
-	}
-	meta := hfModelAPIResponse{}
-	if err := json.Unmarshal(metaBody, &meta); err != nil {
-		return "", nil, errors.Wrap(err, "unmarshal hf model metadata")
-	}
-	if len(meta.Siblings) == 0 {
-		return "", nil, errors.Errorf("hf model metadata has no siblings: %s", apiURL)
-	}
-	totalSize, completedSize, totalFiles, completedFiles := hfSiblingDownloadProgress(localDir, meta.Siblings)
-	if totalSize > 0 {
-		reportInstantModelDownloadProgress(progress, completedSize, totalSize)
-	} else {
-		reportInstantModelStepProgress(progress, completedFiles, totalFiles)
-	}
-	if isHuggingFaceImportComplete(localDir, meta.Siblings) {
-		targetDir := path.Join(api.LLM_SGLANG_MODELS_PATH, modelBase)
-		log.Infof("Model %s already exists in import dir %s", modelName, localDir)
-		return modelName, []string{targetDir}, nil
-	}
-
-	for _, sibling := range meta.Siblings {
-		rf := strings.TrimSpace(sibling.RFilename)
-		if rf == "" {
-			continue
-		}
-		dst := filepath.Join(localDir, filepath.FromSlash(rf))
-		if isCompleteFile(dst, sibling.Size) {
-			continue
-		}
-		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
-			return "", nil, errors.Wrapf(err, "mkdir for %s", dst)
-		}
-		fileURL := fmt.Sprintf("%s/%s/resolve/%s/%s", api.LLM_SGLANG_HF_ENDPOINT, escapeURLPathPreserveSlash(modelName), url.PathEscape(rev), escapeURLPathPreserveSlash(rf))
-		fileCompleted := completedSize
-		fileCompletedSteps := completedFiles
-		downloadProgress := instantModelFileDownloadProgress(progress, fileCompleted, totalSize, sibling.Size)
-		if totalSize <= 0 {
-			downloadProgress = instantModelStepDownloadProgress(progress, fileCompletedSteps, totalFiles)
-		}
-		if err := llm.HttpDownloadFileWithProgress(ctx, fileURL, dst, downloadProgress); err != nil {
-			return "", nil, errors.Wrapf(err, "download file failed: %s -> %s", fileURL, dst)
-		}
-		if totalSize > 0 && sibling.Size > 0 {
-			completedSize += sibling.Size
-			reportInstantModelDownloadProgress(progress, completedSize, totalSize)
-		} else if totalSize <= 0 {
-			completedFiles++
-			reportInstantModelStepProgress(progress, completedFiles, totalFiles)
-		}
-	}
-
-	targetDir := path.Join(api.LLM_SGLANG_MODELS_PATH, modelBase)
-	return modelName, []string{targetDir}, nil
+	return downloadHuggingFaceSnapshot(ctx, llm, tmpDir, input, api.LLM_SGLANG_HF_ENDPOINT, api.LLM_SGLANG_MODELS_PATH, progress)
 }
 
 var protectedSGLangArgKeys = map[string]struct{}{

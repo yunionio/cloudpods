@@ -24,6 +24,8 @@ const (
 	// configured. Overridable via options.ModelCatalogURL — values without an
 	// http:// or https:// prefix are treated as local file paths.
 	DefaultModelCatalogURL = "https://www.cloudpods.org/llm-catalog.yaml"
+	// DefaultModelCatalogModelScopeURL is the ModelScope mirror of the catalog.
+	DefaultModelCatalogModelScopeURL = "https://www.cloudpods.org/model-catalog-modelscope.yaml"
 	// DefaultLLMCatalogRefreshInterval is how often the LLM service polls the
 	// upstream source in the background. Local file sources are also re-read
 	// on each tick (cheap) so an admin edit is picked up without restart.
@@ -80,6 +82,7 @@ func (m *SLLMModelSetManager) Start(ctx context.Context, source string, interval
 	if source == "" {
 		source = DefaultModelCatalogURL
 	}
+	source = resolveModelCatalogSource(source)
 	m.mu.Lock()
 	m.source = source
 	m.mu.Unlock()
@@ -234,8 +237,7 @@ func slugify(s string) string {
 	return out
 }
 
-// loadSource reads catalog YAML bytes from either an http(s) URL or a local
-// file path, picking the loader based on the source prefix.
+// loadSource reads catalog YAML bytes from either an http(s) URL or a local file path.
 func (m *SLLMModelSetManager) loadSource(ctx context.Context, source string) ([]byte, error) {
 	lower := strings.ToLower(source)
 	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
@@ -489,4 +491,41 @@ func unionOllamaCapabilities(tags []api.SOllamaTag) []string {
 		}
 	}
 	return out
+}
+
+var defaultHuggingFaceCatalogURLs = map[string]struct{}{
+	DefaultModelCatalogURL:                         {},
+	"https://www.cloudpods.org/model-catalog.yaml": {},
+}
+
+// resolveModelCatalogSource switches to the ModelScope catalog URL when the
+// configured source is a built-in HuggingFace URL and HF is unreachable while
+// ModelScope is reachable. Mirrors GPUStack's get_builtin_model_catalog_file.
+func resolveModelCatalogSource(source string) string {
+	source = strings.TrimSpace(source)
+	if _, ok := defaultHuggingFaceCatalogURLs[source]; !ok {
+		return source
+	}
+	hfURL := "https://huggingface.co"
+	msURL := "https://www.modelscope.cn"
+	if canAccessCatalogURL(hfURL) || !canAccessCatalogURL(msURL) {
+		return source
+	}
+	log.Infof("Cannot access %s, using ModelScope model catalog at %s", hfURL, DefaultModelCatalogModelScopeURL)
+	return DefaultModelCatalogModelScopeURL
+}
+
+func canAccessCatalogURL(rawURL string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), catalogFetchTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return false
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
