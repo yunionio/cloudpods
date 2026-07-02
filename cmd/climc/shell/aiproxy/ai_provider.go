@@ -27,5 +27,6 @@ func init() {
 	cmd.Show(new(apoptions.AiProviderShowOptions))
 	cmd.Update(new(apoptions.AiProviderUpdateOptions))
 	cmd.Delete(new(apoptions.AiProviderDeleteOptions))
+	cmd.PerformClass("test-connectivity", new(apoptions.AiProviderTestConnectivityOptions))
 	registerEnableDisable(cmd)
 }

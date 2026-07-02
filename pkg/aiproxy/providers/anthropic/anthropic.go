@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/aiproxy/providerapi"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/openai"
+	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 )
 
 const apiVersion = "2023-06-01"
@@ -36,7 +37,7 @@ func New() providerapi.Provider {
 }
 
 func (p *provider) Key() string {
-	return "anthropic"
+	return api.ProviderKeyAnthropic
 }
 
 func (p *provider) BuildUpstreamRequest(ctx *providerapi.ChatContext, body *jsonutils.JSONDict, stream bool) (*providerapi.HTTPRequest, error) {

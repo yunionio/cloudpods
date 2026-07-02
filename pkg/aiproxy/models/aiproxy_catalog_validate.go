@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
@@ -110,9 +111,22 @@ func catalogModelKeySlug(modelKey string) string {
 	return s
 }
 
-func validateAiProviderConfig(cfg *api.SAiProviderConfig) error {
+func validateAiProviderConfig(cfg *api.SAiProviderConfig, providerKey string) error {
+	pk := strings.ToLower(strings.TrimSpace(providerKey))
+	if api.IsCustomProviderKey(pk) {
+		if cfg == nil || cfg.IsZero() || cfg.ResolvedBaseURL() == "" {
+			return errors.Wrap(httperrors.ErrInputParameter, "config.base_url is required for provider_key custom")
+		}
+	}
 	if cfg == nil || cfg.IsZero() {
 		return nil
+	}
+	if !api.IsValidProviderAPIMode(cfg.APIMode) {
+		return errors.Wrap(httperrors.ErrInputParameter, "config.api_mode must be openai or anthropic")
+	}
+	mode := cfg.ResolvedAPIMode()
+	if mode == api.ProviderAPIModeAnthropic && !api.SupportsDualAPIMode(pk) {
+		return errors.Wrapf(httperrors.ErrInputParameter, "config.api_mode=anthropic is not supported for provider_key %q", providerKey)
 	}
 	baseURL := cfg.ResolvedBaseURL()
 	if baseURL == "" {
@@ -139,10 +153,32 @@ func normalizeAiProviderConfig(cfg *api.SAiProviderConfig) *api.SAiProviderConfi
 	if base := cfg.ResolvedBaseURL(); base != "" {
 		out.BaseURL = base
 	}
-	if key := cfg.ResolvedAPIKey(); key != "" {
-		out.APIKey = key
+	if mode := strings.TrimSpace(cfg.APIMode); mode != "" {
+		out.APIMode = strings.ToLower(mode)
 	}
 	return out
+}
+
+func rejectProviderConfigAPIKeyInJSON(data jsonutils.JSONObject) error {
+	if data == nil {
+		return nil
+	}
+	dict, ok := data.(*jsonutils.JSONDict)
+	if !ok {
+		return nil
+	}
+	cfgVal, err := dict.Get("config")
+	if err != nil || cfgVal == nil {
+		return nil
+	}
+	cfgDict, ok := cfgVal.(*jsonutils.JSONDict)
+	if !ok {
+		return nil
+	}
+	if cfgDict.Contains("api_key") {
+		return errors.Wrap(httperrors.ErrInputParameter, "config.api_key is not supported, use secret and ai_keys")
+	}
+	return nil
 }
 
 func ensureAiModelKeyUniquePerProvider(ctx context.Context, providerId, modelKey, excludeId string) error {

@@ -122,7 +122,7 @@ type resolvedUpstreamAPIKey struct {
 // MaxAiKeyFailoverAttempts is how many alternate ai_key rows to try per chat request.
 const MaxAiKeyFailoverAttempts = 8
 
-// resolveUpstreamAPIKey picks an ai_key (weighted + dynamic penalty) or provider.config api_key.
+// resolveUpstreamAPIKey picks an enabled ai_key for the provider (weighted + dynamic penalty).
 func resolveUpstreamAPIKey(prov *SAiProvider, modelKey string) (*resolvedUpstreamAPIKey, error) {
 	return resolveUpstreamAPIKeyExcluding(prov, modelKey, nil)
 }
@@ -175,14 +175,7 @@ func resolveUpstreamAPIKeyExcluding(prov *SAiProvider, modelKey string, exclude 
 	if hasSecretKey {
 		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "no available ai_key for catalog model %q (check weight, cooldown, allowed_model_keys)", modelKey)
 	}
-	if prov.Config == nil {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "ai_provider.config is empty")
-	}
-	apiKey := strings.TrimSpace(prov.Config.ResolvedAPIKey())
-	if apiKey == "" {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "set api_key on ai_provider or add an enabled ai_key with secret for this provider")
-	}
-	return &resolvedUpstreamAPIKey{Secret: apiKey}, nil
+	return nil, errors.Wrap(httperrors.ErrInvalidStatus, "add an enabled ai_key with secret for this provider")
 }
 
 // RepickUpstreamAPIKey selects another ai_key for the same provider/model, excluding already tried ids.

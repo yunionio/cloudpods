@@ -14,6 +14,8 @@
 
 package models
 
+import api "yunion.io/x/onecloud/pkg/apis/aiproxy"
+
 // catalogSeedModel is one row to insert into ai_models when seeding a standard provider.
 // ModelKey is the id sent to the upstream API (no "provider/" prefix).
 type catalogSeedModel struct {
@@ -26,7 +28,7 @@ type catalogSeedModel struct {
 // Providers without a list return nil and the seeder inserts model_key "default".
 func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 	switch providerKey {
-	case "anthropic":
+	case api.ProviderKeyAnthropic:
 		return []catalogSeedModel{
 			{ModelKey: "claude-opus-4-20250514", Description: "Anthropic Claude Opus 4"},
 			{ModelKey: "claude-sonnet-4-20250514", Description: "Anthropic Claude Sonnet 4"},
@@ -36,58 +38,69 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 			{ModelKey: "claude-3-opus-20240229", Description: "Anthropic Claude 3 Opus"},
 			{ModelKey: "claude-3-haiku-20240307", Description: "Anthropic Claude 3 Haiku"},
 		}
-	case "azure":
-		// Azure OpenAI uses deployment names; these match common Azure OpenAI deployment ids.
+	// disabled: uncommon provider
+	// case api.ProviderKeyAzure:
+	// 	// Azure OpenAI uses deployment names; these match common Azure OpenAI deployment ids.
+	// 	return []catalogSeedModel{
+	// 		{ModelKey: "gpt-4o", Description: "Azure OpenAI GPT-4o deployment"},
+	// 		{ModelKey: "gpt-4o-mini", Description: "Azure OpenAI GPT-4o mini deployment"},
+	// 		{ModelKey: "gpt-4", Description: "Azure OpenAI GPT-4 deployment"},
+	// 		{ModelKey: "gpt-35-turbo", Description: "Azure OpenAI GPT-3.5 Turbo deployment"},
+	// 		{ModelKey: "o3-mini", Description: "Azure OpenAI o3-mini deployment"},
+	// 	}
+	// disabled: uncommon provider
+	// case api.ProviderKeyBedrock:
+	// 	return []catalogSeedModel{
+	// 		{ModelKey: "anthropic.claude-3-5-sonnet-20241022-v2:0", Description: "Bedrock Claude 3.5 Sonnet"},
+	// 		{ModelKey: "anthropic.claude-3-5-haiku-20241022-v1:0", Description: "Bedrock Claude 3.5 Haiku"},
+	// 		{ModelKey: "anthropic.claude-3-opus-20240229-v1:0", Description: "Bedrock Claude 3 Opus"},
+	// 		{ModelKey: "anthropic.claude-3-sonnet-20240229-v1:0", Description: "Bedrock Claude 3 Sonnet"},
+	// 		{ModelKey: "anthropic.claude-3-haiku-20240307-v1:0", Description: "Bedrock Claude 3 Haiku"},
+	// 		{ModelKey: "meta.llama3-70b-instruct-v1:0", Description: "Bedrock Llama 3 70B Instruct"},
+	// 		{ModelKey: "meta.llama3-8b-instruct-v1:0", Description: "Bedrock Llama 3 8B Instruct"},
+	// 		{ModelKey: "mistral.mistral-large-2402-v1:0", Description: "Bedrock Mistral Large"},
+	// 		{ModelKey: "amazon.titan-text-express-v1", Description: "Bedrock Amazon Titan Text Express"},
+	// 	}
+	// disabled: uncommon provider
+	// case api.ProviderKeyCerebras:
+	// 	return []catalogSeedModel{
+	// 		{ModelKey: "llama3.1-8b", Description: "Cerebras Llama 3.1 8B"},
+	// 		{ModelKey: "llama3.1-70b", Description: "Cerebras Llama 3.1 70B"},
+	// 		{ModelKey: "llama-3.3-70b", Description: "Cerebras Llama 3.3 70B"},
+	// 	}
+	// disabled: uncommon provider
+	// case api.ProviderKeyCohere:
+	// 	return []catalogSeedModel{
+	// 		{ModelKey: "command-r-plus", Description: "Cohere Command R+"},
+	// 		{ModelKey: "command-r", Description: "Cohere Command R"},
+	// 		{ModelKey: "command-a", Description: "Cohere Command A"},
+	// 		{ModelKey: "command", Description: "Cohere Command"},
+	// 		{ModelKey: "command-light", Description: "Cohere Command Light"},
+	// 		{ModelKey: "embed-english-v3.0", Description: "Cohere Embed English v3"},
+	// 		{ModelKey: "embed-multilingual-v3.0", Description: "Cohere Embed Multilingual v3"},
+	// 	}
+	case api.ProviderKeyDeepseek:
 		return []catalogSeedModel{
-			{ModelKey: "gpt-4o", Description: "Azure OpenAI GPT-4o deployment"},
-			{ModelKey: "gpt-4o-mini", Description: "Azure OpenAI GPT-4o mini deployment"},
-			{ModelKey: "gpt-4", Description: "Azure OpenAI GPT-4 deployment"},
-			{ModelKey: "gpt-35-turbo", Description: "Azure OpenAI GPT-3.5 Turbo deployment"},
-			{ModelKey: "o3-mini", Description: "Azure OpenAI o3-mini deployment"},
+			{ModelKey: "deepseek-v4-flash", Description: "DeepSeek-V4-Flash; 1M context; high concurrency (2500); cost-efficient default"},
+			{ModelKey: "deepseek-v4-pro", Description: "DeepSeek-V4-Pro; 1M context; frontier reasoning/coding/agents (500 concurrency)"},
 		}
-	case "bedrock":
-		return []catalogSeedModel{
-			{ModelKey: "anthropic.claude-3-5-sonnet-20241022-v2:0", Description: "Bedrock Claude 3.5 Sonnet"},
-			{ModelKey: "anthropic.claude-3-5-haiku-20241022-v1:0", Description: "Bedrock Claude 3.5 Haiku"},
-			{ModelKey: "anthropic.claude-3-opus-20240229-v1:0", Description: "Bedrock Claude 3 Opus"},
-			{ModelKey: "anthropic.claude-3-sonnet-20240229-v1:0", Description: "Bedrock Claude 3 Sonnet"},
-			{ModelKey: "anthropic.claude-3-haiku-20240307-v1:0", Description: "Bedrock Claude 3 Haiku"},
-			{ModelKey: "meta.llama3-70b-instruct-v1:0", Description: "Bedrock Llama 3 70B Instruct"},
-			{ModelKey: "meta.llama3-8b-instruct-v1:0", Description: "Bedrock Llama 3 8B Instruct"},
-			{ModelKey: "mistral.mistral-large-2402-v1:0", Description: "Bedrock Mistral Large"},
-			{ModelKey: "amazon.titan-text-express-v1", Description: "Bedrock Amazon Titan Text Express"},
-		}
-	case "cerebras":
-		return []catalogSeedModel{
-			{ModelKey: "llama3.1-8b", Description: "Cerebras Llama 3.1 8B"},
-			{ModelKey: "llama3.1-70b", Description: "Cerebras Llama 3.1 70B"},
-			{ModelKey: "llama-3.3-70b", Description: "Cerebras Llama 3.3 70B"},
-		}
-	case "cohere":
-		return []catalogSeedModel{
-			{ModelKey: "command-r-plus", Description: "Cohere Command R+"},
-			{ModelKey: "command-r", Description: "Cohere Command R"},
-			{ModelKey: "command-a", Description: "Cohere Command A"},
-			{ModelKey: "command", Description: "Cohere Command"},
-			{ModelKey: "command-light", Description: "Cohere Command Light"},
-			{ModelKey: "embed-english-v3.0", Description: "Cohere Embed English v3"},
-			{ModelKey: "embed-multilingual-v3.0", Description: "Cohere Embed Multilingual v3"},
-		}
-	case "elevenlabs":
-		return []catalogSeedModel{
-			{ModelKey: "eleven_multilingual_v2", Description: "ElevenLabs multilingual v2"},
-			{ModelKey: "eleven_turbo_v2_5", Description: "ElevenLabs Turbo v2.5"},
-			{ModelKey: "eleven_flash_v2_5", Description: "ElevenLabs Flash v2.5"},
-			{ModelKey: "eleven_multilingual_v1", Description: "ElevenLabs multilingual v1"},
-		}
-	case "fireworks":
-		return []catalogSeedModel{
-			{ModelKey: "accounts/fireworks/models/llama-v3p1-8b-instruct", Description: "Fireworks Llama 3.1 8B Instruct"},
-			{ModelKey: "accounts/fireworks/models/llama-v3p1-70b-instruct", Description: "Fireworks Llama 3.1 70B Instruct"},
-			{ModelKey: "accounts/fireworks/models/llama-v3p3-70b-instruct", Description: "Fireworks Llama 3.3 70B Instruct"},
-			{ModelKey: "accounts/fireworks/models/mixtral-8x7b-instruct", Description: "Fireworks Mixtral 8x7B Instruct"},
-		}
-	case "gemini":
+	// disabled: uncommon provider
+	// case api.ProviderKeyElevenlabs:
+	// 	return []catalogSeedModel{
+	// 		{ModelKey: "eleven_multilingual_v2", Description: "ElevenLabs multilingual v2"},
+	// 		{ModelKey: "eleven_turbo_v2_5", Description: "ElevenLabs Turbo v2.5"},
+	// 		{ModelKey: "eleven_flash_v2_5", Description: "ElevenLabs Flash v2.5"},
+	// 		{ModelKey: "eleven_multilingual_v1", Description: "ElevenLabs multilingual v1"},
+	// 	}
+	// disabled: uncommon provider
+	// case api.ProviderKeyFireworks:
+	// 	return []catalogSeedModel{
+	// 		{ModelKey: "accounts/fireworks/models/llama-v3p1-8b-instruct", Description: "Fireworks Llama 3.1 8B Instruct"},
+	// 		{ModelKey: "accounts/fireworks/models/llama-v3p1-70b-instruct", Description: "Fireworks Llama 3.1 70B Instruct"},
+	// 		{ModelKey: "accounts/fireworks/models/llama-v3p3-70b-instruct", Description: "Fireworks Llama 3.3 70B Instruct"},
+	// 		{ModelKey: "accounts/fireworks/models/mixtral-8x7b-instruct", Description: "Fireworks Mixtral 8x7B Instruct"},
+	// 	}
+	case api.ProviderKeyGemini:
 		return []catalogSeedModel{
 			{ModelKey: "gemini-2.0-flash", Description: "Google Gemini 2.0 Flash"},
 			{ModelKey: "gemini-2.0-flash-lite", Description: "Google Gemini 2.0 Flash-Lite"},
@@ -96,7 +109,7 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 			{ModelKey: "gemini-1.5-flash-8b", Description: "Google Gemini 1.5 Flash 8B"},
 			{ModelKey: "gemini-embedding-001", Description: "Google Gemini Embedding 001"},
 		}
-	case "groq":
+	case api.ProviderKeyGroq:
 		return []catalogSeedModel{
 			{ModelKey: "llama-3.3-70b-versatile", Description: "Groq Llama 3.3 70B Versatile"},
 			{ModelKey: "llama-3.1-8b-instant", Description: "Groq Llama 3.1 8B Instant"},
@@ -104,14 +117,14 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 			{ModelKey: "mixtral-8x7b-32768", Description: "Groq Mixtral 8x7B"},
 			{ModelKey: "gemma2-9b-it", Description: "Groq Gemma2 9B IT"},
 		}
-	case "huggingface":
+	case api.ProviderKeyHuggingface:
 		return []catalogSeedModel{
 			{ModelKey: "meta-llama/Meta-Llama-3.1-8B-Instruct", Description: "HF Llama 3.1 8B Instruct"},
 			{ModelKey: "meta-llama/Meta-Llama-3.1-70B-Instruct", Description: "HF Llama 3.1 70B Instruct"},
 			{ModelKey: "mistralai/Mistral-7B-Instruct-v0.3", Description: "HF Mistral 7B Instruct"},
 			{ModelKey: "Qwen/Qwen2.5-72B-Instruct", Description: "HF Qwen2.5 72B Instruct"},
 		}
-	case "mistral":
+	case api.ProviderKeyMistral:
 		return []catalogSeedModel{
 			{ModelKey: "mistral-large-latest", Description: "Mistral Large (latest)"},
 			{ModelKey: "mistral-small-latest", Description: "Mistral Small (latest)"},
@@ -122,13 +135,14 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 			{ModelKey: "mixtral-8x22b", Description: "Mistral Mixtral 8x22B"},
 			{ModelKey: "mixtral-8x7b", Description: "Mistral Mixtral 8x7B"},
 		}
-	case "nebius":
-		return []catalogSeedModel{
-			{ModelKey: "deepseek-ai/DeepSeek-V3", Description: "Nebius DeepSeek V3"},
-			{ModelKey: "Qwen/Qwen2.5-72B-Instruct", Description: "Nebius Qwen2.5 72B Instruct"},
-			{ModelKey: "meta-llama/Llama-3.3-70B-Instruct", Description: "Nebius Llama 3.3 70B Instruct"},
-		}
-	case "ollama":
+	// disabled: uncommon provider
+	// case api.ProviderKeyNebius:
+	// 	return []catalogSeedModel{
+	// 		{ModelKey: "deepseek-ai/DeepSeek-V3", Description: "Nebius DeepSeek V3"},
+	// 		{ModelKey: "Qwen/Qwen2.5-72B-Instruct", Description: "Nebius Qwen2.5 72B Instruct"},
+	// 		{ModelKey: "meta-llama/Llama-3.3-70B-Instruct", Description: "Nebius Llama 3.3 70B Instruct"},
+	// 	}
+	case api.ProviderKeyOllama:
 		return []catalogSeedModel{
 			{ModelKey: "llama3.2", Description: "Ollama Llama 3.2"},
 			{ModelKey: "llama3.1", Description: "Ollama Llama 3.1"},
@@ -137,7 +151,7 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 			{ModelKey: "codellama", Description: "Ollama Code Llama"},
 			{ModelKey: "phi3", Description: "Ollama Phi 3"},
 		}
-	case "vllm":
+	case api.ProviderKeyVLLM:
 		return []catalogSeedModel{
 			{ModelKey: "meta-llama/Meta-Llama-3.1-8B-Instruct", Description: "vLLM Llama 3.1 8B Instruct"},
 			{ModelKey: "meta-llama/Meta-Llama-3.1-70B-Instruct", Description: "vLLM Llama 3.1 70B Instruct"},
@@ -145,7 +159,7 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 			{ModelKey: "Qwen/Qwen2.5-72B-Instruct", Description: "vLLM Qwen2.5 72B Instruct"},
 			{ModelKey: "mistralai/Mistral-7B-Instruct-v0.3", Description: "vLLM Mistral 7B Instruct"},
 		}
-	case "openai":
+	case api.ProviderKeyOpenAI:
 		return []catalogSeedModel{
 			{ModelKey: "gpt-5-nano", Description: "OpenAI GPT-5 nano"},
 			{ModelKey: "gpt-5-mini", Description: "OpenAI GPT-5 mini"},
@@ -176,7 +190,7 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 			{ModelKey: "text-embedding-3-large", Description: "OpenAI text-embedding-3-large"},
 			{ModelKey: "text-embedding-ada-002", Description: "OpenAI text-embedding-ada-002"},
 		}
-	case "openrouter":
+	case api.ProviderKeyOpenrouter:
 		return []catalogSeedModel{
 			{ModelKey: "openai/gpt-4o", Description: "OpenRouter OpenAI GPT-4o"},
 			{ModelKey: "openai/gpt-4o-mini", Description: "OpenRouter OpenAI GPT-4o mini"},
@@ -186,46 +200,53 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 			{ModelKey: "meta-llama/llama-3.3-70b-instruct", Description: "OpenRouter Llama 3.3 70B Instruct"},
 			{ModelKey: "mistralai/mistral-large", Description: "OpenRouter Mistral Large"},
 		}
-	case "perplexity":
-		return []catalogSeedModel{
-			{ModelKey: "sonar", Description: "Perplexity Sonar"},
-			{ModelKey: "sonar-pro", Description: "Perplexity Sonar Pro"},
-			{ModelKey: "sonar-reasoning", Description: "Perplexity Sonar Reasoning"},
-			{ModelKey: "llama-3.1-sonar-small-128k-online", Description: "Perplexity Llama 3.1 Sonar Small online"},
-			{ModelKey: "llama-3.1-sonar-large-128k-online", Description: "Perplexity Llama 3.1 Sonar Large online"},
-		}
-	case "replicate":
-		return []catalogSeedModel{
-			{ModelKey: "meta/meta-llama-3-8b-instruct", Description: "Replicate Meta Llama 3 8B Instruct"},
-			{ModelKey: "meta/meta-llama-3-70b-instruct", Description: "Replicate Meta Llama 3 70B Instruct"},
-			{ModelKey: "mistralai/mixtral-8x7b-instruct-v0.1", Description: "Replicate Mixtral 8x7B Instruct"},
-		}
-	case "runway":
-		return []catalogSeedModel{
-			{ModelKey: "gen3a_turbo", Description: "Runway Gen-3 Alpha Turbo"},
-			{ModelKey: "gen3a", Description: "Runway Gen-3 Alpha"},
-			{ModelKey: "gen4_aleph", Description: "Runway Gen-4 Aleph"},
-		}
-	case "vertex":
-		return []catalogSeedModel{
-			{ModelKey: "gemini-2.0-flash", Description: "Vertex AI Gemini 2.0 Flash"},
-			{ModelKey: "gemini-1.5-pro", Description: "Vertex AI Gemini 1.5 Pro"},
-			{ModelKey: "gemini-1.5-flash", Description: "Vertex AI Gemini 1.5 Flash"},
-			{ModelKey: "publishers/google/models/gemini-1.5-pro", Description: "Vertex publisher path Gemini 1.5 Pro"},
-		}
-	case "xai":
-		return []catalogSeedModel{
-			{ModelKey: "grok-3", Description: "xAI Grok 3"},
-			{ModelKey: "grok-3-mini", Description: "xAI Grok 3 mini"},
-			{ModelKey: "grok-2-latest", Description: "xAI Grok 2 latest"},
-			{ModelKey: "grok-2-1212", Description: "xAI Grok 2 1212"},
-			{ModelKey: "grok-beta", Description: "xAI Grok beta"},
-		}
-	case "aliyun":
-		return aliyunQwenSeedModels()
-	case "baidu":
-		return baiduErnieSeedModels()
-	case "xiaomi":
+	// disabled: uncommon provider
+	// case api.ProviderKeyPerplexity:
+	// 	return []catalogSeedModel{
+	// 		{ModelKey: "sonar", Description: "Perplexity Sonar"},
+	// 		{ModelKey: "sonar-pro", Description: "Perplexity Sonar Pro"},
+	// 		{ModelKey: "sonar-reasoning", Description: "Perplexity Sonar Reasoning"},
+	// 		{ModelKey: "llama-3.1-sonar-small-128k-online", Description: "Perplexity Llama 3.1 Sonar Small online"},
+	// 		{ModelKey: "llama-3.1-sonar-large-128k-online", Description: "Perplexity Llama 3.1 Sonar Large online"},
+	// 	}
+	// disabled: uncommon provider
+	// case api.ProviderKeyReplicate:
+	// 	return []catalogSeedModel{
+	// 		{ModelKey: "meta/meta-llama-3-8b-instruct", Description: "Replicate Meta Llama 3 8B Instruct"},
+	// 		{ModelKey: "meta/meta-llama-3-70b-instruct", Description: "Replicate Meta Llama 3 70B Instruct"},
+	// 		{ModelKey: "mistralai/mixtral-8x7b-instruct-v0.1", Description: "Replicate Mixtral 8x7B Instruct"},
+	// 	}
+	// disabled: uncommon provider
+	// case api.ProviderKeyRunway:
+	// 	return []catalogSeedModel{
+	// 		{ModelKey: "gen3a_turbo", Description: "Runway Gen-3 Alpha Turbo"},
+	// 		{ModelKey: "gen3a", Description: "Runway Gen-3 Alpha"},
+	// 		{ModelKey: "gen4_aleph", Description: "Runway Gen-4 Aleph"},
+	// 	}
+	// disabled: uncommon provider
+	// case api.ProviderKeyVertex:
+	// 	return []catalogSeedModel{
+	// 		{ModelKey: "gemini-2.0-flash", Description: "Vertex AI Gemini 2.0 Flash"},
+	// 		{ModelKey: "gemini-1.5-pro", Description: "Vertex AI Gemini 1.5 Pro"},
+	// 		{ModelKey: "gemini-1.5-flash", Description: "Vertex AI Gemini 1.5 Flash"},
+	// 		{ModelKey: "publishers/google/models/gemini-1.5-pro", Description: "Vertex publisher path Gemini 1.5 Pro"},
+	// 	}
+	// disabled: uncommon provider
+	// case api.ProviderKeyXai:
+	// 	return []catalogSeedModel{
+	// 		{ModelKey: "grok-3", Description: "xAI Grok 3"},
+	// 		{ModelKey: "grok-3-mini", Description: "xAI Grok 3 mini"},
+	// 		{ModelKey: "grok-2-latest", Description: "xAI Grok 2 latest"},
+	// 		{ModelKey: "grok-2-1212", Description: "xAI Grok 2 1212"},
+	// 		{ModelKey: "grok-beta", Description: "xAI Grok beta"},
+	// 	}
+	// disabled: uncommon provider
+	// case api.ProviderKeyAliyun:
+	// 	return aliyunQwenSeedModels()
+	// disabled: uncommon provider
+	// case api.ProviderKeyBaidu:
+	// 	return baiduErnieSeedModels()
+	case api.ProviderKeyXiaomi:
 		return xiaomiMimoSeedModels()
 	default:
 		return nil

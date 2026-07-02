@@ -19,11 +19,12 @@ import (
 	"sync"
 
 	"yunion.io/x/onecloud/pkg/aiproxy/providerapi"
-	"yunion.io/x/onecloud/pkg/aiproxy/providers/aliyun"
+	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
+	// "yunion.io/x/onecloud/pkg/aiproxy/providers/aliyun" // uncommon
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/anthropic"
-	"yunion.io/x/onecloud/pkg/aiproxy/providers/azure"
-	"yunion.io/x/onecloud/pkg/aiproxy/providers/baidu"
-	"yunion.io/x/onecloud/pkg/aiproxy/providers/cohere"
+	// "yunion.io/x/onecloud/pkg/aiproxy/providers/azure" // uncommon
+	// "yunion.io/x/onecloud/pkg/aiproxy/providers/baidu" // uncommon
+	// "yunion.io/x/onecloud/pkg/aiproxy/providers/cohere" // uncommon
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/gemini"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/openai"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/vllm"
@@ -35,36 +36,20 @@ var (
 	defaultP   providerapi.Provider
 )
 
-var openAICompatKeys = []string{
-	"openai",
-	"groq",
-	"mistral",
-	"cerebras",
-	"perplexity",
-	"openrouter",
-	"fireworks",
-	"nebius",
-	"xai",
-	"parasail",
-	"sgl",
-	"huggingface",
-	"ollama",
-	"xiaomi",
-}
-
 func init() {
 	defaultP = openai.NewCompat("")
 	register(defaultP)
-	for _, key := range openAICompatKeys {
+	for _, key := range api.OpenAICompatProviderKeys {
 		register(openai.NewCompat(key))
 	}
-	register(cohere.New())
-	register(aliyun.New())
-	register(baidu.New())
+	// register(cohere.New()) // uncommon
+	// register(aliyun.New()) // uncommon
+	// register(baidu.New()) // uncommon
 	register(anthropic.New())
 	register(gemini.New())
-	register(azure.New())
+	// register(azure.New()) // uncommon
 	register(vllm.New())
+	register(openai.NewCompat(api.ProviderKeyCustom))
 }
 
 // Register adds or replaces a provider implementation for its Key().

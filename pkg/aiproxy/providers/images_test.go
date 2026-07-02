@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/aiproxy/providers/azure"
 )
 
 func TestOpenAIImagesCompatBuild(t *testing.T) {
@@ -98,7 +100,10 @@ func TestAzureImagesBuild(t *testing.T) {
 	body.Add(jsonutils.NewString("dall-e-3"), "model")
 	body.Add(jsonutils.NewString("test"), "prompt")
 
-	p := GetImages("azure")
+	p, ok := azure.New().(ImagesProvider)
+	if !ok {
+		t.Fatal("azure provider should implement ImagesProvider")
+	}
 	req, err := p.BuildImagesGenerationsRequest(&ChatContext{
 		BaseURL:       "https://example.openai.azure.com",
 		APIKey:        "key",
