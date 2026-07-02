@@ -25,6 +25,7 @@ type ChatContext struct {
 	BaseURL       string
 	APIKey        string
 	UpstreamModel string
+	APIMode       string
 }
 
 // HTTPRequest is the wire-format call sent to an upstream provider.
@@ -81,4 +82,25 @@ type CompletionsProvider interface {
 	BuildCompletionsRequest(ctx *ChatContext, body *jsonutils.JSONDict, stream bool) (*HTTPRequest, error)
 	NormalizeCompletionsResponse(body []byte) ([]byte, error)
 	OpenAICompletionsStreamPassthrough() bool
+}
+
+// AnthropicStreamChunk is one Anthropic Messages API SSE event.
+type AnthropicStreamChunk struct {
+	Event string
+	Data  []byte
+}
+
+// AnthropicStreamState carries per-stream metadata for Anthropic Messages streaming.
+type AnthropicStreamState struct {
+	RequestModel string
+}
+
+// MessagesAdapter converts Anthropic Messages API requests to upstream HTTP calls and
+// normalizes responses back to Anthropic format.
+type MessagesAdapter interface {
+	BuildUpstreamRequest(ctx *ChatContext, body *jsonutils.JSONDict, stream bool) (*HTTPRequest, error)
+	NormalizeResponse(prov Provider, body []byte) ([]byte, error)
+	AnthropicStreamPassthrough() bool
+	NewStreamState(requestModel string) interface{}
+	ConvertStreamPayload(state interface{}, payload []byte, endOfStream bool) ([]AnthropicStreamChunk, error)
 }

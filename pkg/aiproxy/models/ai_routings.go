@@ -140,6 +140,8 @@ func (manager *SAiRoutingManager) FetchCustomizeColumns(
 			for j := range entries {
 				e := entries[j]
 				rows[i].RoutingModels[j] = api.AiRoutingModelDetails{
+					Id:           e.Id,
+					Name:         e.Name,
 					AiRoutingId:  e.AiRoutingId,
 					AiProviderId: e.AiProviderId,
 					AiModelId:    e.AiModelId,
@@ -366,4 +368,13 @@ func (routing *SAiRouting) PerformSetModels(
 		return nil, err
 	}
 	return nil, nil
+}
+
+func (routing *SAiRouting) CustomizeDelete(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) error {
+	return deleteAiRoutingModels(ctx, routing.Id)
 }

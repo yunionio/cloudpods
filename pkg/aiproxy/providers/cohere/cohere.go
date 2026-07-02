@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/aiproxy/providerapi"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/openai"
+	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 )
 
 type provider struct {
@@ -32,7 +33,7 @@ type provider struct {
 
 // New returns the Cohere provider adapter (OpenAI-compatible chat, native embeddings).
 func New() providerapi.Provider {
-	return &provider{Compat: openai.NewCompat("cohere")}
+	return &provider{Compat: openai.NewCompat(api.ProviderKeyCohere)}
 }
 
 func (p *provider) BuildEmbeddingsRequest(ctx *providerapi.ChatContext, body *jsonutils.JSONDict) (*providerapi.HTTPRequest, error) {

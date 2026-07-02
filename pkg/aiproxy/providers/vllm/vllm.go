@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/aiproxy/providerapi"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/openai"
+	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 )
 
 type provider struct {
@@ -39,7 +40,7 @@ func patchVLLMRequest(body *jsonutils.JSONDict, stream bool) {
 func New() providerapi.Provider {
 	patches := []openai.PatchFunc{patchVLLMRequest}
 	return &provider{
-		Compat:      openai.NewCompat("vllm", patches...),
+		Compat:      openai.NewCompat(api.ProviderKeyVLLM, patches...),
 		completions: openai.NewCompletionsCompat(patches...),
 	}
 }

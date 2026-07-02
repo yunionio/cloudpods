@@ -19,14 +19,16 @@ import (
 )
 
 type (
-	ChatContext         = api.ChatContext
-	HTTPRequest         = api.HTTPRequest
-	StreamChunk         = api.StreamChunk
-	StreamState         = api.StreamState
-	Provider            = api.Provider
-	EmbeddingsProvider  = api.EmbeddingsProvider
-	ImagesProvider      = api.ImagesProvider
-	CompletionsProvider = api.CompletionsProvider
+	ChatContext          = api.ChatContext
+	HTTPRequest          = api.HTTPRequest
+	StreamChunk          = api.StreamChunk
+	StreamState          = api.StreamState
+	Provider             = api.Provider
+	EmbeddingsProvider   = api.EmbeddingsProvider
+	ImagesProvider       = api.ImagesProvider
+	CompletionsProvider  = api.CompletionsProvider
+	MessagesAdapter      = api.MessagesAdapter
+	AnthropicStreamChunk = api.AnthropicStreamChunk
 )
 
 type ContextualStreamPassthrough = api.ContextualStreamPassthrough

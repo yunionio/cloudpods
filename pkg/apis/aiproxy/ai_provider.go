@@ -16,6 +16,7 @@ package aiproxy
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -24,7 +25,29 @@ import (
 // SAiProviderConfig holds JSON-serialized provider connectivity settings for an ai_provider row.
 type SAiProviderConfig struct {
 	BaseURL string `json:"base_url,omitempty"`
-	APIKey  string `json:"api_key,omitempty"`
+	APIMode string `json:"api_mode,omitempty"`
+}
+
+// UnmarshalJSON rejects legacy config.api_key and decodes supported fields only.
+func (c *SAiProviderConfig) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if msg, ok := raw["api_key"]; ok {
+		var key string
+		_ = json.Unmarshal(msg, &key)
+		if strings.TrimSpace(key) != "" {
+			return errors.New("config.api_key is not supported, use secret and ai_keys")
+		}
+	}
+	type cfgAlias SAiProviderConfig
+	var alias cfgAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*c = SAiProviderConfig(alias)
+	return nil
 }
 
 // ResolvedBaseURL returns config.base_url.
@@ -35,12 +58,39 @@ func (c *SAiProviderConfig) ResolvedBaseURL() string {
 	return strings.TrimSpace(c.BaseURL)
 }
 
-// ResolvedAPIKey returns config.api_key.
-func (c *SAiProviderConfig) ResolvedAPIKey() string {
+// ResolvedAPIMode returns config.api_mode (default openai).
+func (c *SAiProviderConfig) ResolvedAPIMode() string {
 	if c == nil {
+		return ProviderAPIModeOpenAI
+	}
+	mode := strings.ToLower(strings.TrimSpace(c.APIMode))
+	if mode == "" {
+		return ProviderAPIModeOpenAI
+	}
+	return mode
+}
+
+// EffectiveBaseURL returns the upstream base URL adjusted for api_mode and provider_key.
+func (c *SAiProviderConfig) EffectiveBaseURL(providerKey string) string {
+	base := c.ResolvedBaseURL()
+	if base == "" {
+		base = DefaultPublicBaseURL(providerKey)
+	}
+	if base == "" {
 		return ""
 	}
-	return strings.TrimSpace(c.APIKey)
+	if c.ResolvedAPIMode() != ProviderAPIModeAnthropic {
+		return base
+	}
+	pk := strings.ToLower(strings.TrimSpace(providerKey))
+	if pk != ProviderKeyDeepseek {
+		return base
+	}
+	base = strings.TrimRight(base, "/")
+	if strings.HasSuffix(strings.ToLower(base), "/anthropic") {
+		return base
+	}
+	return base + "/anthropic"
 }
 
 // String implements gotypes.ISerializable for sqlchemy JSON/compound columns.
@@ -60,7 +110,7 @@ func (c *SAiProviderConfig) IsZero() bool {
 	if c == nil {
 		return true
 	}
-	return c.ResolvedBaseURL() == "" && c.ResolvedAPIKey() == ""
+	return c.ResolvedBaseURL() == "" && strings.TrimSpace(c.APIMode) == ""
 }
 
 type AiProviderListInput struct {
@@ -76,6 +126,8 @@ type AiProviderCreateInput struct {
 
 	ProviderKey     string             `json:"provider_key"`
 	Config          *SAiProviderConfig `json:"config"`
+	Secret          string             `json:"secret"`
+	ModelKeys       []string           `json:"model_keys"`
 	LlmDeploymentId string             `json:"llm_deployment_id"`
 	LlmId           string             `json:"llm_id"`
 }
@@ -97,4 +149,26 @@ type AiProviderDetails struct {
 	Config          *SAiProviderConfig `json:"config"`
 	LlmDeploymentId string             `json:"llm_deployment_id"`
 	LlmId           string             `json:"llm_id"`
+}
+
+type AiProviderTestConnectivityInput struct {
+	ProviderKey string             `json:"provider_key"`
+	Secret      string             `json:"secret"`
+	Config      *SAiProviderConfig `json:"config"`
+}
+
+const (
+	AiProviderModelsSourceUpstream = "upstream"
+	AiProviderModelsSourceCatalog  = "catalog"
+)
+
+type AiProviderUpstreamModel struct {
+	ModelKey string `json:"model_key"`
+}
+
+type AiProviderTestConnectivityOutput struct {
+	Ok           bool                      `json:"ok"`
+	Message      string                    `json:"message"`
+	ModelsSource string                    `json:"models_source"`
+	Models       []AiProviderUpstreamModel `json:"models"`
 }

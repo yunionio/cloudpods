@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/aiproxy/providerapi"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/openai"
+	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 )
 
 func patchEnableThinkingFalse(body *jsonutils.JSONDict, stream bool) {
@@ -33,5 +34,5 @@ func patchEnableThinkingFalse(body *jsonutils.JSONDict, stream bool) {
 
 // New returns the Aliyun (DashScope compatible-mode) provider adapter.
 func New() providerapi.Provider {
-	return openai.NewCompat("aliyun", patchEnableThinkingFalse)
+	return openai.NewCompat(api.ProviderKeyAliyun, patchEnableThinkingFalse)
 }

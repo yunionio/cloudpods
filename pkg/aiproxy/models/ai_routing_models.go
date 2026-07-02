@@ -109,6 +109,8 @@ func (manager *SAiRoutingModelManager) FetchCustomizeColumns(
 	for i := range objs {
 		rows[i].StandaloneResourceDetails = baseRows[i]
 		rm := objs[i].(*SAiRoutingModel)
+		rows[i].Id = rm.Id
+		rows[i].Name = rm.Name
 		rows[i].AiRoutingId = rm.AiRoutingId
 		rows[i].AiProviderId = rm.AiProviderId
 		rows[i].AiModelId = rm.AiModelId
