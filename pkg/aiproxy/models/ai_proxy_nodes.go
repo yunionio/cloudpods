@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/aiproxy/chatlog"
 	"yunion.io/x/onecloud/pkg/aiproxy/options"
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
@@ -333,4 +334,45 @@ func (node *SAiProxyNode) IsActive() bool {
 		timeout = defaultAiProxyNodeHbTimeout
 	}
 	return int(time.Since(node.LastSeen).Seconds()) < timeout
+}
+
+func (node *SAiProxyNode) GetDetailsChatLogs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input := struct {
+		Start     string `json:"start"`
+		End       string `json:"end"`
+		Limit     int    `json:"limit"`
+		RequestID string `json:"request_id"`
+	}{}
+	if query != nil {
+		if err := query.Unmarshal(&input); err != nil {
+			return nil, errors.Wrap(httperrors.ErrInputParameter, err.Error())
+		}
+	}
+	var start time.Time
+	if strings.TrimSpace(input.Start) != "" {
+		ts, err := time.Parse(time.RFC3339, input.Start)
+		if err != nil {
+			return nil, errors.Wrapf(httperrors.ErrInputParameter, "invalid start: %v", err)
+		}
+		start = ts
+	}
+	var end time.Time
+	if strings.TrimSpace(input.End) != "" {
+		ts, err := time.Parse(time.RFC3339, input.End)
+		if err != nil {
+			return nil, errors.Wrapf(httperrors.ErrInputParameter, "invalid end: %v", err)
+		}
+		end = ts
+	}
+	ret, err := chatlog.Read(ctx, chatlog.ReadOptions{
+		Start:     start,
+		End:       end,
+		Limit:     input.Limit,
+		RequestID: input.RequestID,
+		Instance:  node.Id,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "read aiproxy chat logs")
+	}
+	return jsonutils.Marshal(ret), nil
 }

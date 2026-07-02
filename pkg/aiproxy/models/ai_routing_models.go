@@ -328,16 +328,16 @@ func fetchEnabledAiRoutingModels(routingId string) ([]SAiRoutingModel, error) {
 }
 
 // pickAiRoutingModel selects provider/model from ai_routing_models by request model name.
-func pickAiRoutingModel(ctx context.Context, userCred mcclient.TokenCredential, routing *SAiRouting, reqModel string, body *jsonutils.JSONDict) (providerId, modelId string, err error) {
+func pickAiRoutingModel(ctx context.Context, userCred mcclient.TokenCredential, routing *SAiRouting, reqModel string, body *jsonutils.JSONDict) (providerId, modelId string, routingLog *AiRoutingLog, err error) {
 	if routing == nil {
-		return "", "", errors.Wrap(httperrors.ErrInvalidStatus, "nil ai_routing")
+		return "", "", nil, errors.Wrap(httperrors.ErrInvalidStatus, "nil ai_routing")
 	}
 	entries, err := fetchEnabledAiRoutingModels(routing.Id)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	if len(entries) == 0 {
-		return "", "", errors.Wrap(httperrors.ErrInvalidStatus, "ai_routing has no ai_routing_models")
+		return "", "", nil, errors.Wrap(httperrors.ErrInvalidStatus, "ai_routing has no ai_routing_models")
 	}
 	var modelsById map[string]*SAiModel
 	if routing.RouterEnabled {
@@ -347,14 +347,14 @@ func pickAiRoutingModel(ctx context.Context, userCred mcclient.TokenCredential, 
 		}
 		modelsById, err = fetchEnabledAiModelsByIds(modelIds)
 		if err != nil {
-			return "", "", err
+			return "", "", nil, err
 		}
 	}
-	selected, err := pickAiRoutingModelFromEntries(ctx, routing, reqModel, body, entries, modelsById)
+	selected, routingLog, err := pickAiRoutingModelFromEntriesWithLog(ctx, routing, reqModel, body, entries, modelsById)
 	if err != nil {
-		return "", "", err
+		return "", "", routingLog, err
 	}
-	return selected.AiProviderId, selected.AiModelId, nil
+	return selected.AiProviderId, selected.AiModelId, routingLog, nil
 }
 
 type aiRoutingModelCandidate struct {
@@ -370,39 +370,80 @@ func pickAiRoutingModelFromEntries(
 	entries []SAiRoutingModel,
 	modelsById map[string]*SAiModel,
 ) (*SAiRoutingModel, error) {
+	selected, _, err := pickAiRoutingModelFromEntriesWithLog(ctx, routing, reqModel, body, entries, modelsById)
+	return selected, err
+}
+
+func pickAiRoutingModelFromEntriesWithLog(
+	ctx context.Context,
+	routing *SAiRouting,
+	reqModel string,
+	body *jsonutils.JSONDict,
+	entries []SAiRoutingModel,
+	modelsById map[string]*SAiModel,
+) (*SAiRoutingModel, *AiRoutingLog, error) {
 	allEntries := make([]*SAiRoutingModel, 0, len(entries))
 	for i := range entries {
 		allEntries = append(allEntries, &entries[i])
 	}
 	if len(allEntries) == 0 {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "ai_routing has no ai_routing_models")
+		return nil, nil, errors.Wrap(httperrors.ErrInvalidStatus, "ai_routing has no ai_routing_models")
 	}
 
+	rlog := &AiRoutingLog{Method: "priority"}
 	if routing != nil && routing.RouterEnabled {
+		rlog.Enabled = true
+		rlog.Method = "router"
 		candidates := buildAiRoutingModelCandidates(routing, allEntries, modelsById)
 		if len(candidates) == 0 {
-			return routerFallbackPick(routing, allEntries[0], errors.Wrap(httperrors.ErrInvalidStatus, "router has no candidate models"))
+			selected, err := routerFallbackPick(routing, allEntries[0], errors.Wrap(httperrors.ErrInvalidStatus, "router has no candidate models"))
+			rlog.Error = "router has no candidate models"
+			if err == nil {
+				rlog.Method = "priority_fallback"
+				rlog.SelectedModel = clientFacingModelID(routing, selected, modelsById[selected.AiModelId])
+			}
+			return selected, rlog, err
 		}
 
 		candidateNames := make([]string, 0, len(candidates))
 		for i := range candidates {
 			candidateNames = append(candidateNames, candidates[i].modelName)
 		}
-		selected, err := callAiRoutingRouter(ctx, routing, body, candidateNames)
+		rlog.Candidates = candidateNames
+		start := time.Now()
+		out, err := callAiRoutingRouter(ctx, routing, body, candidateNames)
+		rlog.LatencyMs = time.Since(start).Milliseconds()
 		if err != nil {
-			return routerFallbackPick(routing, allEntries[0], err)
+			selected, ferr := routerFallbackPick(routing, allEntries[0], err)
+			rlog.Error = err.Error()
+			if ferr == nil {
+				rlog.Method = "priority_fallback"
+				rlog.SelectedModel = clientFacingModelID(routing, selected, modelsById[selected.AiModelId])
+			}
+			return selected, rlog, ferr
 		}
-		selected = strings.TrimSpace(selected)
+		selected := strings.TrimSpace(out.Model)
+		rlog.SelectedModel = selected
+		rlog.Scores = out.Scores
+		rlog.Confidence = out.Confidence
+		rlog.Reason = out.Reason
 		for i := range candidates {
 			if strings.EqualFold(candidates[i].modelName, selected) {
-				return candidates[i].entry, nil
+				return candidates[i].entry, rlog, nil
 			}
 		}
-		return routerFallbackPick(
+		err = errors.Wrapf(httperrors.ErrInvalidStatus, "router selected model %q outside candidates", selected)
+		selectedEntry, ferr := routerFallbackPick(
 			routing,
 			allEntries[0],
-			errors.Wrapf(httperrors.ErrInvalidStatus, "router selected model %q outside candidates", selected),
+			err,
 		)
+		rlog.Error = err.Error()
+		if ferr == nil {
+			rlog.Method = "priority_fallback"
+			rlog.SelectedModel = clientFacingModelID(routing, selectedEntry, modelsById[selectedEntry.AiModelId])
+		}
+		return selectedEntry, rlog, ferr
 	}
 
 	matches := make([]*SAiRoutingModel, 0, len(entries))
@@ -414,9 +455,13 @@ func pickAiRoutingModelFromEntries(
 		matches = append(matches, e)
 	}
 	if len(matches) == 0 {
-		return nil, errors.Wrapf(httperrors.ErrNotFound, "no ai_routing_model matched request model %q", reqModel)
+		return nil, rlog, errors.Wrapf(httperrors.ErrNotFound, "no ai_routing_model matched request model %q", reqModel)
 	}
-	return matches[0], nil
+	rlog.SelectedModel = strings.TrimSpace(matches[0].ModelPattern)
+	if rlog.SelectedModel == "" {
+		rlog.SelectedModel = strings.TrimSpace(reqModel)
+	}
+	return matches[0], rlog, nil
 }
 
 func buildAiRoutingModelCandidates(routing *SAiRouting, entries []*SAiRoutingModel, modelsById map[string]*SAiModel) []aiRoutingModelCandidate {
@@ -444,13 +489,20 @@ func routerFallbackPick(routing *SAiRouting, first *SAiRoutingModel, err error) 
 	return nil, err
 }
 
-func callAiRoutingRouter(ctx context.Context, routing *SAiRouting, body *jsonutils.JSONDict, candidates []string) (string, error) {
+type aiRoutingRouterResult struct {
+	Model      string
+	Scores     map[string]interface{}
+	Confidence *float64
+	Reason     string
+}
+
+func callAiRoutingRouter(ctx context.Context, routing *SAiRouting, body *jsonutils.JSONDict, candidates []string) (*aiRoutingRouterResult, error) {
 	if routing == nil {
-		return "", errors.Wrap(httperrors.ErrInvalidStatus, "nil ai_routing")
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "nil ai_routing")
 	}
 	endpoint, err := aiRoutingRouterEndpoint(routing.RouterUrl, routing.RouterRoutePath)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	payload := jsonutils.NewDict()
 	if body != nil {
@@ -471,28 +523,41 @@ func callAiRoutingRouter(ctx context.Context, routing *SAiRouting, body *jsonuti
 	defer cancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, endpoint, bytes.NewReader([]byte(payload.String())))
 	if err != nil {
-		return "", errors.Wrap(err, "new router request")
+		return nil, errors.Wrap(err, "new router request")
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", errors.Wrap(err, "call ai routing router")
+		return nil, errors.Wrap(err, "call ai routing router")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		data, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return "", errors.Errorf("router status %d: %s", resp.StatusCode, strings.TrimSpace(string(data)))
+		return nil, errors.Errorf("router status %d: %s", resp.StatusCode, strings.TrimSpace(string(data)))
 	}
 	var out struct {
-		Model string `json:"model"`
+		Model         string                 `json:"model"`
+		SelectedModel string                 `json:"selected_model"`
+		Scores        map[string]interface{} `json:"scores"`
+		Confidence    *float64               `json:"confidence"`
+		Reason        string                 `json:"reason"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return "", errors.Wrap(err, "decode router response")
+		return nil, errors.Wrap(err, "decode router response")
 	}
-	if strings.TrimSpace(out.Model) == "" {
-		return "", errors.Wrap(httperrors.ErrInvalidStatus, "router response missing model")
+	model := strings.TrimSpace(out.Model)
+	if model == "" {
+		model = strings.TrimSpace(out.SelectedModel)
 	}
-	return out.Model, nil
+	if model == "" {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "router response missing model")
+	}
+	return &aiRoutingRouterResult{
+		Model:      model,
+		Scores:     out.Scores,
+		Confidence: out.Confidence,
+		Reason:     out.Reason,
+	}, nil
 }
 
 func aiRoutingRouterEndpoint(routerUrl, routePath string) (string, error) {

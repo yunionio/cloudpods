@@ -12,25 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package policy
-
-import (
-	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
-	common_policy "yunion.io/x/onecloud/pkg/cloudcommon/policy"
-)
-
-var (
-	aiproxySystemResources = []string{
-		"usage",
-	}
-	aiproxyDomainResources = []string{}
-	aiproxyUserResources   = []string{
-		"ai_proxy_nodes",
-	}
-)
-
-func init() {
-	common_policy.RegisterSystemResources(api.SERVICE_TYPE, aiproxySystemResources)
-	common_policy.RegisterDomainResources(api.SERVICE_TYPE, aiproxyDomainResources)
-	common_policy.RegisterUserResources(api.SERVICE_TYPE, aiproxyUserResources)
-}
+package chatlog // import "yunion.io/x/onecloud/pkg/aiproxy/chatlog"

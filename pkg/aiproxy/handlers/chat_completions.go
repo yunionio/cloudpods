@@ -15,6 +15,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -24,7 +25,9 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/appctx"
 
+	"yunion.io/x/onecloud/pkg/aiproxy/chatlog"
 	"yunion.io/x/onecloud/pkg/aiproxy/models"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers"
 	"yunion.io/x/onecloud/pkg/aiproxy/upstream"
@@ -102,7 +105,31 @@ func streamChunksWithCancel(ch <-chan upstream.StreamChunk, cancel context.Cance
 // Auth is the ai_virtual_key only (Authorization: Bearer <vk> or X-Ai-Virtual-Key).
 // Upstream is resolved: ai_virtual_key -> project ai_routing -> ai_routing_model -> ai_key (by catalog model_key).
 func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	rec := &chatlog.Record{
+		RequestID: appctx.AppContextRequestId(ctx),
+		Timestamp: start,
+		Path:      r.URL.Path,
+		Client:    r.RemoteAddr,
+	}
+	defer func() {
+		if rec.StatusCode == 0 {
+			rec.StatusCode = http.StatusInternalServerError
+		}
+		rec.LatencyMs = time.Since(start).Milliseconds()
+		chatlog.Write(rec)
+	}()
+	fail := func(status int, code string, err error) {
+		rec.StatusCode = status
+		rec.Success = false
+		rec.ErrorCode = code
+		if err != nil {
+			rec.ErrorMessage = err.Error()
+		}
+	}
+
 	if r.Method != http.MethodPost {
+		fail(http.StatusBadRequest, "invalid_method", nil)
 		httperrors.InvalidInputError(ctx, w, "only POST is supported")
 		return
 	}
@@ -110,30 +137,58 @@ func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.
 	defer r.Body.Close()
 	raw, err := io.ReadAll(r.Body)
 	if err != nil {
+		fail(http.StatusBadRequest, "read_body", err)
 		httperrors.InvalidInputError(ctx, w, "read body: %v", err)
 		return
 	}
 
 	body, err := jsonutils.Parse(raw)
 	if err != nil {
+		fail(http.StatusBadRequest, "invalid_json", err)
 		httperrors.InvalidInputError(ctx, w, "invalid JSON body: %v", err)
 		return
 	}
 	dict, ok := body.(*jsonutils.JSONDict)
 	if !ok {
+		fail(http.StatusBadRequest, "invalid_body", nil)
 		httperrors.InvalidInputError(ctx, w, "body must be a JSON object")
 		return
+	}
+	rec.ModelRequested, _ = dict.GetString("model")
+	rec.Stream, _ = dict.Bool("stream")
+	rec.ToolCallEnabled = dict.Contains("tools") || dict.Contains("tool_choice")
+	if metadata, err := dict.Get("metadata"); err == nil {
+		rec.Metadata = json.RawMessage([]byte(metadata.String()))
 	}
 
 	vk := extractVirtualKey(r)
 	userCred := auth.AdminCredential()
 	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict)
 	if err != nil {
+		fail(http.StatusInternalServerError, "resolve_upstream", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
+	rec.VirtualKey = up.VirtualKeyId
+	rec.ProjectID = up.ProjectId
+	rec.DomainID = up.DomainId
+	rec.AiKey = up.AiKeyId
+	rec.ModelFinal = up.UpstreamModel
+	rec.Provider = up.ProviderKey
+	if up.RoutingLog != nil {
+		rec.RoutingEnabled = up.RoutingLog.Enabled
+		rec.RoutingCandidates = up.RoutingLog.Candidates
+		rec.RoutingSelectedModel = up.RoutingLog.SelectedModel
+		rec.RoutingMethod = up.RoutingLog.Method
+		rec.RoutingScores = up.RoutingLog.Scores
+		rec.RoutingConfidence = up.RoutingLog.Confidence
+		rec.RoutingReason = up.RoutingLog.Reason
+		rec.RoutingLatencyMs = up.RoutingLog.LatencyMs
+		rec.RoutingError = up.RoutingLog.Error
+	}
 
 	if err := models.TakeVirtualKeyRequestsPerMinute(up.VirtualKeyId, up.RequestsPerMinute); err != nil {
+		fail(http.StatusInternalServerError, "rate_limit", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
@@ -144,11 +199,12 @@ func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.
 		}
 	}
 	if err := models.EnforceVirtualKeyMaxTokens(dict, vkLim); err != nil {
+		fail(http.StatusInternalServerError, "max_tokens", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
-	isStream, _ := dict.Bool("stream")
+	isStream := rec.Stream
 	prov := providers.Get(up.ProviderKey)
 	if _, err := prov.BuildUpstreamRequest(&providers.ChatContext{
 		ProviderKey:   up.ProviderKey,
@@ -156,6 +212,7 @@ func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.
 		APIKey:        up.APIKey,
 		UpstreamModel: up.UpstreamModel,
 	}, dict, isStream); err != nil {
+		fail(http.StatusBadRequest, "provider_request", err)
 		httperrors.InvalidInputError(ctx, w, "provider request: %v", err)
 		return
 	}
@@ -167,6 +224,7 @@ func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.
 	if !isStream {
 		resp, uerr := chatCompletionWithKeyFailover(ctx, up, dict, isStream, timeout)
 		if uerr != nil {
+			recordUpstreamError(rec, uerr)
 			writeUpstreamError(ctx, w, uerr)
 			return
 		}
@@ -174,6 +232,10 @@ func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.
 		if norm, nerr := prov.NormalizeResponse(body); nerr == nil && len(norm) > 0 {
 			body = norm
 		}
+		chatlog.FillUsageFromJSON(rec, body)
+		chatlog.FillToolCallsFromJSON(rec, body)
+		rec.Success = true
+		rec.StatusCode = http.StatusOK
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(body)
@@ -182,6 +244,7 @@ func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.
 
 	ch, uerr := chatCompletionStreamWithKeyFailover(ctx, up, dict, isStream, prov, timeout)
 	if uerr != nil {
+		recordUpstreamError(rec, uerr)
 		writeUpstreamError(ctx, w, uerr)
 		return
 	}
@@ -193,6 +256,7 @@ func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.
 	flushIf(w)
 
 	streamOK := true
+	sawUsage := false
 	for chunk := range ch {
 		if chunk.Done {
 			break
@@ -200,8 +264,14 @@ func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.
 		if len(chunk.Data) == 0 {
 			continue
 		}
+		if bytes.Contains(chunk.Data, []byte(`"usage"`)) && chatlog.FillUsageFromJSON(rec, chunk.Data) {
+			sawUsage = true
+		}
+		chatlog.FillToolCallsFromJSON(rec, chunk.Data)
 		if isUpstreamErrorChunk(chunk.Data) {
 			streamOK = false
+			rec.Success = false
+			rec.ErrorCode, rec.ErrorMessage = parseUpstreamErrorInfo(chunk.Data)
 			models.RecordAiKeyFailure(up.AiKeyId, parseUpstreamErrorStatus(chunk.Data))
 			_, _ = fmt.Fprintf(w, "data: %s\n\n", chunk.Data)
 			flushIf(w)
@@ -212,9 +282,54 @@ func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.
 	}
 	_, _ = fmt.Fprintf(w, "data: [DONE]\n\n")
 	flushIf(w)
+	rec.StatusCode = http.StatusOK
+	if !sawUsage {
+		rec.UsageMissing = true
+	}
 	if streamOK {
+		rec.Success = true
 		models.RecordAiKeySuccess(up.AiKeyId)
 	}
+}
+
+func recordUpstreamError(rec *chatlog.Record, uerr *upstream.Error) {
+	if rec == nil {
+		return
+	}
+	rec.StatusCode = http.StatusBadGateway
+	if uerr != nil && uerr.StatusCode > 0 {
+		rec.StatusCode = uerr.StatusCode
+	}
+	rec.Success = false
+	rec.ErrorCode = "upstream_error"
+	if uerr != nil {
+		rec.ErrorMessage = uerr.Error()
+		if len(uerr.Body) > 0 {
+			if code, msg := parseUpstreamErrorInfo(uerr.Body); code != "" || msg != "" {
+				rec.ErrorCode = code
+				if msg != "" {
+					rec.ErrorMessage = msg
+				}
+			}
+		}
+	}
+}
+
+func parseUpstreamErrorInfo(data []byte) (string, string) {
+	var wrap struct {
+		Error struct {
+			Code    interface{} `json:"code"`
+			Message string      `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(data, &wrap) != nil {
+		return "upstream_error", strings.TrimSpace(string(data))
+	}
+	code := "upstream_error"
+	if wrap.Error.Code != nil {
+		code = fmt.Sprint(wrap.Error.Code)
+	}
+	return code, wrap.Error.Message
 }
 
 func isUpstreamErrorChunk(data []byte) bool {
