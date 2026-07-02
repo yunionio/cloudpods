@@ -97,3 +97,15 @@ const (
 	DISK_DRIVER_SATA   = "sata"
 	DISK_DRIVER_VFIO   = "vfio-pci"
 )
+
+const (
+	DISK_CACHE_MODE_WRITETHROGH = "writethrough"
+	DISK_CACHE_MODE_NONE        = "none"
+	DISK_CACHE_MODE_WRITEBACK   = "writeback"
+	DISK_CACHE_MODE_DIRECTSYNC  = "directsync"
+)
+
+const (
+	DISK_AIO_MODE_NATIVE = "native"
+	DISK_AIO_MOD_THREADS = "threads"
+)
