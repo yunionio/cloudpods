@@ -328,6 +328,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 	app.AddHandler2("GET", "/llm_images_catalogs/<id>", auth.Authenticate(handleLLMImagesCatalogShow), nil, "llm_images_catalog_show", nil)
 
 	AddAvailableNetworkHandler(models.GetLLMManager().KeywordPlural(), app)
+	AddBenchmarkArtifactHandlers(app)
 
 	// 默认 Agent 聊天流：优先于 dispatcher 注册，避免被 performClassAction 的 sendJSON 覆盖。
 	// 注册两种路径：default-chat-stream（apigateway 转发用）与 default/chat-stream（climc 直连 region 时用，否则会被当作 resid=default 的 perform 导致 404）
@@ -365,6 +366,8 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		models.GetLLMContainerManager(),
 		models.GetLLMDeploymentManager(),
 		models.GetLLMManager(),
+		models.GetLLMBenchmarkManager(),
+		models.GetLLMBenchmarkPackageManager(),
 		// models.GetDifyManager(),
 		models.GetInstantModelManager(),
 		models.GetLLMInstantModelManager(),
