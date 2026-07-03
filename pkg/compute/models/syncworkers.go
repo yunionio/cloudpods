@@ -33,13 +33,14 @@ import (
 )
 
 var (
-	syncAccountWorker *appsrv.SWorkerManager
-	syncWorkers       []*appsrv.SWorkerManager
-	syncWorkerRing    *hashring.HashRing
-	indexMap          map[string]int
+	syncAccountProbeWorker *appsrv.SWorkerManager
+	syncAccountSyncWorker  *appsrv.SWorkerManager
+	syncWorkers            []*appsrv.SWorkerManager
+	syncWorkerRing         *hashring.HashRing
+	indexMap               map[string]int
 )
 
-func InitSyncWorkers(count int) {
+func InitSyncWorkers(count int, probeWorkerCount int, syncProbeWorkerCount int) {
 	syncWorkers = make([]*appsrv.SWorkerManager, count)
 	syncWorkerIndexes := make([]string, count)
 	indexMap = map[string]int{}
@@ -54,9 +55,15 @@ func InitSyncWorkers(count int) {
 		indexMap[syncWorkerIndexes[i]] = i
 	}
 	syncWorkerRing = hashring.New(syncWorkerIndexes)
-	syncAccountWorker = appsrv.NewWorkerManager(
-		"cloudAccountProbeWorkerManager",
-		10,
+	syncAccountProbeWorker = appsrv.NewWorkerManager(
+		"cloudAccountAutoProbeWorkerManager",
+		probeWorkerCount,
+		2048,
+		true,
+	)
+	syncAccountSyncWorker = appsrv.NewWorkerManager(
+		"cloudAccountSyncProbeWorkerManager",
+		syncProbeWorkerCount,
 		2048,
 		true,
 	)
@@ -93,18 +100,30 @@ func RunSyncCloudproviderRegionTask(ctx context.Context, key string, syncFunc fu
 	})
 }
 
-func RunSyncCloudAccountTask(ctx context.Context, probeFunc func()) {
+func runSyncCloudAccountTask(ctx context.Context, worker *appsrv.SWorkerManager, taskName string, key string, probeFunc func()) {
 	task := resSyncTask{
 		syncFunc: probeFunc,
-		key:      "AccountProb",
+		key:      key,
 	}
-	syncAccountWorker.Run(&task, nil, func(err error) {
+	worker.Run(&task, nil, func(err error) {
 		data := jsonutils.NewDict()
-		data.Add(jsonutils.NewString("SyncCloudAccountTask"), "task_name")
+		data.Add(jsonutils.NewString(taskName), "task_name")
 		data.Add(jsonutils.NewString(task.key), "task_id")
 		data.Add(jsonutils.NewString(string(debug.Stack())), "stack")
 		data.Add(jsonutils.NewString(err.Error()), "error")
 		notifyclient.SystemExceptionNotify(context.TODO(), api.ActionSystemPanic, api.TOPIC_RESOURCE_TASK, data)
 		yunionconf.BugReport.SendBugReport(ctx, version.GetShortString(), string(debug.Stack()), err)
 	})
+}
+
+// RunSyncCloudAccountProbeTask runs auto cloud account status probe in a dedicated worker pool,
+// isolated from manual sync probe tasks.
+func RunSyncCloudAccountProbeTask(ctx context.Context, probeFunc func()) {
+	runSyncCloudAccountTask(ctx, syncAccountProbeWorker, "SyncCloudAccountProbeTask", "AccountAutoProbe", probeFunc)
+}
+
+// RunSyncCloudAccountSyncTask runs cloud account probe before resource sync in a dedicated worker pool,
+// so manual sync is not blocked by auto probe tasks.
+func RunSyncCloudAccountSyncTask(ctx context.Context, probeFunc func()) {
+	runSyncCloudAccountTask(ctx, syncAccountSyncWorker, "SyncCloudAccountSyncTask", "AccountSyncProbe", probeFunc)
 }

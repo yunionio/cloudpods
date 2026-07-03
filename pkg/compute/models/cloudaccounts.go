@@ -2289,7 +2289,7 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountStatusTask(ctx context.
 			}
 			cloudaccountPendingSyncs[id] = struct{}{}
 			cloudaccountPendingSyncsMutex.Unlock()
-			RunSyncCloudAccountTask(ctx, func() {
+			RunSyncCloudAccountProbeTask(ctx, func() {
 				defer func() {
 					cloudaccountPendingSyncsMutex.Lock()
 					defer cloudaccountPendingSyncsMutex.Unlock()
@@ -2299,7 +2299,7 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountStatusTask(ctx context.
 				idctx := context.WithValue(ctx, "id", id)
 				lockman.LockObject(idctx, account)
 				defer lockman.ReleaseObject(idctx, account)
-				err := account.syncAccountStatus(idctx, userCred)
+				err := account.syncAccountStatus(idctx, userCred, false)
 				if err != nil {
 					log.Errorf("unable to syncAccountStatus for cloudaccount %s: %s", account.Id, err.Error())
 				}
@@ -2457,7 +2457,7 @@ func (acnt *SCloudaccount) setSubAccountStatus() error {
 	return err
 }
 
-func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mcclient.TokenCredential, prepareRegions bool) error {
 	subaccounts, err := account.probeAccountStatus(ctx, userCred)
 	if err != nil {
 		account.markAllProvidersDisconnected(ctx, userCred)
@@ -2466,11 +2466,13 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 	}
 	account.markAccountConnected(ctx, userCred)
 	providers := account.importAllSubaccounts(ctx, userCred, subaccounts)
-	for i := range providers {
-		if providers[i].GetEnabled() {
-			_, err := providers[i].prepareCloudproviderRegions(ctx, userCred)
-			if err != nil {
-				providers[i].SetStatus(ctx, userCred, api.CLOUD_PROVIDER_DISCONNECTED, errors.Wrapf(err, "prepareCloudproviderRegions").Error())
+	if prepareRegions {
+		for i := range providers {
+			if providers[i].GetEnabled() {
+				_, err := providers[i].prepareCloudproviderRegions(ctx, userCred)
+				if err != nil {
+					providers[i].SetStatus(ctx, userCred, api.CLOUD_PROVIDER_DISCONNECTED, errors.Wrapf(err, "prepareCloudproviderRegions").Error())
+				}
 			}
 		}
 	}
@@ -2495,14 +2497,14 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 	}
 	cloudaccountPendingSyncs[account.Id] = struct{}{}
 
-	RunSyncCloudAccountTask(ctx, func() {
+	RunSyncCloudAccountSyncTask(ctx, func() {
 		defer func() {
 			cloudaccountPendingSyncsMutex.Lock()
 			defer cloudaccountPendingSyncsMutex.Unlock()
 			delete(cloudaccountPendingSyncs, account.Id)
 		}()
 		log.Debugf("syncAccountStatus %s %s", account.Id, account.Name)
-		err := account.syncAccountStatus(ctx, userCred)
+		err := account.syncAccountStatus(ctx, userCred, true)
 		if waitChan != nil {
 			if err != nil {
 				err = errors.Wrap(err, "account.syncAccountStatus")
