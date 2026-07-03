@@ -98,6 +98,14 @@ func GetHostDriver(hostType, provider string) (IHostDriver, error) {
 	if ok {
 		return driver, nil
 	}
+	// proxmox agent hosts register with OneCloud provider
+	if provider != api.CLOUD_PROVIDER_ONECLOUD && hostType == api.HOST_TYPE_PROXMOX {
+		key = fmt.Sprintf("%s-%s", hostType, api.CLOUD_PROVIDER_ONECLOUD)
+		driver, ok = hostDrivers[key]
+		if ok {
+			return driver, nil
+		}
+	}
 	return nil, errors.Wrapf(errors.ErrNotFound, "host type: %s provider: %s", hostType, provider)
 }
 
