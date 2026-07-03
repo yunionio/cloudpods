@@ -122,6 +122,10 @@ func (h *MiscHandler) Bind(app *appsrv.Application) {
 	app.AddHandler(GET, prefix+"mcp-servers-config", mcpServersConfigHandler)
 	// mcp agent default MCP server tools (options.MCPServerURL only, no mcp_agent entry)
 	app.AddHandler(GET, prefix+"default-mcp-tools", FetchAuthToken(mcpAgentDefaultToolsHandler))
+
+	benchArtifactPrefix := prefix + "llm_benchmarks/<id>/artifacts"
+	app.AddHandler(GET, benchArtifactPrefix, FetchAuthToken(llmBenchmarkArtifactsHandler))
+	app.AddHandler(GET, benchArtifactPrefix+"/<type>", FetchAuthToken(llmBenchmarkArtifactHandler))
 }
 
 func UploadHandlerInfo(method, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request)) *appsrv.SHandlerInfo {
