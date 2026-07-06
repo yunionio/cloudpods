@@ -589,6 +589,8 @@ func (manager *SLoadbalancerAgentManager) FetchCustomizeColumns(
 			StandaloneResourceDetails:       stdRows[i],
 			LoadbalancerClusterResourceInfo: clusterRows[i],
 		}
+		lbagent := objs[i].(*SLoadbalancerAgent)
+		rows[i].WireId, _ = lbagent.inferWireId()
 	}
 
 	return rows
@@ -735,6 +737,19 @@ func (lbagent *SLoadbalancerAgent) PerformJoinCluster(
 	if len(peerAgents) >= 2 {
 		return nil, errors.Wrap(httperrors.ErrTooLarge, "too many agents")
 	}
+
+	clusterWireId, err := cluster.inferWireId()
+	if err != nil {
+		return nil, errors.Wrap(err, "cluster.inferWireId")
+	}
+	agentWireId, err := lbagent.inferWireId()
+	if err != nil {
+		return nil, errors.Wrap(err, "lbagent.inferWireId")
+	}
+	if clusterWireId != agentWireId {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cluster and agent must be on the same wire")
+	}
+
 	priority := 200
 	if input.Priority > 0 {
 		for i := range peerAgents {
@@ -871,6 +886,17 @@ func (manager *SLoadbalancerAgentManager) HbDetectionTask(ctx context.Context, u
 		db.OpsLog.LogEvent(lbagent, db.ACT_UPDATE, diff, userCred)
 		logclient.AddActionLogWithContext(ctx, lbagent, logclient.ACT_UPDATE, diff, userCred, true)
 	}
+}
+
+func (lbagent *SLoadbalancerAgent) inferWireId() (string, error) {
+	nets, err := NetworkManager.findClassicNetworksByIp(lbagent.IP)
+	if err != nil {
+		return "", errors.Wrap(err, "NetworkManager.findClassicNetworksByIp")
+	}
+	if len(nets) == 0 {
+		return "", errors.Wrapf(errors.ErrNotFound, "no networks found for ip %s", lbagent.IP)
+	}
+	return nets[0].WireId, nil
 }
 
 const (

@@ -152,6 +152,8 @@ type NetworkListInput struct {
 
 	HostType string `json:"host_type"`
 
+	LbClusterId string `json:"lb_cluster_id"`
+
 	// 按起始ip地址排序
 	// pattern:asc|desc
 	OrderByIpStart string `json:"order_by_ip_start"`

@@ -2975,6 +2975,18 @@ func (manager *SNetworkManager) ListItemFilter(
 		q = q.In("wire_id", subq.SubQuery())
 	}
 
+	if len(input.LbClusterId) > 0 {
+		lbClusterObj, err := LoadbalancerClusterManager.FetchByIdOrName(ctx, userCred, input.LbClusterId)
+		if err != nil {
+			return nil, httperrors.NewResourceNotFoundError2(LoadbalancerClusterManager.Keyword(), input.LbClusterId)
+		}
+		lbCluster := lbClusterObj.(*SLoadbalancerCluster)
+		lbWireId, _ := lbCluster.inferWireId()
+		if len(lbWireId) > 0 {
+			q = q.Equals("wire_id", lbWireId)
+		}
+	}
+
 	return q, nil
 }
 
@@ -4126,4 +4138,37 @@ func (manager *SNetworkManager) CustomizeFilterList(ctx context.Context, q *sqlc
 	}
 
 	return filters, nil
+}
+
+func (manager *SNetworkManager) findClassicNetworksByIp(ipstr string) ([]SNetwork, error) {
+	ip4Addr, err := netutils.NewIPV4Addr(ipstr)
+	if err != nil {
+		return nil, errors.Wrap(err, "netutils.NewIPV4Addr")
+	}
+	q := manager.Query()
+	wirsQ := WireManager.Query().Equals("vpc_id", api.DEFAULT_VPC_ID).SubQuery()
+	q = q.Join(wirsQ, sqlchemy.Equals(q.Field("wire_id"), wirsQ.Field("id")))
+
+	// ipv4 address, exactly
+	ipStart := sqlchemy.INET_ATON(q.Field("guest_ip_start"))
+	ipEnd := sqlchemy.INET_ATON(q.Field("guest_ip_end"))
+
+	ipConst := sqlchemy.INET_ATON(q.StringField(ip4Addr.String()))
+
+	ipCondtion := sqlchemy.AND(
+		sqlchemy.IsNotNull(q.Field("guest_ip_start")),
+		sqlchemy.IsNotNull(q.Field("guest_ip_end")),
+		sqlchemy.IsNotEmpty(q.Field("guest_ip_start")),
+		sqlchemy.IsNotEmpty(q.Field("guest_ip_end")),
+		sqlchemy.GE(ipEnd, ipConst),
+		sqlchemy.LE(ipStart, ipConst),
+	)
+	q = q.Filter(ipCondtion)
+
+	networks := make([]SNetwork, 0)
+	err = db.FetchModelObjects(manager, q, &networks)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return networks, nil
 }

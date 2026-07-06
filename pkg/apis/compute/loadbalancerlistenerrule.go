@@ -40,6 +40,7 @@ type LoadbalancerListenerRuleListInput struct {
 	apis.StatusStandaloneResourceListInput
 	apis.ExternalizedResourceBaseListInput
 	LoadbalancerListenerFilterListInput
+	LoadbalancerCertificateFilterListInput
 
 	// filter by backend_group
 	BackendGroup string `json:"backend_group"`
