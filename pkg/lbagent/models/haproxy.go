@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	compute_models "yunion.io/x/onecloud/pkg/compute/models"
@@ -170,7 +171,7 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 	return r, nil
 }
 
-func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *LoadbalancerListener, opts *AgentParams) (map[string]interface{}, error) {
+func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *LoadbalancerListener, opts *AgentParams, rules OrderedLoadbalancerListenerRuleList) (map[string]interface{}, error) {
 	data := map[string]interface{}{
 		"comment":       fmt.Sprintf("%s(%s)", listener.Name, listener.Id),
 		"id":            listener.Id,
@@ -180,15 +181,30 @@ func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *
 		address := lb.GetAddress()
 		bind := fmt.Sprintf("%s:%d", address, listener.ListenerPort)
 		if listener.ListenerType == "https" && listener.certificate != nil {
-			bind += fmt.Sprintf(" ssl crt %s.pem", listener.certificate.Id)
-			if listener.TLSCipherPolicy != "" {
-				policy := agentutils.HaproxySslPolicy(listener.TLSCipherPolicy)
-				if policy != nil {
-					bind += fmt.Sprintf(" ssl-min-ver %s", policy.SslMinVer)
+			certIds := []string{}
+			if listener.certificate != nil {
+				certIds = append(certIds, listener.certificate.Id)
+			}
+			for _, rule := range rules {
+				if rule.certificate != nil && !utils.IsInArray(rule.certificate.Id, certIds) {
+					certIds = append(certIds, rule.certificate.Id)
 				}
 			}
-			if listener.EnableHttp2 {
-				bind += " alpn h2,http/1.1"
+			if len(certIds) > 0 {
+				bind += " ssl"
+				for _, certId := range certIds {
+					bind += fmt.Sprintf(" crt %s.pem", certId)
+				}
+
+				if listener.TLSCipherPolicy != "" {
+					policy := agentutils.HaproxySslPolicy(listener.TLSCipherPolicy)
+					if policy != nil {
+						bind += fmt.Sprintf(" ssl-min-ver %s", policy.SslMinVer)
+					}
+				}
+				if listener.EnableHttp2 {
+					bind += " alpn h2,http/1.1"
+				}
 			}
 		}
 		data["bind"] = bind
@@ -449,10 +465,11 @@ func (b *LoadbalancerCorpus) haproxyRedirectLine(r *compute_models.SLoadbalancer
 
 func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *LoadbalancerListener, opts *AgentParams) error {
 	var (
-		lb = listener.loadbalancer
+		lb    = listener.loadbalancer
+		rules = listener.rules.OrderedEnabledList()
 	)
 
-	data, err := b.genHaproxyConfigCommon(lb, listener, opts)
+	data, err := b.genHaproxyConfigCommon(lb, listener, opts, rules)
 	if err != nil {
 		return errors.Wrap(err, "genHaproxyConfigCommon for http listener")
 	}
@@ -466,7 +483,6 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 	}
 
 	var (
-		rules     = listener.rules.OrderedEnabledList()
 		ruleLines = []string{}
 		backends  = []interface{}{}
 
@@ -563,7 +579,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 
 func (b *LoadbalancerCorpus) genHaproxyConfigTcp(buf *bytes.Buffer, listener *LoadbalancerListener, opts *AgentParams) error {
 	lb := listener.loadbalancer
-	data, err := b.genHaproxyConfigCommon(lb, listener, opts)
+	data, err := b.genHaproxyConfigCommon(lb, listener, opts, nil)
 	if err != nil {
 		return errors.Wrap(err, "genHaproxyConfigCommon for tcp listener")
 	}

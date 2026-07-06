@@ -296,6 +296,7 @@ func (man *SLoadbalancerClusterManager) FetchCustomizeColumns(
 		}
 		lbc := objs[i].(*SLoadbalancerCluster)
 		rows[i].RefCounts, _ = lbc.refCounts()
+		rows[i].WireId, _ = lbc.inferWireId()
 	}
 
 	return rows
@@ -630,4 +631,15 @@ func (cluster *SLoadbalancerCluster) PerformParamsPatch(ctx context.Context, use
 		}
 	}
 	return nil, nil
+}
+
+func (cluster *SLoadbalancerCluster) inferWireId() (string, error) {
+	lbAgents, err := LoadbalancerAgentManager.getByClusterId(cluster.Id)
+	if err != nil {
+		return "", errors.Wrap(err, "LoadbalancerAgentManager.getByClusterId")
+	}
+	if len(lbAgents) == 0 {
+		return "", errors.Wrap(err, "no lbagents")
+	}
+	return lbAgents[0].inferWireId()
 }
