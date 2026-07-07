@@ -21,8 +21,6 @@ import (
 	"yunion.io/x/pkg/util/printutils"
 )
 
-const aiproxyPlaceholderAPIKey = "unused"
-
 func aiproxyAdminSession(ctx context.Context) *mcclient.ClientSession {
 	return auth.GetAdminSession(ctx, options.Options.Region)
 }
@@ -34,7 +32,7 @@ func mapLLMTypeToProviderKey(llmType string) (string, bool) {
 	case string(api.LLM_CONTAINER_OLLAMA):
 		return "ollama", true
 	case string(api.LLM_CONTAINER_SGLANG):
-		return "sgl", true
+		return "sglang", true
 	default:
 		return "", false
 	}
@@ -300,7 +298,6 @@ func upsertAiProvider(
 	}
 	cfg := jsonutils.Marshal(&apapi.SAiProviderConfig{
 		BaseURL: baseURL,
-		APIKey:  aiproxyPlaceholderAPIKey,
 	})
 	params := jsonutils.NewDict()
 	params.Set("provider_key", jsonutils.NewString(providerKey))

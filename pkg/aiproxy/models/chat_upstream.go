@@ -36,6 +36,7 @@ type ChatUpstream struct {
 	ProviderKey   string
 	AiProviderId  string
 	AiKeyId       string
+	APIMode       string
 
 	// VirtualKeyId and usage/rate snapshots come from the matched ai_virtual_key row.
 	VirtualKeyId        string
@@ -212,7 +213,7 @@ func resolveCatalogModelFromRouting(
 //  1. ai_virtual_key (auth + project scope)
 //  2. ai_routing in that project (model_key exact match first, then model_pattern / optional proxy-node scope, priority)
 //  3. ai_routing_model -> ai_provider + ai_model
-//  4. ai_key rows for that provider matching the catalog model_key (weight), else provider.config api_key
+//  4. ai_key rows for that provider matching the catalog model_key (weight)
 func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential, virtualKey string, body *jsonutils.JSONDict) (*ChatUpstream, error) {
 	vk, err := loadEnabledVirtualKey(virtualKey)
 	if err != nil {
@@ -246,7 +247,7 @@ func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential,
 	if prov.Config == nil {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "ai_provider.config is empty")
 	}
-	baseURL := prov.Config.ResolvedBaseURL()
+	baseURL := prov.Config.EffectiveBaseURL(prov.ProviderKey)
 	if baseURL == "" {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "ai_provider.config must include base_url")
 	}
@@ -256,13 +257,15 @@ func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential,
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "ai_model.model_key is empty")
 	}
 
+	apiMode := prov.Config.ResolvedAPIMode()
+
 	// Keys are scoped to ai_provider; routing on each ai_key matches the resolved catalog model_key.
 	keyRes, err := resolveUpstreamAPIKey(prov, upstreamModel)
 	if err != nil {
 		return nil, err
 	}
 	if keyRes == nil || keyRes.Secret == "" {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no api_key for ai_provider and catalog model")
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "add an enabled ai_key with secret for this provider")
 	}
 
 	up := &ChatUpstream{
@@ -273,6 +276,7 @@ func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential,
 		AiProviderId:  prov.Id,
 		AiKeyId:       keyRes.AiKeyId,
 		VirtualKeyId:  vk.Id,
+		APIMode:       apiMode,
 	}
 	if vk.Limits != nil {
 		up.MaxTokensPerRequest = vk.Limits.MaxTokensPerRequest

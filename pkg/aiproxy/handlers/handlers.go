@@ -28,6 +28,7 @@ import (
 
 const (
 	openaiCompatAPIPrefix     = "/ai/openai/v1"
+	anthropicCompatAPIPrefix  = "/ai/anthropic/v1"
 	openaiLongProcessTimeout  = 2 * time.Hour
 	openaiShortProcessTimeout = 5 * time.Minute
 )
@@ -44,6 +45,10 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 
 	app.AddHandler2("POST", openaiCompatAPIPrefix+"/chat/completions", chatCompletionsHandler, nil, "aiproxy_openai_v1_chat_completions", nil).
 		SetProcessTimeout(openaiLongProcessTimeout)
+	app.AddHandler2("POST", anthropicCompatAPIPrefix+"/messages", messagesHandler, nil, "aiproxy_anthropic_v1_messages", nil).
+		SetProcessTimeout(openaiLongProcessTimeout)
+	app.AddHandler2("HEAD", anthropicBasePrefix, anthropicBaseProbeHandler, nil, "aiproxy_anthropic_base_probe", nil)
+	app.AddHandler2("HEAD", anthropicCompatAPIPrefix+"/messages", anthropicMessagesHeadHandler, nil, "aiproxy_anthropic_v1_messages_head", nil)
 	app.AddHandler2("POST", openaiCompatAPIPrefix+"/completions", completionsHandler, nil, "aiproxy_openai_v1_completions", nil).
 		SetProcessTimeout(openaiLongProcessTimeout)
 	app.AddHandler2("POST", openaiCompatAPIPrefix+"/embeddings", embeddingsHandler, nil, "aiproxy_openai_v1_embeddings", nil).
