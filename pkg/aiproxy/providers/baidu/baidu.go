@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/aiproxy/providerapi"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/openai"
+	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 )
 
 type provider struct {
@@ -29,11 +30,11 @@ type provider struct {
 
 // New returns the Baidu Wenxin / Qianfan provider adapter.
 func New() providerapi.Provider {
-	return &provider{v2: openai.NewCompat("baidu")}
+	return &provider{v2: openai.NewCompat(api.ProviderKeyBaidu)}
 }
 
 func (p *provider) Key() string {
-	return "baidu"
+	return api.ProviderKeyBaidu
 }
 
 func (p *provider) useV2(ctx *providerapi.ChatContext) bool {

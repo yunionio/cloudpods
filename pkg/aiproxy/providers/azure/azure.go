@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/aiproxy/providerapi"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/openai"
+	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 )
 
 type provider struct{}
@@ -33,7 +34,7 @@ func New() providerapi.Provider {
 }
 
 func (p *provider) Key() string {
-	return "azure"
+	return api.ProviderKeyAzure
 }
 
 func (p *provider) BuildUpstreamRequest(ctx *providerapi.ChatContext, body *jsonutils.JSONDict, stream bool) (*providerapi.HTTPRequest, error) {

@@ -16,14 +16,17 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -35,7 +38,7 @@ type SAiProvider struct {
 	// ProviderKey selects the upstream adapter implementation (e.g. openai, vllm, aliyun).
 	// Multiple ai_provider rows may share the same provider_key with different config.
 	ProviderKey string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
-	// Config is a JSON snapshot of provider connectivity (base_url, optional api_key).
+	// Config is a JSON snapshot of provider connectivity (base_url, api_mode).
 	Config *api.SAiProviderConfig `length:"long" charset:"utf8" list:"user" create:"optional" update:"user"`
 	// LlmDeploymentId and LlmId link this provider to an llm_deployment replica (set by llm sync).
 	LlmDeploymentId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user" index:"true"`
@@ -125,8 +128,23 @@ func (manager *SAiProviderManager) ValidateCreateData(
 	input.ProviderKey = pk
 
 	input.Config = normalizeAiProviderConfig(input.Config)
-	if err := validateAiProviderConfig(input.Config); err != nil {
+	if err := validateAiProviderConfig(input.Config, input.ProviderKey); err != nil {
 		return input, err
+	}
+
+	input.Secret = strings.TrimSpace(input.Secret)
+
+	if api.IsCustomProviderKey(input.ProviderKey) {
+		if input.Secret == "" {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "secret is required for provider_key custom")
+		}
+		if input.Config == nil || strings.TrimSpace(input.Config.ResolvedBaseURL()) == "" {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "config.base_url is required for provider_key custom")
+		}
+	}
+
+	if input.Enabled == nil && input.Disabled == nil {
+		input.SetEnabled()
 	}
 
 	if strings.TrimSpace(input.Name) == "" {
@@ -139,7 +157,95 @@ func (manager *SAiProviderManager) ValidateCreateData(
 		return input, err
 	}
 
+	if strings.TrimSpace(input.Secret) != "" {
+		var err error
+		input.ModelKeys, err = normalizeProviderModelKeys(input.ModelKeys)
+		if err != nil {
+			return input, err
+		}
+		if len(input.ModelKeys) == 0 {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "model_keys is required when secret is provided")
+		}
+		if err := probeProviderConnectivity(ctx, input.ProviderKey, input.Secret, input.Config); err != nil {
+			return input, err
+		}
+	}
+
 	return input, nil
+}
+
+func (p *SAiProvider) CustomizeCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) error {
+	if err := rejectProviderConfigAPIKeyInJSON(data); err != nil {
+		return err
+	}
+	return p.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
+func (p *SAiProvider) PostCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) {
+	p.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+
+	input := api.AiProviderCreateInput{}
+	if err := data.Unmarshal(&input); err != nil {
+		log.Errorf("ai_provider PostCreate unmarshal: %v", err)
+		return
+	}
+	if len(input.ModelKeys) > 0 {
+		if err := createSelectedProviderModels(ctx, userCred, ownerId, p, input.ModelKeys); err != nil {
+			log.Errorf("ai_provider %s create selected models: %v", p.Id, err)
+		}
+	} else if err := createCatalogModelsForUserProvider(ctx, userCred, ownerId, p); err != nil {
+		log.Errorf("ai_provider %s create catalog models: %v", p.Id, err)
+	}
+
+	secret := strings.TrimSpace(input.Secret)
+	if secret == "" {
+		secret, _ = data.GetString("secret")
+		secret = strings.TrimSpace(secret)
+	}
+	if secret == "" {
+		return
+	}
+	if err := createInitialAiKey(ctx, userCred, ownerId, p, secret); err != nil {
+		log.Errorf("ai_provider %s create initial ai_key: %v", p.Id, err)
+	}
+}
+
+func createInitialAiKey(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	prov *SAiProvider,
+	secret string,
+) error {
+	if prov == nil || strings.TrimSpace(prov.Id) == "" {
+		return errors.Error("ai_provider is nil or has no id")
+	}
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return nil
+	}
+	dataDict := jsonutils.NewDict()
+	dataDict.Set("ai_provider_id", jsonutils.NewString(prov.Id))
+	dataDict.Set("secret", jsonutils.NewString(secret))
+	dataDict.Set("weight", jsonutils.NewInt(1))
+	dataDict.Set("enabled", jsonutils.JSONTrue)
+	dataDict.Set("generate_name", jsonutils.NewString(fmt.Sprintf("%s-key", prov.Name)))
+	if _, err := db.DoCreate(AiKeyManager, ctx, userCred, nil, dataDict, ownerId); err != nil {
+		return errors.Wrap(err, "create ai_key for provider")
+	}
+	return nil
 }
 
 func (p *SAiProvider) ValidateUpdateData(
@@ -164,7 +270,11 @@ func (p *SAiProvider) ValidateUpdateData(
 
 	if input.Config != nil {
 		input.Config = normalizeAiProviderConfig(input.Config)
-		if err := validateAiProviderConfig(input.Config); err != nil {
+		pk := strings.TrimSpace(input.ProviderKey)
+		if pk == "" {
+			pk = p.ProviderKey
+		}
+		if err := validateAiProviderConfig(input.Config, pk); err != nil {
 			return input, err
 		}
 	}

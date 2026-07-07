@@ -19,6 +19,8 @@ import (
 	"testing"
 
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/aiproxy/providers/aliyun"
 )
 
 func TestAliyunProviderEnableThinkingPatch(t *testing.T) {
@@ -26,7 +28,7 @@ func TestAliyunProviderEnableThinkingPatch(t *testing.T) {
 	body.Add(jsonutils.NewString("qwen-turbo"), "model")
 	body.Add(jsonutils.NewArray(jsonutils.NewDict()), "messages")
 
-	p := Get("aliyun")
+	p := aliyun.New()
 	req, err := p.BuildUpstreamRequest(&ChatContext{
 		ProviderKey:   "aliyun",
 		BaseURL:       "https://dashscope.aliyuncs.com/compatible-mode",

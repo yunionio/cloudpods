@@ -52,6 +52,11 @@ type AiRoutingModelUpdateInput struct {
 type AiRoutingModelDetails struct {
 	apis.StandaloneResourceDetails
 
+	// Id and Name are set explicitly for nested routing_models on ai_routing details
+	// (list responses also merge the full model row, which includes these fields).
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
 	AiRoutingId  string `json:"ai_routing_id"`
 	AiProviderId string `json:"ai_provider_id"`
 	AiModelId    string `json:"ai_model_id"`

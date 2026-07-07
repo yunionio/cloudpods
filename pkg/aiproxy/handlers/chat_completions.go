@@ -149,13 +149,9 @@ func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.
 	}
 
 	isStream, _ := dict.Bool("stream")
-	prov := providers.Get(up.ProviderKey)
-	if _, err := prov.BuildUpstreamRequest(&providers.ChatContext{
-		ProviderKey:   up.ProviderKey,
-		BaseURL:       up.BaseURL,
-		APIKey:        up.APIKey,
-		UpstreamModel: up.UpstreamModel,
-	}, dict, isStream); err != nil {
+	prov := providers.ChatProviderForUpstream(up.ProviderKey, up.APIMode)
+	chatCtx := providers.ChatContextFromUpstream(up.ProviderKey, up.BaseURL, up.APIKey, up.UpstreamModel, up.APIMode)
+	if _, err := prov.BuildUpstreamRequest(chatCtx, dict, isStream); err != nil {
 		httperrors.InvalidInputError(ctx, w, "provider request: %v", err)
 		return
 	}
@@ -250,37 +246,9 @@ func chatCompletionWithKeyFailover(
 	stream bool,
 	timeout time.Duration,
 ) (*upstream.Response, *upstream.Error) {
-	tried := make(map[string]bool)
-	if up.AiKeyId != "" {
-		tried[up.AiKeyId] = true
-	}
-	var last *upstream.Error
-	for attempt := 0; attempt < models.MaxAiKeyFailoverAttempts; attempt++ {
-		upReq, err := buildProviderUpstream(up, dict, stream)
-		if err != nil {
-			return nil, &upstream.Error{StatusCode: http.StatusBadRequest, Message: err.Error()}
-		}
-		reqCtx, cancel := context.WithTimeout(ctx, timeout)
-		resp, uerr := upstream.ChatCompletion(reqCtx, upReq)
-		cancel()
-		if uerr == nil {
-			models.RecordAiKeySuccess(up.AiKeyId)
-			return resp, nil
-		}
-		last = uerr
-		status := upstreamErrorStatusCode(uerr)
-		models.RecordAiKeyFailure(up.AiKeyId, status)
-		if up.AiKeyId == "" || !models.IsRetryableAiKeyUpstreamStatus(status) || attempt+1 >= models.MaxAiKeyFailoverAttempts {
-			break
-		}
-		if err := models.RepickUpstreamAPIKey(up, tried); err != nil {
-			break
-		}
-		if up.AiKeyId != "" {
-			tried[up.AiKeyId] = true
-		}
-	}
-	return nil, last
+	return upstreamWithKeyFailover(ctx, up, timeout, func() (*upstream.Request, error) {
+		return buildProviderUpstream(up, dict, stream)
+	})
 }
 
 func chatCompletionStreamWithKeyFailover(
@@ -291,50 +259,18 @@ func chatCompletionStreamWithKeyFailover(
 	prov providers.Provider,
 	timeout time.Duration,
 ) (<-chan upstream.StreamChunk, *upstream.Error) {
-	tried := make(map[string]bool)
-	if up.AiKeyId != "" {
-		tried[up.AiKeyId] = true
-	}
-	var last *upstream.Error
-	for attempt := 0; attempt < models.MaxAiKeyFailoverAttempts; attempt++ {
-		upReq, err := buildProviderUpstream(up, dict, stream)
-		if err != nil {
-			return nil, &upstream.Error{StatusCode: http.StatusBadRequest, Message: err.Error()}
-		}
-		reqCtx, cancel := context.WithTimeout(ctx, timeout)
-		ch, uerr := providerStreamChunks(reqCtx, up, upReq, prov)
-		if uerr != nil {
-			cancel()
-		} else {
-			ch = streamChunksWithCancel(ch, cancel)
-		}
-		if uerr == nil {
-			return ch, nil
-		}
-		last = uerr
-		status := upstreamErrorStatusCode(uerr)
-		models.RecordAiKeyFailure(up.AiKeyId, status)
-		if up.AiKeyId == "" || !models.IsRetryableAiKeyUpstreamStatus(status) || attempt+1 >= models.MaxAiKeyFailoverAttempts {
-			break
-		}
-		if err := models.RepickUpstreamAPIKey(up, tried); err != nil {
-			break
-		}
-		if up.AiKeyId != "" {
-			tried[up.AiKeyId] = true
-		}
-	}
-	return nil, last
+	return upstreamStreamWithKeyFailover(ctx, up, timeout, func() (*upstream.Request, error) {
+		return buildProviderUpstream(up, dict, stream)
+	}, func(reqCtx context.Context, upReq *upstream.Request) (<-chan upstream.StreamChunk, *upstream.Error) {
+		return providerStreamChunks(reqCtx, up, upReq, prov)
+	})
 }
 
 func buildProviderUpstream(up *models.ChatUpstream, dict *jsonutils.JSONDict, isStream bool) (*upstream.Request, error) {
-	prov := providers.Get(up.ProviderKey)
-	httpReq, err := prov.BuildUpstreamRequest(&providers.ChatContext{
-		ProviderKey:   up.ProviderKey,
-		BaseURL:       up.BaseURL,
-		APIKey:        up.APIKey,
-		UpstreamModel: up.UpstreamModel,
-	}, dict, isStream)
+	prov := providers.ChatProviderForUpstream(up.ProviderKey, up.APIMode)
+	httpReq, err := prov.BuildUpstreamRequest(providers.ChatContextFromUpstream(
+		up.ProviderKey, up.BaseURL, up.APIKey, up.UpstreamModel, up.APIMode,
+	), dict, isStream)
 	if err != nil {
 		return nil, err
 	}
@@ -347,12 +283,7 @@ func providerStreamChunks(
 	upReq *upstream.Request,
 	prov providers.Provider,
 ) (<-chan upstream.StreamChunk, *upstream.Error) {
-	chatCtx := &providers.ChatContext{
-		ProviderKey:   up.ProviderKey,
-		BaseURL:       up.BaseURL,
-		APIKey:        up.APIKey,
-		UpstreamModel: up.UpstreamModel,
-	}
+	chatCtx := providers.ChatContextFromUpstream(up.ProviderKey, up.BaseURL, up.APIKey, up.UpstreamModel, up.APIMode)
 	if providers.OpenAIStreamPassthrough(prov, chatCtx) {
 		return upstream.ChatCompletionStream(ctx, upReq)
 	}

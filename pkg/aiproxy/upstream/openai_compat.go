@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -82,6 +83,27 @@ func ChatCompletionsURL(baseURL string) string {
 		return base + "/chat/completions"
 	}
 	return base + "/v1/chat/completions"
+}
+
+// ModelsURL builds the OpenAI-compatible models list endpoint from a provider base URL.
+func ModelsURL(baseURL string) string {
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if strings.HasSuffix(base, "/v1") {
+		return base + "/models"
+	}
+	if hasAPIVersionPathSuffix(base) {
+		return base + "/models"
+	}
+	return base + "/v1/models"
+}
+
+func hasAPIVersionPathSuffix(base string) bool {
+	idx := strings.LastIndex(base, "/")
+	if idx < 0 {
+		return false
+	}
+	seg := base[idx+1:]
+	return len(seg) >= 2 && seg[0] == 'v' && seg[1] >= '0' && seg[1] <= '9'
 }
 
 var (
@@ -180,6 +202,136 @@ func ChatCompletion(ctx context.Context, req *Request) (*Response, *Error) {
 		return nil, errorFromResponse(resp, body)
 	}
 	return &Response{StatusCode: resp.StatusCode, Body: body}, nil
+}
+
+// ListModels performs a GET on the upstream models list endpoint.
+func ListModels(ctx context.Context, baseURL, apiKey string) (*Response, *Error) {
+	req := &Request{
+		BaseURL: strings.TrimSpace(baseURL),
+		URL:     ModelsURL(baseURL),
+		APIKey:  strings.TrimSpace(apiKey),
+	}
+	httpReq, err := newUpstreamGETRequest(ctx, req)
+	if err != nil {
+		return nil, &Error{StatusCode: http.StatusBadGateway, Message: err.Error()}
+	}
+	resp, err := sharedHTTPClient().Do(httpReq)
+	if err != nil {
+		return nil, &Error{StatusCode: http.StatusBadGateway, Message: err.Error()}
+	}
+	body, err := readResponseBody(resp, 4<<20)
+	if err != nil {
+		return nil, &Error{StatusCode: http.StatusBadGateway, Message: err.Error()}
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, errorFromResponse(resp, body)
+	}
+	if err := validateModelsListBody(body); err != nil {
+		return nil, &Error{StatusCode: http.StatusBadGateway, Message: err.Error()}
+	}
+	if _, err := ParseModelsListBody(body); err != nil {
+		return nil, &Error{StatusCode: http.StatusBadGateway, Message: err.Error()}
+	}
+	return &Response{StatusCode: resp.StatusCode, Body: body}, nil
+}
+
+// ParseModelsListBody extracts upstream model ids from a list-models JSON body.
+func ParseModelsListBody(body []byte) ([]string, error) {
+	if err := validateModelsListBody(body); err != nil {
+		return nil, err
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, fmt.Errorf("invalid models response JSON")
+	}
+	keys := make([]string, 0)
+	if dataRaw, ok := raw["data"]; ok {
+		var items []struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(dataRaw, &items); err != nil {
+			return nil, fmt.Errorf("invalid models data array")
+		}
+		for _, item := range items {
+			if id := strings.TrimSpace(item.ID); id != "" {
+				keys = append(keys, id)
+			}
+		}
+	}
+	if modelsRaw, ok := raw["models"]; ok {
+		var items []struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(modelsRaw, &items); err != nil {
+			return nil, fmt.Errorf("invalid models array")
+		}
+		for _, item := range items {
+			name := strings.TrimSpace(item.Name)
+			name = strings.TrimPrefix(name, "models/")
+			if name != "" {
+				keys = append(keys, name)
+			}
+		}
+	}
+	if len(keys) == 0 {
+		return []string{}, nil
+	}
+	seen := make(map[string]struct{}, len(keys))
+	uniq := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		uniq = append(uniq, key)
+	}
+	sort.Strings(uniq)
+	return uniq, nil
+}
+
+func newUpstreamGETRequest(ctx context.Context, req *Request) (*http.Request, error) {
+	if req == nil {
+		return nil, fmt.Errorf("nil upstream request")
+	}
+	url := strings.TrimSpace(req.URL)
+	if url == "" {
+		url = ModelsURL(req.BaseURL)
+	}
+	apiKey := strings.TrimSpace(req.APIKey)
+	if url == "" {
+		return nil, fmt.Errorf("empty upstream URL")
+	}
+	if apiKey == "" && len(req.Headers) == 0 {
+		return nil, fmt.Errorf("empty API key")
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range req.Headers {
+		httpReq.Header.Set(k, v)
+	}
+	if apiKey != "" && httpReq.Header.Get("Authorization") == "" && httpReq.Header.Get("x-api-key") == "" && httpReq.Header.Get("api-key") == "" && httpReq.Header.Get("x-goog-api-key") == "" {
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	return httpReq, nil
+}
+
+func validateModelsListBody(body []byte) error {
+	if len(body) == 0 {
+		return fmt.Errorf("empty models response")
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return fmt.Errorf("invalid models response JSON")
+	}
+	if _, ok := raw["data"]; ok {
+		return nil
+	}
+	if _, ok := raw["models"]; ok {
+		return nil
+	}
+	return fmt.Errorf("models response missing data or models field")
 }
 
 // ChatCompletionStream opens a streaming chat completions request and returns SSE data chunks.

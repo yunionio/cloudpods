@@ -71,6 +71,21 @@ func (o *AiProviderCreateOptions) Params() (jsonutils.JSONObject, error) {
 	return params, nil
 }
 
+type AiProviderTestConnectivityOptions struct {
+	ProviderKey string `help:"provider key" json:"provider_key"`
+	Secret      string `help:"API secret" json:"secret"`
+	Config      string `help:"provider config as JSON object string" json:"-"`
+}
+
+func (o *AiProviderTestConnectivityOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.Marshal(o).(*jsonutils.JSONDict)
+	params.Remove("config")
+	if err := mergeJSONStringField(params, "config", o.Config); err != nil {
+		return nil, err
+	}
+	return params, nil
+}
+
 type AiProviderUpdateOptions struct {
 	ID              string `help:"ID or name" json:"-"`
 	Name            string `json:"name,omitempty"`
