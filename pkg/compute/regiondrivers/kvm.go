@@ -131,8 +131,8 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 		return nil, httperrors.NewMissingParameterError("network_id")
 	}
 
-	if network.ServerType != api.NETWORK_TYPE_GUEST {
-		return nil, httperrors.NewBadRequestError("only network type %q is allowed", api.NETWORK_TYPE_GUEST)
+	if !utils.IsInArray(string(network.ServerType), []string{string(api.NETWORK_TYPE_GUEST), string(api.NETWORK_TYPE_BAREMETAL)}) {
+		return nil, httperrors.NewBadRequestError("only network type %q or %q is allowed", api.NETWORK_TYPE_GUEST, api.NETWORK_TYPE_BAREMETAL)
 	}
 
 	if len(input.ClusterId) > 0 {

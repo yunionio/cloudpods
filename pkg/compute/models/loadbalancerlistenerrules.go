@@ -432,6 +432,10 @@ func (man *SLoadbalancerListenerRuleManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SLoadbalancerListenerResourceBaseManager.ListItemFilter")
 	}
+	q, err = man.SLoadbalancerCertificateResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerCertificateFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerCertificateResourceBaseManager.ListItemFilter")
+	}
 
 	// userProjId := userCred.GetProjectId()
 	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)

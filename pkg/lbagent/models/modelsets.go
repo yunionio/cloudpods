@@ -178,6 +178,7 @@ func (mss *ModelSets) join() bool {
 	p = append(p, mss.LoadbalancerBackendGroups.JoinBackends(mss.LoadbalancerBackends))
 	p = append(p, mss.LoadbalancerListeners.JoinListenerRules(mss.LoadbalancerListenerRules))
 	p = append(p, mss.LoadbalancerListeners.JoinCertificates(mss.LoadbalancerCertificates))
+	p = append(p, mss.LoadbalancerListenerRules.JoinCertificates(mss.LoadbalancerCertificates))
 	p = append(p, mss.Loadbalancers.JoinListeners(mss.LoadbalancerListeners))
 	p = append(p, mss.Loadbalancers.JoinBackendGroups(mss.LoadbalancerBackendGroups))
 

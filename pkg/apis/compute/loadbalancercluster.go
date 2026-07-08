@@ -24,6 +24,8 @@ type LoadbalancerClusterDetails struct {
 	SLoadbalancerCluster
 
 	RefCounts map[string]int `json:"ref_counts"`
+
+	WireId string `json:"wire_id"`
 }
 
 type LoadbalancerClusterResourceInfo struct {

@@ -21,6 +21,8 @@ type LoadbalancerAgentDetails struct {
 	LoadbalancerClusterResourceInfo
 
 	SLoadbalancerAgent
+
+	WireId string `json:"wire_id"`
 }
 
 type LoadbalancerAgentListInput struct {
