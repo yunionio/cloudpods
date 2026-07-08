@@ -83,6 +83,8 @@ type LoadbalancerListenerRule struct {
 	*models.SLoadbalancerListenerRule
 
 	listener *LoadbalancerListener
+
+	certificate *LoadbalancerCertificate
 }
 
 func (el *LoadbalancerListenerRule) Copy() *LoadbalancerListenerRule {

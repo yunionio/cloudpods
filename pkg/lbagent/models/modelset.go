@@ -270,6 +270,24 @@ func (set LoadbalancerListenerRules) ModelManager() modulebase.IBaseManager {
 	return &modules.LoadbalancerListenerRules
 }
 
+func (ms LoadbalancerListenerRules) JoinCertificates(subEntries LoadbalancerCertificates) bool {
+	correct := true
+	for _, m := range ms {
+		m.certificate = nil
+		if m.CertificateId != "" {
+			subEntry, ok := subEntries[m.CertificateId]
+			if !ok {
+				log.Warningf("loadbalancerlistener id %s: cannot find certificate id %s",
+					m.Id, m.CertificateId)
+				correct = false
+				continue
+			}
+			m.certificate = subEntry
+		}
+	}
+	return correct
+}
+
 func (set LoadbalancerListenerRules) NewModel() db.IModel {
 	return &models.SLoadbalancerListenerRule{}
 }
