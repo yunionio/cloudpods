@@ -808,14 +808,14 @@ func (manager *SHostManager) OrderByExtraFields(
 				true,
 			),
 			sqlchemy.SUB("host_mem_size", host.Field("mem_size"), host.Field("mem_reserved")),
-		).LeftJoin(host, sqlchemy.Equals(guestSQ.Field("host_id"), host.Field("id"))).GroupBy(guestSQ.Field("host_id")).SubQuery()
+		).LeftJoin(host, sqlchemy.Equals(guestSQ.Field("host_id"), host.Field("id"))).SubQuery()
 
 		vsq := vq.Query(
 			vq.Field("host_id"),
 			sqlchemy.DIV("virtual_mem_usage", vq.Field("mem_commit"), sqlchemy.DIV("cmt_mem_size", vq.Field("mem_cmtbound"), vq.Field("host_mem_size"))),
 		)
 
-		vqq := vsq.GroupBy(vsq.Field("host_id")).SubQuery()
+		vqq := vsq.SubQuery()
 
 		q = q.LeftJoin(vqq, sqlchemy.Equals(q.Field("id"), vqq.Field("host_id")))
 
@@ -848,14 +848,14 @@ func (manager *SHostManager) OrderByExtraFields(
 				true,
 			),
 			sqlchemy.SUB("host_cpu_size", host.Field("cpu_count"), host.Field("cpu_reserved")),
-		).LeftJoin(host, sqlchemy.Equals(guestSQ.Field("host_id"), host.Field("id"))).GroupBy(guestSQ.Field("host_id")).SubQuery()
+		).LeftJoin(host, sqlchemy.Equals(guestSQ.Field("host_id"), host.Field("id"))).SubQuery()
 
 		vsq := vq.Query(
 			vq.Field("host_id"),
 			sqlchemy.DIV("virtual_cpu_usage", vq.Field("cpu_commit"), sqlchemy.DIV("cmt_cpu_size", vq.Field("cpu_cmtbound"), vq.Field("host_cpu_size"))),
 		)
 
-		vqq := vsq.GroupBy(vsq.Field("host_id")).SubQuery()
+		vqq := vsq.SubQuery()
 
 		q = q.LeftJoin(vqq, sqlchemy.Equals(q.Field("id"), vqq.Field("host_id")))
 
