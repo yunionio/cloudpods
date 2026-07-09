@@ -2330,6 +2330,23 @@ func (manager *SGuestManager) validateCreateData(
 		input.KeypairId = keypairObj.GetId()
 	}
 
+	if len(input.NetworkTags) > 0 {
+		if hypervisor != api.HYPERVISOR_GOOGLE {
+			return nil, httperrors.NewInputParameterError("network_tags is only supported by %s", api.HYPERVISOR_GOOGLE)
+		}
+		tags := make([]string, 0, len(input.NetworkTags))
+		for _, tag := range input.NetworkTags {
+			tag = strings.TrimSpace(tag)
+			if len(tag) == 0 {
+				continue
+			}
+			if !utils.IsInStringArray(tag, tags) {
+				tags = append(tags, tag)
+			}
+		}
+		input.NetworkTags = tags
+	}
+
 	secGrpIds, err := isValidSecgroups(ctx, userCred, input.Secgroups)
 	if err != nil {
 		return nil, err
@@ -2344,6 +2361,10 @@ func (manager *SGuestManager) validateCreateData(
 			return nil, httperrors.NewResourceNotFoundError("Secgroup %s not found", secGrpId)
 		}
 		input.SecgroupId = secGrpObj.GetId()
+	} else if hypervisor == api.HYPERVISOR_GOOGLE && len(input.NetworkTags) > 0 {
+		// GCP 传入网络标记时可跳过安全组
+		input.SecgroupId = ""
+		input.Secgroups = []string{}
 	} else {
 		input.SecgroupId = options.Options.GetDefaultSecurityGroupId(hypervisor)
 	}
@@ -2352,7 +2373,7 @@ func (manager *SGuestManager) validateCreateData(
 	if maxSecgrpCount == 0 { //esxi 不支持安全组
 		input.SecgroupId = ""
 		input.Secgroups = []string{}
-	} else if len(input.Secgroups)+1 > maxSecgrpCount {
+	} else if len(input.SecgroupId) > 0 && len(input.Secgroups)+1 > maxSecgrpCount {
 		return nil, httperrors.NewInputParameterError("%s can bind up to %d security groups", hypervisor, maxSecgrpCount)
 	}
 

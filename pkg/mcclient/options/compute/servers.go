@@ -489,6 +489,7 @@ type ServerCreateOptionalOptions struct {
 	UserDataFile     string   `help:"user_data file path" json:"-"`
 	InstanceSnapshot string   `help:"instance snapshot" json:"instance_snapshot"`
 	Secgroups        []string `help:"secgroups" json:"secgroups"`
+	NetworkTags      []string `help:"GCP network tags, google only; when set, secgroups can be omitted" json:"network_tags"`
 
 	OsType string `help:"os type, e.g. Linux, Windows, etc."`
 
@@ -609,6 +610,7 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		OsType:             opts.OsType,
 		GuestImageID:       opts.GuestImageID,
 		Secgroups:          opts.Secgroups,
+		NetworkTags:        opts.NetworkTags,
 		EnableMemclean:     opts.EnableMemclean,
 		EnableTpm:          opts.EnableTpm,
 	}
