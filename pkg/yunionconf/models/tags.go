@@ -16,9 +16,12 @@ package models
 
 import (
 	"context"
+	"database/sql"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/yunionconf"
@@ -128,5 +131,110 @@ func (manager *STagManager) ValidateCreateData(
 		return input, errors.Wrap(err, "SInfrasResourceBaseManager.ValidateCreateData")
 	}
 
+	input.Values = uniqueNonEmptyStrings(input.Values)
+	if len(input.Values) == 0 {
+		return input, httperrors.NewInputParameterError("values is required")
+	}
+
 	return input, nil
+}
+
+func uniqueNonEmptyStrings(values []string) []string {
+	ret := make([]string, 0, len(values))
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if len(v) == 0 {
+			continue
+		}
+		if !utils.IsInStringArray(v, ret) {
+			ret = append(ret, v)
+		}
+	}
+	return ret
+}
+
+func mergeTagValues(exist, added []string) ([]string, bool) {
+	changed := false
+	ret := make([]string, len(exist))
+	copy(ret, exist)
+	for _, v := range added {
+		if !utils.IsInStringArray(v, ret) {
+			ret = append(ret, v)
+			changed = true
+		}
+	}
+	return ret, changed
+}
+
+// 批量导入预置标签：同名标签合并去重 values，不存在则新建
+func (manager *STagManager) PerformBatchImport(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.TagBatchImportInput,
+) (api.TagBatchImportResult, error) {
+	result := api.TagBatchImportResult{}
+	if len(input.Tags) == 0 {
+		return result, httperrors.NewInputParameterError("tags is required")
+	}
+
+	// 请求内按名称合并，避免同名重复导入
+	merged := make(map[string][]string, len(input.Tags))
+	order := make([]string, 0, len(input.Tags))
+	for i := range input.Tags {
+		name := strings.TrimSpace(input.Tags[i].Name)
+		if len(name) == 0 {
+			return result, httperrors.NewInputParameterError("tag name is required")
+		}
+		values := uniqueNonEmptyStrings(input.Tags[i].Values)
+		if exist, ok := merged[name]; ok {
+			merged[name], _ = mergeTagValues(exist, values)
+			continue
+		}
+		merged[name] = values
+		order = append(order, name)
+	}
+
+	ownerId := userCred
+	for _, name := range order {
+		values := merged[name]
+		obj, err := manager.FetchByName(ctx, ownerId, name)
+		if err != nil {
+			if errors.Cause(err) != sql.ErrNoRows {
+				return result, errors.Wrapf(err, "FetchByName %s", name)
+			}
+			if len(values) == 0 {
+				return result, httperrors.NewInputParameterError("values is required for new tag %s", name)
+			}
+			createInput := api.TagCreateInput{}
+			createInput.Name = name
+			createInput.Values = values
+			_, err = db.DoCreate(manager, ctx, userCred, query, jsonutils.Marshal(createInput), ownerId)
+			if err != nil {
+				return result, errors.Wrapf(err, "DoCreate tag %s", name)
+			}
+			result.Created++
+			continue
+		}
+
+		tag := obj.(*STag)
+		newValues, changed := mergeTagValues(tag.Values, values)
+		if !changed {
+			result.Unchanged++
+			continue
+		}
+		_, err = db.Update(tag, func() error {
+			tag.Values = newValues
+			return nil
+		})
+		if err != nil {
+			return result, errors.Wrapf(err, "Update tag %s values", name)
+		}
+		db.OpsLog.LogEvent(tag, db.ACT_UPDATE, jsonutils.Marshal(map[string]interface{}{
+			"values": newValues,
+		}), userCred)
+		result.Updated++
+	}
+
+	return result, nil
 }

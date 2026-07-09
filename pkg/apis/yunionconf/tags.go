@@ -29,3 +29,17 @@ type TagCreateInput struct {
 
 	Values []string `json:"values"`
 }
+
+type TagBatchImportInput struct {
+	// 待导入的标签列表
+	Tags []TagCreateInput `json:"tags"`
+}
+
+type TagBatchImportResult struct {
+	// 新建的标签数量
+	Created int `json:"created"`
+	// 合并 values 的已有标签数量
+	Updated int `json:"updated"`
+	// 无需变更的标签数量
+	Unchanged int `json:"unchanged"`
+}
