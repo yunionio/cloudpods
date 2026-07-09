@@ -73,6 +73,8 @@ func resolveApiKeyFromEnv(providerKey string) string {
 		return os.Getenv("DASHSCOPE_API_KEY")
 	case "xiaomi":
 		return os.Getenv("MIMO_API_KEY")
+	case "moonshot":
+		return os.Getenv("MOONSHOT_API_KEY")
 	case "anthropic":
 		return os.Getenv("ANTHROPIC_API_KEY")
 	case "openai":

@@ -101,6 +101,29 @@ func TestMessagesToGemini(t *testing.T) {
 	}
 }
 
+func TestToolChoiceToAnthropic(t *testing.T) {
+	cases := map[string]string{
+		`"auto"`:     "auto",
+		`"none"`:     "none",
+		`"required"`: "any",
+	}
+	for raw, wantType := range cases {
+		got := ToolChoiceToAnthropic([]byte(raw))
+		m, ok := got.(map[string]interface{})
+		if !ok {
+			t.Fatalf("ToolChoiceToAnthropic(%s) = %#v, want map", raw, got)
+		}
+		if m["type"] != wantType {
+			t.Fatalf("ToolChoiceToAnthropic(%s).type = %v, want %s", raw, m["type"], wantType)
+		}
+	}
+	got := ToolChoiceToAnthropic([]byte(`{"type":"function","function":{"name":"get_weather"}}`))
+	m, ok := got.(map[string]interface{})
+	if !ok || m["type"] != "tool" || m["name"] != "get_weather" {
+		t.Fatalf("named tool choice = %#v", got)
+	}
+}
+
 func TestExtractTools(t *testing.T) {
 	body, _ := jsonutils.Parse([]byte(`{
 		"tools":[{"type":"function","function":{"name":"fn","parameters":{"type":"object"}}}],

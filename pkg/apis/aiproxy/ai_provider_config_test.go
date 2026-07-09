@@ -94,4 +94,10 @@ func TestHasDefaultPublicBaseURL(t *testing.T) {
 	if HasDefaultPublicBaseURL(ProviderKeyCustom) {
 		t.Fatal("custom should not have default base url")
 	}
+	if !HasDefaultPublicBaseURL(ProviderKeyMoonshot) {
+		t.Fatal("moonshot should have default base url")
+	}
+	if DefaultPublicBaseURL(ProviderKeyMoonshot) != "https://api.moonshot.cn" {
+		t.Fatalf("moonshot default base = %q", DefaultPublicBaseURL(ProviderKeyMoonshot))
+	}
 }

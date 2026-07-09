@@ -330,7 +330,14 @@ func fetchEnabledAiRoutingModels(routingId string) ([]SAiRoutingModel, error) {
 }
 
 // pickAiRoutingModel selects provider/model from ai_routing_models by request model name.
-func pickAiRoutingModel(ctx context.Context, userCred mcclient.TokenCredential, routing *SAiRouting, reqModel string, body *jsonutils.JSONDict) (providerId, modelId string, routingLog *AiRoutingLog, err error) {
+func pickAiRoutingModel(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	routing *SAiRouting,
+	ref clientModelRef,
+	matchedByModelKey bool,
+	body *jsonutils.JSONDict,
+) (providerId, modelId string, routingLog *AiRoutingLog, err error) {
 	if routing == nil {
 		return "", "", nil, errors.Wrap(httperrors.ErrInvalidStatus, "nil ai_routing")
 	}
@@ -342,7 +349,7 @@ func pickAiRoutingModel(ctx context.Context, userCred mcclient.TokenCredential, 
 		return "", "", nil, errors.Wrap(httperrors.ErrInvalidStatus, "ai_routing has no ai_routing_models")
 	}
 	var modelsById map[string]*SAiModel
-	if routing.RouterEnabled {
+	if routing.RouterEnabled || ref.hierarchical || matchedByModelKey {
 		modelIds := make([]string, 0, len(entries))
 		for i := range entries {
 			modelIds = append(modelIds, entries[i].AiModelId)
@@ -352,11 +359,47 @@ func pickAiRoutingModel(ctx context.Context, userCred mcclient.TokenCredential, 
 			return "", "", nil, err
 		}
 	}
-	selected, routingLog, err := pickAiRoutingModelFromEntriesWithLog(ctx, routing, reqModel, body, entries, modelsById)
+	catalogReq := catalogRequestPart(ref, matchedByModelKey)
+	routerModel := routerRequestModel(ref)
+	strictCatalog := ref.hierarchical && ref.catalogPart != ""
+	selected, routingLog, err := pickAiRoutingModelFromEntriesWithLog(ctx, routing, catalogReq, routerModel, strictCatalog, body, entries, modelsById)
 	if err != nil {
 		return "", "", routingLog, err
 	}
 	return selected.AiProviderId, selected.AiModelId, routingLog, nil
+}
+
+func catalogRequestPart(ref clientModelRef, matchedByModelKey bool) string {
+	if ref.hierarchical {
+		return ref.catalogPart
+	}
+	if matchedByModelKey {
+		return ""
+	}
+	return ref.raw
+}
+
+func routerRequestModel(ref clientModelRef) string {
+	if ref.hierarchical && ref.catalogPart != "" {
+		return ref.catalogPart
+	}
+	return ref.raw
+}
+
+func catalogPartMatches(entry *SAiRoutingModel, catalogPart string, mdl *SAiModel) bool {
+	catalogPart = strings.TrimSpace(catalogPart)
+	if catalogPart == "" {
+		return false
+	}
+	if entry != nil {
+		if mp := strings.TrimSpace(entry.ModelPattern); mp != "" && !strings.Contains(mp, "*") {
+			return strings.EqualFold(mp, catalogPart)
+		}
+	}
+	if mdl != nil {
+		return strings.EqualFold(strings.TrimSpace(mdl.ModelKey), catalogPart)
+	}
+	return false
 }
 
 type aiRoutingModelCandidate struct {
@@ -364,22 +407,42 @@ type aiRoutingModelCandidate struct {
 	modelName string
 }
 
+func firstEntryByPriority(entries []*SAiRoutingModel) *SAiRoutingModel {
+	if len(entries) == 0 {
+		return nil
+	}
+	best := entries[0]
+	for _, e := range entries[1:] {
+		if e == nil {
+			continue
+		}
+		if e.Priority < best.Priority {
+			best = e
+		}
+	}
+	return best
+}
+
 func pickAiRoutingModelFromEntries(
 	ctx context.Context,
 	routing *SAiRouting,
-	reqModel string,
+	catalogReq string,
+	routerModel string,
+	strictCatalog bool,
 	body *jsonutils.JSONDict,
 	entries []SAiRoutingModel,
 	modelsById map[string]*SAiModel,
 ) (*SAiRoutingModel, error) {
-	selected, _, err := pickAiRoutingModelFromEntriesWithLog(ctx, routing, reqModel, body, entries, modelsById)
+	selected, _, err := pickAiRoutingModelFromEntriesWithLog(ctx, routing, catalogReq, routerModel, strictCatalog, body, entries, modelsById)
 	return selected, err
 }
 
 func pickAiRoutingModelFromEntriesWithLog(
 	ctx context.Context,
 	routing *SAiRouting,
-	reqModel string,
+	catalogReq string,
+	routerModel string,
+	strictCatalog bool,
 	body *jsonutils.JSONDict,
 	entries []SAiRoutingModel,
 	modelsById map[string]*SAiModel,
@@ -398,9 +461,9 @@ func pickAiRoutingModelFromEntriesWithLog(
 		rlog.Method = "router"
 		candidates := buildAiRoutingModelCandidates(routing, allEntries, modelsById)
 		if len(candidates) == 0 {
-			selected, err := routerFallbackPick(routing, allEntries[0], errors.Wrap(httperrors.ErrInvalidStatus, "router has no candidate models"))
+			selected, err := routerFallbackPick(routing, firstEntryByPriority(allEntries), errors.Wrap(httperrors.ErrInvalidStatus, "router has no candidate models"))
 			rlog.Error = "router has no candidate models"
-			if err == nil {
+			if err == nil && selected != nil {
 				rlog.Method = "priority_fallback"
 				rlog.SelectedModel = clientFacingModelID(routing, selected, modelsById[selected.AiModelId])
 			}
@@ -413,12 +476,12 @@ func pickAiRoutingModelFromEntriesWithLog(
 		}
 		rlog.Candidates = candidateNames
 		start := time.Now()
-		out, err := callAiRoutingRouter(ctx, routing, body, candidateNames)
+		out, err := callAiRoutingRouter(ctx, routing, routerModel, body, candidateNames)
 		rlog.LatencyMs = time.Since(start).Milliseconds()
 		if err != nil {
-			selected, ferr := routerFallbackPick(routing, allEntries[0], err)
+			selected, ferr := routerFallbackPick(routing, firstEntryByPriority(allEntries), err)
 			rlog.Error = err.Error()
-			if ferr == nil {
+			if ferr == nil && selected != nil {
 				rlog.Method = "priority_fallback"
 				rlog.SelectedModel = clientFacingModelID(routing, selected, modelsById[selected.AiModelId])
 			}
@@ -437,7 +500,7 @@ func pickAiRoutingModelFromEntriesWithLog(
 		err = errors.Wrapf(httperrors.ErrInvalidStatus, "router selected model %q outside candidates", selected)
 		selectedEntry, ferr := routerFallbackPick(
 			routing,
-			allEntries[0],
+			firstEntryByPriority(allEntries),
 			err,
 		)
 		rlog.Error = err.Error()
@@ -448,22 +511,56 @@ func pickAiRoutingModelFromEntriesWithLog(
 		return selectedEntry, rlog, ferr
 	}
 
+	if strings.TrimSpace(catalogReq) == "" {
+		selected := firstEntryByPriority(allEntries)
+		if selected != nil {
+			rlog.SelectedModel = clientFacingModelID(routing, selected, modelsById[selected.AiModelId])
+		}
+		return selected, rlog, nil
+	}
+
+	if modelsById == nil {
+		modelIds := make([]string, 0, len(entries))
+		for i := range entries {
+			modelIds = append(modelIds, entries[i].AiModelId)
+		}
+		var err error
+		modelsById, err = fetchEnabledAiModelsByIds(modelIds)
+		if err != nil {
+			return nil, rlog, err
+		}
+	}
+
 	matches := make([]*SAiRoutingModel, 0, len(entries))
 	for i := range entries {
 		e := &entries[i]
-		if !modelPatternMatches(e.ModelPattern, reqModel) {
+		if catalogPartMatches(e, catalogReq, modelsById[e.AiModelId]) {
+			matches = append(matches, e)
 			continue
 		}
-		matches = append(matches, e)
+		if strictCatalog {
+			continue
+		}
+		if strings.TrimSpace(e.ModelPattern) == "" {
+			matches = append(matches, e)
+			continue
+		}
+		if modelPatternMatches(e.ModelPattern, catalogReq) {
+			matches = append(matches, e)
+		}
 	}
 	if len(matches) == 0 {
-		return nil, rlog, errors.Wrapf(httperrors.ErrNotFound, "no ai_routing_model matched request model %q", reqModel)
+		return nil, rlog, errors.Wrapf(httperrors.ErrNotFound, "no ai_routing_model matched request model %q", catalogReq)
 	}
-	rlog.SelectedModel = strings.TrimSpace(matches[0].ModelPattern)
+	selected := firstEntryByPriority(matches)
+	rlog.SelectedModel = strings.TrimSpace(selected.ModelPattern)
 	if rlog.SelectedModel == "" {
-		rlog.SelectedModel = strings.TrimSpace(reqModel)
+		rlog.SelectedModel = clientFacingModelID(routing, selected, modelsById[selected.AiModelId])
 	}
-	return matches[0], rlog, nil
+	if rlog.SelectedModel == "" {
+		rlog.SelectedModel = strings.TrimSpace(catalogReq)
+	}
+	return selected, rlog, nil
 }
 
 func buildAiRoutingModelCandidates(routing *SAiRouting, entries []*SAiRoutingModel, modelsById map[string]*SAiModel) []aiRoutingModelCandidate {
@@ -498,7 +595,7 @@ type aiRoutingRouterResult struct {
 	Reason     string
 }
 
-func callAiRoutingRouter(ctx context.Context, routing *SAiRouting, body *jsonutils.JSONDict, candidates []string) (*aiRoutingRouterResult, error) {
+func callAiRoutingRouter(ctx context.Context, routing *SAiRouting, routerModel string, body *jsonutils.JSONDict, candidates []string) (*aiRoutingRouterResult, error) {
 	if routing == nil {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "nil ai_routing")
 	}
@@ -507,10 +604,14 @@ func callAiRoutingRouter(ctx context.Context, routing *SAiRouting, body *jsonuti
 		return nil, err
 	}
 	payload := jsonutils.NewDict()
-	if body != nil {
+	if strings.TrimSpace(routerModel) != "" {
+		payload.Set("model", jsonutils.NewString(routerModel))
+	} else if body != nil {
 		if model, _ := body.GetString("model"); model != "" {
 			payload.Set("model", jsonutils.NewString(model))
 		}
+	}
+	if body != nil {
 		if messages, err := body.Get("messages"); err == nil {
 			payload.Set("messages", messages)
 		}

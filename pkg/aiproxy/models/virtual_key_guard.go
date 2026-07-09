@@ -42,22 +42,41 @@ func TakeVirtualKeyRequestsPerMinute(vkId string, rpm int) error {
 	return nil
 }
 
-// EnforceVirtualKeyMaxTokens caps or injects max_tokens from virtual key limits.
+// EnsureResponsesMaxOutputTokens caps or injects max_output_tokens for Responses API requests.
+func EnsureResponsesMaxOutputTokens(body *jsonutils.JSONDict, lim *api.SAiVirtualKeyLimits) error {
+	if err := EnforceVirtualKeyMaxTokens(body, lim); err != nil {
+		return err
+	}
+	if body.Contains("max_output_tokens") || body.Contains("max_tokens") {
+		return nil
+	}
+	body.Set("max_output_tokens", jsonutils.NewInt(defaultResponsesMaxOutputTokens))
+	return nil
+}
+
+const defaultResponsesMaxOutputTokens = 8192
+
+// EnforceVirtualKeyMaxTokens caps or injects max_tokens / max_output_tokens from virtual key limits.
 func EnforceVirtualKeyMaxTokens(body *jsonutils.JSONDict, lim *api.SAiVirtualKeyLimits) error {
 	if lim == nil || lim.MaxTokensPerRequest <= 0 {
 		return nil
 	}
 	cap := int64(lim.MaxTokensPerRequest)
-	if body.Contains("max_tokens") {
-		mt, err := body.Int("max_tokens")
-		if err != nil {
-			return errors.Wrap(httperrors.ErrInputParameter, "invalid max_tokens")
+	for _, field := range []string{"max_tokens", "max_output_tokens"} {
+		if body.Contains(field) {
+			mt, err := body.Int(field)
+			if err != nil {
+				return errors.Wrap(httperrors.ErrInputParameter, "invalid "+field)
+			}
+			if mt > cap {
+				return errors.Wrap(httperrors.ErrInputParameter, field+" exceeds virtual key limit")
+			}
+			continue
 		}
-		if mt > cap {
-			return errors.Wrap(httperrors.ErrInputParameter, "max_tokens exceeds virtual key limit")
-		}
+	}
+	if body.Contains("max_tokens") || body.Contains("max_output_tokens") {
 		return nil
 	}
-	body.Set("max_tokens", jsonutils.NewInt(cap))
+	body.Set("max_output_tokens", jsonutils.NewInt(cap))
 	return nil
 }

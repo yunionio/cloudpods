@@ -200,6 +200,9 @@ func normalizeAiRoutingModelKey(key string) (string, error) {
 	if strings.Contains(key, "*") {
 		return "", errors.Wrap(httperrors.ErrInputParameter, "model_key must not contain '*'")
 	}
+	if strings.Contains(key, "/") {
+		return "", errors.Wrap(httperrors.ErrInputParameter, "model_key must not contain '/'")
+	}
 	if len(key) > 256 {
 		return "", errors.Wrap(httperrors.ErrInputParameter, "model_key too long")
 	}

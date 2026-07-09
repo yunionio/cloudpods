@@ -54,15 +54,21 @@ func embeddingsHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	dbg := NewProxyDebugSession(ctx, "openai-embeddings")
+	dbg.ClientRequest(r, dict, nil, false)
+
 	vk := extractVirtualKey(r)
 	userCred := auth.AdminCredential()
 	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict)
 	if err != nil {
+		dbg.Error("resolve upstream: %v", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
+	dbg.RoutingResolved(dict, up)
 
 	if err := models.TakeVirtualKeyRequestsPerMinute(up.VirtualKeyId, up.RequestsPerMinute); err != nil {
+		dbg.Error("rate limit: %v", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
@@ -74,19 +80,23 @@ func embeddingsHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		APIKey:        up.APIKey,
 		UpstreamModel: up.UpstreamModel,
 	}, dict); err != nil {
+		dbg.Error("provider request: %v", err)
 		httperrors.InvalidInputError(ctx, w, "provider request: %v", err)
 		return
 	}
 
-	resp, uerr := embeddingsWithKeyFailover(ctx, up, dict, 60*time.Second)
+	resp, uerr := embeddingsWithKeyFailover(ctx, up, dict, 60*time.Second, dbg)
 	if uerr != nil {
+		dbg.Error("upstream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
 		writeUpstreamError(ctx, w, uerr)
 		return
 	}
+	dbg.UpstreamResponse(resp.Body)
 	out := resp.Body
 	if norm, nerr := embProv.NormalizeEmbeddingsResponse(out); nerr == nil && len(norm) > 0 {
 		out = norm
 	}
+	dbg.ClientResponse(out)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(out)
@@ -97,6 +107,7 @@ func embeddingsWithKeyFailover(
 	up *models.ChatUpstream,
 	dict *jsonutils.JSONDict,
 	timeout time.Duration,
+	dbg *ProxyDebugSession,
 ) (*upstream.Response, *upstream.Error) {
 	tried := make(map[string]bool)
 	if up.AiKeyId != "" {
@@ -108,6 +119,7 @@ func embeddingsWithKeyFailover(
 		if err != nil {
 			return nil, &upstream.Error{StatusCode: http.StatusBadRequest, Message: err.Error()}
 		}
+		dbg.UpstreamRequest(upReq)
 		reqCtx, cancel := context.WithTimeout(ctx, timeout)
 		resp, uerr := upstream.ChatCompletion(reqCtx, upReq)
 		cancel()

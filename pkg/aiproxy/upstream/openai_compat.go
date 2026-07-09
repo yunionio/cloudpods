@@ -186,7 +186,12 @@ func errorFromResponse(resp *http.Response, body []byte) *Error {
 
 // ChatCompletion performs a non-streaming chat completions request.
 func ChatCompletion(ctx context.Context, req *Request) (*Response, *Error) {
-	httpReq, err := newUpstreamRequest(ctx, req)
+	return HTTPDo(ctx, http.MethodPost, req)
+}
+
+// HTTPDo performs a generic upstream HTTP request (GET/POST/DELETE, etc.).
+func HTTPDo(ctx context.Context, method string, req *Request) (*Response, *Error) {
+	httpReq, err := newUpstreamHTTPRequest(ctx, method, req)
 	if err != nil {
 		return nil, &Error{StatusCode: http.StatusBadGateway, Message: err.Error()}
 	}
@@ -202,6 +207,42 @@ func ChatCompletion(ctx context.Context, req *Request) (*Response, *Error) {
 		return nil, errorFromResponse(resp, body)
 	}
 	return &Response{StatusCode: resp.StatusCode, Body: body}, nil
+}
+
+func newUpstreamHTTPRequest(ctx context.Context, method string, req *Request) (*http.Request, error) {
+	if req == nil {
+		return nil, fmt.Errorf("nil upstream request")
+	}
+	m := strings.ToUpper(strings.TrimSpace(method))
+	if m == "" {
+		m = http.MethodPost
+	}
+	url := requestURL(req)
+	apiKey := strings.TrimSpace(req.APIKey)
+	if url == "" {
+		return nil, fmt.Errorf("empty upstream URL")
+	}
+	if apiKey == "" && len(req.Headers) == 0 {
+		return nil, fmt.Errorf("empty API key")
+	}
+	var bodyReader io.Reader
+	if len(req.Body) > 0 {
+		bodyReader = bytes.NewReader(req.Body)
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, m, url, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+	if len(req.Body) > 0 {
+		httpReq.Header.Set("Content-Type", "application/json")
+	}
+	for k, v := range req.Headers {
+		httpReq.Header.Set(k, v)
+	}
+	if apiKey != "" && httpReq.Header.Get("Authorization") == "" && httpReq.Header.Get("x-api-key") == "" && httpReq.Header.Get("api-key") == "" && httpReq.Header.Get("x-goog-api-key") == "" {
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	return httpReq, nil
 }
 
 // ListModels performs a GET on the upstream models list endpoint.

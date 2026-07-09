@@ -34,7 +34,7 @@ func RunChatTest(session *mcclient.ClientSession, opts *ChatOptions) error {
 		return err
 	}
 	if len(providers) == 0 {
-		return errors.Error("catalog 中无 ai_provider，请先执行 aiproxy master InitDB")
+		return errors.Error("无 ai_provider 资源；请先创建供应商（如 climc ai-provider-create）")
 	}
 
 	providerKey, err := promptSelectProvider(providers, opts.Provider, nonInteractive)
@@ -47,7 +47,7 @@ func RunChatTest(session *mcclient.ClientSession, opts *ChatOptions) error {
 		return err
 	}
 	if len(models) == 0 {
-		return errors.Errorf("provider %s 下无可用 model_key（catalog 未 seed？）", providerKey)
+		return errors.Errorf("provider %s 下无可用 model_key；创建 ai_model 或由 ai-test 自动创建", providerKey)
 	}
 
 	modelKey, err := promptSelectModel(models, providerKey, opts.Model, nonInteractive)

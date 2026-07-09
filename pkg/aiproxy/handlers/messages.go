@@ -60,17 +60,22 @@ func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	reqID := newMessagesReqID()
+	dbg := NewProxyDebugSession(ctx, "anthropic-messages")
+	isStream, _ := dict.Bool("stream")
+	dbg.ClientRequest(r, dict, nil, isStream)
 
 	vk := extractVirtualKey(r)
 	userCred := auth.AdminCredential()
 	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict)
 	if err != nil {
+		dbg.Error("resolve upstream: %v", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
+	dbg.RoutingResolved(dict, up)
 
 	if err := models.TakeVirtualKeyRequestsPerMinute(up.VirtualKeyId, up.RequestsPerMinute); err != nil {
+		dbg.Error("rate limit: %v", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
@@ -81,20 +86,21 @@ func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 		}
 	}
 	if err := models.EnforceVirtualKeyMaxTokens(dict, vkLim); err != nil {
+		dbg.Error("max tokens: %v", err)
 		writeAnthropicError(ctx, w, http.StatusBadRequest, "invalid_request_error", "%v", err)
 		return
 	}
 
 	adapter, err := messages.GetAdapter(up.ProviderKey, up.APIMode)
 	if err != nil {
+		dbg.Error("adapter: %v", err)
 		writeAnthropicError(ctx, w, http.StatusBadRequest, "invalid_request_error", "%v", err)
 		return
 	}
 
-	isStream, _ := dict.Bool("stream")
-	logMessagesClientRequest(reqID, r, dict, up, isStream)
 	chatCtx := providers.ChatContextFromUpstream(up.ProviderKey, up.BaseURL, up.APIKey, up.UpstreamModel, up.APIMode)
 	if _, err := adapter.BuildUpstreamRequest(chatCtx, dict, isStream); err != nil {
+		dbg.Error("provider request: %v", err)
 		writeAnthropicError(ctx, w, http.StatusBadRequest, "invalid_request_error", "provider request: %v", err)
 		return
 	}
@@ -107,7 +113,7 @@ func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 	build := func() (*upstream.Request, error) {
 		req, err := buildMessagesUpstream(up, adapter, dict, isStream)
 		if err == nil {
-			logMessagesUpstreamRequest(reqID, req)
+			dbg.UpstreamRequest(req)
 		}
 		return req, err
 	}
@@ -116,16 +122,16 @@ func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 		prov := providers.Get(up.ProviderKey)
 		resp, uerr := upstreamWithKeyFailover(ctx, up, timeout, build)
 		if uerr != nil {
-			logMessagesError(reqID, "upstream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, messagesDebugLogMax))
+			dbg.Error("upstream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
 			writeMessagesUpstreamError(ctx, w, adapter, uerr)
 			return
 		}
 		bodyOut := resp.Body
-		logMessagesUpstreamResponse(reqID, bodyOut)
+		dbg.UpstreamResponse(bodyOut)
 		if norm, nerr := adapter.NormalizeResponse(prov, bodyOut); nerr == nil && len(norm) > 0 {
 			bodyOut = norm
 		}
-		logMessagesClientResponse(reqID, bodyOut)
+		dbg.ClientResponse(bodyOut)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(bodyOut)
@@ -135,24 +141,24 @@ func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 	if adapter.AnthropicStreamPassthrough() {
 		ch, uerr := upstreamRawStreamWithKeyFailover(ctx, up, timeout, build, upstream.ChatCompletionStreamRaw)
 		if uerr != nil {
-			logMessagesError(reqID, "upstream stream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, messagesDebugLogMax))
+			dbg.Error("upstream stream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
 			writeMessagesUpstreamError(ctx, w, adapter, uerr)
 			return
 		}
-		writeAnthropicPassthroughStream(ctx, w, ch, up.AiKeyId, reqID)
+		writeAnthropicPassthroughStream(ctx, w, ch, up.AiKeyId, dbg)
 		return
 	}
 
 	prov := providers.Get(up.ProviderKey)
 	ch, uerr := upstreamStreamWithKeyFailover(ctx, up, timeout, build, func(reqCtx context.Context, upReq *upstream.Request) (<-chan upstream.StreamChunk, *upstream.Error) {
-		return messagesOpenAIStreamChunks(reqCtx, up, upReq, prov, reqID)
+		return messagesOpenAIStreamChunks(reqCtx, up, upReq, prov, dbg)
 	})
 	if uerr != nil {
-		logMessagesError(reqID, "upstream stream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, messagesDebugLogMax))
+		dbg.Error("upstream stream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
 		writeMessagesUpstreamError(ctx, w, adapter, uerr)
 		return
 	}
-	writeAnthropicTranslatedStream(ctx, w, ch, adapter, up.UpstreamModel, up.AiKeyId, reqID)
+	writeAnthropicTranslatedStream(ctx, w, ch, adapter, up.UpstreamModel, up.AiKeyId, dbg)
 }
 
 func buildMessagesUpstream(
@@ -175,7 +181,7 @@ func messagesOpenAIStreamChunks(
 	up *models.ChatUpstream,
 	upReq *upstream.Request,
 	prov providers.Provider,
-	reqID string,
+	dbg *ProxyDebugSession,
 ) (<-chan upstream.StreamChunk, *upstream.Error) {
 	chatCtx := &providers.ChatContext{
 		ProviderKey:   up.ProviderKey,
@@ -195,7 +201,7 @@ func messagesOpenAIStreamChunks(
 			for chunk := range ch {
 				if len(chunk.Data) > 0 {
 					seq++
-					logMessagesUpstreamStreamChunk(reqID, seq, chunk.Data)
+					dbg.UpstreamStreamChunk(seq, chunk.Data)
 				}
 				out <- chunk
 			}
@@ -213,7 +219,7 @@ func messagesOpenAIStreamChunks(
 		seq := 0
 		for evt := range rawCh {
 			seq++
-			logMessagesUpstreamStreamChunk(reqID, seq, evt.Data)
+			dbg.UpstreamStreamChunk(seq, evt.Data)
 			chunks, err := prov.ConvertStreamEvent(evt.Event, evt.Data, state)
 			if err != nil {
 				msg, _ := json.Marshal(map[string]interface{}{
@@ -271,7 +277,7 @@ func writeMessagesUpstreamError(ctx context.Context, w http.ResponseWriter, adap
 	_, _ = w.Write(openai.NewAnthropicErrorBody("api_error", msg))
 }
 
-func writeAnthropicPassthroughStream(ctx context.Context, w http.ResponseWriter, ch <-chan upstream.RawSSEEvent, aiKeyId string, reqID string) {
+func writeAnthropicPassthroughStream(ctx context.Context, w http.ResponseWriter, ch <-chan upstream.RawSSEEvent, aiKeyId string, dbg *ProxyDebugSession) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -282,7 +288,7 @@ func writeAnthropicPassthroughStream(ctx context.Context, w http.ResponseWriter,
 	seq := 0
 	for evt := range ch {
 		seq++
-		logMessagesClientStreamPassthrough(reqID, seq, evt.Event, evt.Data)
+		dbg.ClientStreamSSE(seq, evt.Event, evt.Data)
 		if evt.Event != "" {
 			_, _ = fmt.Fprintf(w, "event: %s\n", evt.Event)
 		}
@@ -305,7 +311,7 @@ func writeAnthropicTranslatedStream(
 	adapter providerapi.MessagesAdapter,
 	requestModel string,
 	aiKeyId string,
-	reqID string,
+	dbg *ProxyDebugSession,
 ) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -320,12 +326,12 @@ func writeAnthropicTranslatedStream(
 		if chunk.Done {
 			events, err := adapter.ConvertStreamPayload(state, nil, true)
 			if err != nil {
-				logMessagesError(reqID, "stream convert end error: %v", err)
+				dbg.Error("stream convert end error: %v", err)
 				streamOK = false
 				break
 			}
 			outSeq++
-			logMessagesClientStreamEvents(reqID, outSeq, events)
+			dbg.ClientStreamEvents(outSeq, events)
 			writeAnthropicSSEEvents(w, events)
 			break
 		}
@@ -333,7 +339,7 @@ func writeAnthropicTranslatedStream(
 			continue
 		}
 		if isAnthropicUpstreamErrorChunk(chunk.Data) {
-			logMessagesError(reqID, "upstream stream error chunk: %s", truncateLogBytes(chunk.Data, messagesDebugLogMax))
+			dbg.Error("upstream stream error chunk: %s", truncateLogBytes(chunk.Data, proxyDebugLogMax))
 			streamOK = false
 			if aiKeyId != "" {
 				models.RecordAiKeyFailure(aiKeyId, parseUpstreamErrorStatus(chunk.Data))
@@ -344,12 +350,12 @@ func writeAnthropicTranslatedStream(
 		}
 		events, err := adapter.ConvertStreamPayload(state, chunk.Data, false)
 		if err != nil {
-			logMessagesError(reqID, "stream convert error: %v upstream_chunk=%s", err, truncateLogBytes(chunk.Data, messagesDebugLogMax))
+			dbg.Error("stream convert error: %v upstream_chunk=%s", err, truncateLogBytes(chunk.Data, proxyDebugLogMax))
 			streamOK = false
 			break
 		}
 		outSeq++
-		logMessagesClientStreamEvents(reqID, outSeq, events)
+		dbg.ClientStreamEvents(outSeq, events)
 		writeAnthropicSSEEvents(w, events)
 	}
 	if streamOK && aiKeyId != "" {

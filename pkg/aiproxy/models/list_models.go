@@ -121,11 +121,11 @@ func ListModelsForVirtualKey(ctx context.Context, userCred mcclient.TokenCredent
 		}
 	}
 
-	// Pass 2: routes without model_key use ai_routing_model / pattern fallbacks.
+	// Pass 2: ai_routing_model entries as flat or hierarchical client-facing ids.
 	for i := range entries {
 		e := &entries[i]
 		routing := routingById[e.AiRoutingId]
-		if routing == nil || strings.TrimSpace(routing.ModelKey) != "" {
+		if routing == nil {
 			continue
 		}
 		prov := providers[e.AiProviderId]
@@ -134,6 +134,23 @@ func ListModelsForVirtualKey(ctx context.Context, userCred mcclient.TokenCredent
 			continue
 		}
 		if !virtualKeyAllowsProvider(vk, prov) {
+			continue
+		}
+		routeKey := strings.TrimSpace(routing.ModelKey)
+		if routeKey != "" {
+			id := hierarchicalClientModelID(routing, e, mdl)
+			if id == "" {
+				continue
+			}
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = ModelsListEntry{
+				ID:      id,
+				Object:  "model",
+				Created: created,
+				OwnedBy: strings.TrimSpace(prov.ProviderKey),
+			}
 			continue
 		}
 		id := clientFacingModelID(routing, e, mdl)
@@ -161,6 +178,65 @@ func ListModelsForVirtualKey(ctx context.Context, userCred mcclient.TokenCredent
 		return out[i].ID < out[j].ID
 	})
 	return out, nil
+}
+
+// ClientFacingModelIDsForRouting returns client-facing model ids for one ai_routing and its bindings.
+func ClientFacingModelIDsForRouting(
+	routing *SAiRouting,
+	bindings []SAiRoutingModel,
+	modelsById map[string]*SAiModel,
+	providers map[string]*SAiProvider,
+) []string {
+	if routing == nil {
+		return nil
+	}
+	seen := make(map[string]struct{})
+	if id := strings.TrimSpace(routing.ModelKey); id != "" {
+		seen[id] = struct{}{}
+	}
+	routeKey := strings.TrimSpace(routing.ModelKey)
+	for i := range bindings {
+		e := &bindings[i]
+		prov := providers[e.AiProviderId]
+		mdl := modelsById[e.AiModelId]
+		if prov == nil || mdl == nil {
+			continue
+		}
+		var id string
+		if routeKey != "" {
+			id = hierarchicalClientModelID(routing, e, mdl)
+		} else {
+			id = clientFacingModelID(routing, e, mdl)
+		}
+		if id == "" {
+			continue
+		}
+		seen[id] = struct{}{}
+	}
+	if len(seen) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(seen))
+	for id := range seen {
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func hierarchicalClientModelID(routing *SAiRouting, entry *SAiRoutingModel, mdl *SAiModel) string {
+	if routing == nil {
+		return ""
+	}
+	routeKey := strings.TrimSpace(routing.ModelKey)
+	if routeKey == "" {
+		return ""
+	}
+	part := clientFacingModelID(routing, entry, mdl)
+	if part == "" {
+		return ""
+	}
+	return routeKey + "/" + part
 }
 
 func clientFacingModelID(routing *SAiRouting, entry *SAiRoutingModel, mdl *SAiModel) string {

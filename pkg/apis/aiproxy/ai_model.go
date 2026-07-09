@@ -22,6 +22,7 @@ type AiModelListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
 
 	AiProviderId string `json:"ai_provider_id"`
+	AiRoutingId  string `json:"ai_routing_id"`
 	ModelKey     string `json:"model_key"`
 }
 
