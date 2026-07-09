@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"net"
 	"strings"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -25,7 +24,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/rbacscope"
-	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
@@ -39,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -319,10 +318,6 @@ func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred
 		return nil, err
 	}
 
-	if input.CIDR == nil {
-		// input.CIDR = &self.CIDR
-	}
-
 	driver, err := secgrp.GetRegionDriver()
 	if err != nil {
 		return nil, err
@@ -341,15 +336,19 @@ func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred
 	return input, nil
 }
 
-func (self *SSecurityGroupRule) String() string {
-	rule, err := self.toRule()
+func (self *SSecurityGroupRule) Strings() []string {
+	rules, err := self.toRules()
 	if err != nil {
-		return ""
+		return nil
 	}
-	return rule.String()
+	ruleStrs := make([]string, len(rules))
+	for i := range rules {
+		ruleStrs[i] = rules[i].String()
+	}
+	return ruleStrs
 }
 
-func (self *SSecurityGroupRule) toRule() (*secrules.SecurityRule, error) {
+func (self *SSecurityGroupRule) toRules() ([]*secrules.SecurityRule, error) {
 	rule := secrules.SecurityRule{
 		Priority:    int(self.Priority),
 		Direction:   secrules.TSecurityRuleDirection(self.Direction),
@@ -357,33 +356,31 @@ func (self *SSecurityGroupRule) toRule() (*secrules.SecurityRule, error) {
 		Protocol:    self.Protocol,
 		Description: self.Description,
 	}
-	if regutils.MatchCIDR(self.CIDR) || regutils.MatchCIDR6(self.CIDR) {
-		_, rule.IPNet, _ = net.ParseCIDR(self.CIDR)
-	} else if regutils.MatchIP4Addr(self.CIDR) {
-		rule.IPNet = &net.IPNet{
-			IP:   net.ParseIP(self.CIDR),
-			Mask: net.CIDRMask(32, 32),
+	{
+		err := rule.ParsePorts(self.Ports)
+		if err != nil {
+			return nil, errors.Wrap(err, "ParsePorts")
 		}
-	} else if regutils.MatchIP6Addr(self.CIDR) {
-		rule.IPNet = &net.IPNet{
-			IP:   net.ParseIP(self.CIDR),
-			Mask: net.CIDRMask(128, 128),
+	}
+	{
+		err := rule.ValidateRule()
+		if err != nil {
+			return nil, errors.Wrap(err, "ValidateRule")
 		}
-	} else {
-		// any
+	}
+
+	ipnets := netutils2.Str2IPNets(self.CIDR)
+	if len(ipnets) == 0 {
 		rule.IPNet = nil
-		/* &net.IPNet{
-			IP:   net.IPv4zero,
-			Mask: net.CIDRMask(0, 32),
-		} */
+		return []*secrules.SecurityRule{&rule}, nil
 	}
-
-	err := rule.ParsePorts(self.Ports)
-	if err != nil {
-		return nil, err
+	rules := make([]*secrules.SecurityRule, len(ipnets))
+	for i := range ipnets {
+		ruleClone := rule
+		ruleClone.IPNet = ipnets[i]
+		rules[i] = &ruleClone
 	}
-
-	return &rule, rule.ValidateRule()
+	return rules, nil
 }
 
 func (self *SSecurityGroupRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -446,15 +443,6 @@ func (self *SSecurityGroup) StartSecurityGroupRuleUpdateTask(ctx context.Context
 		return errors.Wrapf(err, "NewTask")
 	}
 	return task.ScheduleRun(nil)
-}
-
-func (manager *SSecurityGroupRuleManager) getRulesBySecurityGroup(secgroup *SSecurityGroup) ([]SSecurityGroupRule, error) {
-	rules := make([]SSecurityGroupRule, 0)
-	q := manager.Query().Equals("secgroup_id", secgroup.Id)
-	if err := db.FetchModelObjects(manager, q, &rules); err != nil {
-		return nil, err
-	}
-	return rules, nil
 }
 
 func (self *SSecurityGroupRule) GetOwnerId() mcclient.IIdentityProvider {
