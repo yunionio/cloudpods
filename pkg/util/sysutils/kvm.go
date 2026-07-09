@@ -42,7 +42,6 @@ const (
 
 var (
 	kvmModuleSupport string
-	nestStatus       string
 )
 
 func GetKVMModuleSupport() string {
@@ -93,11 +92,11 @@ func detectKVMModuleSupport() string {
 			km = KVM_MODULE_BUILDIN
 		}
 	} else {
-		if ModprobeKvmModule(KVM_MODULE_INTEL, false, false) {
+		if ModprobeKvmModule(KVM_MODULE_INTEL, false, nil) {
 			km = KVM_MODULE_INTEL
-		} else if ModprobeKvmModule(KVM_MODULE_AMD, false, false) {
+		} else if ModprobeKvmModule(KVM_MODULE_AMD, false, nil) {
 			km = KVM_MODULE_AMD
-		} else if ModprobeKvmModule(KVM_MODULE, false, false) {
+		} else if ModprobeKvmModule(KVM_MODULE, false, nil) {
 			if isDevKVMExists() {
 				km = KVM_MODULE
 			}
@@ -111,15 +110,20 @@ func detectKVMModuleSupport() string {
 	return km
 }
 
-func ModprobeKvmModule(name string, remove, nest bool) bool {
+func ModprobeKvmModule(name string, remove bool, nest *bool) bool {
 	var params = []string{"modprobe"}
 	if remove {
 		params = append(params, "-r")
 	}
 	params = append(params, name)
-	if nest {
-		params = append(params, "nested=1")
+	if nest != nil {
+		if *nest {
+			params = append(params, "nested=1")
+		} else {
+			params = append(params, "nested=0")
+		}
 	}
+
 	if err := procutils.NewRemoteCommandAsFarAsPossible(params[0], params[1:]...).Run(); err != nil {
 		log.Errorf("Modprobe kvm %v failed: %s", params, err)
 		return false
@@ -127,31 +131,18 @@ func ModprobeKvmModule(name string, remove, nest bool) bool {
 	return true
 }
 
-func IsNestEnabled() bool {
-	return GetNestSupport() == HOST_NEST_ENABLE
-}
-
-func GetNestSupport() string {
-	if len(nestStatus) == 0 {
-		nestStatus = detectNestSupport()
-	}
-	return nestStatus
-}
-
-func detectNestSupport() string {
+func DetectNestSupport(enableNest bool) string {
 	moduleName := GetKVMModuleSupport()
-	nestStatus := HOST_NEST_UNSUPPORT
-
-	if moduleName != KVM_MODULE_UNSUPPORT && isNestSupport(moduleName) {
-		log.Infof("Host is support kvm nest ...")
-		nestStatus = HOST_NEST_SUPPORT
+	if moduleName == KVM_MODULE_UNSUPPORT {
+		return HOST_NEST_UNSUPPORT
 	}
-
-	if nestStatus == HOST_NEST_SUPPORT && loadKvmModuleWithNest(moduleName) {
-		log.Infof("Host kvm nest is enabled ...")
-		nestStatus = HOST_NEST_ENABLE
+	if !isNestSupport(moduleName) {
+		return HOST_NEST_UNSUPPORT
 	}
-	return nestStatus
+	if loadKvmModuleWithNest(moduleName, enableNest) && enableNest {
+		return HOST_NEST_ENABLE
+	}
+	return HOST_NEST_SUPPORT
 }
 
 func isNestSupport(name string) bool {
@@ -171,17 +162,22 @@ func isNestSupport(name string) bool {
 	return false
 }
 
-func loadKvmModuleWithNest(name string) bool {
+func loadKvmModuleWithNest(name string, enableNest bool) bool {
 	var notload = true
+	var enabledNest = false
 	if IsKernelModuleLoaded(name) {
 		nest := GetKernelModuleParameter(name, "nested")
-		if nest == "Y" {
+		if strings.TrimSpace(nest) == "Y" {
+			enabledNest = true
+		}
+		if enableNest == enabledNest {
 			return true
 		}
 		notload = unloadKvmModule(name)
 	}
+
 	if notload {
-		if ModprobeKvmModule(name, false, true) {
+		if ModprobeKvmModule(name, false, &enableNest) {
 			return true
 		}
 	}
@@ -189,7 +185,7 @@ func loadKvmModuleWithNest(name string) bool {
 }
 
 func unloadKvmModule(name string) bool {
-	return ModprobeKvmModule(name, true, false)
+	return ModprobeKvmModule(name, true, nil)
 }
 
 func GetKernelModuleParameter(name, moduel string) string {

@@ -175,6 +175,7 @@ type HostCommonOptions struct {
 	ImageDeployDriver             string `help:"Image deploy driver" default:"qemu-kvm" choices:"qemu-kvm|nbd|libguestfs"`
 	DeployConcurrent              int    `help:"qemu-kvm deploy driver concurrent" default:"5"`
 	Qcow2Preallocation            string `help:"Qcow2 image create preallocation" default:"metadata" choices:"disable|metadata|falloc|full"`
+	EnableNestedVirtualization    bool   `help:"Enable nested virtualization" default:"true"`
 }
 
 type S3CommonOptions struct {
