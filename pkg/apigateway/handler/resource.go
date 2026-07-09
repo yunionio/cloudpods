@@ -274,9 +274,44 @@ func (f *ResourceHandlers) getHandler(ctx context.Context, w http.ResponseWriter
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	obj, e := req.Mod1().Get(req.Session(), req.ResID(), req.Query())
+	query := req.Query()
+	export := sExport{}
+	if req.ResName() == "ai_proxy_usage" && req.ResID() == "events" {
+		var err error
+		query, export, err = f.fetchExportQuery(query)
+		if err != nil {
+			httperrors.InvalidInputError(ctx, w, "%s", err.Error())
+			return
+		}
+		if len(export.ExportFormat) > 0 {
+			if queryDict, ok := query.(*jsonutils.JSONDict); ok {
+				if v, err := queryDict.GetString("export_limit"); err == nil && v != "" && !queryDict.Contains("limit") {
+					queryDict.Set("limit", jsonutils.NewString(v))
+				}
+				queryDict.Remove("export_limit")
+			}
+		}
+	}
+	obj, e := req.Mod1().Get(req.Session(), req.ResID(), query)
 	if e != nil {
 		httperrors.GeneralServerError(ctx, w, e)
+		return
+	}
+	if len(export.ExportFormat) > 0 {
+		data, err := getExportData(obj)
+		if err != nil {
+			httperrors.GeneralServerError(ctx, w, err)
+			return
+		}
+		w.Header().Set("Content-Description", "File Transfer")
+		w.Header().Set("Content-Transfer-Encoding", "binary")
+		w.Header().Set("Content-Type", "application/octet-stream")
+		fileName := fmt.Sprintf("export-%s", req.Mod1().KeyString())
+		if len(export.ExportFileName) > 0 {
+			fileName = export.ExportFileName
+		}
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.xlsx\"", fileName))
+		excelutils.Export(data, export.Keys, export.Texts, w)
 		return
 	}
 	if req.ResID() == "splitable-export" {
@@ -293,6 +328,16 @@ func (f *ResourceHandlers) getHandler(ctx context.Context, w http.ResponseWriter
 		}
 	}
 	appsrv.SendJSON(w, obj)
+}
+
+func getExportData(obj jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
+	if exports, ok := obj.(*jsonutils.JSONArray); ok {
+		return exports.GetArray()
+	}
+	if data, err := obj.GetArray("data"); err == nil {
+		return data, nil
+	}
+	return nil, fmt.Errorf("missing export data")
 }
 
 // * get spec
