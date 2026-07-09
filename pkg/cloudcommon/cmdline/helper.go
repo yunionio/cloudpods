@@ -461,6 +461,7 @@ func FetchServerCreateInputByJSON(obj jsonutils.JSONObject) (*compute.ServerCrea
 		input.SecgroupId = secgroup
 	}
 	input.Secgroups, _ = jsonutils.GetStringArray(obj, "secgroups")
+	input.NetworkTags, _ = jsonutils.GetStringArray(obj, "network_tags")
 
 	return input, nil
 }

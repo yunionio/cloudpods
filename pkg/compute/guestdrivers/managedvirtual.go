@@ -638,6 +638,13 @@ func (drv *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx contex
 			desc.ExternalSecgroupIds = append(desc.ExternalSecgroupIds, secgroup.ExternalId)
 		}
 	}
+	if createInput, err := guest.GetCreateParams(ctx, userCred); err == nil && len(createInput.NetworkTags) > 0 {
+		for _, tag := range createInput.NetworkTags {
+			if len(tag) > 0 && !utils.IsInStringArray(tag, desc.ExternalSecgroupIds) {
+				desc.ExternalSecgroupIds = append(desc.ExternalSecgroupIds, tag)
+			}
+		}
+	}
 
 	devs, err := guest.GetIsolatedDevices()
 	if err != nil {
