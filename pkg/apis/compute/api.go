@@ -722,6 +722,11 @@ type ServerCreateInput struct {
 	// 安全组Id列表
 	Secgroups []string `json:"secgroups"`
 
+	// GCP 网络标记(network tags)，仅对 Google 云有效
+	// 传入后可不指定安全组，创建时直接作为实例 tags 下发
+	// required: false
+	NetworkTags []string `json:"network_tags"`
+
 	// swagger:ignore
 	OsType string `json:"os_type"`
 	// swagger:ignore
