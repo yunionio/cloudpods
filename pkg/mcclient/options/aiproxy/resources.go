@@ -122,6 +122,7 @@ type AiModelListOptions struct {
 	options.BaseListOptions
 
 	AiProviderId string `help:"filter by ai_provider_id" json:"ai_provider_id"`
+	AiRoutingId  string `help:"filter by ai_routing id or name (enabled ai_routing_model bindings)" json:"ai_routing_id"`
 	ModelKey     string `help:"filter by model_key" json:"model_key"`
 }
 

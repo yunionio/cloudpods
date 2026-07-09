@@ -14,18 +14,22 @@
 
 package models
 
-import api "yunion.io/x/onecloud/pkg/apis/aiproxy"
+import (
+	"strings"
 
-// catalogSeedModel is one row to insert into ai_models when seeding a standard provider.
+	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
+)
+
+// catalogSeedModel is a known upstream model id for built-in provider_key values.
 // ModelKey is the id sent to the upstream API (no "provider/" prefix).
 type catalogSeedModel struct {
 	ModelKey    string
 	Description string
 }
 
-// catalogSeedModelsForProvider returns known public model ids for seeding.
-// Curated from vendor/provider docs; extend as products ship.
-// Providers without a list return nil and the seeder inserts model_key "default".
+// catalogSeedModelsForProvider returns known public model ids for a provider_key.
+// Used when creating ai_provider (PostCreate) and connectivity-test catalog fallback.
+// Providers without a list return nil and a placeholder model_key "default" is used.
 func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 	switch providerKey {
 	case api.ProviderKeyAnthropic:
@@ -248,6 +252,8 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 	// 	return baiduErnieSeedModels()
 	case api.ProviderKeyXiaomi:
 		return xiaomiMimoSeedModels()
+	case api.ProviderKeyMoonshot:
+		return moonshotKimiSeedModels()
 	default:
 		return nil
 	}
@@ -303,5 +309,52 @@ func xiaomiMimoSeedModels() []catalogSeedModel {
 		{ModelKey: "mimo-v2.5", Description: "Xiaomi MiMo 2.5 (multimodal text)"},
 		{ModelKey: "mimo-v2-omni", Description: "Xiaomi MiMo 2 Omni (multimodal)"},
 		{ModelKey: "mimo-v2-flash", Description: "Xiaomi MiMo 2 Flash (fast)"},
+	}
+}
+
+var catalogSeedProviderKeys = []string{
+	api.ProviderKeyAnthropic,
+	api.ProviderKeyDeepseek,
+	api.ProviderKeyGemini,
+	api.ProviderKeyGroq,
+	api.ProviderKeyHuggingface,
+	api.ProviderKeyMistral,
+	api.ProviderKeyOllama,
+	api.ProviderKeyVLLM,
+	api.ProviderKeyOpenAI,
+	api.ProviderKeyOpenrouter,
+	api.ProviderKeyXiaomi,
+	api.ProviderKeyMoonshot,
+}
+
+// CatalogSeedDescription returns a known description for modelKey from built-in seed catalogs.
+func CatalogSeedDescription(modelKey string) string {
+	modelKey = strings.TrimSpace(modelKey)
+	if modelKey == "" {
+		return ""
+	}
+	for _, providerKey := range catalogSeedProviderKeys {
+		for _, item := range catalogSeedModelsForProvider(providerKey) {
+			if item.ModelKey == modelKey {
+				return item.Description
+			}
+		}
+	}
+	return ""
+}
+
+func moonshotKimiSeedModels() []catalogSeedModel {
+	return []catalogSeedModel{
+		{ModelKey: "kimi-k2.7-code", Description: "Moonshot Kimi K2.7 Code"},
+		{ModelKey: "kimi-k2.7-code-highspeed", Description: "Moonshot Kimi K2.7 Code (highspeed)"},
+		{ModelKey: "kimi-k2.6", Description: "Moonshot Kimi K2.6"},
+		{ModelKey: "kimi-k2.5", Description: "Moonshot Kimi K2.5"},
+		{ModelKey: "moonshot-v1-8k", Description: "Moonshot v1 8K"},
+		{ModelKey: "moonshot-v1-32k", Description: "Moonshot v1 32K"},
+		{ModelKey: "moonshot-v1-128k", Description: "Moonshot v1 128K"},
+		{ModelKey: "moonshot-v1-auto", Description: "Moonshot v1 Auto"},
+		{ModelKey: "moonshot-v1-8k-vision-preview", Description: "Moonshot v1 8K Vision"},
+		{ModelKey: "moonshot-v1-32k-vision-preview", Description: "Moonshot v1 32K Vision"},
+		{ModelKey: "moonshot-v1-128k-vision-preview", Description: "Moonshot v1 128K Vision"},
 	}
 }

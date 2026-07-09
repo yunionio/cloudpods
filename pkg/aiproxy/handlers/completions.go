@@ -56,15 +56,22 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	dbg := NewProxyDebugSession(ctx, "openai-completions")
+	isStream, _ := dict.Bool("stream")
+	dbg.ClientRequest(r, dict, nil, isStream)
+
 	vk := extractVirtualKey(r)
 	userCred := auth.AdminCredential()
 	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict)
 	if err != nil {
+		dbg.Error("resolve upstream: %v", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
+	dbg.RoutingResolved(dict, up)
 
 	if err := models.TakeVirtualKeyRequestsPerMinute(up.VirtualKeyId, up.RequestsPerMinute); err != nil {
+		dbg.Error("rate limit: %v", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
@@ -75,23 +82,25 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		}
 	}
 	if err := models.EnforceVirtualKeyMaxTokens(dict, vkLim); err != nil {
+		dbg.Error("max tokens: %v", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 
 	compProv, err := providers.GetCompletions(up.ProviderKey)
 	if err != nil {
+		dbg.Error("completions provider: %v", err)
 		httperrors.InvalidInputError(ctx, w, "%v", err)
 		return
 	}
 
-	isStream, _ := dict.Bool("stream")
 	if _, err := compProv.BuildCompletionsRequest(&providers.ChatContext{
 		ProviderKey:   up.ProviderKey,
 		BaseURL:       up.BaseURL,
 		APIKey:        up.APIKey,
 		UpstreamModel: up.UpstreamModel,
 	}, dict, isStream); err != nil {
+		dbg.Error("provider request: %v", err)
 		httperrors.InvalidInputError(ctx, w, "provider request: %v", err)
 		return
 	}
@@ -102,23 +111,27 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 
 	if !isStream {
-		resp, uerr := completionsWithKeyFailover(ctx, up, dict, isStream, timeout)
+		resp, uerr := completionsWithKeyFailover(ctx, up, dict, isStream, timeout, dbg)
 		if uerr != nil {
+			dbg.Error("upstream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
 			writeUpstreamError(ctx, w, uerr)
 			return
 		}
+		dbg.UpstreamResponse(resp.Body)
 		out := resp.Body
 		if norm, nerr := compProv.NormalizeCompletionsResponse(out); nerr == nil && len(norm) > 0 {
 			out = norm
 		}
+		dbg.ClientResponse(out)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(out)
 		return
 	}
 
-	ch, uerr := completionsStreamWithKeyFailover(ctx, up, dict, isStream, compProv, timeout)
+	ch, uerr := completionsStreamWithKeyFailover(ctx, up, dict, isStream, compProv, timeout, dbg)
 	if uerr != nil {
+		dbg.Error("upstream stream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
 		writeUpstreamError(ctx, w, uerr)
 		return
 	}
@@ -130,6 +143,7 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	flushIf(w)
 
 	streamOK := true
+	clientSeq := 0
 	for chunk := range ch {
 		if chunk.Done {
 			break
@@ -138,12 +152,17 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 			continue
 		}
 		if isUpstreamErrorChunk(chunk.Data) {
+			dbg.Error("upstream stream error chunk: %s", truncateLogBytes(chunk.Data, proxyDebugLogMax))
 			streamOK = false
 			models.RecordAiKeyFailure(up.AiKeyId, parseUpstreamErrorStatus(chunk.Data))
+			clientSeq++
+			dbg.ClientStreamData(clientSeq, chunk.Data)
 			_, _ = fmt.Fprintf(w, "data: %s\n\n", chunk.Data)
 			flushIf(w)
 			break
 		}
+		clientSeq++
+		dbg.ClientStreamData(clientSeq, chunk.Data)
 		_, _ = fmt.Fprintf(w, "data: %s\n\n", chunk.Data)
 		flushIf(w)
 	}
@@ -160,6 +179,7 @@ func completionsWithKeyFailover(
 	dict *jsonutils.JSONDict,
 	stream bool,
 	timeout time.Duration,
+	dbg *ProxyDebugSession,
 ) (*upstream.Response, *upstream.Error) {
 	tried := make(map[string]bool)
 	if up.AiKeyId != "" {
@@ -171,6 +191,7 @@ func completionsWithKeyFailover(
 		if err != nil {
 			return nil, &upstream.Error{StatusCode: http.StatusBadRequest, Message: err.Error()}
 		}
+		dbg.UpstreamRequest(upReq)
 		reqCtx, cancel := context.WithTimeout(ctx, timeout)
 		resp, uerr := upstream.ChatCompletion(reqCtx, upReq)
 		cancel()
@@ -201,6 +222,7 @@ func completionsStreamWithKeyFailover(
 	stream bool,
 	compProv providers.CompletionsProvider,
 	timeout time.Duration,
+	dbg *ProxyDebugSession,
 ) (<-chan upstream.StreamChunk, *upstream.Error) {
 	tried := make(map[string]bool)
 	if up.AiKeyId != "" {
@@ -212,6 +234,7 @@ func completionsStreamWithKeyFailover(
 		if err != nil {
 			return nil, &upstream.Error{StatusCode: http.StatusBadRequest, Message: err.Error()}
 		}
+		dbg.UpstreamRequest(upReq)
 		reqCtx, cancel := context.WithTimeout(ctx, timeout)
 		var ch <-chan upstream.StreamChunk
 		var uerr *upstream.Error
@@ -224,7 +247,20 @@ func completionsStreamWithKeyFailover(
 		if uerr != nil {
 			cancel()
 		} else {
-			ch = streamChunksWithCancel(ch, cancel)
+			out := make(chan upstream.StreamChunk, 16)
+			go func() {
+				defer cancel()
+				defer close(out)
+				seq := 0
+				for chunk := range ch {
+					if len(chunk.Data) > 0 {
+						seq++
+						dbg.UpstreamStreamChunk(seq, chunk.Data)
+					}
+					out <- chunk
+				}
+			}()
+			ch = out
 		}
 		if uerr == nil {
 			return ch, nil

@@ -32,22 +32,33 @@ func modelsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		httperrors.InvalidInputError(ctx, w, "only GET is supported")
 		return
 	}
+	dbg := NewProxyDebugSession(ctx, "openai-models")
+	dbg.ClientRequestNoBody(r)
+
 	vk := extractVirtualKey(r)
 	userCred := auth.AdminCredential()
 	items, err := models.ListModelsForVirtualKey(ctx, userCred, vk)
 	if err != nil {
+		dbg.Error("list models: %v", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	if items == nil {
 		items = []models.ModelsListEntry{}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	payload, err := json.Marshal(map[string]interface{}{
 		"object": "list",
 		"data":   items,
 	})
+	if err != nil {
+		dbg.Error("marshal models: %v", err)
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	dbg.ClientResponse(payload)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(payload)
 }
 
 // modelRetrieveHandler implements OpenAI-compatible GET /openai/v1/models/{model}.
@@ -56,12 +67,16 @@ func modelRetrieveHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 		httperrors.InvalidInputError(ctx, w, "only GET is supported")
 		return
 	}
+	dbg := NewProxyDebugSession(ctx, "openai-models")
+	dbg.ClientRequestNoBody(r)
+
 	params := appsrv.AppContextGetParams(ctx)
 	modelID := ""
 	if params != nil {
 		modelID = strings.TrimSpace(params.Params["<model>"])
 	}
 	if modelID == "" {
+		dbg.Error("missing model id")
 		httperrors.InvalidInputError(ctx, w, "missing model id")
 		return
 	}
@@ -69,16 +84,25 @@ func modelRetrieveHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 	userCred := auth.AdminCredential()
 	items, err := models.ListModelsForVirtualKey(ctx, userCred, vk)
 	if err != nil {
+		dbg.Error("list models: %v", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	for _, item := range items {
 		if item.ID == modelID {
+			payload, err := json.Marshal(item)
+			if err != nil {
+				dbg.Error("marshal model: %v", err)
+				httperrors.GeneralServerError(ctx, w, err)
+				return
+			}
+			dbg.ClientResponse(payload)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(item)
+			_, _ = w.Write(payload)
 			return
 		}
 	}
+	dbg.Error("model %q not found", modelID)
 	httperrors.NotFoundError(ctx, w, "model %q not found", modelID)
 }

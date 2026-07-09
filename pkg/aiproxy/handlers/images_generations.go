@@ -54,15 +54,21 @@ func imagesGenerationsHandler(ctx context.Context, w http.ResponseWriter, r *htt
 		return
 	}
 
+	dbg := NewProxyDebugSession(ctx, "openai-images")
+	dbg.ClientRequest(r, dict, nil, false)
+
 	vk := extractVirtualKey(r)
 	userCred := auth.AdminCredential()
 	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict)
 	if err != nil {
+		dbg.Error("resolve upstream: %v", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
+	dbg.RoutingResolved(dict, up)
 
 	if err := models.TakeVirtualKeyRequestsPerMinute(up.VirtualKeyId, up.RequestsPerMinute); err != nil {
+		dbg.Error("rate limit: %v", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
@@ -74,19 +80,23 @@ func imagesGenerationsHandler(ctx context.Context, w http.ResponseWriter, r *htt
 		APIKey:        up.APIKey,
 		UpstreamModel: up.UpstreamModel,
 	}, dict); err != nil {
+		dbg.Error("provider request: %v", err)
 		httperrors.InvalidInputError(ctx, w, "provider request: %v", err)
 		return
 	}
 
-	resp, uerr := imagesGenerationsWithKeyFailover(ctx, up, dict, 180*time.Second)
+	resp, uerr := imagesGenerationsWithKeyFailover(ctx, up, dict, 180*time.Second, dbg)
 	if uerr != nil {
+		dbg.Error("upstream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
 		writeUpstreamError(ctx, w, uerr)
 		return
 	}
+	dbg.UpstreamResponse(resp.Body)
 	out := resp.Body
 	if norm, nerr := imgProv.NormalizeImagesGenerationsResponse(out); nerr == nil && len(norm) > 0 {
 		out = norm
 	}
+	dbg.ClientResponse(out)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(out)
@@ -97,6 +107,7 @@ func imagesGenerationsWithKeyFailover(
 	up *models.ChatUpstream,
 	dict *jsonutils.JSONDict,
 	timeout time.Duration,
+	dbg *ProxyDebugSession,
 ) (*upstream.Response, *upstream.Error) {
 	tried := make(map[string]bool)
 	if up.AiKeyId != "" {
@@ -108,6 +119,7 @@ func imagesGenerationsWithKeyFailover(
 		if err != nil {
 			return nil, &upstream.Error{StatusCode: http.StatusBadRequest, Message: err.Error()}
 		}
+		dbg.UpstreamRequest(upReq)
 		reqCtx, cancel := context.WithTimeout(ctx, timeout)
 		resp, uerr := upstream.ChatCompletion(reqCtx, upReq)
 		cancel()

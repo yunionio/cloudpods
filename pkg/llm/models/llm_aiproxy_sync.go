@@ -755,20 +755,6 @@ func deleteAiProviderById(session *mcclient.ClientSession, providerId string) er
 	if providerId == "" {
 		return nil
 	}
-	filterModels := jsonutils.NewDict()
-	filterModels.Set("ai_provider_id", jsonutils.NewString(providerId))
-	modelRows, err := listAiproxyResources(session, &apmodules.AiModels, filterModels)
-	if err != nil {
-		return errors.Wrap(err, "list ai_models for delete")
-	}
-	for _, mrow := range modelRows {
-		mid, _ := mrow.GetString("id")
-		if mid != "" {
-			if _, err := apmodules.AiModels.Delete(session, mid, nil); err != nil {
-				log.Warningf("delete ai_model %s: %v", mid, err)
-			}
-		}
-	}
 	if _, err := apmodules.AiProviders.Delete(session, providerId, nil); err != nil {
 		return errors.Wrapf(err, "delete ai_provider %s", providerId)
 	}
@@ -810,6 +796,15 @@ func DeleteDeploymentAiproxyResources(ctx context.Context, deploymentId string) 
 	}
 	session := aiproxyAdminSession(ctx)
 
+	depObj, err := GetLLMDeploymentManager().FetchById(deploymentId)
+	if err != nil {
+		return errors.Wrap(err, "fetch llm_deployment for aiproxy cleanup")
+	}
+	dep := depObj.(*SLLMDeployment)
+	if err := deleteAiRoutingById(session, dep.AiproxyRoutingId); err != nil {
+		log.Warningf("delete ai_routing for deployment %s: %v", deploymentId, err)
+	}
+
 	filter := jsonutils.NewDict()
 	filter.Set("llm_deployment_id", jsonutils.NewString(deploymentId))
 	provRows, err := listAiproxyResources(session, &apmodules.AiProviders, filter)
@@ -833,15 +828,6 @@ func DeleteDeploymentAiproxyResources(ctx context.Context, deploymentId string) 
 			log.Warningf("delete ai_provider for llm %s: %v", llmRows[i].Id, err)
 		}
 	}
-
-	depObj, err := GetLLMDeploymentManager().FetchById(deploymentId)
-	if err != nil {
-		return errors.Wrap(err, "fetch llm_deployment for aiproxy cleanup")
-	}
-	dep := depObj.(*SLLMDeployment)
-	if err := deleteAiRoutingById(session, dep.AiproxyRoutingId); err != nil {
-		log.Warningf("delete ai_routing for deployment %s: %v", deploymentId, err)
-	}
 	return nil
 }
 
@@ -851,9 +837,6 @@ func UnsyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, d
 		return nil
 	}
 	session := aiproxyAdminSession(ctx)
-	if err := deleteAiProviderByLlmId(session, llmId); err != nil {
-		return err
-	}
 
 	llms, err := listRunningDeploymentLlms(dep.Id)
 	if err != nil {
@@ -868,6 +851,9 @@ func UnsyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, d
 
 	routingId := strings.TrimSpace(dep.AiproxyRoutingId)
 	if routingId == "" {
+		if err := deleteAiProviderByLlmId(session, llmId); err != nil {
+			return err
+		}
 		if err := persistDeploymentAiproxyBindings(dep, "", nil); err != nil {
 			return err
 		}
@@ -875,8 +861,11 @@ func UnsyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, d
 	}
 
 	if len(remaining) == 0 {
-		if _, err := apmodules.AiRoutings.Delete(session, routingId, nil); err != nil {
+		if err := deleteAiRoutingById(session, routingId); err != nil {
 			log.Warningf("delete ai_routing %s: %v", routingId, err)
+		}
+		if err := deleteAiProviderByLlmId(session, llmId); err != nil {
+			return err
 		}
 		if err := persistDeploymentAiproxyBindings(dep, "", nil); err != nil {
 			return err
@@ -919,6 +908,9 @@ func UnsyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, d
 		bindings = append(bindings, b)
 	}
 	if err := applyRoutingModels(session, routingId, items); err != nil {
+		return err
+	}
+	if err := deleteAiProviderByLlmId(session, llmId); err != nil {
 		return err
 	}
 	primaryModelKey := primaryUpstreamModelKeyFromBindings(ctx, userCred, bindings)

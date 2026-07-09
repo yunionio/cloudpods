@@ -1,11 +1,13 @@
 package models
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	"yunion.io/x/jsonutils"
 	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
 func TestRejectProviderConfigAPIKeyInJSON(t *testing.T) {
@@ -75,5 +77,51 @@ func TestValidateAiProviderConfigCustomAnthropic(t *testing.T) {
 	}
 	if err := validateAiProviderConfig(cfg, api.ProviderKeyCustom); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestAiProviderReferrerManagers(t *testing.T) {
+	managers := aiProviderReferrerManagers()
+	if len(managers) != 1 {
+		t.Fatalf("expected 1 referrer manager, got %d", len(managers))
+	}
+	if managers[0].KeywordPlural() != "ai_routing_models" {
+		t.Fatalf("expected ai_routing_models referrer, got %q", managers[0].KeywordPlural())
+	}
+}
+
+func TestAiProviderDeleteBusyErrors(t *testing.T) {
+	prov := &SAiProvider{}
+	prov.Name = "deepseek-1"
+	refCnts := map[db.IModelManager]int{
+		AiRoutingModelManager: 3,
+	}
+	errs := aiProviderDeleteBusyErrors(prov, refCnts)
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error, got %d", len(errs))
+	}
+	msg := errs[0].Error()
+	if !strings.Contains(msg, "deepseek-1") {
+		t.Fatalf("error should mention provider name: %q", msg)
+	}
+	if !strings.Contains(msg, "still referred to by") {
+		t.Fatalf("error should mention referred to: %q", msg)
+	}
+	if !strings.Contains(msg, "ai_routing_models") {
+		t.Fatalf("error should mention ai_routing_models: %q", msg)
+	}
+}
+
+func TestDeleteAiKeysByProviderIdRequiresProviderId(t *testing.T) {
+	err := deleteAiKeysByProviderId(context.Background(), "")
+	if err == nil {
+		t.Fatal("expected error for empty provider id")
+	}
+}
+
+func TestDeleteAiModelsByProviderIdRequiresProviderId(t *testing.T) {
+	err := deleteAiModelsByProviderId(context.Background(), "")
+	if err == nil {
+		t.Fatal("expected error for empty provider id")
 	}
 }

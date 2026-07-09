@@ -16,8 +16,14 @@
 package providerapi // import "yunion.io/x/onecloud/pkg/aiproxy/providerapi"
 
 import (
+	"errors"
+	"net/url"
+
 	"yunion.io/x/jsonutils"
 )
+
+// ErrResponsesSubResourceNotSupported is returned when a translated provider cannot proxy GET/cancel/delete.
+var ErrResponsesSubResourceNotSupported = errors.New("stored responses not supported for translated providers")
 
 // ChatContext holds resolved upstream connectivity for one proxied request.
 type ChatContext struct {
@@ -103,4 +109,21 @@ type MessagesAdapter interface {
 	AnthropicStreamPassthrough() bool
 	NewStreamState(requestModel string) interface{}
 	ConvertStreamPayload(state interface{}, payload []byte, endOfStream bool) ([]AnthropicStreamChunk, error)
+}
+
+// ResponsesStreamChunk is one OpenAI Responses API SSE event.
+type ResponsesStreamChunk struct {
+	Event string
+	Data  []byte
+}
+
+// ResponsesAdapter converts OpenAI Responses API requests to upstream HTTP calls and
+// normalizes responses back to OpenAI Responses format.
+type ResponsesAdapter interface {
+	BuildUpstreamRequest(ctx *ChatContext, body *jsonutils.JSONDict, stream bool) (*HTTPRequest, error)
+	NormalizeResponse(prov Provider, body []byte) ([]byte, error)
+	ResponsesStreamPassthrough() bool
+	NewStreamState(requestModel string, body *jsonutils.JSONDict) interface{}
+	ConvertStreamPayload(state interface{}, payload []byte, endOfStream bool) ([]ResponsesStreamChunk, error)
+	BuildSubResourceRequest(ctx *ChatContext, method, responseID, subAction string, query url.Values) (*HTTPRequest, error)
 }

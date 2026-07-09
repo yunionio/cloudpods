@@ -64,7 +64,7 @@ func init() {
 }
 
 func (manager *SAiProviderManager) InitializeData() error {
-	return SeedStandardCatalog(context.Background())
+	return nil
 }
 
 func (manager *SAiProviderManager) ListItemFilter(
@@ -290,4 +290,93 @@ func (p *SAiProvider) ValidateUpdateData(
 	}
 
 	return input, nil
+}
+
+func aiProviderReferrerManagers() []db.IModelManager {
+	return []db.IModelManager{AiRoutingModelManager}
+}
+
+func deleteAiKeysByProviderId(ctx context.Context, providerId string) error {
+	providerId = strings.TrimSpace(providerId)
+	if providerId == "" {
+		return httperrors.NewInputParameterError("ai_provider_id is required")
+	}
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf("delete from %s where ai_provider_id = ?", AiKeyManager.TableSpec().Name()),
+		providerId,
+	)
+	if err != nil {
+		return errors.Wrap(err, "delete ai_keys")
+	}
+	return nil
+}
+
+func deleteAiModelsByProviderId(ctx context.Context, providerId string) error {
+	providerId = strings.TrimSpace(providerId)
+	if providerId == "" {
+		return httperrors.NewInputParameterError("ai_provider_id is required")
+	}
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf("delete from %s where ai_provider_id = ?", AiModelManager.TableSpec().Name()),
+		providerId,
+	)
+	if err != nil {
+		return errors.Wrap(err, "delete ai_models")
+	}
+	return nil
+}
+
+func countAiProviderReferences(ctx context.Context, providerId string) (map[db.IModelManager]int, error) {
+	ret := make(map[db.IModelManager]int)
+	for _, man := range aiProviderReferrerManagers() {
+		n, err := man.Query().Equals("ai_provider_id", providerId).CountWithError()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError(
+				"count %s references for ai_provider %s: %s",
+				man.KeywordPlural(), providerId, err,
+			)
+		}
+		if n > 0 {
+			ret[man] = n
+		}
+	}
+	return ret, nil
+}
+
+func aiProviderDeleteBusyErrors(p *SAiProvider, refCnts map[db.IModelManager]int) []error {
+	errs := make([]error, 0, len(refCnts))
+	for man, cnt := range refCnts {
+		errs = append(errs, httperrors.NewResourceBusyError(
+			"ai_provider %s is still referred to by %d %s",
+			p.Name, cnt, man.KeywordPlural(),
+		))
+	}
+	return errs
+}
+
+func (p *SAiProvider) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	refCnts, err := countAiProviderReferences(ctx, p.Id)
+	if err != nil {
+		return err
+	}
+	if len(refCnts) > 0 {
+		errs := aiProviderDeleteBusyErrors(p, refCnts)
+		if len(errs) == 1 {
+			return errs[0]
+		}
+		return errors.NewAggregate(errs)
+	}
+	return p.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, info)
+}
+
+func (p *SAiProvider) CustomizeDelete(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) error {
+	if err := deleteAiKeysByProviderId(ctx, p.Id); err != nil {
+		return err
+	}
+	return deleteAiModelsByProviderId(ctx, p.Id)
 }
