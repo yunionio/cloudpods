@@ -24,6 +24,7 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 const (
@@ -57,6 +58,9 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		SetProcessTimeout(openaiShortProcessTimeout)
 	app.AddHandler2("GET", openaiCompatAPIPrefix+"/models", modelsHandler, nil, "aiproxy_openai_v1_models", nil)
 	app.AddHandler2("GET", openaiCompatAPIPrefix+"/models/<model>", modelRetrieveHandler, nil, "aiproxy_openai_v1_models_retrieve", nil)
+	app.AddHandler2("GET", "/ai_proxy_usage", auth.Authenticate(aiProxyUsageListHandler), nil, "aiproxy_ai_proxy_usage_list", nil)
+	app.AddHandler2("GET", "/ai_proxy_usage/events/distinct-field", auth.Authenticate(aiProxyUsageEventsDistinctFieldHandler), nil, "aiproxy_ai_proxy_usage_events_distinct_field", nil)
+	app.AddHandler2("GET", "/ai_proxy_usage/<id>", auth.Authenticate(aiProxyUsageGetHandler), nil, "aiproxy_ai_proxy_usage_get", nil)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,

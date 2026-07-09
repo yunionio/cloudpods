@@ -40,8 +40,23 @@ type ChatUpstream struct {
 
 	// VirtualKeyId and usage/rate snapshots come from the matched ai_virtual_key row.
 	VirtualKeyId        string
+	ProjectId           string
+	DomainId            string
 	MaxTokensPerRequest int
 	RequestsPerMinute   int
+	RoutingLog          *AiRoutingLog
+}
+
+type AiRoutingLog struct {
+	Enabled       bool
+	Candidates    []string
+	SelectedModel string
+	Method        string
+	Scores        map[string]interface{}
+	Confidence    *float64
+	Reason        string
+	LatencyMs     int64
+	Error         string
 }
 
 func modelKeyMatches(key, requestedModel string) bool {
@@ -162,8 +177,9 @@ func pickRoutingByMatch(routings []SAiRouting, reqModel, currentNodeId string, m
 }
 
 type resolvedCatalogModel struct {
-	provider *SAiProvider
-	model    *SAiModel
+	provider   *SAiProvider
+	model      *SAiModel
+	routingLog *AiRoutingLog
 }
 
 // resolveCatalogModelFromRouting picks ai_routing_models for the routing and loads catalog provider/model rows.
@@ -178,7 +194,7 @@ func resolveCatalogModelFromRouting(
 	if routing == nil {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "nil ai_routing")
 	}
-	providerId, modelId, err := pickAiRoutingModel(ctx, userCred, routing, reqModel, body)
+	providerId, modelId, routingLog, err := pickAiRoutingModel(ctx, userCred, routing, reqModel, body)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +222,7 @@ func resolveCatalogModelFromRouting(
 	if strings.TrimSpace(mdl.AiProviderId) != "" && mdl.AiProviderId != prov.Id {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "ai_model does not belong to resolved ai_provider")
 	}
-	return &resolvedCatalogModel{provider: prov, model: mdl}, nil
+	return &resolvedCatalogModel{provider: prov, model: mdl, routingLog: routingLog}, nil
 }
 
 // ResolveChatUpstream resolves upstream URL, API key, and catalog model_key for a chat request:
@@ -277,6 +293,9 @@ func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential,
 		AiKeyId:       keyRes.AiKeyId,
 		VirtualKeyId:  vk.Id,
 		APIMode:       apiMode,
+		ProjectId:     vk.ProjectId,
+		DomainId:      vk.DomainId,
+		RoutingLog:    resolved.routingLog,
 	}
 	if vk.Limits != nil {
 		up.MaxTokensPerRequest = vk.Limits.MaxTokensPerRequest
