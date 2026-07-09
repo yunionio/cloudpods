@@ -17,6 +17,7 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -37,6 +38,8 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
+
+var googleNetworkTagRegexp = regexp.MustCompile(`^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$`)
 
 type SGoogleGuestDriver struct {
 	SManagedVirtualizedGuestDriver
@@ -172,6 +175,11 @@ func (self *SGoogleGuestDriver) ValidateCreateData(ctx context.Context, userCred
 	input, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
 	if err != nil {
 		return nil, err
+	}
+	for _, tag := range input.NetworkTags {
+		if !googleNetworkTagRegexp.MatchString(tag) {
+			return nil, httperrors.NewInputParameterError("invalid google network_tag %q, must match %s", tag, googleNetworkTagRegexp.String())
+		}
 	}
 	if len(input.Networks) > 2 {
 		return nil, httperrors.NewInputParameterError("multiple NICs are not supported")
