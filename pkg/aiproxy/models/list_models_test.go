@@ -40,6 +40,51 @@ func TestUniqueNonEmptyStrings(t *testing.T) {
 	}
 }
 
+func TestClientFacingModelIDsForRouting(t *testing.T) {
+	routing := &SAiRouting{ModelKey: "claude"}
+	mdl := &SAiModel{ModelKey: "claude-sonnet-4-6"}
+	prov := &SAiProvider{ProviderKey: "anthropic"}
+	bindings := []SAiRoutingModel{{AiProviderId: "p1", AiModelId: "m1"}}
+	modelsById := map[string]*SAiModel{"m1": mdl}
+	providers := map[string]*SAiProvider{"p1": prov}
+
+	ids := ClientFacingModelIDsForRouting(routing, bindings, modelsById, providers)
+	if len(ids) != 2 {
+		t.Fatalf("len(ids) = %d, want 2: %#v", len(ids), ids)
+	}
+	if ids[0] != "claude" || ids[1] != "claude/claude-sonnet-4-6" {
+		t.Fatalf("unexpected ids: %#v", ids)
+	}
+
+	flatRouting := &SAiRouting{ModelPattern: "qwen-turbo"}
+	flatMdl := &SAiModel{ModelKey: "qwen-turbo"}
+	flatProv := &SAiProvider{ProviderKey: "aliyun"}
+	flatBindings := []SAiRoutingModel{{AiProviderId: "p2", AiModelId: "m2"}}
+	flatIDs := ClientFacingModelIDsForRouting(
+		flatRouting,
+		flatBindings,
+		map[string]*SAiModel{"m2": flatMdl},
+		map[string]*SAiProvider{"p2": flatProv},
+	)
+	if len(flatIDs) != 1 || flatIDs[0] != "qwen-turbo" {
+		t.Fatalf("flat ids = %#v", flatIDs)
+	}
+}
+
+func TestHierarchicalClientModelID(t *testing.T) {
+	routing := &SAiRouting{ModelKey: "claude"}
+	mdl := &SAiModel{ModelKey: "claude-sonnet-4-6"}
+	if got := hierarchicalClientModelID(routing, &SAiRoutingModel{}, mdl); got != "claude/claude-sonnet-4-6" {
+		t.Fatalf("expected hierarchical id, got %q", got)
+	}
+	if got := hierarchicalClientModelID(&SAiRouting{}, &SAiRoutingModel{}, mdl); got != "" {
+		t.Fatalf("expected empty without routing model_key, got %q", got)
+	}
+	if got := hierarchicalClientModelID(routing, &SAiRoutingModel{ModelPattern: "fast"}, mdl); got != "claude/fast" {
+		t.Fatalf("expected entry alias in hierarchical id, got %q", got)
+	}
+}
+
 func TestPickRoutingForRequestModelKeyPriority(t *testing.T) {
 	routings := []SAiRouting{
 		{Priority: 10, ModelPattern: ""},

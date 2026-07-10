@@ -37,6 +37,8 @@ func DefaultModelForProvider(providerKey string) string {
 		return "qwen-turbo"
 	case api.ProviderKeyXiaomi:
 		return "mimo-v2-flash"
+	case api.ProviderKeyMoonshot:
+		return "kimi-k2.6"
 	case api.ProviderKeyDeepseek:
 		return "deepseek-v4-flash"
 	case api.ProviderKeyOpenAI:
@@ -54,6 +56,8 @@ func DefaultPromptForProvider(providerKey string) string {
 		return "用一句话介绍通义千问"
 	case api.ProviderKeyXiaomi:
 		return "用一句话介绍小米 MiMo"
+	case api.ProviderKeyMoonshot:
+		return "用一句话介绍 Kimi"
 	default:
 		return "用一句话介绍这个模型"
 	}
@@ -112,7 +116,7 @@ func ListCatalogModelKeys(session *mcclient.ClientSession, providerKey string) (
 
 func VerifyCatalog(session *mcclient.ClientSession, providerKey, modelKey string, warnMissingModel bool) error {
 	if _, err := apmodules.AiProviders.Get(session, providerKey, nil); err != nil {
-		return errors.Wrapf(err, "ai_provider %s missing; run aiproxy master InitDB first", providerKey)
+		return errors.Wrapf(err, "ai_provider %s missing; create it first (e.g. climc ai-provider-create)", providerKey)
 	}
 	if _, err := findAiModelByKey(session, providerKey, modelKey); err == nil {
 		return nil
@@ -125,7 +129,7 @@ func VerifyCatalog(session *mcclient.ClientSession, providerKey, modelKey string
 		fmt.Printf("WARN: ai_model %s not in catalog; will create for test if needed\n", catalogID)
 		return nil
 	}
-	return errors.Errorf("ai_model %s not in catalog (re-run aiproxy master InitDB)", catalogID)
+	return errors.Errorf("ai_model %s not found; create ai_model or let ai-test-* create it for the test", catalogID)
 }
 
 func findAiModelByKey(session *mcclient.ClientSession, providerKey, modelKey string) (jsonutils.JSONObject, error) {

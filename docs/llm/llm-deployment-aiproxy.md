@@ -60,6 +60,16 @@ curl -k "$AIPROXY/openai/v1/chat/completions" \
 
 `model` 填 deployment 详情里 `aiproxy_bindings[].client_model_alias`（格式 `{deployment_name}-{upstream_model_key}`，同一 deployment 下各副本相同），与 `ai_routing.model_key` 同值。LLM 自动注册/重同步会写入 `model_key` 并清空 `model_pattern`。
 
+当同一 `ai_routing` 下挂多个 catalog model 时，还可使用层级 model id：
+
+```bash
+curl -k "$AIPROXY/openai/v1/chat/completions" \
+  -H "Authorization: Bearer $VK" \
+  -d '{"model":"<ai_routing.model_key>/<upstream_model_key>","messages":[{"role":"user","content":"hi"}]}'
+```
+
+仅发扁平 `ai_routing.model_key`（无 `/`）时，若 routing 下有多条 `ai_routing_model`，默认选用 **priority 最低（最高优先级）** 的条目。
+
 ## 删除 deployment
 
 删除 `llm_deployment` 时会自动清理关联的 aiproxy 资源（`ai_provider`、`ai_model`、`ai_routing`），provider 按 `llm_deployment_id` / `llm_id` 查找，routing 按 `llm_deployment.aiproxy_routing_id` 删除，无需 `auto_register_aiproxy` 为 true。
@@ -73,6 +83,7 @@ curl -k "$AIPROXY/openai/v1/chat/completions" \
 | `llm_deployment.id` | `ai_provider.llm_deployment_id` |
 | upstream served model name（vLLM/SGLang 为 model 目录 basename，Ollama 为 `name:tag`） | `ai_model.model_key` |
 | `{deployment_name}-{upstream_model_key}` | **`ai_routing.model_key`** 与 **`aiproxy_bindings[].client_model_alias`**（同值；客户端 model 精确匹配，选路与列表优先） |
+| `{ai_routing.model_key}/{upstream_model_key}` | 层级 model id（routing 有 `model_key` 且挂多个 catalog model 时推荐；`GET /v1/models` 与请求解析均支持） |
 | （手工通配/前缀规则） | `ai_routing.model_pattern` |
 | （LLM 自动注册时留空） | `ai_routing_model.model_pattern` |
 

@@ -72,7 +72,47 @@ func (manager *SAiModelManager) ListItemFilter(
 	if key := strings.TrimSpace(query.ModelKey); key != "" {
 		q = q.Equals("model_key", key)
 	}
+	if routingRef := strings.TrimSpace(query.AiRoutingId); routingRef != "" {
+		routingId, err := resolveAiRoutingIdForListFilter(ctx, userCred, routingRef)
+		if err != nil {
+			return nil, err
+		}
+		modelIds, err := aiModelIdsBoundToRouting(routingId)
+		if err != nil {
+			return nil, err
+		}
+		if len(modelIds) == 0 {
+			q = q.In("id", []string{"__no_such_ai_model__"})
+		} else {
+			q = q.In("id", modelIds)
+		}
+	}
 	return q, nil
+}
+
+func resolveAiRoutingIdForListFilter(ctx context.Context, userCred mcclient.TokenCredential, idOrName string) (string, error) {
+	obj, err := AiRoutingManager.FetchByIdOrName(ctx, userCred, idOrName)
+	if err != nil {
+		return "", errors.Wrapf(err, "fetch ai_routing %s", idOrName)
+	}
+	return obj.GetId(), nil
+}
+
+func aiModelIdsBoundToRouting(routingId string) ([]string, error) {
+	routingId = strings.TrimSpace(routingId)
+	if routingId == "" {
+		return nil, nil
+	}
+	bindings := make([]SAiRoutingModel, 0, 8)
+	q := AiRoutingModelManager.Query().Equals("ai_routing_id", routingId).Equals("enabled", true)
+	if err := q.All(&bindings); err != nil {
+		return nil, errors.Wrap(err, "list ai_routing_models")
+	}
+	ids := make([]string, 0, len(bindings))
+	for i := range bindings {
+		ids = append(ids, bindings[i].AiModelId)
+	}
+	return uniqueNonEmptyStrings(ids), nil
 }
 
 func (manager *SAiModelManager) FetchCustomizeColumns(
