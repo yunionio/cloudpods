@@ -797,13 +797,6 @@ func (self *SIdentityProvider) ValidateDeleteCondition(ctx context.Context, info
 		return httperrors.NewInvalidStatusError("cannot delete enabled idp")
 	}
 	if self.Driver == api.IdentityDriverLDAP || (self.IsSso.IsTrue() && self.isAutoCreateDomain()) || self.AutoCreateUser.IsTrue() {
-		prjCnt, err := self.GetProjectCount()
-		if err != nil {
-			return httperrors.NewGeneralError(err)
-		}
-		if prjCnt > 0 {
-			return httperrors.NewConflictError("identity provider with projects")
-		}
 		domains, err := self.getLinkedDomains()
 		if err != nil {
 			return httperrors.NewGeneralError(err)
