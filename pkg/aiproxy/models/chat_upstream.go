@@ -28,6 +28,38 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+// clientModelRef holds parsed client request model id (flat or routingKey/catalogPart).
+type clientModelRef struct {
+	raw          string
+	routeKey     string
+	catalogPart  string
+	hierarchical bool
+}
+
+// parseClientModelRef splits a client model id at the first '/'.
+// "my-route/gpt-4" → routeKey=my-route, catalogPart=gpt-4, hierarchical=true.
+// "flat-alias"     → catalogPart=flat-alias, hierarchical=false.
+func parseClientModelRef(reqModel string) clientModelRef {
+	raw := strings.TrimSpace(reqModel)
+	if raw == "" {
+		return clientModelRef{raw: raw}
+	}
+	before, after, found := strings.Cut(raw, "/")
+	if !found {
+		return clientModelRef{raw: raw, catalogPart: raw}
+	}
+	routeKey := strings.TrimSpace(before)
+	if routeKey == "" {
+		return clientModelRef{raw: raw, catalogPart: raw}
+	}
+	return clientModelRef{
+		raw:          raw,
+		routeKey:     routeKey,
+		catalogPart:  strings.TrimSpace(after),
+		hierarchical: true,
+	}
+}
+
 // ChatUpstream holds resolved upstream and the model id to send.
 type ChatUpstream struct {
 	BaseURL       string
@@ -134,9 +166,15 @@ func listProjectRoutingsForVirtualKey(ctx context.Context, userCred mcclient.Tok
 }
 
 // pickRoutingForRequest chooses the best matching ai_routing on the current aiproxy instance.
-// Phase 1: exact ai_routing.model_key match (lowest priority wins).
-// Phase 2: ai_routing.model_pattern match (lowest priority wins).
+// Hierarchical refs (routingKey/catalogPart) match only ai_routing.model_key on routeKey.
+// Flat refs: Phase 1 exact ai_routing.model_key match, Phase 2 ai_routing.model_pattern match.
 func pickRoutingForRequest(routings []SAiRouting, reqModel, currentNodeId string) (*SAiRouting, error) {
+	ref := parseClientModelRef(reqModel)
+	if ref.hierarchical {
+		return pickRoutingByMatch(routings, ref.routeKey, currentNodeId, func(r *SAiRouting, key string) bool {
+			return modelKeyMatches(r.ModelKey, key)
+		})
+	}
 	if picked, err := pickRoutingByMatch(routings, reqModel, currentNodeId, func(r *SAiRouting, reqModel string) bool {
 		return modelKeyMatches(r.ModelKey, reqModel)
 	}); picked != nil || err != nil {
@@ -194,7 +232,9 @@ func resolveCatalogModelFromRouting(
 	if routing == nil {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "nil ai_routing")
 	}
-	providerId, modelId, routingLog, err := pickAiRoutingModel(ctx, userCred, routing, reqModel, body)
+	ref := parseClientModelRef(reqModel)
+	matchedByModelKey := !ref.hierarchical && modelKeyMatches(routing.ModelKey, ref.raw)
+	providerId, modelId, routingLog, err := pickAiRoutingModel(ctx, userCred, routing, ref, matchedByModelKey, body)
 	if err != nil {
 		return nil, err
 	}

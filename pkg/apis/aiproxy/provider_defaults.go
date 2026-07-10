@@ -40,6 +40,8 @@ func DefaultPublicBaseURL(providerKey string) string {
 		return "https://router.huggingface.co"
 	case ProviderKeyXiaomi:
 		return "https://api.xiaomimimo.com"
+	case ProviderKeyMoonshot:
+		return "https://api.moonshot.cn"
 	default:
 		return ""
 	}

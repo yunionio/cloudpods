@@ -52,6 +52,16 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 	app.AddHandler2("HEAD", anthropicCompatAPIPrefix+"/messages", anthropicMessagesHeadHandler, nil, "aiproxy_anthropic_v1_messages_head", nil)
 	app.AddHandler2("POST", openaiCompatAPIPrefix+"/completions", completionsHandler, nil, "aiproxy_openai_v1_completions", nil).
 		SetProcessTimeout(openaiLongProcessTimeout)
+	app.AddHandler2("POST", openaiCompatAPIPrefix+"/responses", responsesHandler, nil, "aiproxy_openai_v1_responses", nil).
+		SetProcessTimeout(openaiLongProcessTimeout)
+	app.AddHandler2("POST", "/ai/openai/responses", responsesHandler, nil, "aiproxy_openai_responses_compat", nil).
+		SetProcessTimeout(openaiLongProcessTimeout)
+	app.AddHandler2("GET", openaiCompatAPIPrefix+"/responses/<id>", responsesRetrieveHandler, nil, "aiproxy_openai_v1_responses_get", nil).
+		SetProcessTimeout(openaiShortProcessTimeout)
+	app.AddHandler2("POST", openaiCompatAPIPrefix+"/responses/<id>/cancel", responsesCancelHandler, nil, "aiproxy_openai_v1_responses_cancel", nil).
+		SetProcessTimeout(openaiShortProcessTimeout)
+	app.AddHandler2("DELETE", openaiCompatAPIPrefix+"/responses/<id>", responsesDeleteHandler, nil, "aiproxy_openai_v1_responses_delete", nil).
+		SetProcessTimeout(openaiShortProcessTimeout)
 	app.AddHandler2("POST", openaiCompatAPIPrefix+"/embeddings", embeddingsHandler, nil, "aiproxy_openai_v1_embeddings", nil).
 		SetProcessTimeout(openaiShortProcessTimeout)
 	app.AddHandler2("POST", openaiCompatAPIPrefix+"/images/generations", imagesGenerationsHandler, nil, "aiproxy_openai_v1_images_generations", nil).

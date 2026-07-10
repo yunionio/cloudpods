@@ -113,6 +113,24 @@ func TestResourceTrackerHasCreated(t *testing.T) {
 	}
 }
 
+func TestPickProxyNodeBaseURL(t *testing.T) {
+	cases := []struct {
+		access  string
+		address string
+		want    string
+	}{
+		{"https://gw.example.com/", "http://10.0.0.1:8080", "https://gw.example.com"},
+		{"", "http://10.0.0.1:8080", "http://10.0.0.1:8080"},
+		{"  ", "https://fallback.example.com", "https://fallback.example.com"},
+		{"", "", ""},
+	}
+	for _, tc := range cases {
+		if got := PickProxyNodeBaseURL(tc.access, tc.address); got != tc.want {
+			t.Fatalf("PickProxyNodeBaseURL(%q, %q) = %q, want %q", tc.access, tc.address, got, tc.want)
+		}
+	}
+}
+
 func TestDefaultAdminNames(t *testing.T) {
 	names := DefaultAdminNames("aliyun", "")
 	if names.KeyName != "aiproxy-test-aliyun" || names.VkName != "aiproxy-test-aliyun-vk" {

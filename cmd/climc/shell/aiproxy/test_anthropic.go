@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	R(&ft.AnthropicOptions{}, "aiproxy-test-anthropic", "Run aiproxy Anthropic Messages API E2E test", func(s *mcclient.ClientSession, args *ft.AnthropicOptions) error {
+	R(&ft.AnthropicOptions{}, "ai-test-anthropic", "Run aiproxy Anthropic Messages API E2E test", func(s *mcclient.ClientSession, args *ft.AnthropicOptions) error {
 		return ft.RunAnthropicTest(s, args)
 	})
 }

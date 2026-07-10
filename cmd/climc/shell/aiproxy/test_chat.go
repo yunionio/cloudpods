@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	R(&ft.ChatOptions{}, "aiproxy-test-chat", "Run aiproxy OpenAI chat E2E test", func(s *mcclient.ClientSession, args *ft.ChatOptions) error {
+	R(&ft.ChatOptions{}, "ai-test-chat", "Run aiproxy OpenAI chat E2E test", func(s *mcclient.ClientSession, args *ft.ChatOptions) error {
 		return ft.RunChatTest(s, args)
 	})
 }

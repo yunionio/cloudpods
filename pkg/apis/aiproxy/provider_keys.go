@@ -16,7 +16,7 @@ package aiproxy
 
 import "strings"
 
-// Built-in catalog provider_key values (seeded at InitDB and registered in providers).
+// Built-in provider_key values (registered in providers runtime registry).
 const (
 	ProviderKeyAliyun      = "aliyun"
 	ProviderKeyAnthropic   = "anthropic"
@@ -33,6 +33,7 @@ const (
 	ProviderKeyGroq        = "groq"
 	ProviderKeyHuggingface = "huggingface"
 	ProviderKeyMistral     = "mistral"
+	ProviderKeyMoonshot    = "moonshot"
 	ProviderKeyNebius      = "nebius"
 	ProviderKeyOllama      = "ollama"
 	ProviderKeyOpenAI      = "openai"
@@ -47,37 +48,6 @@ const (
 	ProviderKeyXai         = "xai"
 	ProviderKeyXiaomi      = "xiaomi"
 )
-
-// StandardCatalogProviderKeys lists built-in provider_key values seeded at InitDB.
-var StandardCatalogProviderKeys = []string{
-	ProviderKeyAnthropic,
-	// ProviderKeyAzure, // uncommon
-	// ProviderKeyBedrock, // uncommon
-	// ProviderKeyCerebras, // uncommon
-	// ProviderKeyCohere, // uncommon
-	ProviderKeyDeepseek,
-	ProviderKeyGemini,
-	ProviderKeyGroq,
-	ProviderKeyMistral,
-	ProviderKeyOllama,
-	ProviderKeyOpenAI,
-	// ProviderKeyParasail, // uncommon
-	// ProviderKeyPerplexity, // uncommon
-	ProviderKeySGLang,
-	// ProviderKeyVertex, // uncommon
-	ProviderKeyOpenrouter,
-	// ProviderKeyElevenlabs, // uncommon
-	ProviderKeyHuggingface,
-	// ProviderKeyNebius, // uncommon
-	// ProviderKeyXai, // uncommon
-	// ProviderKeyReplicate, // uncommon
-	ProviderKeyVLLM,
-	// ProviderKeyRunway, // uncommon
-	// ProviderKeyFireworks, // uncommon
-	// ProviderKeyAliyun, // uncommon
-	// ProviderKeyBaidu, // uncommon
-	ProviderKeyXiaomi,
-}
 
 // OpenAICompatProviderKeys are catalog keys routed through openai.NewCompat.
 var OpenAICompatProviderKeys = []string{
@@ -96,6 +66,7 @@ var OpenAICompatProviderKeys = []string{
 	ProviderKeyHuggingface,
 	ProviderKeyOllama,
 	ProviderKeyXiaomi,
+	ProviderKeyMoonshot,
 }
 
 var nativeMessagesAdapterProviderKeys = map[string]struct{}{
@@ -103,6 +74,18 @@ var nativeMessagesAdapterProviderKeys = map[string]struct{}{
 	// ProviderKeyCohere: {}, // uncommon
 	// ProviderKeyBaidu:  {}, // uncommon
 	// ProviderKeyAliyun: {}, // uncommon
+}
+
+var nativeResponsesProviderKeys = map[string]struct{}{
+	ProviderKeyOpenAI: {},
+	ProviderKeyAzure:  {},
+}
+
+// IsNativeResponsesProvider reports whether provider_key proxies upstream /v1/responses directly.
+func IsNativeResponsesProvider(providerKey string) bool {
+	key := strings.ToLower(strings.TrimSpace(providerKey))
+	_, ok := nativeResponsesProviderKeys[key]
+	return ok
 }
 
 // IsNativeMessagesAdapterProvider reports whether provider_key uses a dedicated

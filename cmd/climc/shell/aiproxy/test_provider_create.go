@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	R(&ft.ProviderCreateOptions{}, "aiproxy-test-provider-create", "Create custom ai_provider and verify", func(s *mcclient.ClientSession, args *ft.ProviderCreateOptions) error {
+	R(&ft.ProviderCreateOptions{}, "ai-test-provider-create", "Create custom ai_provider and verify", func(s *mcclient.ClientSession, args *ft.ProviderCreateOptions) error {
 		return ft.RunProviderCreateTest(s, args)
 	})
 }
