@@ -23,11 +23,6 @@ const (
 	autoGpuMemoryUtilizationMin          = 0.05
 	autoGpuMemoryUtilizationMax          = 0.95
 
-	// vLLM derives an unset max-model-len from model config. When auto GPU
-	// memory utilization is enabled, inject a conservative cap so the heuristic
-	// VRAM estimate is not paired with an unexpectedly large context.
-	autoGpuMemoryUtilizationDefaultContextTokens = int64(8192)
-
 	sglangAutoGpuMemoryMetadataReserveMB = 512
 )
 
@@ -465,7 +460,7 @@ func buildAutoGpuMemoryUtilizationLLMSpec(sku *SLLMSku, utilization float64) (*a
 		if spec != nil && spec.Vllm != nil && !runtimeHasExplicitTokenLimit(sku) {
 			spec.Vllm.CustomizedArgs = append(spec.Vllm.CustomizedArgs, &api.VllmCustomizedArg{
 				Key:   "max-model-len",
-				Value: strconv.FormatInt(autoGpuMemoryUtilizationDefaultContextTokens, 10),
+				Value: strconv.FormatInt(api.LLM_DEFAULT_CONTEXT_TOKENS, 10),
 			})
 		}
 	}

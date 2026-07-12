@@ -16,7 +16,6 @@ const (
 	LLM_IMAGE_TYPE_COMFYUI      LLMImageType = "comfyui"
 	LLM_IMAGE_TYPE_OPENCLAW     LLMImageType = "openclaw"
 	LLM_IMAGE_TYPE_HERMES_AGENT LLMImageType = "hermes-agent"
-	LLM_IMAGE_TYPE_LLM_ROUTER   LLMImageType = "llm-router"
 	LLM_IMAGE_TYPE_DESKTOP      LLMImageType = "desktop"
 	LLM_IMAGE_TYPE_BENCHMARK    LLMImageType = "benchmark"
 )
@@ -30,7 +29,6 @@ var (
 		string(LLM_IMAGE_TYPE_COMFYUI),
 		string(LLM_IMAGE_TYPE_OPENCLAW),
 		string(LLM_IMAGE_TYPE_HERMES_AGENT),
-		string(LLM_IMAGE_TYPE_LLM_ROUTER),
 		string(LLM_IMAGE_TYPE_DESKTOP),
 		string(LLM_IMAGE_TYPE_BENCHMARK),
 	)
