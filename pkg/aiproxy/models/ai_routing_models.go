@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
@@ -629,7 +630,7 @@ func callAiRoutingRouter(ctx context.Context, routing *SAiRouting, routerModel s
 		return nil, errors.Wrap(err, "new router request")
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httputils.GetTimeoutClient(time.Duration(timeout) * time.Second).Do(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "call ai routing router")
 	}

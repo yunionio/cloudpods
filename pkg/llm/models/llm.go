@@ -914,6 +914,13 @@ func (llm *SLLM) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSO
 	if cnt > 0 {
 		return httperrors.NewConflictError("LLM is being used by %d MCPAgents", cnt)
 	}
+	cnt, err = GetLLMRouterAgentManager().Query().Equals("llm_id", llm.Id).CountWithError()
+	if err != nil {
+		return errors.Wrap(err, "GetLLMRouterAgentManager().Query().CountWithError")
+	}
+	if cnt > 0 {
+		return httperrors.NewConflictError("LLM is being used by %d LLMRouterAgents", cnt)
+	}
 	return nil
 }
 

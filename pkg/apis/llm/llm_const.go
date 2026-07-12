@@ -4,6 +4,8 @@ const (
 	STATUS_READY = "ready"
 )
 
+const LLM_DEFAULT_CONTEXT_TOKENS = 8192
+
 const (
 	/* 未知 */
 	LLM_STATUS_UNKNOWN = "unknown"
