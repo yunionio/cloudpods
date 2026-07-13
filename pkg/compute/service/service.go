@@ -112,8 +112,8 @@ func StartServiceWithJobs(jobs func(cron *cronman.SCronJobManager)) {
 
 	setInfluxdbRetentionPolicy()
 
-	models.InitSyncWorkers(options.Options.CloudSyncWorkerCount)
-	tasks.InitCloudproviderSyncWorkers(options.Options.CloudProviderSyncWorkerCount)
+	models.InitSyncWorkers(opts.CloudSyncWorkerCount, opts.CloudAccountProbeWorkerCount, opts.CloudAccountSyncProbeWorkerCount)
+	tasks.InitCloudproviderSyncWorkers(opts.CloudProviderSyncWorkerCount)
 
 	var (
 		electObj        *elect.Elect
