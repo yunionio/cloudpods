@@ -3131,6 +3131,10 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 				return nil, errors.Wrap(err, "reset guest quorum child index")
 			}
 		}
+	} else if input.Status == api.VM_READY && len(self.GetMetadata(ctx, api.QUORUM_CHILD_INDEX, userCred)) > 0 {
+		if err := self.ResetGuestQuorumChildIndex(ctx, userCred); err != nil {
+			return nil, errors.Wrap(err, "reset guest quorum child index")
+		}
 	}
 
 	if input.Status == api.VM_RUNNING && input.BlockJobsCount == 0 {
