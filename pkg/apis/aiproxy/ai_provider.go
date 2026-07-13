@@ -83,14 +83,26 @@ func (c *SAiProviderConfig) EffectiveBaseURL(providerKey string) string {
 		return base
 	}
 	pk := strings.ToLower(strings.TrimSpace(providerKey))
-	if pk != ProviderKeyDeepseek {
+	switch pk {
+	case ProviderKeyDeepseek:
+		base = strings.TrimRight(base, "/")
+		if strings.HasSuffix(strings.ToLower(base), "/anthropic") {
+			return base
+		}
+		return base + "/anthropic"
+	case ProviderKeyZhipu:
+		base = strings.TrimRight(base, "/")
+		if strings.HasSuffix(strings.ToLower(base), "/api/anthropic") {
+			return base
+		}
+		openaiDefault := strings.TrimRight(DefaultPublicBaseURL(ProviderKeyZhipu), "/")
+		if base == "" || strings.EqualFold(base, openaiDefault) {
+			return DefaultZhipuAnthropicBaseURL()
+		}
+		return base
+	default:
 		return base
 	}
-	base = strings.TrimRight(base, "/")
-	if strings.HasSuffix(strings.ToLower(base), "/anthropic") {
-		return base
-	}
-	return base + "/anthropic"
 }
 
 // String implements gotypes.ISerializable for sqlchemy JSON/compound columns.

@@ -23,3 +23,11 @@ func TestChatCompletionsURLMoonshot(t *testing.T) {
 		t.Fatalf("ChatCompletionsURL() = %q, want %q", got, want)
 	}
 }
+
+func TestChatCompletionsURLZhipu(t *testing.T) {
+	got := ChatCompletionsURL("https://open.bigmodel.cn/api/paas/v4")
+	want := "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+	if got != want {
+		t.Fatalf("ChatCompletionsURL() = %q, want %q", got, want)
+	}
+}

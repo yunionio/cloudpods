@@ -14,6 +14,7 @@ func TestCatalogSeedModelsForPublicProviders(t *testing.T) {
 		api.ProviderKeyGemini,
 		api.ProviderKeyMoonshot,
 		api.ProviderKeyXiaomi,
+		api.ProviderKeyZhipu,
 	}
 	for _, pk := range publicKeys {
 		if !api.HasDefaultPublicBaseURL(pk) {

@@ -41,6 +41,8 @@ func DefaultModelForProvider(providerKey string) string {
 		return "kimi-k2.6"
 	case api.ProviderKeyDeepseek:
 		return "deepseek-v4-flash"
+	case api.ProviderKeyZhipu:
+		return "glm-5.2"
 	case api.ProviderKeyOpenAI:
 		return "gpt-4o-mini"
 	case api.ProviderKeyAnthropic:
@@ -58,6 +60,8 @@ func DefaultPromptForProvider(providerKey string) string {
 		return "用一句话介绍小米 MiMo"
 	case api.ProviderKeyMoonshot:
 		return "用一句话介绍 Kimi"
+	case api.ProviderKeyZhipu:
+		return "用一句话介绍 Z.AI GLM"
 	default:
 		return "用一句话介绍这个模型"
 	}

@@ -123,6 +123,32 @@ func TestGetAdapterCustomAnthropicPassthrough(t *testing.T) {
 	}
 }
 
+func TestGetAdapterZhipuAnthropicPassthrough(t *testing.T) {
+	adapter, err := GetAdapter("zhipu", "anthropic")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !adapter.AnthropicStreamPassthrough() {
+		t.Fatal("expected passthrough stream for zhipu anthropic mode")
+	}
+	body := jsonutils.NewDict()
+	body.Set("model", jsonutils.NewString("glm-5.2"))
+	body.Set("max_tokens", jsonutils.NewInt(100))
+	user := jsonutils.NewDict()
+	user.Set("role", jsonutils.NewString("user"))
+	user.Set("content", jsonutils.NewString("hi"))
+	body.Set("messages", jsonutils.NewArray(user))
+
+	req, err := adapter.BuildUpstreamRequest(testChatCtx("zhipu", "https://open.bigmodel.cn/api/anthropic", "zhipu-key", "glm-5.2"), body, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "https://open.bigmodel.cn/api/anthropic/v1/messages"
+	if req.URL != want {
+		t.Fatalf("url: %s, want %s", req.URL, want)
+	}
+}
+
 func TestGetAdapterBlocksGemini(t *testing.T) {
 	if _, err := GetAdapter("gemini", ""); err == nil {
 		t.Fatal("expected gemini to be unsupported")
