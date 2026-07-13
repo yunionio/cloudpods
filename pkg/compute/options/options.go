@@ -151,11 +151,13 @@ type ComputeOptions struct {
 
 	MinimalIpAddrReusedIntervalSeconds int `help:"Minimal seconds when a release IP address can be reallocate" default:"30"`
 
-	CloudSyncWorkerCount         int `help:"how many current synchronization threads" default:"5"`
-	CloudProviderSyncWorkerCount int `help:"how many current providers synchronize their regions, practically no limit" default:"10"`
-	CloudAutoSyncIntervalSeconds int `help:"frequency to check auto sync tasks" default:"300"`
-	DefaultSyncIntervalSeconds   int `help:"minimal synchronization interval, default 15 minutes" default:"900"`
-	MaxCloudAccountErrorCount    int `help:"maximal consecutive error count allow for a cloud account" default:"5"`
+	CloudSyncWorkerCount             int `help:"how many current synchronization threads" default:"5"`
+	CloudProviderSyncWorkerCount     int `help:"how many current providers synchronize their regions, practically no limit" default:"10"`
+	CloudAccountProbeWorkerCount     int `help:"how many workers for auto cloud account status probe" default:"10"`
+	CloudAccountSyncProbeWorkerCount int `help:"how many workers for cloud account sync probe before resource sync" default:"10"`
+	CloudAutoSyncIntervalSeconds     int `help:"frequency to check auto sync tasks" default:"300"`
+	DefaultSyncIntervalSeconds       int `help:"minimal synchronization interval, default 15 minutes" default:"900"`
+	MaxCloudAccountErrorCount        int `help:"maximal consecutive error count allow for a cloud account" default:"5"`
 
 	EnableSyncName bool `help:"enable name sync" default:"true"`
 
