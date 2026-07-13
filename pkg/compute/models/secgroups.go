@@ -592,7 +592,7 @@ func (self *SSecurityGroup) getSecurityRuleString() (string, error) {
 	}
 	var rules []string
 	for _, rule := range secgrouprules {
-		rules = append(rules, rule.String())
+		rules = append(rules, rule.Strings()...)
 	}
 	return strings.Join(rules, SECURITY_GROUP_SEPARATOR), nil
 }

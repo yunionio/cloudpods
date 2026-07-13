@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 	randutil "yunion.io/x/pkg/util/rand"
-	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
@@ -1602,7 +1601,7 @@ func (self *SKVMRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.C
 		}
 	}
 
-	if input.CIDR != nil && len(*input.CIDR) > 0 && !regutils.MatchCIDR(*input.CIDR) && !regutils.MatchIP4Addr(*input.CIDR) && !regutils.MatchCIDR6(*input.CIDR) && !regutils.MatchIP6Addr(*input.CIDR) {
+	if input.CIDR != nil && len(*input.CIDR) > 0 && !api.IsValidSecgroupRuleCIDR(*input.CIDR) {
 		return nil, httperrors.NewInputParameterError("invalid cidr %s", *input.CIDR)
 	}
 
