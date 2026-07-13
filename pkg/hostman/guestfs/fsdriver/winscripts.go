@@ -473,12 +473,14 @@ function mtw_mount_disk() {
 }
 
 function mtw_extend_c() {
-    cmd_lines = [
+    mtw_execute_diskpart([
         'select volume c',
         'extend',
+    ]);
+    mtw_execute_diskpart([
+        'select volume c',
         'extend filesystem',
-    ];
-    mtw_execute_diskpart(cmd_lines);
+    ]);
     mtw_append_debug(["extend c"], ["success"]);
 }
 
