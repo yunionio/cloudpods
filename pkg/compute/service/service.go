@@ -135,7 +135,7 @@ func StartServiceWithJobsAndApp(jobs func(cron *cronman.SCronJobManager), appCll
 func startMasterTasks(opts *options.ComputeOptions, dbOpts *common_options.DBOptions, jobs func(cron *cronman.SCronJobManager)) context.CancelFunc {
 	setInfluxdbRetentionPolicy()
 
-	models.InitSyncWorkers(opts.CloudSyncWorkerCount)
+	models.InitSyncWorkers(opts.CloudSyncWorkerCount, opts.CloudAccountProbeWorkerCount, opts.CloudAccountSyncProbeWorkerCount)
 	cloudaccount_tasks.InitCloudproviderSyncWorkers(opts.CloudProviderSyncWorkerCount)
 
 	var (
