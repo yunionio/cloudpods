@@ -3500,7 +3500,7 @@ func (self *SGuest) getSecurityGroupsRules() string {
 	}
 	rules := []string{}
 	for _, rule := range secrules {
-		rules = append(rules, rule.String())
+		rules = append(rules, rule.Strings()...)
 	}
 	return strings.Join(rules, SECURITY_GROUP_SEPARATOR)
 }
@@ -3520,7 +3520,7 @@ func (self *SGuest) getNetworkSecurityGroupsRules(networkIndex int) string {
 	}
 	rules := []string{}
 	for _, rule := range secrules {
-		rules = append(rules, rule.String())
+		rules = append(rules, rule.Strings()...)
 	}
 	return strings.Join(rules, SECURITY_GROUP_SEPARATOR)
 }
