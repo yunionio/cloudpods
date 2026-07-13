@@ -51,6 +51,7 @@ climc ai-test-chat
 | `DASHSCOPE_API_KEY` | 通义千问（`provider=aliyun`） |
 | `MIMO_API_KEY` | 小米 MiMo（`provider=xiaomi`） |
 | `MOONSHOT_API_KEY` | Moonshot / Kimi（`provider=moonshot`） |
+| `ZHIPU_API_KEY` / `ZAI_API_KEY` | Z.AI / 智谱（`provider=zhipu`） |
 | `ANTHROPIC_API_KEY` | Anthropic 直通 |
 | `DEEPSEEK_API_KEY` | DeepSeek（Anthropic 兼容场景） |
 | `AIPROXY_TEST_SKIP_STREAM` | `1` 跳过流式；`0` 强制流式 |
@@ -111,6 +112,48 @@ climc ai-test-chat --provider moonshot --model kimi-k2.6 --api-key "$MOONSHOT_AP
 ```
 
 其它 catalog 模型：`kimi-k2.7-code`、`kimi-k2.5`、`moonshot-v1-8k` 等（id 形如 `moonshot-kimi-k2.6`）。
+
+### Z.AI / 智谱（zhipu）
+
+控制台展示为 **Z.AI**，`provider_key` 固定为 **`zhipu`**。上游 OpenAI 兼容 base 为 `https://open.bigmodel.cn/api/paas/v4`；Anthropic 兼容 base 为 `https://open.bigmodel.cn/api/anthropic`。支持 `config.api_mode=openai|anthropic`（与 DeepSeek 类似的双 API 模式）。
+
+**OpenAI 兼容（默认 `api_mode=openai`）**：
+
+```bash
+export ZHIPU_API_KEY='你的智谱 API Key'
+climc ai-test-chat --provider zhipu --model glm-5.2 --api-key "$ZHIPU_API_KEY"
+```
+
+**Anthropic 兼容（`config.api_mode=anthropic`）**：aiproxy 将 Anthropic SDK 请求直通 `https://open.bigmodel.cn/api/anthropic/v1/messages`（`base_url` 可仍填 OpenAI 默认，由 aiproxy 自动切换）。
+
+```bash
+climc ai-test-anthropic --provider zhipu --model glm-5.2 \
+  --api-key "$ZHIPU_API_KEY" --upstream-base-url https://open.bigmodel.cn/api/anthropic
+```
+
+创建 provider 示例：
+
+```json
+{
+  "generate_name": "my-zhipu",
+  "provider_key": "zhipu",
+  "secret": "<zhipu-api-key>",
+  "config": {
+    "base_url": "https://open.bigmodel.cn/api/paas/v4",
+    "api_mode": "openai"
+  }
+}
+```
+
+其它 catalog 模型：`glm-5.1`、`glm-5-turbo`、`glm-4.7`、`glm-4.7-flash` 等（id 形如 `zhipu-glm-5.2`）。
+
+非交互：
+
+```bash
+export AIPROXY_TEST_PROVIDER=zhipu AIPROXY_TEST_MODEL=glm-5.2
+export AIPROXY_TEST_API_KEY="$ZHIPU_API_KEY"
+climc ai-test-chat
+```
 
 ### Anthropic Messages API
 

@@ -42,9 +42,16 @@ func DefaultPublicBaseURL(providerKey string) string {
 		return "https://api.xiaomimimo.com"
 	case ProviderKeyMoonshot:
 		return "https://api.moonshot.cn"
+	case ProviderKeyZhipu:
+		return "https://open.bigmodel.cn/api/paas/v4"
 	default:
 		return ""
 	}
+}
+
+// DefaultZhipuAnthropicBaseURL is the upstream base for Zhipu Claude-compatible API.
+func DefaultZhipuAnthropicBaseURL() string {
+	return "https://open.bigmodel.cn/api/anthropic"
 }
 
 // HasDefaultPublicBaseURL reports whether provider_key has a built-in public base URL.

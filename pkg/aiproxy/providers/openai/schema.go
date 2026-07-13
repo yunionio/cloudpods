@@ -137,10 +137,7 @@ func ChatCompletionsURL(baseURL string) string {
 	if strings.HasSuffix(base, "/chat/completions") {
 		return base
 	}
-	if strings.HasSuffix(base, "/v2") {
-		return base + "/chat/completions"
-	}
-	if strings.HasSuffix(base, "/v1") {
+	if hasAPIVersionPathSuffix(base) {
 		return base + "/chat/completions"
 	}
 	return base + "/v1/chat/completions"
@@ -152,10 +149,7 @@ func CompletionsURL(baseURL string) string {
 	if strings.HasSuffix(base, "/completions") {
 		return base
 	}
-	if strings.HasSuffix(base, "/v2") {
-		return base + "/completions"
-	}
-	if strings.HasSuffix(base, "/v1") {
+	if hasAPIVersionPathSuffix(base) {
 		return base + "/completions"
 	}
 	return base + "/v1/completions"
@@ -167,10 +161,7 @@ func EmbeddingsURL(baseURL string) string {
 	if strings.HasSuffix(base, "/embeddings") {
 		return base
 	}
-	if strings.HasSuffix(base, "/v2") {
-		return base + "/embeddings"
-	}
-	if strings.HasSuffix(base, "/v1") {
+	if hasAPIVersionPathSuffix(base) {
 		return base + "/embeddings"
 	}
 	return base + "/v1/embeddings"
@@ -182,13 +173,19 @@ func ImagesGenerationsURL(baseURL string) string {
 	if strings.HasSuffix(base, "/images/generations") {
 		return base
 	}
-	if strings.HasSuffix(base, "/v2") {
-		return base + "/images/generations"
-	}
-	if strings.HasSuffix(base, "/v1") {
+	if hasAPIVersionPathSuffix(base) {
 		return base + "/images/generations"
 	}
 	return base + "/v1/images/generations"
+}
+
+func hasAPIVersionPathSuffix(base string) bool {
+	idx := strings.LastIndex(base, "/")
+	if idx < 0 {
+		return false
+	}
+	seg := base[idx+1:]
+	return len(seg) >= 2 && seg[0] == 'v' && seg[1] >= '0' && seg[1] <= '9'
 }
 
 // BearerAuthHeaders returns standard OpenAI bearer auth headers.

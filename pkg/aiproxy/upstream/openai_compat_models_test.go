@@ -25,6 +25,7 @@ func TestModelsURL(t *testing.T) {
 		{"https://api.openai.com/v1", "https://api.openai.com/v1/models"},
 		{"https://generativelanguage.googleapis.com/v1beta", "https://generativelanguage.googleapis.com/v1beta/models"},
 		{"https://api.deepseek.com/anthropic", "https://api.deepseek.com/anthropic/v1/models"},
+		{"https://open.bigmodel.cn/api/paas/v4", "https://open.bigmodel.cn/api/paas/v4/models"},
 	}
 	for _, tc := range cases {
 		if got := ModelsURL(tc.base); got != tc.want {

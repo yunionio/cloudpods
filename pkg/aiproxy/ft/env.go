@@ -75,6 +75,11 @@ func resolveApiKeyFromEnv(providerKey string) string {
 		return os.Getenv("MIMO_API_KEY")
 	case "moonshot":
 		return os.Getenv("MOONSHOT_API_KEY")
+	case "zhipu":
+		if v := os.Getenv("ZHIPU_API_KEY"); v != "" {
+			return v
+		}
+		return os.Getenv("ZAI_API_KEY")
 	case "anthropic":
 		return os.Getenv("ANTHROPIC_API_KEY")
 	case "openai":
