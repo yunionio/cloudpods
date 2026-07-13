@@ -254,6 +254,8 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 		return xiaomiMimoSeedModels()
 	case api.ProviderKeyMoonshot:
 		return moonshotKimiSeedModels()
+	case api.ProviderKeyZhipu:
+		return zhipuGLMSeedModels()
 	default:
 		return nil
 	}
@@ -356,5 +358,17 @@ func moonshotKimiSeedModels() []catalogSeedModel {
 		{ModelKey: "moonshot-v1-8k-vision-preview", Description: "Moonshot v1 8K Vision"},
 		{ModelKey: "moonshot-v1-32k-vision-preview", Description: "Moonshot v1 32K Vision"},
 		{ModelKey: "moonshot-v1-128k-vision-preview", Description: "Moonshot v1 128K Vision"},
+	}
+}
+
+func zhipuGLMSeedModels() []catalogSeedModel {
+	return []catalogSeedModel{
+		{ModelKey: "glm-5.2", Description: "Z.AI GLM-5.2 flagship; 1M context; long-horizon agents"},
+		{ModelKey: "glm-5.1", Description: "Z.AI GLM-5.1; long-horizon tasks"},
+		{ModelKey: "glm-5-turbo", Description: "Z.AI GLM-5-Turbo; cost-efficient"},
+		{ModelKey: "glm-4.7", Description: "Z.AI GLM-4.7; general chat and coding"},
+		{ModelKey: "glm-4.7-flash", Description: "Z.AI GLM-4.7-Flash; free tier"},
+		{ModelKey: "glm-4.6", Description: "Z.AI GLM-4.6; 200K context"},
+		{ModelKey: "glm-5v-turbo", Description: "Z.AI GLM-5V-Turbo; vision"},
 	}
 }

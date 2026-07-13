@@ -79,7 +79,10 @@ func (e *Error) Error() string {
 // BaseURL is the origin + optional path prefix (e.g. https://dashscope.aliyuncs.com/compatible-mode).
 func ChatCompletionsURL(baseURL string) string {
 	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	if strings.HasSuffix(base, "/v1") {
+	if strings.HasSuffix(base, "/chat/completions") {
+		return base
+	}
+	if strings.HasSuffix(base, "/v1") || hasAPIVersionPathSuffix(base) {
 		return base + "/chat/completions"
 	}
 	return base + "/v1/chat/completions"
