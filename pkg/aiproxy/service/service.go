@@ -48,17 +48,17 @@ func StartService() {
 		log.Fatalf("init local proxy node id: %v", err)
 	}
 	chatlog.Configure(chatlog.Options{
-		Enabled:               opts.ChatLogEnabled,
-		LocalDir:              opts.ChatLogLocalDir,
-		UploadEnabled:         opts.ChatLogUploadEnabled,
-		UploadIntervalSeconds: opts.ChatLogUploadIntervalSeconds,
-		SegmentMinutes:        opts.ChatLogSegmentMinutes,
-		MinioEndpoint:         opts.ChatLogMinioEndpoint,
-		MinioAccessKey:        opts.ChatLogMinioAccessKey,
-		MinioSecretKey:        opts.ChatLogMinioSecretKey,
-		MinioBucket:           opts.ChatLogMinioBucket,
-		MinioSecure:           opts.ChatLogMinioSecure,
-		MinioPrefix:           opts.ChatLogMinioPrefix,
+		Enabled:               opts.APILogEnabled,
+		LocalDir:              opts.APILogLocalDir,
+		UploadEnabled:         opts.APILogUploadEnabled,
+		UploadIntervalSeconds: opts.APILogUploadIntervalSeconds,
+		SegmentMinutes:        opts.APILogSegmentMinutes,
+		S3Endpoint:            opts.APILogS3Endpoint,
+		S3AccessKey:           opts.APILogS3AccessKey,
+		S3SecretKey:           opts.APILogS3SecretKey,
+		S3Bucket:              opts.APILogS3Bucket,
+		S3Secure:              opts.APILogS3Secure,
+		S3Prefix:              opts.APILogS3Prefix,
 		Instance:              models.CurrentProxyNodeId(),
 	})
 	uploadCtx, stopUpload := context.WithCancel(context.Background())
