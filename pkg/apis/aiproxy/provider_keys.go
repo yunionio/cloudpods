@@ -47,6 +47,7 @@ const (
 	ProviderKeyVLLM        = "vllm"
 	ProviderKeyXai         = "xai"
 	ProviderKeyXiaomi      = "xiaomi"
+	ProviderKeyZhipu       = "zhipu"
 )
 
 // OpenAICompatProviderKeys are catalog keys routed through openai.NewCompat.
@@ -67,6 +68,7 @@ var OpenAICompatProviderKeys = []string{
 	ProviderKeyOllama,
 	ProviderKeyXiaomi,
 	ProviderKeyMoonshot,
+	ProviderKeyZhipu,
 }
 
 var nativeMessagesAdapterProviderKeys = map[string]struct{}{
@@ -105,6 +107,7 @@ const (
 var DualAPIProviderKeys = map[string]struct{}{
 	ProviderKeyCustom:   {},
 	ProviderKeyDeepseek: {},
+	ProviderKeyZhipu:    {},
 }
 
 // IsCustomProviderKey reports whether provider_key is the user-defined custom gateway type.

@@ -40,6 +40,9 @@ func TestSupportsDualAPIMode(t *testing.T) {
 	if !SupportsDualAPIMode(ProviderKeyCustom) {
 		t.Fatal("custom should support dual api mode")
 	}
+	if !SupportsDualAPIMode(ProviderKeyZhipu) {
+		t.Fatal("zhipu should support dual api mode")
+	}
 	if SupportsDualAPIMode(ProviderKeyOpenAI) {
 		t.Fatal("openai should not support dual api mode")
 	}
@@ -99,5 +102,41 @@ func TestHasDefaultPublicBaseURL(t *testing.T) {
 	}
 	if DefaultPublicBaseURL(ProviderKeyMoonshot) != "https://api.moonshot.cn" {
 		t.Fatalf("moonshot default base = %q", DefaultPublicBaseURL(ProviderKeyMoonshot))
+	}
+	if !HasDefaultPublicBaseURL(ProviderKeyZhipu) {
+		t.Fatal("zhipu should have default base url")
+	}
+	if DefaultPublicBaseURL(ProviderKeyZhipu) != "https://open.bigmodel.cn/api/paas/v4" {
+		t.Fatalf("zhipu default base = %q", DefaultPublicBaseURL(ProviderKeyZhipu))
+	}
+}
+
+func TestEffectiveBaseURLZhipuAnthropic(t *testing.T) {
+	cfg := &SAiProviderConfig{
+		BaseURL: "https://open.bigmodel.cn/api/paas/v4",
+		APIMode: ProviderAPIModeAnthropic,
+	}
+	got := cfg.EffectiveBaseURL(ProviderKeyZhipu)
+	want := DefaultZhipuAnthropicBaseURL()
+	if got != want {
+		t.Fatalf("EffectiveBaseURL() = %q, want %q", got, want)
+	}
+}
+
+func TestEffectiveBaseURLZhipuAnthropicFallback(t *testing.T) {
+	cfg := &SAiProviderConfig{APIMode: ProviderAPIModeAnthropic}
+	got := cfg.EffectiveBaseURL(ProviderKeyZhipu)
+	want := DefaultZhipuAnthropicBaseURL()
+	if got != want {
+		t.Fatalf("EffectiveBaseURL() = %q, want %q", got, want)
+	}
+}
+
+func TestEffectiveBaseURLZhipuOpenAI(t *testing.T) {
+	cfg := &SAiProviderConfig{}
+	got := cfg.EffectiveBaseURL(ProviderKeyZhipu)
+	want := "https://open.bigmodel.cn/api/paas/v4"
+	if got != want {
+		t.Fatalf("EffectiveBaseURL() = %q, want %q", got, want)
 	}
 }
