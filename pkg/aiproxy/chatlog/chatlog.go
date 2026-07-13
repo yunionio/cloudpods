@@ -44,12 +44,12 @@ type Options struct {
 	UploadEnabled         bool
 	UploadIntervalSeconds int
 	SegmentMinutes        int
-	MinioEndpoint         string
-	MinioAccessKey        string
-	MinioSecretKey        string
-	MinioBucket           string
-	MinioSecure           bool
-	MinioPrefix           string
+	S3Endpoint            string
+	S3AccessKey           string
+	S3SecretKey           string
+	S3Bucket              string
+	S3Secure              bool
+	S3Prefix              string
 	Instance              string
 }
 
@@ -255,12 +255,12 @@ func UploadKey(prefix string, ts time.Time, filename string, instance string) st
 }
 
 func (w *Writer) s3Client() (*s3.Client, error) {
-	if w.opts.MinioEndpoint == "" || w.opts.MinioBucket == "" || w.opts.MinioAccessKey == "" || w.opts.MinioSecretKey == "" {
-		return nil, errors.New("missing MinIO/S3 config")
+	if w.opts.S3Endpoint == "" || w.opts.S3Bucket == "" || w.opts.S3AccessKey == "" || w.opts.S3SecretKey == "" {
+		return nil, errors.New("missing S3 config")
 	}
-	endpoint := strings.TrimSpace(w.opts.MinioEndpoint)
+	endpoint := strings.TrimSpace(w.opts.S3Endpoint)
 	if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
-		if w.opts.MinioSecure {
+		if w.opts.S3Secure {
 			endpoint = "https://" + endpoint
 		} else {
 			endpoint = "http://" + endpoint
@@ -268,7 +268,7 @@ func (w *Writer) s3Client() (*s3.Client, error) {
 	}
 	return s3.NewFromConfig(aws.Config{
 		Region:       "us-east-1",
-		Credentials:  credentials.NewStaticCredentialsProvider(w.opts.MinioAccessKey, w.opts.MinioSecretKey, ""),
+		Credentials:  credentials.NewStaticCredentialsProvider(w.opts.S3AccessKey, w.opts.S3SecretKey, ""),
 		BaseEndpoint: aws.String(endpoint),
 	}, func(o *s3.Options) {
 		o.UsePathStyle = true
@@ -433,7 +433,7 @@ func (w *Writer) Read(ctx context.Context, opts ReadOptions) (*ReadResult, error
 		return nil, err
 	}
 	ret := &ReadResult{Logs: make([]Record, 0)}
-	for _, prefix := range hourPrefixes(w.opts.MinioPrefix, opts.Start, opts.End) {
+	for _, prefix := range hourPrefixes(w.opts.S3Prefix, opts.Start, opts.End) {
 		if err := w.readPrefix(ctx, client, prefix, opts, ret); err != nil {
 			return nil, err
 		}
@@ -446,7 +446,7 @@ func (w *Writer) Read(ctx context.Context, opts ReadOptions) (*ReadResult, error
 
 func (w *Writer) readPrefix(ctx context.Context, client *s3.Client, prefix string, opts ReadOptions, ret *ReadResult) error {
 	in := &s3.ListObjectsV2Input{
-		Bucket: aws.String(w.opts.MinioBucket),
+		Bucket: aws.String(w.opts.S3Bucket),
 		Prefix: aws.String(prefix),
 	}
 	for {
@@ -475,7 +475,7 @@ func (w *Writer) readPrefix(ctx context.Context, client *s3.Client, prefix strin
 
 func (w *Writer) readObject(ctx context.Context, client *s3.Client, key string, opts ReadOptions, ret *ReadResult) error {
 	out, err := client.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(w.opts.MinioBucket),
+		Bucket: aws.String(w.opts.S3Bucket),
 		Key:    aws.String(key),
 	})
 	if err != nil {
@@ -525,12 +525,12 @@ func (w *Writer) uploadFile(ctx context.Context, path string) error {
 	if err != nil {
 		return err
 	}
-	if err := ensureBucket(ctx, client, w.opts.MinioBucket); err != nil {
+	if err := ensureBucket(ctx, client, w.opts.S3Bucket); err != nil {
 		return err
 	}
-	key := UploadKey(w.opts.MinioPrefix, ts, path, w.opts.Instance)
+	key := UploadKey(w.opts.S3Prefix, ts, path, w.opts.Instance)
 	_, err = client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(w.opts.MinioBucket),
+		Bucket: aws.String(w.opts.S3Bucket),
 		Key:    aws.String(key),
 		Body:   f,
 	})
