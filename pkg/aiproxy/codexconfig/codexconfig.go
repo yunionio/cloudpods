@@ -180,7 +180,12 @@ func Run(session *mcclient.ClientSession, opts *Options) error {
 	if err != nil {
 		return err
 	}
-	catalog := EnsureModelInCatalog(BuildCatalogFromIDs(entries), model)
+	visualSlugs, err := resolveVisualActiveClientModelIDs(session, opts.Routing)
+	if err != nil {
+		return err
+	}
+	catalog := ApplyVisualModalities(BuildCatalogFromIDs(entries), visualSlugs)
+	catalog = EnsureModelInCatalog(catalog, model, visualSlugs)
 
 	providerName := strings.TrimSpace(opts.ProviderName)
 	if providerName == "" {

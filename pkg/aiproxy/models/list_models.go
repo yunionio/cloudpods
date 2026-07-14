@@ -210,6 +210,40 @@ func ClientFacingModelIDsForRouting(
 	return out
 }
 
+// VisualActiveClientModelIDsForRouting returns client-facing model ids whose
+// bound ai_model has VisualActive() (enabled visual extension + provider/model columns).
+func VisualActiveClientModelIDsForRouting(
+	routing *SAiRouting,
+	bindings []SAiRoutingModel,
+	modelsById map[string]*SAiModel,
+	providers map[string]*SAiProvider,
+) map[string]struct{} {
+	out := make(map[string]struct{})
+	if routing == nil {
+		return out
+	}
+	routeKey := strings.TrimSpace(routing.ModelKey)
+	for i := range bindings {
+		e := &bindings[i]
+		prov := providers[e.AiProviderId]
+		mdl := modelsById[e.AiModelId]
+		if prov == nil || mdl == nil || !mdl.VisualActive() {
+			continue
+		}
+		var id string
+		if routeKey != "" {
+			id = hierarchicalClientModelID(routing, e, mdl)
+		} else {
+			id = clientFacingModelID(routing, e, mdl)
+		}
+		if id == "" {
+			continue
+		}
+		out[id] = struct{}{}
+	}
+	return out
+}
+
 func hierarchicalClientModelID(routing *SAiRouting, entry *SAiRoutingModel, mdl *SAiModel) string {
 	if routing == nil {
 		return ""
@@ -300,10 +334,8 @@ func modelsListEntryFromModel(id, ownedBy string, created int64, mdl *SAiModel) 
 		Created: created,
 		OwnedBy: ownedBy,
 	}
-	if mdl != nil && mdl.Config != nil {
-		if mods := mdl.Config.InputModalitiesForCatalog(); len(mods) > 0 {
-			entry.InputModalities = mods
-		}
+	if mdl != nil && mdl.VisualActive() {
+		entry.InputModalities = []string{"text", "image"}
 	}
 	return entry
 }

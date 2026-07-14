@@ -83,6 +83,7 @@ func callChatCompletions(ctx context.Context, up *models.ChatUpstream, body *jso
 	if up == nil || body == nil {
 		return nil, fmt.Errorf("nil upstream or body")
 	}
+	forceNonStreamChatBody(body)
 	req := &upstream.Request{
 		URL:    openai.ChatCompletionsURL(ChatBaseURL(up.BaseURL)),
 		APIKey: up.APIKey,
@@ -109,6 +110,16 @@ func ChatBaseURL(baseURL string) string {
 		}
 	}
 	return base
+}
+
+// forceNonStreamChatBody ensures visual orchestration always calls upstream chat/completions
+// without stream=true (Codex Responses requests carry stream=true in the converted body).
+func forceNonStreamChatBody(body *jsonutils.JSONDict) {
+	if body == nil {
+		return
+	}
+	body.Remove("stream")
+	body.Remove("stream_options")
 }
 
 func finishReasonFromChatResponse(body []byte) string {

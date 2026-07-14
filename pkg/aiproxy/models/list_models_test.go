@@ -14,7 +14,11 @@
 
 package models
 
-import "testing"
+import (
+	"testing"
+
+	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
+)
 
 func TestClientFacingModelID(t *testing.T) {
 	mdl := &SAiModel{ModelKey: "gpt-4o-mini"}
@@ -68,6 +72,45 @@ func TestClientFacingModelIDsForRouting(t *testing.T) {
 	)
 	if len(flatIDs) != 1 || flatIDs[0] != "qwen-turbo" {
 		t.Fatalf("flat ids = %#v", flatIDs)
+	}
+}
+
+func TestVisualActiveClientModelIDsForRouting(t *testing.T) {
+	routing := &SAiRouting{ModelKey: "test-model"}
+	active := &SAiModel{
+		ModelKey:         "deepseek-v4-flash",
+		VisualProviderId: "moonshot-id",
+		VisualModelKey:   "moonshot-v1-8k-vision-preview",
+		Config: &api.SAiModelConfig{
+			Extensions: &api.SAiModelExtensions{
+				Visual: &api.SAiModelVisualConfig{Enabled: true},
+			},
+		},
+	}
+	inactive := &SAiModel{ModelKey: "deepseek-v4-pro"}
+	prov := &SAiProvider{ProviderKey: "deepseek"}
+	bindings := []SAiRoutingModel{
+		{AiProviderId: "p1", AiModelId: "m-active"},
+		{AiProviderId: "p1", AiModelId: "m-inactive"},
+	}
+	modelsById := map[string]*SAiModel{
+		"m-active":   active,
+		"m-inactive": inactive,
+	}
+	providers := map[string]*SAiProvider{"p1": prov}
+
+	got := VisualActiveClientModelIDsForRouting(routing, bindings, modelsById, providers)
+	if len(got) != 1 {
+		t.Fatalf("len = %d, want 1: %#v", len(got), got)
+	}
+	if _, ok := got["test-model/deepseek-v4-flash"]; !ok {
+		t.Fatalf("missing hierarchical visual id: %#v", got)
+	}
+	if _, ok := got["test-model/deepseek-v4-pro"]; ok {
+		t.Fatal("inactive visual model should not be included")
+	}
+	if len(VisualActiveClientModelIDsForRouting(nil, bindings, modelsById, providers)) != 0 {
+		t.Fatal("nil routing should yield empty set")
 	}
 }
 

@@ -73,7 +73,7 @@ func anthropicContentHasImage(raw json.RawMessage) bool {
 
 // ShouldHandleMessages reports whether the Messages visual path should run (non-stream only).
 func ShouldHandleMessages(dict *jsonutils.JSONDict, up *models.ChatUpstream, isStream bool) bool {
-	if isStream || dict == nil || up == nil || !Enabled(up.ModelConfig) {
+	if isStream || dict == nil || up == nil || !Enabled(up) {
 		return false
 	}
 	return AnthropicMessagesHasImage(dict)
@@ -81,7 +81,7 @@ func ShouldHandleMessages(dict *jsonutils.JSONDict, up *models.ChatUpstream, isS
 
 // ShouldRejectMessagesStreaming reports stream+visual+image (unsupported).
 func ShouldRejectMessagesStreaming(dict *jsonutils.JSONDict, up *models.ChatUpstream, isStream bool) bool {
-	if !isStream || dict == nil || up == nil || !Enabled(up.ModelConfig) {
+	if !isStream || dict == nil || up == nil || !Enabled(up) {
 		return false
 	}
 	return AnthropicMessagesHasImage(dict)
@@ -94,7 +94,7 @@ func HandleMessagesCreate(
 	textUp *models.ChatUpstream,
 ) ([]byte, error) {
 	runtime, visCfg := RuntimeConfigFromModel(textUp.ModelConfig)
-	if visCfg == nil {
+	if visCfg == nil || !visCfg.Enabled {
 		return nil, fmt.Errorf("visual config is missing")
 	}
 	userCred := auth.AdminCredential()
@@ -102,7 +102,7 @@ func HandleMessagesCreate(
 	if err != nil {
 		return nil, err
 	}
-	visUp, err := models.ResolveVisualUpstream(ctx, userCred, vk, visCfg)
+	visUp, err := models.ResolveVisualUpstream(ctx, userCred, vk, textUp.VisualProviderId, textUp.VisualModelKey)
 	if err != nil {
 		return nil, err
 	}
