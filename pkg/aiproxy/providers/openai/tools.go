@@ -168,26 +168,22 @@ func MessagesToAnthropic(msgs []Message) ([]map[string]interface{}, error) {
 				},
 			})
 		case "user":
-			text := MessageTextContent(m.Content)
-			if text == "" {
+			blocks := ChatContentToAnthropicBlocks(m.Content)
+			if len(blocks) == 0 {
 				continue
 			}
 			out = append(out, map[string]interface{}{
-				"role": "user",
-				"content": []map[string]interface{}{
-					{"type": "text", "text": text},
-				},
+				"role":    "user",
+				"content": blocks,
 			})
 		default:
-			text := MessageTextContent(m.Content)
-			if text == "" {
+			blocks := ChatContentToAnthropicBlocks(m.Content)
+			if len(blocks) == 0 {
 				continue
 			}
 			out = append(out, map[string]interface{}{
-				"role": role,
-				"content": []map[string]interface{}{
-					{"type": "text", "text": text},
-				},
+				"role":    role,
+				"content": blocks,
 			})
 		}
 	}
@@ -195,6 +191,84 @@ func MessagesToAnthropic(msgs []Message) ([]map[string]interface{}, error) {
 		return nil, fmt.Errorf("no convertible messages")
 	}
 	return out, nil
+}
+
+// ChatContentToAnthropicBlocks converts OpenAI chat message content (string or parts)
+// into Anthropic content blocks, preserving image_url as image sources.
+func ChatContentToAnthropicBlocks(raw json.RawMessage) []map[string]interface{} {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		if strings.TrimSpace(s) == "" {
+			return nil
+		}
+		return []map[string]interface{}{{"type": "text", "text": s}}
+	}
+	var parts []struct {
+		Type     string          `json:"type"`
+		Text     string          `json:"text"`
+		ImageURL json.RawMessage `json:"image_url"`
+	}
+	if err := json.Unmarshal(raw, &parts); err != nil {
+		text := MessageTextContent(raw)
+		if text == "" {
+			return nil
+		}
+		return []map[string]interface{}{{"type": "text", "text": text}}
+	}
+	out := make([]map[string]interface{}, 0, len(parts))
+	for _, p := range parts {
+		switch p.Type {
+		case "text":
+			if p.Text == "" {
+				continue
+			}
+			out = append(out, map[string]interface{}{"type": "text", "text": p.Text})
+		case "image_url":
+			if block := chatImageURLToAnthropicBlock(p.ImageURL); block != nil {
+				out = append(out, block)
+			}
+		}
+	}
+	return out
+}
+
+func chatImageURLToAnthropicBlock(raw json.RawMessage) map[string]interface{} {
+	url := imageSourceFromRaw(raw)
+	if url == "" {
+		return nil
+	}
+	source := map[string]interface{}{}
+	if strings.HasPrefix(url, "data:") {
+		mediaType, data := splitDataURLForAnthropic(url)
+		source["type"] = "base64"
+		source["media_type"] = mediaType
+		source["data"] = data
+	} else {
+		source["type"] = "url"
+		source["url"] = url
+	}
+	return map[string]interface{}{
+		"type":   "image",
+		"source": source,
+	}
+}
+
+func splitDataURLForAnthropic(value string) (mediaType, data string) {
+	header, payload, ok := strings.Cut(value, ",")
+	if !ok {
+		return "image/png", value
+	}
+	mediaType = strings.TrimPrefix(header, "data:")
+	if semicolon := strings.IndexByte(mediaType, ';'); semicolon >= 0 {
+		mediaType = mediaType[:semicolon]
+	}
+	if mediaType == "" {
+		mediaType = "image/png"
+	}
+	return mediaType, payload
 }
 
 func assistantContentToAnthropic(m Message) []map[string]interface{} {
