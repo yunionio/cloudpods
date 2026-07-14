@@ -9,10 +9,7 @@ cloud.google.com/go/internal
 cloud.google.com/go/internal/optional
 cloud.google.com/go/internal/trace
 cloud.google.com/go/internal/version
-# cloud.google.com/go/compute v1.24.0
-## explicit; go 1.19
-cloud.google.com/go/compute/internal
-# cloud.google.com/go/compute/metadata v0.2.3
+# cloud.google.com/go/compute/metadata v0.3.0
 ## explicit; go 1.19
 cloud.google.com/go/compute/metadata
 # cloud.google.com/go/iam v1.1.6
@@ -1945,13 +1942,14 @@ golang.org/x/net/ipv6
 golang.org/x/net/proxy
 golang.org/x/net/publicsuffix
 golang.org/x/net/trace
-# golang.org/x/oauth2 v0.17.0
-## explicit; go 1.18
+# golang.org/x/oauth2 v0.27.0
+## explicit; go 1.23.0
 golang.org/x/oauth2
 golang.org/x/oauth2/authhandler
 golang.org/x/oauth2/google
-golang.org/x/oauth2/google/internal/externalaccount
+golang.org/x/oauth2/google/externalaccount
 golang.org/x/oauth2/google/internal/externalaccountauthorizeduser
+golang.org/x/oauth2/google/internal/impersonate
 golang.org/x/oauth2/google/internal/stsexchange
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
@@ -2062,8 +2060,6 @@ google.golang.org/appengine/internal/datastore
 google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
-google.golang.org/appengine/internal/urlfetch
-google.golang.org/appengine/urlfetch
 # google.golang.org/genproto v0.0.0-20240213162025-012b6fc9bca9
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/type/date

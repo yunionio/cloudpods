@@ -121,8 +121,7 @@ require (
 
 require (
 	cloud.google.com/go v0.112.1 // indirect
-	cloud.google.com/go/compute v1.24.0 // indirect
-	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.6 // indirect
 	cloud.google.com/go/storage v1.39.1 // indirect
 	gitee.com/chunanyong/dm v1.8.14 // indirect
@@ -391,7 +390,7 @@ require (
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20220617031537-928513b29760 // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
 	golang.org/x/mod v0.26.0 // indirect
-	golang.org/x/oauth2 v0.17.0 // indirect
+	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/term v0.34.0 // indirect
 	golang.org/x/tools v0.35.0 // indirect
 	google.golang.org/api v0.167.0 // indirect
