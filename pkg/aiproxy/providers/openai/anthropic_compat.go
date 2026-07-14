@@ -221,14 +221,21 @@ func parseAnthropicUserContent(raw json.RawMessage) (jsonutils.JSONObject, []ant
 	if err := json.Unmarshal(raw, &blocks); err != nil {
 		return nil, nil, fmt.Errorf("invalid user content: %w", err)
 	}
-	var textParts []string
+	parts := jsonutils.NewArray()
 	var tools []anthropicToolResult
 	for _, blk := range blocks {
 		typ, _ := blk["type"].(string)
 		switch typ {
 		case "text":
 			if t, _ := blk["text"].(string); t != "" {
-				textParts = append(textParts, t)
+				part := jsonutils.NewDict()
+				part.Set("type", jsonutils.NewString("text"))
+				part.Set("text", jsonutils.NewString(t))
+				parts.Add(part)
+			}
+		case "image":
+			if part := anthropicImageBlockToChatPart(blk); part != nil {
+				parts.Add(part)
 			}
 		case "tool_result":
 			id, _ := blk["tool_use_id"].(string)
@@ -236,20 +243,68 @@ func parseAnthropicUserContent(raw json.RawMessage) (jsonutils.JSONObject, []ant
 			tools = append(tools, anthropicToolResult{ID: id, Content: content})
 		}
 	}
-	if len(textParts) == 0 {
+	if parts.Size() == 0 {
 		return nil, tools, nil
 	}
-	if len(textParts) == 1 {
-		return jsonutils.NewString(textParts[0]), tools, nil
-	}
-	parts := jsonutils.NewArray()
-	for _, p := range textParts {
-		blk := jsonutils.NewDict()
-		blk.Set("type", jsonutils.NewString("text"))
-		blk.Set("text", jsonutils.NewString(p))
-		parts.Add(blk)
+	// Single text-only part can stay a plain string for compatibility.
+	if parts.Size() == 1 {
+		first, _ := parts.GetAt(0)
+		if d, ok := first.(*jsonutils.JSONDict); ok {
+			if typ, _ := d.GetString("type"); typ == "text" {
+				if text, _ := d.GetString("text"); text != "" {
+					return jsonutils.NewString(text), tools, nil
+				}
+			}
+		}
 	}
 	return parts, tools, nil
+}
+
+func anthropicImageBlockToChatPart(blk map[string]interface{}) *jsonutils.JSONDict {
+	srcRaw, ok := blk["source"].(map[string]interface{})
+	if !ok || srcRaw == nil {
+		return nil
+	}
+	srcType, _ := srcRaw["type"].(string)
+	var url string
+	switch strings.ToLower(strings.TrimSpace(srcType)) {
+	case "url":
+		url, _ = srcRaw["url"].(string)
+	case "base64":
+		data, _ := srcRaw["data"].(string)
+		mediaType, _ := srcRaw["media_type"].(string)
+		if strings.TrimSpace(data) == "" {
+			return nil
+		}
+		if mediaType == "" {
+			mediaType = "image/png"
+		}
+		if strings.HasPrefix(data, "data:") {
+			url = data
+		} else {
+			url = "data:" + mediaType + ";base64," + data
+		}
+	default:
+		if u, _ := srcRaw["url"].(string); strings.TrimSpace(u) != "" {
+			url = u
+		} else if data, _ := srcRaw["data"].(string); strings.TrimSpace(data) != "" {
+			mediaType, _ := srcRaw["media_type"].(string)
+			if mediaType == "" {
+				mediaType = "image/png"
+			}
+			url = "data:" + mediaType + ";base64," + data
+		}
+	}
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return nil
+	}
+	imgURL := jsonutils.NewDict()
+	imgURL.Set("url", jsonutils.NewString(url))
+	part := jsonutils.NewDict()
+	part.Set("type", jsonutils.NewString("image_url"))
+	part.Set("image_url", imgURL)
+	return part
 }
 
 func anthropicBlockContentText(v interface{}) string {

@@ -32,8 +32,9 @@ const (
 
 // ModelListEntry is one OpenAI-compatible model from GET /ai/openai/v1/models.
 type ModelListEntry struct {
-	ID      string
-	OwnedBy string
+	ID              string
+	OwnedBy         string
+	InputModalities []string
 }
 
 // ModelInfo represents a model entry in Codex models_catalog.json.
@@ -137,7 +138,11 @@ func buildModelInfoFromEntry(entry ModelListEntry) ModelInfo {
 	slug := strings.TrimSpace(entry.ID)
 	displayName := displayNameForSlug(slug)
 	description := seedDescriptionForSlug(slug)
-	return newModelInfo(slug, displayName, description, 0, nil)
+	modalities := entry.InputModalities
+	if len(modalities) == 0 {
+		modalities = nil
+	}
+	return newModelInfo(slug, displayName, description, 0, modalities)
 }
 
 func displayNameForSlug(slug string) string {

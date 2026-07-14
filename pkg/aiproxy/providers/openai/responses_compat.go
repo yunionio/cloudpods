@@ -261,18 +261,12 @@ func responsesInputToMessages(body *jsonutils.JSONDict) ([]*jsonutils.JSONDict, 
 		case "assistant":
 			msg := jsonutils.NewDict()
 			msg.Set("role", jsonutils.NewString("assistant"))
-			if text := responsesContentToText(item.Content); text != "" {
-				msg.Set("content", jsonutils.NewString(text))
-			}
+			setResponsesMessageContent(msg, item.Content)
 			messages = append(messages, msg)
 		default:
 			msg := jsonutils.NewDict()
 			msg.Set("role", jsonutils.NewString("user"))
-			if text := responsesContentToText(item.Content); text != "" {
-				msg.Set("content", jsonutils.NewString(text))
-			} else {
-				msg.Set("content", jsonutils.NewString(""))
-			}
+			setResponsesMessageContent(msg, item.Content)
 			messages = append(messages, msg)
 		}
 	}
@@ -287,6 +281,126 @@ func isResponsesToolOutputType(t string) bool {
 	default:
 		return false
 	}
+}
+
+type responsesContentPartRaw struct {
+	Type     string          `json:"type"`
+	Text     string          `json:"text"`
+	ImageURL json.RawMessage `json:"image_url"`
+}
+
+// ResponsesInputHasImage reports whether a Responses request input carries image parts.
+func ResponsesInputHasImage(body *jsonutils.JSONDict) bool {
+	if body == nil {
+		return false
+	}
+	raw, err := body.Get("input")
+	if err != nil {
+		return false
+	}
+	rawBytes := []byte(raw.String())
+	trimmed := strings.TrimSpace(string(rawBytes))
+	if trimmed == "" || trimmed == "null" || strings.HasPrefix(trimmed, "\"") {
+		return false
+	}
+	if !strings.HasPrefix(trimmed, "[") {
+		return false
+	}
+	var items []responsesInputItem
+	if json.Unmarshal(rawBytes, &items) != nil {
+		return false
+	}
+	for _, item := range items {
+		if responsesContentHasImage(item.Content) {
+			return true
+		}
+	}
+	return false
+}
+
+func responsesContentHasImage(raw json.RawMessage) bool {
+	_, hasImage := responsesContentToChatParts(raw)
+	return hasImage
+}
+
+func setResponsesMessageContent(msg *jsonutils.JSONDict, raw json.RawMessage) {
+	parts, hasImage := responsesContentToChatParts(raw)
+	if hasImage {
+		arr := jsonutils.NewArray()
+		for _, part := range parts {
+			arr.Add(part)
+		}
+		msg.Set("content", arr)
+		return
+	}
+	text := responsesContentToText(raw)
+	msg.Set("content", jsonutils.NewString(text))
+}
+
+// responsesContentToChatParts converts Responses content to chat/completions content parts.
+// Returns parts and whether any image_url part was included.
+func responsesContentToChatParts(raw json.RawMessage) ([]*jsonutils.JSONDict, bool) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, false
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		if strings.TrimSpace(s) == "" {
+			return nil, false
+		}
+		part := jsonutils.NewDict()
+		part.Set("type", jsonutils.NewString("text"))
+		part.Set("text", jsonutils.NewString(s))
+		return []*jsonutils.JSONDict{part}, false
+	}
+	var parts []responsesContentPartRaw
+	if json.Unmarshal(raw, &parts) != nil {
+		return nil, false
+	}
+	out := make([]*jsonutils.JSONDict, 0, len(parts))
+	hasImage := false
+	for _, p := range parts {
+		switch p.Type {
+		case "input_text", "text", "output_text":
+			if p.Text == "" {
+				continue
+			}
+			part := jsonutils.NewDict()
+			part.Set("type", jsonutils.NewString("text"))
+			part.Set("text", jsonutils.NewString(p.Text))
+			out = append(out, part)
+		case "input_image", "image", "image_url":
+			src := imageSourceFromRaw(p.ImageURL)
+			if src == "" {
+				continue
+			}
+			hasImage = true
+			imgURL := jsonutils.NewDict()
+			imgURL.Set("url", jsonutils.NewString(src))
+			part := jsonutils.NewDict()
+			part.Set("type", jsonutils.NewString("image_url"))
+			part.Set("image_url", imgURL)
+			out = append(out, part)
+		}
+	}
+	return out, hasImage
+}
+
+func imageSourceFromRaw(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	var url string
+	if err := json.Unmarshal(raw, &url); err == nil {
+		return strings.TrimSpace(url)
+	}
+	var obj struct {
+		URL string `json:"url"`
+	}
+	if err := json.Unmarshal(raw, &obj); err == nil {
+		return strings.TrimSpace(obj.URL)
+	}
+	return ""
 }
 
 func responsesContentToText(raw json.RawMessage) string {

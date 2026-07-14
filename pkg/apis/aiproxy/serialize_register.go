@@ -24,6 +24,9 @@ func init() {
 	gotypes.RegisterSerializable(reflect.TypeOf((*SAiProviderConfig)(nil)), func() gotypes.ISerializable {
 		return &SAiProviderConfig{}
 	})
+	gotypes.RegisterSerializable(reflect.TypeOf((*SAiModelConfig)(nil)), func() gotypes.ISerializable {
+		return &SAiModelConfig{}
+	})
 	gotypes.RegisterSerializable(reflect.TypeOf((*SAiKeyRouting)(nil)), func() gotypes.ISerializable {
 		return &SAiKeyRouting{}
 	})
