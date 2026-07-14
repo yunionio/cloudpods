@@ -1,16 +1,5 @@
 // Copyright The OpenTelemetry Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
 
 package propagation // import "go.opentelemetry.io/otel/propagation"
 
@@ -46,8 +35,8 @@ var (
 	versionPart                   = fmt.Sprintf("%.2X", supportedVersion)
 )
 
-// Inject set tracecontext from the Context into the carrier.
-func (tc TraceContext) Inject(ctx context.Context, carrier TextMapCarrier) {
+// Inject injects the trace context from ctx into carrier.
+func (TraceContext) Inject(ctx context.Context, carrier TextMapCarrier) {
 	sc := trace.SpanContextFromContext(ctx)
 	if !sc.IsValid() {
 		return
@@ -88,7 +77,7 @@ func (tc TraceContext) Extract(ctx context.Context, carrier TextMapCarrier) cont
 	return trace.ContextWithRemoteSpanContext(ctx, sc)
 }
 
-func (tc TraceContext) extract(carrier TextMapCarrier) trace.SpanContext {
+func (TraceContext) extract(carrier TextMapCarrier) trace.SpanContext {
 	h := carrier.Get(traceparentHeader)
 	if h == "" {
 		return trace.SpanContext{}
@@ -122,7 +111,7 @@ func (tc TraceContext) extract(carrier TextMapCarrier) trace.SpanContext {
 	}
 
 	// Clear all flags other than the trace-context supported sampling bit.
-	scc.TraceFlags = trace.TraceFlags(opts[0]) & trace.FlagsSampled
+	scc.TraceFlags = trace.TraceFlags(opts[0]) & trace.FlagsSampled // nolint:gosec // slice size already checked.
 
 	// Ignore the error returned here. Failure to parse tracestate MUST NOT
 	// affect the parsing of traceparent according to the W3C tracecontext
@@ -162,6 +151,6 @@ func extractPart(dst []byte, h *string, n int) bool {
 }
 
 // Fields returns the keys who's values are set with Inject.
-func (tc TraceContext) Fields() []string {
+func (TraceContext) Fields() []string {
 	return []string{traceparentHeader, tracestateHeader}
 }

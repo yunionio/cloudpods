@@ -15,8 +15,9 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google/internal/externalaccount"
+	"golang.org/x/oauth2/google/externalaccount"
 	"golang.org/x/oauth2/google/internal/externalaccountauthorizeduser"
+	"golang.org/x/oauth2/google/internal/impersonate"
 	"golang.org/x/oauth2/jwt"
 )
 
@@ -200,12 +201,12 @@ func (f *credentialsFile) tokenSource(ctx context.Context, params CredentialsPar
 			ServiceAccountImpersonationLifetimeSeconds: f.ServiceAccountImpersonation.TokenLifetimeSeconds,
 			ClientSecret:             f.ClientSecret,
 			ClientID:                 f.ClientID,
-			CredentialSource:         f.CredentialSource,
+			CredentialSource:         &f.CredentialSource,
 			QuotaProjectID:           f.QuotaProjectID,
 			Scopes:                   params.Scopes,
 			WorkforcePoolUserProject: f.WorkforcePoolUserProject,
 		}
-		return cfg.TokenSource(ctx)
+		return externalaccount.NewTokenSource(ctx, *cfg)
 	case externalAccountAuthorizedUserKey:
 		cfg := &externalaccountauthorizeduser.Config{
 			Audience:       f.Audience,
@@ -228,7 +229,7 @@ func (f *credentialsFile) tokenSource(ctx context.Context, params CredentialsPar
 		if err != nil {
 			return nil, err
 		}
-		imp := externalaccount.ImpersonateTokenSource{
+		imp := impersonate.ImpersonateTokenSource{
 			Ctx:       ctx,
 			URL:       f.ServiceAccountImpersonationURL,
 			Scopes:    params.Scopes,
@@ -251,7 +252,10 @@ func (f *credentialsFile) tokenSource(ctx context.Context, params CredentialsPar
 // Further information about retrieving access tokens from the GCE metadata
 // server can be found at https://cloud.google.com/compute/docs/authentication.
 func ComputeTokenSource(account string, scope ...string) oauth2.TokenSource {
-	return computeTokenSource(account, 0, scope...)
+	// Refresh 3 minutes and 45 seconds early. The shortest MDS cache is currently 4 minutes, so any
+	// refreshes earlier are a waste of compute.
+	earlyExpirySecs := 225 * time.Second
+	return computeTokenSource(account, earlyExpirySecs, scope...)
 }
 
 func computeTokenSource(account string, earlyExpiry time.Duration, scope ...string) oauth2.TokenSource {
@@ -281,27 +285,23 @@ func (cs computeSource) Token() (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	var res struct {
-		AccessToken  string `json:"access_token"`
-		ExpiresInSec int    `json:"expires_in"`
-		TokenType    string `json:"token_type"`
-	}
+	var res oauth2.Token
 	err = json.NewDecoder(strings.NewReader(tokenJSON)).Decode(&res)
 	if err != nil {
 		return nil, fmt.Errorf("oauth2/google: invalid token JSON from metadata: %v", err)
 	}
-	if res.ExpiresInSec == 0 || res.AccessToken == "" {
+	if res.ExpiresIn == 0 || res.AccessToken == "" {
 		return nil, fmt.Errorf("oauth2/google: incomplete token received from metadata")
 	}
 	tok := &oauth2.Token{
 		AccessToken: res.AccessToken,
 		TokenType:   res.TokenType,
-		Expiry:      time.Now().Add(time.Duration(res.ExpiresInSec) * time.Second),
+		Expiry:      time.Now().Add(time.Duration(res.ExpiresIn) * time.Second),
 	}
 	// NOTE(cbro): add hidden metadata about where the token is from.
 	// This is needed for detection by client libraries to know that credentials come from the metadata server.
 	// This may be removed in a future version of this library.
-	return tok.WithExtra(map[string]interface{}{
+	return tok.WithExtra(map[string]any{
 		"oauth2.google.tokenSource":    "compute-metadata",
 		"oauth2.google.serviceAccount": acct,
 	}), nil
