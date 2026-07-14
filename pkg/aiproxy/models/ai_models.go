@@ -36,6 +36,8 @@ type SAiModel struct {
 	AiProviderId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	// ModelKey is the model id sent to the upstream API (e.g. gpt-4o-mini, qwen-turbo).
 	ModelKey string `width:"256" charset:"utf8" nullable:"false" list:"user" create:"required" update:"user"`
+	// Config stores per-model extension settings (e.g. visual delegation).
+	Config *api.SAiModelConfig `length:"long" charset:"utf8" list:"user" create:"optional" update:"user"`
 }
 
 type SAiModelManager struct {
@@ -138,6 +140,8 @@ func (manager *SAiModelManager) FetchCustomizeColumns(
 	}
 	for i := range rows {
 		rows[i].AiProviderName, _ = providerNames[providerIds[i]]
+		m := objs[i].(*SAiModel)
+		rows[i].Config = m.Config
 	}
 	return rows
 }

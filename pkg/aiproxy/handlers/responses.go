@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/aiproxy/extensions/visual"
 	"yunion.io/x/onecloud/pkg/aiproxy/models"
 	"yunion.io/x/onecloud/pkg/aiproxy/providerapi"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers"
@@ -101,6 +102,23 @@ func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.R
 	if err := models.EnsureResponsesMaxOutputTokens(dict, vkLim); err != nil {
 		dbg.Error("max tokens: %v", err)
 		writeResponsesError(ctx, w, http.StatusBadRequest, "invalid_request_error", "%v", err)
+		return
+	}
+
+	if visual.ShouldHandle(dict, up, isStream) {
+		bodyOut, _, err := visual.HandleResponsesCreate(ctx, dict, up)
+		if err != nil {
+			dbg.Error("visual orchestration: %v", err)
+			writeResponsesError(ctx, w, http.StatusBadGateway, "api_error", "visual orchestration: %v", err)
+			return
+		}
+		dbg.ClientResponse(bodyOut)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(bodyOut)
+		if up.AiKeyId != "" {
+			models.RecordAiKeySuccess(up.AiKeyId)
+		}
 		return
 	}
 

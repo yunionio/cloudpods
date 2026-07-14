@@ -16,6 +16,7 @@ package openai
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"yunion.io/x/jsonutils"
@@ -343,5 +344,56 @@ func TestAnthropicToolRoundTrip(t *testing.T) {
 	}
 	if resp["stop_reason"] != "tool_use" {
 		t.Fatalf("stop_reason: %#v", resp["stop_reason"])
+	}
+}
+
+func TestAnthropicToChatCompletionsWithImage(t *testing.T) {
+	raw := `{
+		"model":"vision-model",
+		"max_tokens":256,
+		"messages":[{"role":"user","content":[
+			{"type":"text","text":"what is this"},
+			{"type":"image","source":{"type":"base64","media_type":"image/png","data":"abc123"}}
+		]}]
+	}`
+	body, err := jsonutils.Parse([]byte(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := AnthropicToChatCompletions(body.(*jsonutils.JSONDict), "vision-model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := out.String()
+	if !strings.Contains(s, "image_url") {
+		t.Fatalf("expected image_url, got %s", s)
+	}
+	if !strings.Contains(s, "data:image/png;base64,abc123") {
+		t.Fatalf("expected data url, got %s", s)
+	}
+	if !strings.Contains(s, "what is this") {
+		t.Fatalf("expected text, got %s", s)
+	}
+}
+
+func TestAnthropicToChatCompletionsImageOnly(t *testing.T) {
+	raw := `{
+		"model":"vision-model",
+		"max_tokens":256,
+		"messages":[{"role":"user","content":[
+			{"type":"image","source":{"type":"url","url":"https://example.com/a.png"}}
+		]}]
+	}`
+	body, err := jsonutils.Parse([]byte(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := AnthropicToChatCompletions(body.(*jsonutils.JSONDict), "vision-model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := out.String()
+	if !strings.Contains(s, "image_url") || !strings.Contains(s, "https://example.com/a.png") {
+		t.Fatalf("expected image-only message preserved, got %s", s)
 	}
 }
