@@ -289,7 +289,7 @@ func (s *ResponsesStreamConverter) appendToolDelta(tc ToolCall) ([]ResponsesStre
 		if ns != "" {
 			item["namespace"] = ns
 		}
-		added, err := s.outputItemAdded("function_call", st.itemID, item)
+		added, err := s.outputItemAddedAt(st.outputIndex, "function_call", st.itemID, item)
 		if err != nil {
 			return nil, err
 		}
@@ -313,10 +313,14 @@ func (s *ResponsesStreamConverter) appendToolDelta(tc ToolCall) ([]ResponsesStre
 }
 
 func (s *ResponsesStreamConverter) outputItemAdded(itemType, itemID string, item map[string]interface{}) (ResponsesStreamEvent, error) {
+	return s.outputItemAddedAt(s.outputIndex, itemType, itemID, item)
+}
+
+func (s *ResponsesStreamConverter) outputItemAddedAt(outputIndex int, itemType, itemID string, item map[string]interface{}) (ResponsesStreamEvent, error) {
 	data := map[string]interface{}{
 		"type":            "response.output_item.added",
 		"sequence_number": s.nextSeq(),
-		"output_index":    s.outputIndex,
+		"output_index":    outputIndex,
 		"item":            item,
 	}
 	b, err := json.Marshal(data)

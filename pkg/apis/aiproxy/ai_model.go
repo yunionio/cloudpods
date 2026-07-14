@@ -15,6 +15,8 @@
 package aiproxy
 
 import (
+	"encoding/json"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -29,22 +31,76 @@ type AiModelListInput struct {
 type AiModelCreateInput struct {
 	apis.EnabledStatusStandaloneResourceCreateInput
 
-	AiProviderId string `json:"ai_provider_id"`
-	ModelKey     string `json:"model_key"`
+	AiProviderId string          `json:"ai_provider_id"`
+	ModelKey     string          `json:"model_key"`
+	Config       *SAiModelConfig `json:"config"`
 }
 
 type AiModelUpdateInput struct {
 	apis.EnabledStatusStandaloneResourceBaseUpdateInput
 
-	AiProviderId string `json:"ai_provider_id"`
-	ModelKey     string `json:"model_key"`
-	Enabled      *bool  `json:"enabled"`
+	AiProviderId string          `json:"ai_provider_id"`
+	ModelKey     string          `json:"model_key"`
+	Enabled      *bool           `json:"enabled"`
+	Config       *SAiModelConfig `json:"config"`
 }
 
 type AiModelDetails struct {
 	apis.EnabledStatusStandaloneResourceDetails
 
-	AiProviderId   string `json:"ai_provider_id"`
-	AiProviderName string `json:"ai_provider_name"`
-	ModelKey       string `json:"model_key"`
+	AiProviderId   string          `json:"ai_provider_id"`
+	AiProviderName string          `json:"ai_provider_name"`
+	ModelKey       string          `json:"model_key"`
+	Config         *SAiModelConfig `json:"config"`
+}
+
+// SAiModelConfig stores per-model extension settings.
+type SAiModelConfig struct {
+	Extensions *SAiModelExtensions `json:"extensions,omitempty"`
+}
+
+type SAiModelExtensions struct {
+	Visual *SAiModelVisualConfig `json:"visual,omitempty"`
+}
+
+// SAiModelVisualConfig enables tool-delegated vision for text-only upstream models.
+type SAiModelVisualConfig struct {
+	Enabled            bool   `json:"enabled"`
+	VisualAiProviderId string `json:"visual_ai_provider_id"`
+	VisualModelKey     string `json:"visual_model_key"`
+	MaxRounds          int    `json:"max_rounds,omitempty"`
+	MaxTokens          int    `json:"max_tokens,omitempty"`
+}
+
+// String implements gotypes.ISerializable for sqlchemy JSON/compound columns.
+func (c *SAiModelConfig) String() string {
+	if c == nil {
+		return "{}"
+	}
+	b, err := json.Marshal(c)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
+}
+
+// IsZero implements gotypes.ISerializable.
+func (c *SAiModelConfig) IsZero() bool {
+	if c == nil {
+		return true
+	}
+	return c.Extensions == nil || c.Extensions.Visual == nil
+}
+
+// VisualEnabled reports whether visual extension is configured and enabled.
+func (cfg *SAiModelConfig) VisualEnabled() bool {
+	return cfg != nil && cfg.Extensions != nil && cfg.Extensions.Visual != nil && cfg.Extensions.Visual.Enabled
+}
+
+// InputModalitiesForCatalog returns Codex input_modalities for this model config.
+func (cfg *SAiModelConfig) InputModalitiesForCatalog() []string {
+	if cfg.VisualEnabled() {
+		return []string{"text", "image"}
+	}
+	return nil
 }

@@ -250,8 +250,9 @@ func resolveRoutingModelKey(session *mcclient.ClientSession, routing string) (st
 
 type modelsListResponse struct {
 	Data []struct {
-		ID      string `json:"id"`
-		OwnedBy string `json:"owned_by"`
+		ID              string   `json:"id"`
+		OwnedBy         string   `json:"owned_by"`
+		InputModalities []string `json:"input_modalities"`
 	} `json:"data"`
 }
 
@@ -286,8 +287,9 @@ func listModelEntries(session *mcclient.ClientSession, aiproxyURL, virtualKey st
 			continue
 		}
 		entries = append(entries, ModelListEntry{
-			ID:      id,
-			OwnedBy: strings.TrimSpace(item.OwnedBy),
+			ID:              id,
+			OwnedBy:         strings.TrimSpace(item.OwnedBy),
+			InputModalities: append([]string(nil), item.InputModalities...),
 		})
 	}
 	return entries, nil

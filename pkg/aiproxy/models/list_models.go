@@ -27,10 +27,11 @@ import (
 
 // ModelsListEntry is one OpenAI-compatible model object in GET /openai/v1/models.
 type ModelsListEntry struct {
-	ID      string `json:"id"`
-	Object  string `json:"object"`
-	Created int64  `json:"created"`
-	OwnedBy string `json:"owned_by"`
+	ID              string   `json:"id"`
+	Object          string   `json:"object"`
+	Created         int64    `json:"created"`
+	OwnedBy         string   `json:"owned_by"`
+	InputModalities []string `json:"input_modalities,omitempty"`
 }
 
 // ListModelsForVirtualKey returns OpenAI-compatible model ids reachable by the virtual key
@@ -113,12 +114,7 @@ func ListModelsForVirtualKey(ctx context.Context, userCred mcclient.TokenCredent
 		if _, ok := seen[id]; ok {
 			continue
 		}
-		seen[id] = ModelsListEntry{
-			ID:      id,
-			Object:  "model",
-			Created: created,
-			OwnedBy: firstProviderByRouting[routing.Id],
-		}
+		seen[id] = modelsListEntryFromModel(id, firstProviderByRouting[routing.Id], created, nil)
 	}
 
 	// Pass 2: ai_routing_model entries as flat or hierarchical client-facing ids.
@@ -145,12 +141,7 @@ func ListModelsForVirtualKey(ctx context.Context, userCred mcclient.TokenCredent
 			if _, ok := seen[id]; ok {
 				continue
 			}
-			seen[id] = ModelsListEntry{
-				ID:      id,
-				Object:  "model",
-				Created: created,
-				OwnedBy: strings.TrimSpace(prov.ProviderKey),
-			}
+			seen[id] = modelsListEntryFromModel(id, strings.TrimSpace(prov.ProviderKey), created, mdl)
 			continue
 		}
 		id := clientFacingModelID(routing, e, mdl)
@@ -160,12 +151,7 @@ func ListModelsForVirtualKey(ctx context.Context, userCred mcclient.TokenCredent
 		if _, ok := seen[id]; ok {
 			continue
 		}
-		seen[id] = ModelsListEntry{
-			ID:      id,
-			Object:  "model",
-			Created: created,
-			OwnedBy: strings.TrimSpace(prov.ProviderKey),
-		}
+		seen[id] = modelsListEntryFromModel(id, strings.TrimSpace(prov.ProviderKey), created, mdl)
 	}
 	if len(seen) == 0 {
 		return nil, nil
@@ -305,4 +291,19 @@ func uniqueNonEmptyStrings(in []string) []string {
 		out = append(out, s)
 	}
 	return out
+}
+
+func modelsListEntryFromModel(id, ownedBy string, created int64, mdl *SAiModel) ModelsListEntry {
+	entry := ModelsListEntry{
+		ID:      id,
+		Object:  "model",
+		Created: created,
+		OwnedBy: ownedBy,
+	}
+	if mdl != nil && mdl.Config != nil {
+		if mods := mdl.Config.InputModalitiesForCatalog(); len(mods) > 0 {
+			entry.InputModalities = mods
+		}
+	}
+	return entry
 }

@@ -157,3 +157,32 @@ func TestNewChatCompletionWithTools(t *testing.T) {
 		t.Fatalf("expected finish_reason tool_calls, got %v", choices[0]["finish_reason"])
 	}
 }
+
+func TestMessagesToAnthropicWithImageURL(t *testing.T) {
+	content, _ := json.Marshal([]map[string]interface{}{
+		{"type": "text", "text": "describe"},
+		{"type": "image_url", "image_url": map[string]string{"url": "data:image/png;base64,xyz"}},
+	})
+	msgs := []Message{{
+		Role:    "user",
+		Content: content,
+	}}
+	out, err := MessagesToAnthropic(msgs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("out=%#v", out)
+	}
+	blocks, ok := out[0]["content"].([]map[string]interface{})
+	if !ok || len(blocks) != 2 {
+		t.Fatalf("content=%#v", out[0]["content"])
+	}
+	if blocks[1]["type"] != "image" {
+		t.Fatalf("expected image block, got %#v", blocks[1])
+	}
+	src, _ := blocks[1]["source"].(map[string]interface{})
+	if src["type"] != "base64" || src["data"] != "xyz" {
+		t.Fatalf("source=%#v", src)
+	}
+}

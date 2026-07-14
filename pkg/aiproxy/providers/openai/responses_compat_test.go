@@ -130,6 +130,83 @@ func TestFlattenResponsesNamespaceTool(t *testing.T) {
 	}
 }
 
+func TestResponsesToChatCompletionsWithImageInput(t *testing.T) {
+	raw := `{
+		"model":"kimi-k2.6",
+		"input":[{"role":"user","content":[
+			{"type":"input_text","text":"describe this image"},
+			{"type":"input_image","image_url":"data:image/png;base64,abc123"}
+		]}]
+	}`
+	body, _ := jsonutils.Parse([]byte(raw))
+	out, _, err := ResponsesToChatCompletions(body.(*jsonutils.JSONDict), "kimi-k2.6")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := out.String()
+	if !strings.Contains(s, "image_url") {
+		t.Fatalf("expected image_url in messages, got %s", s)
+	}
+	if !strings.Contains(s, "data:image/png;base64,abc123") {
+		t.Fatalf("expected image data url in messages, got %s", s)
+	}
+	if !strings.Contains(s, "describe this image") {
+		t.Fatalf("expected text in messages, got %s", s)
+	}
+}
+
+func TestResponsesInputHasImage(t *testing.T) {
+	body, _ := jsonutils.Parse([]byte(`{"input":[{"role":"user","content":[{"type":"input_image","image_url":"data:image/png;base64,x"}]}]}`))
+	if !ResponsesInputHasImage(body.(*jsonutils.JSONDict)) {
+		t.Fatal("expected image input")
+	}
+	body2, _ := jsonutils.Parse([]byte(`{"input":"hello"}`))
+	if ResponsesInputHasImage(body2.(*jsonutils.JSONDict)) {
+		t.Fatal("expected no image for string input")
+	}
+}
+
+func TestResponsesStreamConverterReasoningAndToolOutputIndex(t *testing.T) {
+	conv := NewResponsesStreamConverter("kimi-k2.6", nil)
+	chunk1 := []byte(`{"id":"chatcmpl-1","model":"kimi-k2.6","choices":[{"delta":{"reasoning_content":"think"}}]}`)
+	events1, err := conv.Feed(chunk1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunk2 := []byte(`{"id":"chatcmpl-1","model":"kimi-k2.6","choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"view_image","arguments":"{}"}}]}}]}`)
+	events2, err := conv.Feed(chunk2, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events := append(events1, events2...)
+	var addedIndex, deltaIndex int
+	for _, e := range events {
+		if e.Event != "response.output_item.added" && e.Event != "response.function_call_arguments.delta" {
+			continue
+		}
+		var payload map[string]interface{}
+		if err := json.Unmarshal(e.Data, &payload); err != nil {
+			t.Fatal(err)
+		}
+		idx, _ := payload["output_index"].(float64)
+		if e.Event == "response.output_item.added" {
+			item, _ := payload["item"].(map[string]interface{})
+			if item["type"] == "function_call" {
+				addedIndex = int(idx)
+			}
+		}
+		if e.Event == "response.function_call_arguments.delta" {
+			deltaIndex = int(idx)
+		}
+	}
+	if addedIndex == 0 || deltaIndex == 0 {
+		t.Fatalf("expected function_call indices, added=%d delta=%d events=%+v", addedIndex, deltaIndex, events)
+	}
+	if addedIndex != deltaIndex {
+		t.Fatalf("output_index mismatch: added=%d delta=%d", addedIndex, deltaIndex)
+	}
+}
+
 func TestResponsesStreamConverterText(t *testing.T) {
 	conv := NewResponsesStreamConverter("gpt-test", nil)
 	chunk := []byte(`{"id":"chatcmpl-1","model":"gpt-test","choices":[{"delta":{"content":"Hi"}}]}`)

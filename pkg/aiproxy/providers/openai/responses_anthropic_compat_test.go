@@ -97,3 +97,29 @@ func TestAnthropicMessagesToResponsesBasic(t *testing.T) {
 		t.Fatalf("out=%s", out)
 	}
 }
+
+func TestResponsesToAnthropicMessagesWithImage(t *testing.T) {
+	raw := `{
+		"model":"claude-test",
+		"max_output_tokens":128,
+		"input":[{"role":"user","content":[
+			{"type":"input_text","text":"look"},
+			{"type":"input_image","image_url":"https://example.com/x.png"}
+		]}]
+	}`
+	body, err := jsonutils.Parse([]byte(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, _, err := ResponsesToAnthropicMessages(body.(*jsonutils.JSONDict), "claude-up")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := out.String()
+	if !strings.Contains(s, `"type":"image"`) && !strings.Contains(s, `"type": "image"`) {
+		t.Fatalf("expected anthropic image block, got %s", s)
+	}
+	if !strings.Contains(s, "https://example.com/x.png") {
+		t.Fatalf("expected image url, got %s", s)
+	}
+}

@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 
+	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -67,8 +68,10 @@ type ChatUpstream struct {
 	UpstreamModel string
 	ProviderKey   string
 	AiProviderId  string
+	AiModelId     string
 	AiKeyId       string
 	APIMode       string
+	ModelConfig   *api.SAiModelConfig
 
 	// VirtualKeyId and usage/rate snapshots come from the matched ai_virtual_key row.
 	VirtualKeyId        string
@@ -146,6 +149,24 @@ func loadEnabledVirtualKey(virtualKey string) (*SAiVirtualKey, error) {
 	}
 	if strings.TrimSpace(vk.ProjectId) == "" {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "virtual key has no project")
+	}
+	return &vk, nil
+}
+
+// LoadEnabledVirtualKeyById loads an enabled virtual key by database id.
+func LoadEnabledVirtualKeyById(id string) (*SAiVirtualKey, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "empty virtual key id")
+	}
+	vk := SAiVirtualKey{}
+	qvk := AiVirtualKeyManager.Query().Equals("id", id).Equals("enabled", true)
+	err := qvk.First(&vk)
+	if err != nil {
+		if stderrors.Is(err, sql.ErrNoRows) {
+			return nil, errors.Wrap(httperrors.ErrInvalidStatus, "virtual key not found or disabled")
+		}
+		return nil, errors.Wrap(err, "query ai_virtual_key by id")
 	}
 	return &vk, nil
 }
@@ -330,9 +351,11 @@ func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential,
 		UpstreamModel: upstreamModel,
 		ProviderKey:   prov.ProviderKey,
 		AiProviderId:  prov.Id,
+		AiModelId:     mdl.Id,
 		AiKeyId:       keyRes.AiKeyId,
 		VirtualKeyId:  vk.Id,
 		APIMode:       apiMode,
+		ModelConfig:   mdl.Config,
 		ProjectId:     vk.ProjectId,
 		DomainId:      vk.DomainId,
 		RoutingLog:    resolved.routingLog,
@@ -342,4 +365,50 @@ func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential,
 		up.RequestsPerMinute = vk.Limits.RequestsPerMinute
 	}
 	return up, nil
+}
+
+// ResolveVisualUpstream resolves the visual provider upstream for tool-delegated image analysis.
+func ResolveVisualUpstream(ctx context.Context, userCred mcclient.TokenCredential, vk *SAiVirtualKey, cfg *api.SAiModelVisualConfig) (*ChatUpstream, error) {
+	if cfg == nil || !cfg.Enabled {
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "visual extension is not enabled")
+	}
+	providerID := strings.TrimSpace(cfg.VisualAiProviderId)
+	modelKey := strings.TrimSpace(cfg.VisualModelKey)
+	if providerID == "" || modelKey == "" {
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "visual_ai_provider_id and visual_model_key are required")
+	}
+	pObj, err := AiProviderManager.FetchByIdOrName(ctx, userCred, providerID)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetch visual ai_provider")
+	}
+	prov := pObj.(*SAiProvider)
+	if !prov.GetEnabled() {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "visual ai_provider disabled")
+	}
+	if !virtualKeyAllowsProvider(vk, prov) {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "visual ai_provider not allowed for this virtual key")
+	}
+	if prov.Config == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "visual ai_provider.config is empty")
+	}
+	baseURL := prov.Config.EffectiveBaseURL(prov.ProviderKey)
+	if baseURL == "" {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "visual ai_provider.config must include base_url")
+	}
+	keyRes, err := resolveUpstreamAPIKey(prov, modelKey)
+	if err != nil {
+		return nil, err
+	}
+	if keyRes == nil || keyRes.Secret == "" {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "add an enabled ai_key with secret for visual provider")
+	}
+	return &ChatUpstream{
+		BaseURL:       baseURL,
+		APIKey:        keyRes.Secret,
+		UpstreamModel: modelKey,
+		ProviderKey:   prov.ProviderKey,
+		AiProviderId:  prov.Id,
+		AiKeyId:       keyRes.AiKeyId,
+		APIMode:       prov.Config.ResolvedAPIMode(),
+	}, nil
 }

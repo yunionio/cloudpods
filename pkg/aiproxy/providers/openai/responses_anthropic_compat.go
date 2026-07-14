@@ -177,14 +177,41 @@ func chatMessagesToAnthropic(chatMsgs []*jsonutils.JSONDict) (*jsonutils.JSONArr
 			asst.Set("content", blocks)
 			out.Add(asst)
 		default:
-			content, _ := msg.GetString("content")
+			contentRaw, _ := msg.Get("content")
+			var contentBytes []byte
+			if contentRaw != nil {
+				contentBytes = []byte(contentRaw.String())
+			}
+			blocks := ChatContentToAnthropicBlocks(contentBytes)
 			user := jsonutils.NewDict()
 			user.Set("role", jsonutils.NewString("user"))
-			if content != "" {
-				user.Set("content", jsonutils.NewString(content))
-			} else {
+			if len(blocks) == 0 {
 				user.Set("content", jsonutils.NewString(""))
+				out.Add(user)
+				continue
 			}
+			if len(blocks) == 1 {
+				if typ, _ := blocks[0]["type"].(string); typ == "text" {
+					if text, _ := blocks[0]["text"].(string); text != "" {
+						user.Set("content", jsonutils.NewString(text))
+						out.Add(user)
+						continue
+					}
+				}
+			}
+			arr := jsonutils.NewArray()
+			for _, blk := range blocks {
+				data, err := json.Marshal(blk)
+				if err != nil {
+					continue
+				}
+				obj, err := jsonutils.Parse(data)
+				if err != nil {
+					continue
+				}
+				arr.Add(obj)
+			}
+			user.Set("content", arr)
 			out.Add(user)
 		}
 	}
