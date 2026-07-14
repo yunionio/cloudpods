@@ -157,13 +157,27 @@ func TestBuildCatalogFromIDs(t *testing.T) {
 }
 
 func TestEnsureModelInCatalog(t *testing.T) {
-	catalog := EnsureModelInCatalog(nil, "custom-model")
+	catalog := EnsureModelInCatalog(nil, "custom-model", nil)
 	if len(catalog) != 1 || catalog[0].Slug != "custom-model" {
 		t.Fatalf("catalog = %+v", catalog)
 	}
-	catalog = EnsureModelInCatalog(catalog, "custom-model")
+	if len(catalog[0].InputModalities) != 1 || catalog[0].InputModalities[0] != "text" {
+		t.Fatalf("default modalities = %#v", catalog[0].InputModalities)
+	}
+	catalog = EnsureModelInCatalog(catalog, "custom-model", nil)
 	if len(catalog) != 1 {
 		t.Fatalf("duplicate append: %+v", catalog)
+	}
+	visual := map[string]struct{}{"visual-model": {}}
+	catalog = EnsureModelInCatalog(nil, "visual-model", visual)
+	if len(catalog) != 1 || catalog[0].Slug != "visual-model" {
+		t.Fatalf("visual catalog = %+v", catalog)
+	}
+	if len(catalog[0].InputModalities) != 2 || catalog[0].InputModalities[1] != "image" {
+		t.Fatalf("visual modalities = %#v", catalog[0].InputModalities)
+	}
+	if !catalog[0].SupportsImageDetailOriginal {
+		t.Fatal("expected SupportsImageDetailOriginal")
 	}
 }
 

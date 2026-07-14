@@ -234,3 +234,58 @@ func TestResponsesStreamConverterText(t *testing.T) {
 		t.Fatalf("events = %+v", end)
 	}
 }
+
+func TestNonStreamChatCompletionToStreamPayloads(t *testing.T) {
+	raw := []byte(`{
+		"id":"chatcmpl-visual-1",
+		"model":"deepseek-v4-flash",
+		"choices":[{
+			"message":{
+				"role":"assistant",
+				"reasoning_content":"thinking",
+				"content":"Hello from visual"
+			},
+			"finish_reason":"stop"
+		}],
+		"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}
+	}`)
+	payloads, err := NonStreamChatCompletionToStreamPayloads(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(payloads) < 3 {
+		t.Fatalf("payloads = %d, want at least 3", len(payloads))
+	}
+
+	conv := NewResponsesStreamConverter("deepseek-v4-flash", nil)
+	var events []ResponsesStreamEvent
+	for _, payload := range payloads {
+		chunkEvents, err := conv.Feed(payload, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		events = append(events, chunkEvents...)
+	}
+	endEvents, err := conv.Feed(nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events = append(events, endEvents...)
+
+	foundCreated := false
+	foundText := false
+	foundCompleted := false
+	for _, e := range events {
+		switch e.Event {
+		case "response.created":
+			foundCreated = true
+		case "response.output_text.delta":
+			foundText = true
+		case "response.completed":
+			foundCompleted = true
+		}
+	}
+	if !foundCreated || !foundText || !foundCompleted {
+		t.Fatalf("events missing lifecycle: created=%v text=%v completed=%v all=%+v", foundCreated, foundText, foundCompleted, events)
+	}
+}

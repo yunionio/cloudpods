@@ -72,6 +72,9 @@ type ChatUpstream struct {
 	AiKeyId       string
 	APIMode       string
 	ModelConfig   *api.SAiModelConfig
+	// VisualProviderId / VisualModelKey come from the resolved text ai_model row.
+	VisualProviderId string
+	VisualModelKey   string
 
 	// VirtualKeyId and usage/rate snapshots come from the matched ai_virtual_key row.
 	VirtualKeyId        string
@@ -346,19 +349,21 @@ func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential,
 	}
 
 	up := &ChatUpstream{
-		BaseURL:       baseURL,
-		APIKey:        keyRes.Secret,
-		UpstreamModel: upstreamModel,
-		ProviderKey:   prov.ProviderKey,
-		AiProviderId:  prov.Id,
-		AiModelId:     mdl.Id,
-		AiKeyId:       keyRes.AiKeyId,
-		VirtualKeyId:  vk.Id,
-		APIMode:       apiMode,
-		ModelConfig:   mdl.Config,
-		ProjectId:     vk.ProjectId,
-		DomainId:      vk.DomainId,
-		RoutingLog:    resolved.routingLog,
+		BaseURL:          baseURL,
+		APIKey:           keyRes.Secret,
+		UpstreamModel:    upstreamModel,
+		ProviderKey:      prov.ProviderKey,
+		AiProviderId:     prov.Id,
+		AiModelId:        mdl.Id,
+		AiKeyId:          keyRes.AiKeyId,
+		VirtualKeyId:     vk.Id,
+		APIMode:          apiMode,
+		ModelConfig:      mdl.Config,
+		VisualProviderId: mdl.VisualProviderId,
+		VisualModelKey:   mdl.VisualModelKey,
+		ProjectId:        vk.ProjectId,
+		DomainId:         vk.DomainId,
+		RoutingLog:       resolved.routingLog,
 	}
 	if vk.Limits != nil {
 		up.MaxTokensPerRequest = vk.Limits.MaxTokensPerRequest
@@ -368,14 +373,11 @@ func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential,
 }
 
 // ResolveVisualUpstream resolves the visual provider upstream for tool-delegated image analysis.
-func ResolveVisualUpstream(ctx context.Context, userCred mcclient.TokenCredential, vk *SAiVirtualKey, cfg *api.SAiModelVisualConfig) (*ChatUpstream, error) {
-	if cfg == nil || !cfg.Enabled {
-		return nil, errors.Wrap(httperrors.ErrInputParameter, "visual extension is not enabled")
-	}
-	providerID := strings.TrimSpace(cfg.VisualAiProviderId)
-	modelKey := strings.TrimSpace(cfg.VisualModelKey)
+func ResolveVisualUpstream(ctx context.Context, userCred mcclient.TokenCredential, vk *SAiVirtualKey, visualProviderId, visualModelKey string) (*ChatUpstream, error) {
+	providerID := strings.TrimSpace(visualProviderId)
+	modelKey := strings.TrimSpace(visualModelKey)
 	if providerID == "" || modelKey == "" {
-		return nil, errors.Wrap(httperrors.ErrInputParameter, "visual_ai_provider_id and visual_model_key are required")
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "visual_provider_id and visual_model_key are required")
 	}
 	pObj, err := AiProviderManager.FetchByIdOrName(ctx, userCred, providerID)
 	if err != nil {

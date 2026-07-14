@@ -137,22 +137,42 @@ type AiModelShowOptions struct {
 type AiModelCreateOptions struct {
 	options.BaseCreateOptions
 
-	AiProviderId string `help:"ai_provider id or name" json:"ai_provider_id"`
-	ModelKey     string `help:"model routing key" json:"model_key"`
-	Enabled      *bool  `json:"enabled,omitempty"`
+	AiProviderId     string `help:"ai_provider id or name" json:"ai_provider_id"`
+	ModelKey         string `help:"model routing key" json:"model_key"`
+	VisualProviderId string `help:"ai_provider for tool-delegated vision" json:"visual_provider_id"`
+	VisualModelKey   string `help:"upstream model id for visual analysis" json:"visual_model_key"`
+	VisualEnabled    *bool  `help:"enable visual extension" json:"-"`
+	VisualMaxRounds  int    `help:"visual orchestration max rounds" json:"-"`
+	VisualMaxTokens  int    `help:"visual analysis max tokens" json:"-"`
+	Enabled          *bool  `json:"enabled,omitempty"`
 }
 
 func (o *AiModelCreateOptions) Params() (jsonutils.JSONObject, error) {
-	return options.StructToParams(o)
+	params, err := options.StructToParams(o)
+	if err != nil {
+		return nil, err
+	}
+	params.Remove("visual_enabled")
+	params.Remove("visual_max_rounds")
+	params.Remove("visual_max_tokens")
+	if err := mergeAiModelVisualConfig(params, o.VisualEnabled, o.VisualMaxRounds, o.VisualMaxTokens, false); err != nil {
+		return nil, err
+	}
+	return params, nil
 }
 
 type AiModelUpdateOptions struct {
-	ID           string `help:"ID or name" json:"-"`
-	Name         string `json:"name,omitempty"`
-	Desc         string `json:"description,omitempty"`
-	AiProviderId string `json:"ai_provider_id,omitempty"`
-	ModelKey     string `json:"model_key,omitempty"`
-	Enabled      *bool  `json:"enabled,omitempty"`
+	ID               string `help:"ID or name" json:"-"`
+	Name             string `json:"name,omitempty"`
+	Desc             string `json:"description,omitempty"`
+	AiProviderId     string `json:"ai_provider_id,omitempty"`
+	ModelKey         string `json:"model_key,omitempty"`
+	VisualProviderId string `json:"visual_provider_id,omitempty"`
+	VisualModelKey   string `json:"visual_model_key,omitempty"`
+	VisualEnabled    *bool  `help:"enable visual extension" json:"-"`
+	VisualMaxRounds  int    `help:"visual orchestration max rounds" json:"-"`
+	VisualMaxTokens  int    `help:"visual analysis max tokens" json:"-"`
+	Enabled          *bool  `json:"enabled,omitempty"`
 }
 
 func (o *AiModelUpdateOptions) GetId() string {
@@ -160,7 +180,45 @@ func (o *AiModelUpdateOptions) GetId() string {
 }
 
 func (o *AiModelUpdateOptions) Params() (jsonutils.JSONObject, error) {
-	return options.StructToParams(o)
+	d, err := options.StructToParams(o)
+	if err != nil {
+		return nil, err
+	}
+	d.Remove("visual_enabled")
+	d.Remove("visual_max_rounds")
+	d.Remove("visual_max_tokens")
+	if err := mergeAiModelVisualConfig(d, o.VisualEnabled, o.VisualMaxRounds, o.VisualMaxTokens, true); err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+// mergeAiModelVisualConfig builds config.extensions.visual from flat CLI flags.
+// requireEnabled=true for update: max_* alone would replace the whole config and drop enabled.
+func mergeAiModelVisualConfig(params *jsonutils.JSONDict, enabled *bool, maxRounds, maxTokens int, requireEnabled bool) error {
+	hasMax := maxRounds > 0 || maxTokens > 0
+	if enabled == nil && !hasMax {
+		return nil
+	}
+	if requireEnabled && enabled == nil && hasMax {
+		return errors.Errorf("set --visual-enabled when using --visual-max-rounds or --visual-max-tokens (config is replaced as a whole)")
+	}
+	visual := jsonutils.NewDict()
+	if enabled != nil {
+		visual.Set("enabled", jsonutils.NewBool(*enabled))
+	}
+	if maxRounds > 0 {
+		visual.Set("max_rounds", jsonutils.NewInt(int64(maxRounds)))
+	}
+	if maxTokens > 0 {
+		visual.Set("max_tokens", jsonutils.NewInt(int64(maxTokens)))
+	}
+	extensions := jsonutils.NewDict()
+	extensions.Set("visual", visual)
+	config := jsonutils.NewDict()
+	config.Set("extensions", extensions)
+	params.Set("config", config)
+	return nil
 }
 
 type AiModelDeleteOptions struct {
