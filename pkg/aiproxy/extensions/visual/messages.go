@@ -71,24 +71,25 @@ func anthropicContentHasImage(raw json.RawMessage) bool {
 	return false
 }
 
-// ShouldHandleMessages reports whether the Messages visual path should run (non-stream only).
+// ShouldHandleMessages reports whether the Messages visual path should run.
+// Streaming requests with images use non-streaming orchestration and synthetic SSE.
 func ShouldHandleMessages(dict *jsonutils.JSONDict, up *models.ChatUpstream, isStream bool) bool {
-	if isStream || dict == nil || up == nil || !Enabled(up) {
+	_ = isStream
+	if dict == nil || up == nil || !Enabled(up) {
 		return false
 	}
 	return AnthropicMessagesHasImage(dict)
 }
 
-// ShouldRejectMessagesStreaming reports stream+visual+image (unsupported).
+// ShouldRejectMessagesStreaming is deprecated: stream+visual+image now uses synthetic SSE.
+// Kept for compatibility; always returns false.
 func ShouldRejectMessagesStreaming(dict *jsonutils.JSONDict, up *models.ChatUpstream, isStream bool) bool {
-	if !isStream || dict == nil || up == nil || !Enabled(up) {
-		return false
-	}
-	return AnthropicMessagesHasImage(dict)
+	_, _, _ = dict, up, isStream
+	return false
 }
 
-// HandleMessagesCreate runs visual orchestration for a non-streaming Anthropic Messages request.
-func HandleMessagesCreate(
+// HandleMessagesCreateChat runs visual orchestration and returns the upstream chat completion body.
+func HandleMessagesCreateChat(
 	ctx context.Context,
 	dict *jsonutils.JSONDict,
 	textUp *models.ChatUpstream,
@@ -111,11 +112,21 @@ func HandleMessagesCreate(
 		return nil, err
 	}
 	chatClone := cloneDict(chatBody)
+	forceNonStreamChatBody(chatClone)
 	textUpChat := *textUp
 	textUpChat.BaseURL = ChatBaseURL(textUp.BaseURL)
 	visUpChat := *visUp
 	visUpChat.BaseURL = ChatBaseURL(visUp.BaseURL)
-	respBody, err := RunChatOrchestrator(ctx, &textUpChat, &visUpChat, chatClone, runtime)
+	return RunChatOrchestrator(ctx, &textUpChat, &visUpChat, chatClone, runtime)
+}
+
+// HandleMessagesCreate runs visual orchestration for a non-streaming Anthropic Messages request.
+func HandleMessagesCreate(
+	ctx context.Context,
+	dict *jsonutils.JSONDict,
+	textUp *models.ChatUpstream,
+) ([]byte, error) {
+	respBody, err := HandleMessagesCreateChat(ctx, dict, textUp)
 	if err != nil {
 		return nil, err
 	}

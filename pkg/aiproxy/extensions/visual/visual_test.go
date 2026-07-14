@@ -128,6 +128,47 @@ func TestAnthropicMessagesHasImage(t *testing.T) {
 	}
 }
 
+func TestShouldHandleMessagesIgnoresStream(t *testing.T) {
+	cfg := &api.SAiModelConfig{
+		Extensions: &api.SAiModelExtensions{
+			Visual: &api.SAiModelVisualConfig{Enabled: true},
+		},
+	}
+	up := &models.ChatUpstream{
+		ModelConfig:      cfg,
+		VisualProviderId: "prov-1",
+		VisualModelKey:   "vision-model",
+	}
+	body, _ := jsonutils.Parse([]byte(`{"messages":[{"role":"user","content":[{"type":"image","source":{"type":"url","url":"https://x/a.png"}}]}]}`))
+	if !ShouldHandleMessages(body.(*jsonutils.JSONDict), up, false) {
+		t.Fatal("expected visual handle non-stream with image")
+	}
+	if !ShouldHandleMessages(body.(*jsonutils.JSONDict), up, true) {
+		t.Fatal("stream with image should use visual orchestrator")
+	}
+	bodyText, _ := jsonutils.Parse([]byte(`{"messages":[{"role":"user","content":"hello"}]}`))
+	if ShouldHandleMessages(bodyText.(*jsonutils.JSONDict), up, true) {
+		t.Fatal("stream without image should not use visual orchestrator")
+	}
+}
+
+func TestShouldRejectMessagesStreamingAlwaysFalse(t *testing.T) {
+	cfg := &api.SAiModelConfig{
+		Extensions: &api.SAiModelExtensions{
+			Visual: &api.SAiModelVisualConfig{Enabled: true},
+		},
+	}
+	up := &models.ChatUpstream{
+		ModelConfig:      cfg,
+		VisualProviderId: "prov-1",
+		VisualModelKey:   "vision-model",
+	}
+	body, _ := jsonutils.Parse([]byte(`{"messages":[{"role":"user","content":[{"type":"image","source":{"type":"url","url":"https://x/a.png"}}]}]}`))
+	if ShouldRejectMessagesStreaming(body.(*jsonutils.JSONDict), up, true) {
+		t.Fatal("stream+visual+image must not reject after synthetic SSE support")
+	}
+}
+
 func TestForceNonStreamChatBody(t *testing.T) {
 	body := jsonutils.NewDict()
 	body.Set("stream", jsonutils.JSONTrue)
