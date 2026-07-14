@@ -14,7 +14,12 @@
 
 package visual
 
-import api "yunion.io/x/onecloud/pkg/apis/aiproxy"
+import (
+	"strings"
+
+	"yunion.io/x/onecloud/pkg/aiproxy/models"
+	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
+)
 
 // RuntimeConfig is the resolved visual extension settings for one request.
 type RuntimeConfig struct {
@@ -40,7 +45,11 @@ func RuntimeConfigFromModel(cfg *api.SAiModelConfig) (RuntimeConfig, *api.SAiMod
 	return out, vis
 }
 
-// Enabled reports whether visual extension is enabled on the model config.
-func Enabled(cfg *api.SAiModelConfig) bool {
-	return cfg != nil && cfg.VisualEnabled()
+// Enabled reports whether visual extension is active on the resolved upstream
+// (config.enabled plus visual_provider_id / visual_model_key columns).
+func Enabled(up *models.ChatUpstream) bool {
+	if up == nil || !up.ModelConfig.VisualEnabled() {
+		return false
+	}
+	return strings.TrimSpace(up.VisualProviderId) != "" && strings.TrimSpace(up.VisualModelKey) != ""
 }

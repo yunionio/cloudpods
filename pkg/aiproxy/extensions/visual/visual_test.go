@@ -66,8 +66,17 @@ func TestEnabled(t *testing.T) {
 			Visual: &api.SAiModelVisualConfig{Enabled: true},
 		},
 	}
-	if !Enabled(cfg) {
+	up := &models.ChatUpstream{
+		ModelConfig:      cfg,
+		VisualProviderId: "prov-1",
+		VisualModelKey:   "vision-model",
+	}
+	if !Enabled(up) {
 		t.Fatal("expected enabled")
+	}
+	up.VisualProviderId = ""
+	if Enabled(up) {
+		t.Fatal("expected disabled without visual_provider_id")
 	}
 }
 
@@ -119,6 +128,19 @@ func TestAnthropicMessagesHasImage(t *testing.T) {
 	}
 }
 
+func TestForceNonStreamChatBody(t *testing.T) {
+	body := jsonutils.NewDict()
+	body.Set("stream", jsonutils.JSONTrue)
+	body.Set("stream_options", jsonutils.NewDict())
+	forceNonStreamChatBody(body)
+	if stream, _ := body.Bool("stream"); stream {
+		t.Fatal("expected stream removed")
+	}
+	if _, err := body.Get("stream_options"); err == nil {
+		t.Fatal("expected stream_options removed")
+	}
+}
+
 func TestShouldHandleResponsesIgnoresAPIMode(t *testing.T) {
 	cfg := &api.SAiModelConfig{
 		Extensions: &api.SAiModelExtensions{
@@ -126,14 +148,20 @@ func TestShouldHandleResponsesIgnoresAPIMode(t *testing.T) {
 		},
 	}
 	up := &models.ChatUpstream{
-		ModelConfig: cfg,
-		APIMode:     "anthropic",
+		ModelConfig:      cfg,
+		VisualProviderId: "prov-1",
+		VisualModelKey:   "vision-model",
+		APIMode:          "anthropic",
 	}
 	body, _ := jsonutils.Parse([]byte(`{"input":[{"role":"user","content":[{"type":"input_image","image_url":"data:image/png;base64,x"}]}]}`))
 	if !ShouldHandle(body.(*jsonutils.JSONDict), up, false) {
 		t.Fatal("expected visual handle even with anthropic api_mode")
 	}
-	if ShouldHandle(body.(*jsonutils.JSONDict), up, true) {
-		t.Fatal("stream should not use visual orchestrator")
+	if !ShouldHandle(body.(*jsonutils.JSONDict), up, true) {
+		t.Fatal("stream with image should use visual orchestrator")
+	}
+	bodyText, _ := jsonutils.Parse([]byte(`{"input":[{"role":"user","content":[{"type":"input_text","text":"hello"}]}]}`))
+	if ShouldHandle(bodyText.(*jsonutils.JSONDict), up, true) {
+		t.Fatal("stream without image should not use visual orchestrator")
 	}
 }

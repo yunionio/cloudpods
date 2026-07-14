@@ -31,27 +31,36 @@ type AiModelListInput struct {
 type AiModelCreateInput struct {
 	apis.EnabledStatusStandaloneResourceCreateInput
 
-	AiProviderId string          `json:"ai_provider_id"`
-	ModelKey     string          `json:"model_key"`
-	Config       *SAiModelConfig `json:"config"`
+	AiProviderId     string          `json:"ai_provider_id"`
+	ModelKey         string          `json:"model_key"`
+	VisualProviderId string          `json:"visual_provider_id"`
+	VisualModelKey   string          `json:"visual_model_key"`
+	Config           *SAiModelConfig `json:"config"`
 }
 
 type AiModelUpdateInput struct {
 	apis.EnabledStatusStandaloneResourceBaseUpdateInput
 
-	AiProviderId string          `json:"ai_provider_id"`
-	ModelKey     string          `json:"model_key"`
-	Enabled      *bool           `json:"enabled"`
-	Config       *SAiModelConfig `json:"config"`
+	AiProviderId     string          `json:"ai_provider_id"`
+	ModelKey         string          `json:"model_key"`
+	VisualProviderId string          `json:"visual_provider_id"`
+	VisualModelKey   string          `json:"visual_model_key"`
+	Enabled          *bool           `json:"enabled"`
+	Config           *SAiModelConfig `json:"config"`
 }
 
 type AiModelDetails struct {
 	apis.EnabledStatusStandaloneResourceDetails
 
-	AiProviderId   string          `json:"ai_provider_id"`
-	AiProviderName string          `json:"ai_provider_name"`
-	ModelKey       string          `json:"model_key"`
-	Config         *SAiModelConfig `json:"config"`
+	AiProviderId       string          `json:"ai_provider_id"`
+	AiProviderName     string          `json:"ai_provider_name"`
+	ModelKey           string          `json:"model_key"`
+	VisualProviderId   string          `json:"visual_provider_id"`
+	VisualProviderName string          `json:"visual_provider_name"`
+	VisualProviderKey  string          `json:"visual_provider_key"`
+	VisualModelKey     string          `json:"visual_model_key"`
+	VisualActive       bool            `json:"visual_active"`
+	Config             *SAiModelConfig `json:"config"`
 }
 
 // SAiModelConfig stores per-model extension settings.
@@ -64,12 +73,11 @@ type SAiModelExtensions struct {
 }
 
 // SAiModelVisualConfig enables tool-delegated vision for text-only upstream models.
+// visual_provider_id / visual_model_key live on ai_model columns, not in this JSON.
 type SAiModelVisualConfig struct {
-	Enabled            bool   `json:"enabled"`
-	VisualAiProviderId string `json:"visual_ai_provider_id"`
-	VisualModelKey     string `json:"visual_model_key"`
-	MaxRounds          int    `json:"max_rounds,omitempty"`
-	MaxTokens          int    `json:"max_tokens,omitempty"`
+	Enabled   bool `json:"enabled"`
+	MaxRounds int  `json:"max_rounds,omitempty"`
+	MaxTokens int  `json:"max_tokens,omitempty"`
 }
 
 // String implements gotypes.ISerializable for sqlchemy JSON/compound columns.

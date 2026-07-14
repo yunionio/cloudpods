@@ -29,3 +29,50 @@ func TestBuildCatalogVisualModalities(t *testing.T) {
 		t.Fatalf("modalities = %#v", catalog[0].InputModalities)
 	}
 }
+
+func TestApplyVisualModalities(t *testing.T) {
+	catalog := BuildCatalogFromIDs([]ModelListEntry{
+		{ID: "text-only", OwnedBy: "deepseek"},
+		{ID: "route/flash", OwnedBy: "deepseek", InputModalities: []string{"text"}},
+		{ID: "already-image", OwnedBy: "deepseek", InputModalities: []string{"text", "image"}},
+	})
+	visual := map[string]struct{}{
+		"route/flash":   {},
+		"already-image": {},
+		"missing-slug":  {},
+	}
+	out := ApplyVisualModalities(catalog, visual)
+	if len(out) != 3 {
+		t.Fatalf("len = %d", len(out))
+	}
+	bySlug := map[string]ModelInfo{}
+	for _, m := range out {
+		bySlug[m.Slug] = m
+	}
+	if len(bySlug["text-only"].InputModalities) != 1 || bySlug["text-only"].InputModalities[0] != "text" {
+		t.Fatalf("text-only = %#v", bySlug["text-only"].InputModalities)
+	}
+	if !bySlug["route/flash"].SupportsImageDetailOriginal {
+		t.Fatal("route/flash should support image detail original")
+	}
+	mods := bySlug["route/flash"].InputModalities
+	if len(mods) != 2 || mods[0] != "text" || mods[1] != "image" {
+		t.Fatalf("route/flash modalities = %#v", mods)
+	}
+	mods = bySlug["already-image"].InputModalities
+	if len(mods) != 2 || mods[1] != "image" {
+		t.Fatalf("already-image modalities = %#v", mods)
+	}
+}
+
+func TestEnsureImageModality(t *testing.T) {
+	if got := ensureImageModality(nil); len(got) != 2 || got[0] != "text" || got[1] != "image" {
+		t.Fatalf("nil = %#v", got)
+	}
+	if got := ensureImageModality([]string{"text", "image"}); len(got) != 2 {
+		t.Fatalf("already has image = %#v", got)
+	}
+	if got := ensureImageModality([]string{"audio"}); len(got) != 3 || got[0] != "text" || got[2] != "image" {
+		t.Fatalf("preserve audio = %#v", got)
+	}
+}

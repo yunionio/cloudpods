@@ -301,7 +301,7 @@ startup_timeout_sec = 3600
 tool_timeout_sec = 3600
 ```
 
-**models_catalog.json**（节选）：包含该 virtual key 可见模型的 Codex 元数据（`base_instructions`、`truncation_policy`、`shell_type` 等），避免 Codex 回退到内置 preset。
+**models_catalog.json**（节选）：包含该 virtual key 可见模型的 Codex 元数据（`base_instructions`、`truncation_policy`、`shell_type`、`input_modalities` 等），避免 Codex 回退到内置 preset。若绑定 `ai_model` 已启用 Visual（`visual_active`：`config.extensions.visual.enabled` + `visual_provider_id` + `visual_model_key`），对应条目会写入 `input_modalities: ["text","image"]`，使 Codex 按多模态发图。
 
 **aiproxy.env**
 
