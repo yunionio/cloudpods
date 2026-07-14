@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	apmodels "yunion.io/x/onecloud/pkg/aiproxy/models"
+	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	apmodules "yunion.io/x/onecloud/pkg/mcclient/modules/aiproxy"
 )
@@ -38,9 +39,41 @@ func filterModelEntriesForRouting(session *mcclient.ClientSession, routingNameOr
 }
 
 func allowedClientModelIDsForRouting(session *mcclient.ClientSession, routingNameOrID string) (map[string]struct{}, error) {
+	routing, bindings, modelsById, providers, err := loadRoutingCatalogContext(session, routingNameOrID)
+	if err != nil {
+		return nil, err
+	}
+	ids := apmodels.ClientFacingModelIDsForRouting(routing, bindings, modelsById, providers)
+	allowed := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		allowed[id] = struct{}{}
+	}
+	return allowed, nil
+}
+
+// resolveVisualActiveClientModelIDs returns client model ids with VisualActive() when --routing is set.
+func resolveVisualActiveClientModelIDs(session *mcclient.ClientSession, routingNameOrID string) (map[string]struct{}, error) {
+	routingNameOrID = strings.TrimSpace(routingNameOrID)
+	if routingNameOrID == "" {
+		return nil, nil
+	}
+	routing, bindings, modelsById, providers, err := loadRoutingCatalogContext(session, routingNameOrID)
+	if err != nil {
+		return nil, err
+	}
+	return apmodels.VisualActiveClientModelIDsForRouting(routing, bindings, modelsById, providers), nil
+}
+
+func loadRoutingCatalogContext(session *mcclient.ClientSession, routingNameOrID string) (
+	*apmodels.SAiRouting,
+	[]apmodels.SAiRoutingModel,
+	map[string]*apmodels.SAiModel,
+	map[string]*apmodels.SAiProvider,
+	error,
+) {
 	routingObj, err := apmodules.AiRoutings.Get(session, routingNameOrID, nil)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ai-routing-show %s", routingNameOrID)
+		return nil, nil, nil, nil, errors.Wrapf(err, "ai-routing-show %s", routingNameOrID)
 	}
 	routingID, _ := routingObj.GetString("id")
 	routing := &apmodels.SAiRouting{
@@ -50,23 +83,17 @@ func allowedClientModelIDsForRouting(session *mcclient.ClientSession, routingNam
 
 	bindings, providerIDs, err := fetchRoutingBindings(session, routingID)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
 	modelsById, err := fetchCatalogModelsForRouting(session, routingID)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
 	providers, err := fetchProvidersByIDs(session, providerIDs)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
-
-	ids := apmodels.ClientFacingModelIDsForRouting(routing, bindings, modelsById, providers)
-	allowed := make(map[string]struct{}, len(ids))
-	for _, id := range ids {
-		allowed[id] = struct{}{}
-	}
-	return allowed, nil
+	return routing, bindings, modelsById, providers, nil
 }
 
 func fetchRoutingBindings(session *mcclient.ClientSession, routingID string) ([]apmodels.SAiRoutingModel, []string, error) {
@@ -100,6 +127,7 @@ func fetchCatalogModelsForRouting(session *mcclient.ClientSession, routingID str
 	params := jsonutils.NewDict()
 	params.Set("ai_routing_id", jsonutils.NewString(routingID))
 	params.Set("enabled", jsonutils.JSONTrue)
+	params.Set("details", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(500))
 	result, err := apmodules.AiModels.List(session, params)
 	if err != nil {
@@ -111,12 +139,31 @@ func fetchCatalogModelsForRouting(session *mcclient.ClientSession, routingID str
 		if id == "" {
 			continue
 		}
-		out[id] = &apmodels.SAiModel{
-			AiProviderId: strings.TrimSpace(mustString(item, "ai_provider_id")),
-			ModelKey:     strings.TrimSpace(mustString(item, "model_key")),
+		mdl := &apmodels.SAiModel{
+			AiProviderId:     strings.TrimSpace(mustString(item, "ai_provider_id")),
+			ModelKey:         strings.TrimSpace(mustString(item, "model_key")),
+			VisualProviderId: strings.TrimSpace(mustString(item, "visual_provider_id")),
+			VisualModelKey:   strings.TrimSpace(mustString(item, "visual_model_key")),
+			Config:           parseAiModelConfig(item),
 		}
+		out[id] = mdl
 	}
 	return out, nil
+}
+
+func parseAiModelConfig(obj jsonutils.JSONObject) *api.SAiModelConfig {
+	if obj == nil {
+		return nil
+	}
+	cfgObj, err := obj.Get("config")
+	if err != nil || cfgObj == nil || cfgObj == jsonutils.JSONNull {
+		return nil
+	}
+	cfg := &api.SAiModelConfig{}
+	if err := cfgObj.Unmarshal(cfg); err != nil {
+		return nil
+	}
+	return cfg
 }
 
 func fetchProvidersByIDs(session *mcclient.ClientSession, ids []string) (map[string]*apmodels.SAiProvider, error) {

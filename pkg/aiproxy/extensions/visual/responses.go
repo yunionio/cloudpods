@@ -26,21 +26,23 @@ import (
 )
 
 // ShouldHandle reports whether the Responses visual orchestration path should run.
+// Streaming requests with images use non-streaming orchestration and synthetic SSE (moon-bridge pattern).
 func ShouldHandle(dict *jsonutils.JSONDict, up *models.ChatUpstream, isStream bool) bool {
-	if isStream || dict == nil || up == nil || !Enabled(up.ModelConfig) {
+	_ = isStream
+	if dict == nil || up == nil || !Enabled(up) {
 		return false
 	}
 	return openai.ResponsesInputHasImage(dict)
 }
 
-// HandleResponsesCreate runs the visual orchestration loop for a non-streaming Responses request.
-func HandleResponsesCreate(
+// HandleResponsesCreateChat runs visual orchestration and returns the upstream chat completion body.
+func HandleResponsesCreateChat(
 	ctx context.Context,
 	dict *jsonutils.JSONDict,
 	textUp *models.ChatUpstream,
 ) ([]byte, *openai.ResponsesConvertState, error) {
 	runtime, visCfg := RuntimeConfigFromModel(textUp.ModelConfig)
-	if visCfg == nil {
+	if visCfg == nil || !visCfg.Enabled {
 		return nil, nil, fmt.Errorf("visual config is missing")
 	}
 	userCred := auth.AdminCredential()
@@ -48,7 +50,7 @@ func HandleResponsesCreate(
 	if err != nil {
 		return nil, nil, err
 	}
-	visUp, err := models.ResolveVisualUpstream(ctx, userCred, vk, visCfg)
+	visUp, err := models.ResolveVisualUpstream(ctx, userCred, vk, textUp.VisualProviderId, textUp.VisualModelKey)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -57,11 +59,25 @@ func HandleResponsesCreate(
 		return nil, nil, err
 	}
 	chatClone := cloneDict(chatBody)
+	forceNonStreamChatBody(chatClone)
 	textUpChat := *textUp
 	textUpChat.BaseURL = ChatBaseURL(textUp.BaseURL)
 	visUpChat := *visUp
 	visUpChat.BaseURL = ChatBaseURL(visUp.BaseURL)
 	respBody, err := RunChatOrchestrator(ctx, &textUpChat, &visUpChat, chatClone, runtime)
+	if err != nil {
+		return nil, nil, err
+	}
+	return respBody, state, nil
+}
+
+// HandleResponsesCreate runs the visual orchestration loop for a non-streaming Responses request.
+func HandleResponsesCreate(
+	ctx context.Context,
+	dict *jsonutils.JSONDict,
+	textUp *models.ChatUpstream,
+) ([]byte, *openai.ResponsesConvertState, error) {
+	respBody, state, err := HandleResponsesCreateChat(ctx, dict, textUp)
 	if err != nil {
 		return nil, nil, err
 	}

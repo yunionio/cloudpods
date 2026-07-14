@@ -106,19 +106,42 @@ func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.R
 	}
 
 	if visual.ShouldHandle(dict, up, isStream) {
-		bodyOut, _, err := visual.HandleResponsesCreate(ctx, dict, up)
+		if !isStream {
+			bodyOut, _, err := visual.HandleResponsesCreate(ctx, dict, up)
+			if err != nil {
+				dbg.Error("visual orchestration: %v", err)
+				writeResponsesError(ctx, w, http.StatusBadGateway, "api_error", "visual orchestration: %v", err)
+				return
+			}
+			dbg.ClientResponse(bodyOut)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(bodyOut)
+			if up.AiKeyId != "" {
+				models.RecordAiKeySuccess(up.AiKeyId)
+			}
+			return
+		}
+
+		chatBody, _, err := visual.HandleResponsesCreateChat(ctx, dict, up)
 		if err != nil {
 			dbg.Error("visual orchestration: %v", err)
 			writeResponsesError(ctx, w, http.StatusBadGateway, "api_error", "visual orchestration: %v", err)
 			return
 		}
-		dbg.ClientResponse(bodyOut)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(bodyOut)
-		if up.AiKeyId != "" {
-			models.RecordAiKeySuccess(up.AiKeyId)
+		payloads, err := openai.NonStreamChatCompletionToStreamPayloads(chatBody)
+		if err != nil {
+			dbg.Error("visual synthetic stream: %v", err)
+			writeResponsesError(ctx, w, http.StatusBadGateway, "api_error", "visual synthetic stream: %v", err)
+			return
 		}
+		adapter, err := responses.GetAdapter(up.ProviderKey, up.APIMode)
+		if err != nil {
+			dbg.Error("adapter: %v", err)
+			writeResponsesError(ctx, w, http.StatusBadRequest, "invalid_request_error", "%v", err)
+			return
+		}
+		writeResponsesSyntheticStream(ctx, w, adapter, up.UpstreamModel, dict, payloads, up.AiKeyId, dbg)
 		return
 	}
 
@@ -422,6 +445,50 @@ func writeResponsesPassthroughStream(ctx context.Context, w http.ResponseWriter,
 			_, _ = fmt.Fprint(w, "\n")
 		}
 		flushIf(w)
+	}
+	if streamOK && aiKeyId != "" {
+		models.RecordAiKeySuccess(aiKeyId)
+	}
+}
+
+func writeResponsesSyntheticStream(
+	ctx context.Context,
+	w http.ResponseWriter,
+	adapter providerapi.ResponsesAdapter,
+	requestModel string,
+	requestBody *jsonutils.JSONDict,
+	payloads [][]byte,
+	aiKeyId string,
+	dbg *ProxyDebugSession,
+) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+	flushIf(w)
+
+	state := adapter.NewStreamState(requestModel, requestBody)
+	streamOK := true
+	outSeq := 0
+	for _, payload := range payloads {
+		events, err := adapter.ConvertStreamPayload(state, payload, false)
+		if err != nil {
+			dbg.Error("visual synthetic stream convert error: %v", err)
+			streamOK = false
+			break
+		}
+		outSeq++
+		writeResponsesSSEEvents(w, events, dbg, outSeq)
+	}
+	if streamOK {
+		events, err := adapter.ConvertStreamPayload(state, nil, true)
+		if err != nil {
+			dbg.Error("visual synthetic stream end error: %v", err)
+			streamOK = false
+		} else {
+			outSeq++
+			writeResponsesSSEEvents(w, events, dbg, outSeq)
+		}
 	}
 	if streamOK && aiKeyId != "" {
 		models.RecordAiKeySuccess(aiKeyId)

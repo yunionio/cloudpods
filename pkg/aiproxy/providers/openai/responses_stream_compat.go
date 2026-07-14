@@ -434,3 +434,135 @@ func ToProviderChunks(events []ResponsesStreamEvent) []providerapi.ResponsesStre
 	}
 	return out
 }
+
+type syntheticChatChunkDelta struct {
+	Content          *string    `json:"content,omitempty"`
+	ReasoningContent *string    `json:"reasoning_content,omitempty"`
+	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
+}
+
+type syntheticChatChunkChoice struct {
+	Delta        syntheticChatChunkDelta `json:"delta,omitempty"`
+	FinishReason string                  `json:"finish_reason,omitempty"`
+}
+
+type syntheticChatChunkPayload struct {
+	ID      string                     `json:"id,omitempty"`
+	Model   string                     `json:"model,omitempty"`
+	Choices []syntheticChatChunkChoice `json:"choices,omitempty"`
+	Usage   *struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage,omitempty"`
+}
+
+// NonStreamChatCompletionToStreamPayloads converts a chat.completion JSON body into
+// synthetic chat.completion.chunk payloads for ResponsesStreamConverter.
+func NonStreamChatCompletionToStreamPayloads(body []byte) ([][]byte, error) {
+	var resp struct {
+		ID      string `json:"id"`
+		Model   string `json:"model"`
+		Choices []struct {
+			Message struct {
+				Content          json.RawMessage `json:"content"`
+				ReasoningContent string          `json:"reasoning_content"`
+				ToolCalls        []ToolCall      `json:"tool_calls"`
+			} `json:"message"`
+			FinishReason string `json:"finish_reason"`
+		} `json:"choices"`
+		Usage *struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			TotalTokens      int `json:"total_tokens"`
+		} `json:"usage"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("invalid chat completion: %w", err)
+	}
+	if len(resp.Choices) == 0 {
+		return nil, fmt.Errorf("empty chat completion choices")
+	}
+	choice := resp.Choices[0]
+	payloads := make([][]byte, 0, 4)
+
+	appendChunk := func(chunk syntheticChatChunkPayload) error {
+		if chunk.ID == "" {
+			chunk.ID = resp.ID
+		}
+		if chunk.Model == "" {
+			chunk.Model = resp.Model
+		}
+		b, err := json.Marshal(chunk)
+		if err != nil {
+			return err
+		}
+		payloads = append(payloads, b)
+		return nil
+	}
+
+	if err := appendChunk(syntheticChatChunkPayload{
+		ID:      resp.ID,
+		Model:   resp.Model,
+		Choices: []syntheticChatChunkChoice{{}},
+	}); err != nil {
+		return nil, err
+	}
+
+	if rc := strings.TrimSpace(choice.Message.ReasoningContent); rc != "" {
+		reason := rc
+		if err := appendChunk(syntheticChatChunkPayload{
+			Choices: []syntheticChatChunkChoice{{
+				Delta: syntheticChatChunkDelta{ReasoningContent: &reason},
+			}},
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	if text := strings.TrimSpace(MessageTextContent(choice.Message.Content)); text != "" {
+		content := text
+		if err := appendChunk(syntheticChatChunkPayload{
+			Choices: []syntheticChatChunkChoice{{
+				Delta: syntheticChatChunkDelta{Content: &content},
+			}},
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	for i, tc := range choice.Message.ToolCalls {
+		call := tc
+		if call.Index == 0 && i > 0 {
+			call.Index = i
+		}
+		if call.Type == "" {
+			call.Type = "function"
+		}
+		if err := appendChunk(syntheticChatChunkPayload{
+			Choices: []syntheticChatChunkChoice{{
+				Delta: syntheticChatChunkDelta{ToolCalls: []ToolCall{call}},
+			}},
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	if resp.Usage != nil {
+		if err := appendChunk(syntheticChatChunkPayload{Usage: resp.Usage}); err != nil {
+			return nil, err
+		}
+	}
+
+	if choice.FinishReason == "length" {
+		if err := appendChunk(syntheticChatChunkPayload{
+			Choices: []syntheticChatChunkChoice{{
+				FinishReason: "length",
+			}},
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	return payloads, nil
+}

@@ -207,8 +207,50 @@ func newModelInfo(slug, displayName, description string, contextWindow int, inpu
 	}
 }
 
+// ensureImageModality appends "image" when missing, defaulting empty lists to ["text"].
+func ensureImageModality(modalities []string) []string {
+	hasImage := false
+	hasText := false
+	for _, m := range modalities {
+		switch strings.TrimSpace(m) {
+		case "image":
+			hasImage = true
+		case "text":
+			hasText = true
+		}
+	}
+	if hasImage {
+		return modalities
+	}
+	out := append([]string(nil), modalities...)
+	if !hasText && len(out) == 0 {
+		out = []string{"text"}
+	} else if !hasText {
+		out = append([]string{"text"}, out...)
+	}
+	return append(out, "image")
+}
+
+// ApplyVisualModalities sets input_modalities to include image for Visual-active slugs.
+func ApplyVisualModalities(catalog []ModelInfo, visualActiveSlugs map[string]struct{}) []ModelInfo {
+	if len(catalog) == 0 || len(visualActiveSlugs) == 0 {
+		return catalog
+	}
+	out := make([]ModelInfo, len(catalog))
+	copy(out, catalog)
+	for i := range out {
+		if _, ok := visualActiveSlugs[out[i].Slug]; !ok {
+			continue
+		}
+		out[i].InputModalities = ensureImageModality(out[i].InputModalities)
+		out[i].SupportsImageDetailOriginal = true
+	}
+	return out
+}
+
 // EnsureModelInCatalog appends a fallback catalog entry when model is not listed.
-func EnsureModelInCatalog(catalog []ModelInfo, model string) []ModelInfo {
+// When visualActiveSlugs contains the model, the fallback includes image modality.
+func EnsureModelInCatalog(catalog []ModelInfo, model string, visualActiveSlugs map[string]struct{}) []ModelInfo {
 	model = strings.TrimSpace(model)
 	if model == "" {
 		return catalog
@@ -218,7 +260,15 @@ func EnsureModelInCatalog(catalog []ModelInfo, model string) []ModelInfo {
 			return catalog
 		}
 	}
-	return append(catalog, buildModelInfoFromEntry(ModelListEntry{ID: model}))
+	entry := ModelListEntry{ID: model}
+	if _, ok := visualActiveSlugs[model]; ok {
+		entry.InputModalities = []string{"text", "image"}
+	}
+	info := buildModelInfoFromEntry(entry)
+	if _, ok := visualActiveSlugs[model]; ok {
+		info.SupportsImageDetailOriginal = true
+	}
+	return append(catalog, info)
 }
 
 // CatalogContextWindow returns context_window for model when present in catalog.
