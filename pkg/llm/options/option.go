@@ -29,6 +29,24 @@ type LLMOptions struct {
 	ImportTaskWorkerCount int `help:"import task worker count" default:"8"`
 	StartTaskWorkerCount  int `help:"start task worker count" default:"128"`
 
+	LLMBenchmarkWorkDir              string `help:"llm benchmark working directory" default:"/opt/cloud/workspace/llm/benchmarks"`
+	LLMBenchmarkDefaultImage         string `help:"default GuideLLM benchmark image" default:"registry.cn-beijing.aliyuncs.com/cloudpods/guidellm:v0.7.0-amd64"`
+	LLMBenchmarkRunnerCPU            int    `help:"llm benchmark runner cpu" default:"1"`
+	LLMBenchmarkRunnerMemoryMB       int    `help:"llm benchmark runner memory MB" default:"2048"`
+	LLMBenchmarkDefaultRequestRate   int    `help:"default benchmark request rate" default:"1"`
+	LLMBenchmarkDefaultTotalRequests int    `help:"default benchmark total requests" default:"100"`
+	LLMBenchmarkDefaultInputTokens   int    `help:"default synthetic prompt tokens" default:"1024"`
+	LLMBenchmarkDefaultOutputTokens  int    `help:"default synthetic output tokens" default:"128"`
+	LLMBenchmarkMaxDurationSeconds   int    `help:"max benchmark duration seconds" default:"3600"`
+	LLMBenchmarkMaxRequestRate       int    `help:"max benchmark request rate" default:"100"`
+	LLMBenchmarkMaxTotalRequests     int    `help:"max benchmark total requests" default:"100000"`
+	ArtifactS3Endpoint               string `help:"MinIO/S3 endpoint for benchmark artifacts; empty disables upload" default:"http://monitor-minio.onecloud-monitoring.svc:9000"`
+	ArtifactS3AccessKey              string `help:"MinIO/S3 access key for benchmark artifacts" default:"monitor-admin"`
+	ArtifactS3SecretKey              string `help:"MinIO/S3 secret key for benchmark artifacts" default:"monitor-admin"`
+	ArtifactS3Bucket                 string `help:"MinIO/S3 bucket for benchmark artifacts" default:"llm-benchmark"`
+	ArtifactS3Secure                 bool   `help:"Use HTTPS for benchmark artifact endpoint without scheme" default:"false"`
+	ArtifactS3Prefix                 string `help:"MinIO/S3 object key prefix for benchmark artifacts" default:"llm-benchmarks"`
+
 	// MCP Agent 配置
 	MCPServerURL    string `help:"MCP Server URL" default:"http://default-mcp-server:30876"`
 	MCPAgentTimeout int    `help:"MCP Agent request timeout in seconds" default:"120"`
