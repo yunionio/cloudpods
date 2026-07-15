@@ -191,6 +191,8 @@ func FillUsageFromJSON(rec *Record, data []byte) bool {
 			PromptTokens     int `json:"prompt_tokens"`
 			CompletionTokens int `json:"completion_tokens"`
 			TotalTokens      int `json:"total_tokens"`
+			InputTokens      int `json:"input_tokens"`
+			OutputTokens     int `json:"output_tokens"`
 		} `json:"usage"`
 	}
 	if rec == nil || json.Unmarshal(data, &wrap) != nil || wrap.Usage == nil {
@@ -199,9 +201,27 @@ func FillUsageFromJSON(rec *Record, data []byte) bool {
 		}
 		return false
 	}
-	rec.PromptTokens = wrap.Usage.PromptTokens
-	rec.CompletionTokens = wrap.Usage.CompletionTokens
-	rec.TotalTokens = wrap.Usage.TotalTokens
+	u := wrap.Usage
+	prompt := u.PromptTokens
+	completion := u.CompletionTokens
+	total := u.TotalTokens
+	// Prefer OpenAI fields; fall back to Responses/Anthropic aliases.
+	if prompt == 0 {
+		prompt = u.InputTokens
+	}
+	if completion == 0 {
+		completion = u.OutputTokens
+	}
+	if total == 0 {
+		total = prompt + completion
+	}
+	if prompt == 0 && completion == 0 && total == 0 {
+		rec.UsageMissing = true
+		return false
+	}
+	rec.PromptTokens = prompt
+	rec.CompletionTokens = completion
+	rec.TotalTokens = total
 	rec.UsageMissing = false
 	return true
 }
