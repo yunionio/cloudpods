@@ -15,6 +15,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -24,6 +25,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/aiproxy/chatlog"
 	"yunion.io/x/onecloud/pkg/aiproxy/extensions/visual"
 	"yunion.io/x/onecloud/pkg/aiproxy/models"
 	"yunion.io/x/onecloud/pkg/aiproxy/providerapi"
@@ -38,7 +40,12 @@ import (
 
 // messagesHandler implements Anthropic-compatible POST /ai/anthropic/v1/messages.
 func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	rec := newAPILogRecord(ctx, r, start)
+	defer finishAPILogRecord(rec, start)
+
 	if r.Method != http.MethodPost {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_method", nil)
 		writeAnthropicError(ctx, w, http.StatusBadRequest, "invalid_request_error", "only POST is supported")
 		return
 	}
@@ -46,37 +53,43 @@ func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 	defer r.Body.Close()
 	raw, err := io.ReadAll(r.Body)
 	if err != nil {
+		failAPILogRecord(rec, http.StatusBadRequest, "read_body", err)
 		writeAnthropicError(ctx, w, http.StatusBadRequest, "invalid_request_error", "read body: %v", err)
 		return
 	}
 
 	body, err := jsonutils.Parse(raw)
 	if err != nil {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_json", err)
 		writeAnthropicError(ctx, w, http.StatusBadRequest, "invalid_request_error", "invalid JSON body: %v", err)
 		return
 	}
 	dict, ok := body.(*jsonutils.JSONDict)
 	if !ok {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_body", nil)
 		writeAnthropicError(ctx, w, http.StatusBadRequest, "invalid_request_error", "body must be a JSON object")
 		return
 	}
+	fillAPILogFromBody(rec, dict)
 
 	dbg := NewProxyDebugSession(ctx, "anthropic-messages")
-	isStream, _ := dict.Bool("stream")
-	dbg.ClientRequest(r, dict, nil, isStream)
+	dbg.ClientRequest(r, dict, nil, rec.Stream)
 
 	vk := extractVirtualKey(r)
 	userCred := auth.AdminCredential()
 	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict)
 	if err != nil {
 		dbg.Error("resolve upstream: %v", err)
+		failAPILogRecord(rec, http.StatusInternalServerError, "resolve_upstream", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	dbg.RoutingResolved(dict, up)
+	fillAPILogFromUpstream(rec, up)
 
 	if err := models.TakeVirtualKeyRequestsPerMinute(up.VirtualKeyId, up.RequestsPerMinute); err != nil {
 		dbg.Error("rate limit: %v", err)
+		failAPILogRecord(rec, http.StatusInternalServerError, "rate_limit", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
@@ -88,35 +101,61 @@ func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 	}
 	if err := models.EnforceVirtualKeyMaxTokens(dict, vkLim); err != nil {
 		dbg.Error("max tokens: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "max_tokens", err)
 		writeAnthropicError(ctx, w, http.StatusBadRequest, "invalid_request_error", "%v", err)
 		return
 	}
 
-	if visual.ShouldRejectMessagesStreaming(dict, up, isStream) {
-		dbg.Error("%v", visual.ErrVisualStreamingUnsupported)
-		writeAnthropicError(ctx, w, http.StatusBadRequest, "invalid_request_error", "%v", visual.ErrVisualStreamingUnsupported)
-		return
-	}
+	isStream := rec.Stream
 	if visual.ShouldHandleMessages(dict, up, isStream) {
-		bodyOut, err := visual.HandleMessagesCreate(ctx, dict, up)
+		if !isStream {
+			bodyOut, err := visual.HandleMessagesCreate(ctx, dict, up)
+			if err != nil {
+				dbg.Error("visual orchestration: %v", err)
+				failAPILogRecord(rec, http.StatusBadGateway, "visual_orchestration", err)
+				writeAnthropicError(ctx, w, http.StatusBadGateway, "api_error", "visual orchestration: %v", err)
+				return
+			}
+			dbg.ClientResponse(bodyOut)
+			markAPILogSuccess(rec, bodyOut)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(bodyOut)
+			if up.AiKeyId != "" {
+				models.RecordAiKeySuccess(up.AiKeyId)
+			}
+			return
+		}
+
+		chatBody, err := visual.HandleMessagesCreateChat(ctx, dict, up)
 		if err != nil {
 			dbg.Error("visual orchestration: %v", err)
+			failAPILogRecord(rec, http.StatusBadGateway, "visual_orchestration", err)
 			writeAnthropicError(ctx, w, http.StatusBadGateway, "api_error", "visual orchestration: %v", err)
 			return
 		}
-		dbg.ClientResponse(bodyOut)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(bodyOut)
-		if up.AiKeyId != "" {
-			models.RecordAiKeySuccess(up.AiKeyId)
+		payloads, err := openai.NonStreamChatCompletionToStreamPayloads(chatBody)
+		if err != nil {
+			dbg.Error("visual synthetic stream: %v", err)
+			failAPILogRecord(rec, http.StatusBadGateway, "visual_synthetic_stream", err)
+			writeAnthropicError(ctx, w, http.StatusBadGateway, "api_error", "visual synthetic stream: %v", err)
+			return
 		}
+		adapter, err := messages.GetAdapter(up.ProviderKey, up.APIMode)
+		if err != nil {
+			dbg.Error("adapter: %v", err)
+			failAPILogRecord(rec, http.StatusBadRequest, "adapter", err)
+			writeAnthropicError(ctx, w, http.StatusBadRequest, "invalid_request_error", "%v", err)
+			return
+		}
+		writeAnthropicSyntheticStream(ctx, w, adapter, payloads, up.UpstreamModel, up.AiKeyId, dbg, rec)
 		return
 	}
 
 	adapter, err := messages.GetAdapter(up.ProviderKey, up.APIMode)
 	if err != nil {
 		dbg.Error("adapter: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "adapter", err)
 		writeAnthropicError(ctx, w, http.StatusBadRequest, "invalid_request_error", "%v", err)
 		return
 	}
@@ -124,6 +163,7 @@ func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 	chatCtx := providers.ChatContextFromUpstream(up.ProviderKey, up.BaseURL, up.APIKey, up.UpstreamModel, up.APIMode)
 	if _, err := adapter.BuildUpstreamRequest(chatCtx, dict, isStream); err != nil {
 		dbg.Error("provider request: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "provider_request", err)
 		writeAnthropicError(ctx, w, http.StatusBadRequest, "invalid_request_error", "provider request: %v", err)
 		return
 	}
@@ -146,6 +186,7 @@ func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 		resp, uerr := upstreamWithKeyFailover(ctx, up, timeout, build)
 		if uerr != nil {
 			dbg.Error("upstream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
+			recordUpstreamError(rec, uerr)
 			writeMessagesUpstreamError(ctx, w, adapter, uerr)
 			return
 		}
@@ -155,6 +196,7 @@ func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 			bodyOut = norm
 		}
 		dbg.ClientResponse(bodyOut)
+		markAPILogSuccess(rec, bodyOut)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(bodyOut)
@@ -165,10 +207,11 @@ func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 		ch, uerr := upstreamRawStreamWithKeyFailover(ctx, up, timeout, build, upstream.ChatCompletionStreamRaw)
 		if uerr != nil {
 			dbg.Error("upstream stream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
+			recordUpstreamError(rec, uerr)
 			writeMessagesUpstreamError(ctx, w, adapter, uerr)
 			return
 		}
-		writeAnthropicPassthroughStream(ctx, w, ch, up.AiKeyId, dbg)
+		writeAnthropicPassthroughStream(ctx, w, ch, up.AiKeyId, dbg, rec)
 		return
 	}
 
@@ -178,10 +221,11 @@ func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 	})
 	if uerr != nil {
 		dbg.Error("upstream stream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
+		recordUpstreamError(rec, uerr)
 		writeMessagesUpstreamError(ctx, w, adapter, uerr)
 		return
 	}
-	writeAnthropicTranslatedStream(ctx, w, ch, adapter, up.UpstreamModel, up.AiKeyId, dbg)
+	writeAnthropicTranslatedStream(ctx, w, ch, adapter, up.UpstreamModel, up.AiKeyId, dbg, rec)
 }
 
 func buildMessagesUpstream(
@@ -300,7 +344,7 @@ func writeMessagesUpstreamError(ctx context.Context, w http.ResponseWriter, adap
 	_, _ = w.Write(openai.NewAnthropicErrorBody("api_error", msg))
 }
 
-func writeAnthropicPassthroughStream(ctx context.Context, w http.ResponseWriter, ch <-chan upstream.RawSSEEvent, aiKeyId string, dbg *ProxyDebugSession) {
+func writeAnthropicPassthroughStream(ctx context.Context, w http.ResponseWriter, ch <-chan upstream.RawSSEEvent, aiKeyId string, dbg *ProxyDebugSession, rec *chatlog.Record) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -308,10 +352,14 @@ func writeAnthropicPassthroughStream(ctx context.Context, w http.ResponseWriter,
 	flushIf(w)
 
 	streamOK := true
+	sawUsage := false
 	seq := 0
 	for evt := range ch {
 		seq++
 		dbg.ClientStreamSSE(seq, evt.Event, evt.Data)
+		if len(evt.Data) > 0 && bytes.Contains(evt.Data, []byte(`"usage"`)) {
+			noteStreamUsage(rec, evt.Data, &sawUsage)
+		}
 		if evt.Event != "" {
 			_, _ = fmt.Fprintf(w, "event: %s\n", evt.Event)
 		}
@@ -322,6 +370,62 @@ func writeAnthropicPassthroughStream(ctx context.Context, w http.ResponseWriter,
 		}
 		flushIf(w)
 	}
+	finishAPILogStream(rec, streamOK, sawUsage)
+	if streamOK && aiKeyId != "" {
+		models.RecordAiKeySuccess(aiKeyId)
+	}
+}
+
+func writeAnthropicSyntheticStream(
+	ctx context.Context,
+	w http.ResponseWriter,
+	adapter providerapi.MessagesAdapter,
+	payloads [][]byte,
+	requestModel string,
+	aiKeyId string,
+	dbg *ProxyDebugSession,
+	rec *chatlog.Record,
+) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+	flushIf(w)
+
+	state := adapter.NewStreamState(requestModel)
+	streamOK := true
+	sawUsage := false
+	outSeq := 0
+	for _, payload := range payloads {
+		if len(payload) > 0 && bytes.Contains(payload, []byte(`"usage"`)) {
+			noteStreamUsage(rec, payload, &sawUsage)
+		}
+		events, err := adapter.ConvertStreamPayload(state, payload, false)
+		if err != nil {
+			dbg.Error("visual synthetic stream convert error: %v", err)
+			streamOK = false
+			failAPILogRecord(rec, http.StatusOK, "stream_convert", err)
+			break
+		}
+		outSeq++
+		dbg.ClientStreamEvents(outSeq, events)
+		noteAnthropicSSEUsage(rec, events, &sawUsage)
+		writeAnthropicSSEEvents(w, events)
+	}
+	if streamOK {
+		events, err := adapter.ConvertStreamPayload(state, nil, true)
+		if err != nil {
+			dbg.Error("visual synthetic stream end error: %v", err)
+			streamOK = false
+			failAPILogRecord(rec, http.StatusOK, "stream_convert", err)
+		} else {
+			outSeq++
+			dbg.ClientStreamEvents(outSeq, events)
+			noteAnthropicSSEUsage(rec, events, &sawUsage)
+			writeAnthropicSSEEvents(w, events)
+		}
+	}
+	finishAPILogStream(rec, streamOK, sawUsage)
 	if streamOK && aiKeyId != "" {
 		models.RecordAiKeySuccess(aiKeyId)
 	}
@@ -335,6 +439,7 @@ func writeAnthropicTranslatedStream(
 	requestModel string,
 	aiKeyId string,
 	dbg *ProxyDebugSession,
+	rec *chatlog.Record,
 ) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -344,6 +449,7 @@ func writeAnthropicTranslatedStream(
 
 	state := adapter.NewStreamState(requestModel)
 	streamOK := true
+	sawUsage := false
 	outSeq := 0
 	for chunk := range ch {
 		if chunk.Done {
@@ -351,19 +457,26 @@ func writeAnthropicTranslatedStream(
 			if err != nil {
 				dbg.Error("stream convert end error: %v", err)
 				streamOK = false
+				failAPILogRecord(rec, http.StatusOK, "stream_convert", err)
 				break
 			}
 			outSeq++
 			dbg.ClientStreamEvents(outSeq, events)
+			noteAnthropicSSEUsage(rec, events, &sawUsage)
 			writeAnthropicSSEEvents(w, events)
 			break
 		}
 		if len(chunk.Data) == 0 {
 			continue
 		}
+		if bytes.Contains(chunk.Data, []byte(`"usage"`)) {
+			noteStreamUsage(rec, chunk.Data, &sawUsage)
+		}
 		if isAnthropicUpstreamErrorChunk(chunk.Data) {
 			dbg.Error("upstream stream error chunk: %s", truncateLogBytes(chunk.Data, proxyDebugLogMax))
 			streamOK = false
+			rec.Success = false
+			rec.ErrorCode, rec.ErrorMessage = parseUpstreamErrorInfo(chunk.Data)
 			if aiKeyId != "" {
 				models.RecordAiKeyFailure(aiKeyId, parseUpstreamErrorStatus(chunk.Data))
 			}
@@ -375,12 +488,15 @@ func writeAnthropicTranslatedStream(
 		if err != nil {
 			dbg.Error("stream convert error: %v upstream_chunk=%s", err, truncateLogBytes(chunk.Data, proxyDebugLogMax))
 			streamOK = false
+			failAPILogRecord(rec, http.StatusOK, "stream_convert", err)
 			break
 		}
 		outSeq++
 		dbg.ClientStreamEvents(outSeq, events)
+		noteAnthropicSSEUsage(rec, events, &sawUsage)
 		writeAnthropicSSEEvents(w, events)
 	}
+	finishAPILogStream(rec, streamOK, sawUsage)
 	if streamOK && aiKeyId != "" {
 		models.RecordAiKeySuccess(aiKeyId)
 	}
@@ -397,6 +513,14 @@ func writeAnthropicSSEEvents(w http.ResponseWriter, events []providerapi.Anthrop
 			_, _ = fmt.Fprint(w, "\n")
 		}
 		flushIf(w)
+	}
+}
+
+func noteAnthropicSSEUsage(rec *chatlog.Record, events []providerapi.AnthropicStreamChunk, sawUsage *bool) {
+	for _, evt := range events {
+		if len(evt.Data) > 0 && bytes.Contains(evt.Data, []byte(`"usage"`)) {
+			noteStreamUsage(rec, evt.Data, sawUsage)
+		}
 	}
 }
 
