@@ -21,8 +21,21 @@ import (
 	"yunion.io/x/pkg/util/printutils"
 )
 
+// aiproxyPlaceholderAPIKey is used for local inference backends (vLLM/Ollama/SGLang)
+// that typically do not require a real upstream API key. Chat resolve requires an
+// enabled ai_key with non-empty secret after config.api_key was removed.
+const aiproxyPlaceholderAPIKey = "unused"
+
 func aiproxyAdminSession(ctx context.Context) *mcclient.ClientSession {
 	return auth.GetAdminSession(ctx, options.Options.Region)
+}
+
+func aiKeyNameForProvider(providerName string) string {
+	name := strings.TrimSpace(providerName)
+	if name == "" {
+		return "llm-key"
+	}
+	return name + "-key"
 }
 
 func mapLLMTypeToProviderKey(llmType string) (string, bool) {
@@ -284,6 +297,71 @@ func firstResourceID(rows []jsonutils.JSONObject) string {
 	return strings.TrimSpace(id)
 }
 
+// ensureAiKeyForProvider guarantees an enabled ai_key with secret for chat upstream resolve.
+// If the provider already has an enabled key, existing user keys are left untouched.
+func ensureAiKeyForProvider(session *mcclient.ClientSession, providerId, keyName string) error {
+	providerId = strings.TrimSpace(providerId)
+	if providerId == "" {
+		return errors.Wrap(httperrors.ErrInvalidStatus, "ai_provider id is empty")
+	}
+	keyName = strings.TrimSpace(keyName)
+	if keyName == "" {
+		keyName = "llm-key"
+	}
+
+	filter := jsonutils.NewDict()
+	filter.Set("ai_provider_id", jsonutils.NewString(providerId))
+	rows, err := listAiproxyResources(session, &apmodules.AiKeys, filter)
+	if err != nil {
+		return errors.Wrap(err, "list ai_keys")
+	}
+	for _, row := range rows {
+		enabled, _ := row.Bool("enabled")
+		if !enabled {
+			continue
+		}
+		// Secret is create-required; list may omit the field. Any enabled key is enough.
+		secret, _ := row.GetString("secret")
+		if strings.TrimSpace(secret) != "" || !row.Contains("secret") {
+			return nil
+		}
+	}
+
+	params := jsonutils.NewDict()
+	params.Set("ai_provider_id", jsonutils.NewString(providerId))
+	params.Set("secret", jsonutils.NewString(aiproxyPlaceholderAPIKey))
+	params.Set("weight", jsonutils.NewInt(1))
+	params.Set("enabled", jsonutils.JSONTrue)
+
+	if existing, getErr := apmodules.AiKeys.Get(session, keyName, nil); getErr == nil && existing != nil {
+		existingProviderId, _ := existing.GetString("ai_provider_id")
+		if strings.TrimSpace(existingProviderId) == "" || strings.TrimSpace(existingProviderId) == providerId {
+			params.Set("name", jsonutils.NewString(keyName))
+			_, err = apmodules.AiKeys.Update(session, keyName, params)
+			if err != nil {
+				return errors.Wrap(err, "update ai_key")
+			}
+			enabled, _ := existing.Bool("enabled")
+			if !enabled {
+				if _, err = apmodules.AiKeys.PerformAction(session, keyName, "enable", nil); err != nil {
+					return errors.Wrap(err, "enable ai_key")
+				}
+			}
+			return nil
+		}
+		// Name taken by another provider; allocate a unique name.
+		params.Set("generate_name", jsonutils.NewString(keyName))
+	} else {
+		params.Set("name", jsonutils.NewString(keyName))
+	}
+
+	_, err = apmodules.AiKeys.Create(session, params)
+	if err != nil {
+		return errors.Wrap(err, "create ai_key")
+	}
+	return nil
+}
+
 func upsertAiProvider(
 	session *mcclient.ClientSession,
 	name, providerKey, baseURL, llmDeploymentId, llmId string,
@@ -439,6 +517,9 @@ func SyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, dep
 	providerName := aiProviderNameForLlm(llm)
 	providerId, err := upsertAiProvider(session, providerName, providerKey, baseURL, dep.Id, llm.Id)
 	if err != nil {
+		return nil, err
+	}
+	if err := ensureAiKeyForProvider(session, providerId, aiKeyNameForProvider(providerName)); err != nil {
 		return nil, err
 	}
 
