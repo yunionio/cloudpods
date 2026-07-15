@@ -13,6 +13,7 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	bench "yunion.io/x/onecloud/pkg/llm/benchmark"
 	_ "yunion.io/x/onecloud/pkg/llm/drivers/llm_client"
 	_ "yunion.io/x/onecloud/pkg/llm/drivers/llm_container"
 	"yunion.io/x/onecloud/pkg/llm/models"
@@ -28,6 +29,14 @@ func StartService() {
 	dbOpts := &options.Options.DBOptions
 	baseOpts := &opts.BaseOptions
 	common_options.ParseOptions(opts, os.Args, "llm.conf", api.SERVICE_TYPE)
+	bench.ConfigureArtifactStore(bench.ArtifactStoreOptions{
+		Endpoint:  opts.ArtifactS3Endpoint,
+		AccessKey: opts.ArtifactS3AccessKey,
+		SecretKey: opts.ArtifactS3SecretKey,
+		Bucket:    opts.ArtifactS3Bucket,
+		Secure:    opts.ArtifactS3Secure,
+		Prefix:    opts.ArtifactS3Prefix,
+	})
 
 	llmTask.InitInstantModelSyncTaskManager()
 	app_common.InitAuth(commonOpts, func() {

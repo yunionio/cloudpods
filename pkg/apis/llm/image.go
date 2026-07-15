@@ -18,6 +18,7 @@ const (
 	LLM_IMAGE_TYPE_HERMES_AGENT LLMImageType = "hermes-agent"
 	LLM_IMAGE_TYPE_LLM_ROUTER   LLMImageType = "llm-router"
 	LLM_IMAGE_TYPE_DESKTOP      LLMImageType = "desktop"
+	LLM_IMAGE_TYPE_BENCHMARK    LLMImageType = "benchmark"
 )
 
 var (
@@ -31,6 +32,7 @@ var (
 		string(LLM_IMAGE_TYPE_HERMES_AGENT),
 		string(LLM_IMAGE_TYPE_LLM_ROUTER),
 		string(LLM_IMAGE_TYPE_DESKTOP),
+		string(LLM_IMAGE_TYPE_BENCHMARK),
 	)
 )
 
