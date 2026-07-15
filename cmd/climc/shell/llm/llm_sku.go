@@ -17,4 +17,5 @@ func init() {
 	cmd.Delete(new(options.LLMSkuDeleteOptions))
 	cmd.Perform("public", &base_options.BasePublicOptions{})
 	cmd.Perform("private", &base_options.BaseIdOptions{})
+	cmd.Get("schedulable-check", &options.LLMSkuSchedulableCheckOptions{})
 }

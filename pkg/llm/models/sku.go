@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -10,9 +11,13 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
+	schedulerapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/llm/utils/vram"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	schedulermodules "yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 )
 
 func NewSLLMSkuBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string) SLLMSkuBaseManager {
@@ -94,6 +99,146 @@ func (man *SLLMSkuBaseManager) ValidateCreateData(ctx context.Context, userCred 
 
 	input.Status = api.STATUS_READY
 	return input, nil
+}
+
+// GetDetailsSchedulableCheck is the per-row endpoint
+// `GET /llm_skus/{id}/schedulable-check?gpu_count=1`.
+// It delegates to the scheduler's forecast API so every predicate runs
+// (IsolatedDevicePredicate with VRAM, CPU, memory, network, ...) —
+// not just a bare VRAM scan. Mirrors GPUStack's `evaluate_models`.
+func (sku *SLLMSku) GetDetailsSchedulableCheck(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
+) (*api.LLMSchedulableCheckOutput, error) {
+	skuBase := &sku.SLLMSkuBase
+	out := &api.LLMSchedulableCheckOutput{
+		VramClaimMb: skuBase.VramClaimMb,
+		GpuCount:    1,
+	}
+
+	if query != nil {
+		if gc, _ := query.Int("gpu_count"); gc > 0 {
+			out.GpuCount = int(gc)
+		}
+	}
+
+	devCount := 0
+	if skuBase.Devices != nil {
+		devCount = len(*skuBase.Devices)
+	}
+	if devCount == 0 {
+		out.Reason = "SKU has no devices configured"
+		return out, nil
+	}
+	if out.VramClaimMb <= 0 {
+		// Auto-compute from mounted InstantModels. Same logic as
+		// llm_deployment_create_task.createSkuAndReconcile.
+		mountedIds := sku.GetMountedModels()
+		var maxWeight int64
+		for _, id := range mountedIds {
+			obj, err := GetInstantModelManager().FetchById(id)
+			if err != nil {
+				continue
+			}
+			if w := obj.(*SInstantModel).WeightSizeBytes; w > maxWeight {
+				maxWeight = w
+			}
+		}
+		if maxWeight > 0 {
+			out.VramClaimMb = vram.EstimateClaimMb(maxWeight, sku.LLMType)
+			out.PerDevMinMb = (out.VramClaimMb + out.GpuCount - 1) / out.GpuCount
+		} else {
+			out.Reason = "Auto VRAM calculation failed — mounted instant models have unknown weight (not yet backfilled)"
+			return out, nil
+		}
+	}
+	out.PerDevMinMb = (out.VramClaimMb + out.GpuCount - 1) / out.GpuCount
+
+	// --- build a minimal ScheduleInput so the scheduler runs predicates
+	cpu := skuBase.Cpu
+	if cpu <= 0 {
+		cpu = 4
+	}
+	mem := skuBase.Memory
+	if mem <= 0 {
+		mem = 4096
+	}
+	isoDevs := make([]*computeapi.IsolatedDeviceConfig, 0, out.GpuCount)
+	for i := 0; i < out.GpuCount; i++ {
+		// If the SKU pins specific device details, forward them; otherwise
+		// GPU type-only (NVIDIA_GPU default) so the VRAM filter drives
+		// placement.
+		devSpec := computeapi.IsolatedDeviceConfig{
+			DevType:  computeapi.CONTAINER_DEV_NVIDIA_GPU,
+			MemoryMb: out.PerDevMinMb,
+		}
+		if i < devCount {
+			src := (*skuBase.Devices)[i]
+			if src.DevType != "" {
+				devSpec.DevType = src.DevType
+			}
+			devSpec.Model = src.Model
+			devSpec.DevicePath = src.DevicePath
+		}
+		isoDevs = append(isoDevs, &devSpec)
+	}
+
+	input := &schedulerapi.ScheduleInput{
+		ServerConfig: schedulerapi.ServerConfig{
+			ServerConfigs: &computeapi.ServerConfigs{
+				Hypervisor:      computeapi.HOST_TYPE_CONTAINER,
+				Count:           1,
+				IsolatedDevices: isoDevs,
+				Disks: []*computeapi.DiskConfig{
+					{SizeMb: 10240, DiskType: "data"},
+				},
+			},
+			Ncpu:   cpu,
+			Memory: mem,
+		},
+	}
+
+	s := auth.GetAdminSession(ctx, "")
+	canCreate, raw, err := schedulermodules.SchedManager.DoScheduleForecast(s, input, 1)
+	if err != nil {
+		return nil, errors.Wrap(err, "scheduler forecast")
+	}
+
+	// --- translate forecast result → LLM output
+	out.Schedulable = canCreate
+	out.Reason = "Scheduler forecast completed — see hosts for qualifying candidates"
+
+	candidates, _ := raw.GetArray("candidates")
+	out.TotalGpuHosts = len(candidates)
+	for _, c := range candidates {
+		hostID, _ := c.GetString("host_id")
+		hostName, _ := c.GetString("name")
+		out.Hosts = append(out.Hosts, api.LLMSchedulableHostInfo{
+			HostId:   hostID,
+			HostName: hostName,
+		})
+		if hostID != "" {
+			out.QualifiedHosts++
+		}
+	}
+
+	if !canCreate {
+		var reasons []string
+		notAllow, _ := raw.GetArray("not_allow_reasons")
+		for _, r := range notAllow {
+			if s, _ := r.GetString(); s != "" {
+				reasons = append(reasons, s)
+			}
+		}
+		if len(reasons) > 0 {
+			out.Reason = fmt.Sprintf("not schedulable: %s", reasons[0])
+		} else {
+			out.Reason = "not schedulable — no host satisfies all predicates"
+		}
+		fc, _ := raw.Get("filtered_candidates")
+		out.FilteredCandidates = fc
+	}
+
+	return out, nil
 }
 
 func (skuBase *SLLMSkuBase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMSkuBaseUpdateInput) (api.LLMSkuBaseUpdateInput, error) {
