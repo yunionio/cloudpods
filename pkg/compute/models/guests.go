@@ -1976,10 +1976,17 @@ func (manager *SGuestManager) validateCreateData(
 					return nil, httperrors.NewInputParameterError("BIOS boot mode requires BIOS image")
 				}
 			default:
-				if imgSupportUEFI != nil && *imgSupportUEFI {
-					input.Bios = "UEFI"
+				supportUEFI := imgSupportUEFI != nil && *imgSupportUEFI
+				supportBIOS := imgSupportBIOS != nil && *imgSupportBIOS
+				if input.Hypervisor == api.HYPERVISOR_BAREMETAL && supportUEFI && supportBIOS {
+					// decided by selected host
+					input.Bios = ""
 				} else {
-					input.Bios = "BIOS"
+					if imgSupportUEFI != nil && *imgSupportUEFI {
+						input.Bios = "UEFI"
+					} else {
+						input.Bios = "BIOS"
+					}
 				}
 			}
 		} else {
