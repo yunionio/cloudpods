@@ -211,6 +211,9 @@ func (l *SLocalImageCache) prepare(ctx context.Context, input api.CacheImageInpu
 
 	l.remoteFile = remotefile.NewRemoteFile(ctx, url,
 		l.GetPath(), false, input.Checksum, -1, nil, l.GetTmpPath(), input.SrcUrl)
+	if l.Manager.GetStorageType() == api.STORAGE_NFS {
+		l.remoteFile.NfsSetTargetStorageId(l.Manager.GetStorageId(), l.Manager.GetStoragePath())
+	}
 	return false, nil
 }
 

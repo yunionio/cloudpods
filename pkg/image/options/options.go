@@ -48,7 +48,7 @@ type SImageOptions struct {
 
 	// DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/onecloud/deploy.sock"`
 
-	StorageDriver string `help:"image backend storage" default:"local" choices:"s3|local"`
+	StorageDriver string `help:"image backend storage" default:"local" choices:"s3|local|nfs"`
 
 	S3MountPoint       string `help:"s3fs mount point" default:"/opt/cloud/workspace/data/glance/s3images"`
 	S3CheckImageStatus bool   `help:"Enable s3 check image status"`
@@ -57,6 +57,10 @@ type SImageOptions struct {
 	S3UploadParallel   int    `help:"s3 upload parallel count" default:"4"`
 
 	S3DirectDownload bool `help:"enable s3 direct download" default:"false"`
+
+	NfsStorageId    string `help:"region nfs storage id or name used as glance filesystem backend"`
+	NfsMountOptions string `help:"nfs mount options for glance filesystem backend"`
+	NfsMountPoint   string `help:"nfs mount point" default:"/opt/cloud/workspace/data/glance/nfsimages"`
 
 	ImageStreamWorkerCount int `help:"Image stream worker count" default:"10"`
 

@@ -105,10 +105,6 @@ func StartService() {
 		procutils.SetRemoteExecutor()
 	}
 
-	if !opts.IsSlaveNode {
-
-	}
-
 	trackers := torrent.GetTrackers()
 	if len(trackers) == 0 {
 		log.Errorf("no valid torrent-tracker")
@@ -177,7 +173,11 @@ func startMasterTasks(app *appsrv.Application, opts *options.SImageOptions) {
 		} else {
 			log.Infof("storage driver is not s3 and no valid s3 options, skip init s3 client")
 		}
-		// check image after s3 mounted
+
+		if err := initNFS(); err != nil {
+			log.Fatalf("fail to init nfs storage: %s", err)
+		}
+		// check image after storage mounted
 		models.CheckImages(app.GetContext())
 	}()
 
