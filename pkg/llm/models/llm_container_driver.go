@@ -53,7 +53,8 @@ func getDriver[K ~string, D any](drvs *drivers, typ K) D {
 func getDriverWithError[K ~string, D any](drvs *drivers, typ K) (D, error) {
 	drv, err := drvs.GetWithError(string(typ))
 	if err != nil {
-		return drv.(D), err
+		var zero D
+		return zero, err
 	}
 	return drv.(D), nil
 }
