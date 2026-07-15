@@ -31,7 +31,12 @@ import (
 
 // imagesGenerationsHandler implements OpenAI-compatible POST /openai/v1/images/generations.
 func imagesGenerationsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	rec := newAPILogRecord(ctx, r, start)
+	defer finishAPILogRecord(rec, start)
+
 	if r.Method != http.MethodPost {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_method", nil)
 		httperrors.InvalidInputError(ctx, w, "only POST is supported")
 		return
 	}
@@ -39,20 +44,25 @@ func imagesGenerationsHandler(ctx context.Context, w http.ResponseWriter, r *htt
 	defer r.Body.Close()
 	raw, err := io.ReadAll(r.Body)
 	if err != nil {
+		failAPILogRecord(rec, http.StatusBadRequest, "read_body", err)
 		httperrors.InvalidInputError(ctx, w, "read body: %v", err)
 		return
 	}
 
 	body, err := jsonutils.Parse(raw)
 	if err != nil {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_json", err)
 		httperrors.InvalidInputError(ctx, w, "invalid JSON body: %v", err)
 		return
 	}
 	dict, ok := body.(*jsonutils.JSONDict)
 	if !ok {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_body", nil)
 		httperrors.InvalidInputError(ctx, w, "body must be a JSON object")
 		return
 	}
+	fillAPILogFromBody(rec, dict)
+	rec.Stream = false
 
 	dbg := NewProxyDebugSession(ctx, "openai-images")
 	dbg.ClientRequest(r, dict, nil, false)
@@ -62,13 +72,16 @@ func imagesGenerationsHandler(ctx context.Context, w http.ResponseWriter, r *htt
 	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict)
 	if err != nil {
 		dbg.Error("resolve upstream: %v", err)
+		failAPILogRecord(rec, http.StatusInternalServerError, "resolve_upstream", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	dbg.RoutingResolved(dict, up)
+	fillAPILogFromUpstream(rec, up)
 
 	if err := models.TakeVirtualKeyRequestsPerMinute(up.VirtualKeyId, up.RequestsPerMinute); err != nil {
 		dbg.Error("rate limit: %v", err)
+		failAPILogRecord(rec, http.StatusInternalServerError, "rate_limit", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
@@ -81,6 +94,7 @@ func imagesGenerationsHandler(ctx context.Context, w http.ResponseWriter, r *htt
 		UpstreamModel: up.UpstreamModel,
 	}, dict); err != nil {
 		dbg.Error("provider request: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "provider_request", err)
 		httperrors.InvalidInputError(ctx, w, "provider request: %v", err)
 		return
 	}
@@ -88,6 +102,7 @@ func imagesGenerationsHandler(ctx context.Context, w http.ResponseWriter, r *htt
 	resp, uerr := imagesGenerationsWithKeyFailover(ctx, up, dict, 180*time.Second, dbg)
 	if uerr != nil {
 		dbg.Error("upstream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
+		recordUpstreamError(rec, uerr)
 		writeUpstreamError(ctx, w, uerr)
 		return
 	}
@@ -97,6 +112,7 @@ func imagesGenerationsHandler(ctx context.Context, w http.ResponseWriter, r *htt
 		out = norm
 	}
 	dbg.ClientResponse(out)
+	markAPILogSuccess(rec, out)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(out)

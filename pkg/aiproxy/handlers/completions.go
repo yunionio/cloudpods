@@ -15,6 +15,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -33,7 +34,12 @@ import (
 
 // completionsHandler implements OpenAI-compatible POST /openai/v1/completions.
 func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	rec := newAPILogRecord(ctx, r, start)
+	defer finishAPILogRecord(rec, start)
+
 	if r.Method != http.MethodPost {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_method", nil)
 		httperrors.InvalidInputError(ctx, w, "only POST is supported")
 		return
 	}
@@ -41,37 +47,43 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	defer r.Body.Close()
 	raw, err := io.ReadAll(r.Body)
 	if err != nil {
+		failAPILogRecord(rec, http.StatusBadRequest, "read_body", err)
 		httperrors.InvalidInputError(ctx, w, "read body: %v", err)
 		return
 	}
 
 	body, err := jsonutils.Parse(raw)
 	if err != nil {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_json", err)
 		httperrors.InvalidInputError(ctx, w, "invalid JSON body: %v", err)
 		return
 	}
 	dict, ok := body.(*jsonutils.JSONDict)
 	if !ok {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_body", nil)
 		httperrors.InvalidInputError(ctx, w, "body must be a JSON object")
 		return
 	}
+	fillAPILogFromBody(rec, dict)
 
 	dbg := NewProxyDebugSession(ctx, "openai-completions")
-	isStream, _ := dict.Bool("stream")
-	dbg.ClientRequest(r, dict, nil, isStream)
+	dbg.ClientRequest(r, dict, nil, rec.Stream)
 
 	vk := extractVirtualKey(r)
 	userCred := auth.AdminCredential()
 	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict)
 	if err != nil {
 		dbg.Error("resolve upstream: %v", err)
+		failAPILogRecord(rec, http.StatusInternalServerError, "resolve_upstream", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	dbg.RoutingResolved(dict, up)
+	fillAPILogFromUpstream(rec, up)
 
 	if err := models.TakeVirtualKeyRequestsPerMinute(up.VirtualKeyId, up.RequestsPerMinute); err != nil {
 		dbg.Error("rate limit: %v", err)
+		failAPILogRecord(rec, http.StatusInternalServerError, "rate_limit", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
@@ -83,6 +95,7 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 	if err := models.EnforceVirtualKeyMaxTokens(dict, vkLim); err != nil {
 		dbg.Error("max tokens: %v", err)
+		failAPILogRecord(rec, http.StatusInternalServerError, "max_tokens", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
@@ -90,10 +103,12 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	compProv, err := providers.GetCompletions(up.ProviderKey)
 	if err != nil {
 		dbg.Error("completions provider: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "provider_request", err)
 		httperrors.InvalidInputError(ctx, w, "%v", err)
 		return
 	}
 
+	isStream := rec.Stream
 	if _, err := compProv.BuildCompletionsRequest(&providers.ChatContext{
 		ProviderKey:   up.ProviderKey,
 		BaseURL:       up.BaseURL,
@@ -101,6 +116,7 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		UpstreamModel: up.UpstreamModel,
 	}, dict, isStream); err != nil {
 		dbg.Error("provider request: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "provider_request", err)
 		httperrors.InvalidInputError(ctx, w, "provider request: %v", err)
 		return
 	}
@@ -114,6 +130,7 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		resp, uerr := completionsWithKeyFailover(ctx, up, dict, isStream, timeout, dbg)
 		if uerr != nil {
 			dbg.Error("upstream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
+			recordUpstreamError(rec, uerr)
 			writeUpstreamError(ctx, w, uerr)
 			return
 		}
@@ -123,6 +140,7 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 			out = norm
 		}
 		dbg.ClientResponse(out)
+		markAPILogSuccess(rec, out)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(out)
@@ -132,6 +150,7 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	ch, uerr := completionsStreamWithKeyFailover(ctx, up, dict, isStream, compProv, timeout, dbg)
 	if uerr != nil {
 		dbg.Error("upstream stream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
+		recordUpstreamError(rec, uerr)
 		writeUpstreamError(ctx, w, uerr)
 		return
 	}
@@ -143,6 +162,7 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	flushIf(w)
 
 	streamOK := true
+	sawUsage := false
 	clientSeq := 0
 	for chunk := range ch {
 		if chunk.Done {
@@ -151,9 +171,14 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		if len(chunk.Data) == 0 {
 			continue
 		}
+		if bytes.Contains(chunk.Data, []byte(`"usage"`)) {
+			noteStreamUsage(rec, chunk.Data, &sawUsage)
+		}
 		if isUpstreamErrorChunk(chunk.Data) {
 			dbg.Error("upstream stream error chunk: %s", truncateLogBytes(chunk.Data, proxyDebugLogMax))
 			streamOK = false
+			rec.Success = false
+			rec.ErrorCode, rec.ErrorMessage = parseUpstreamErrorInfo(chunk.Data)
 			models.RecordAiKeyFailure(up.AiKeyId, parseUpstreamErrorStatus(chunk.Data))
 			clientSeq++
 			dbg.ClientStreamData(clientSeq, chunk.Data)
@@ -168,6 +193,7 @@ func completionsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 	_, _ = fmt.Fprintf(w, "data: [DONE]\n\n")
 	flushIf(w)
+	finishAPILogStream(rec, streamOK, sawUsage)
 	if streamOK {
 		models.RecordAiKeySuccess(up.AiKeyId)
 	}

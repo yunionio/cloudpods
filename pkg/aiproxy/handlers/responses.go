@@ -15,6 +15,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -26,6 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/aiproxy/chatlog"
 	"yunion.io/x/onecloud/pkg/aiproxy/extensions/visual"
 	"yunion.io/x/onecloud/pkg/aiproxy/models"
 	"yunion.io/x/onecloud/pkg/aiproxy/providerapi"
@@ -41,6 +43,10 @@ import (
 
 func responsesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
+		start := time.Now()
+		rec := newAPILogRecord(ctx, r, start)
+		defer finishAPILogRecord(rec, start)
+		failAPILogRecord(rec, http.StatusMethodNotAllowed, "invalid_method", nil)
 		writeResponsesError(ctx, w, http.StatusMethodNotAllowed, "invalid_request_error", "only POST is supported")
 		return
 	}
@@ -60,25 +66,33 @@ func responsesDeleteHandler(ctx context.Context, w http.ResponseWriter, r *http.
 }
 
 func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	rec := newAPILogRecord(ctx, r, start)
+	defer finishAPILogRecord(rec, start)
+
 	defer r.Body.Close()
 	raw, err := io.ReadAll(r.Body)
 	if err != nil {
+		failAPILogRecord(rec, http.StatusBadRequest, "read_body", err)
 		writeResponsesError(ctx, w, http.StatusBadRequest, "invalid_request_error", "read body: %v", err)
 		return
 	}
 	body, err := jsonutils.Parse(raw)
 	if err != nil {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_json", err)
 		writeResponsesError(ctx, w, http.StatusBadRequest, "invalid_request_error", "invalid JSON body: %v", err)
 		return
 	}
 	dict, ok := body.(*jsonutils.JSONDict)
 	if !ok {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_body", nil)
 		writeResponsesError(ctx, w, http.StatusBadRequest, "invalid_request_error", "body must be a JSON object")
 		return
 	}
+	fillAPILogFromBody(rec, dict)
 
 	dbg := NewProxyDebugSession(ctx, "openai-responses")
-	isStream, _ := dict.Bool("stream")
+	isStream := rec.Stream
 	dbg.ClientRequest(r, dict, nil, isStream)
 
 	vk := extractVirtualKey(r)
@@ -86,12 +100,15 @@ func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.R
 	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict)
 	if err != nil {
 		dbg.Error("resolve upstream: %v", err)
+		failAPILogRecord(rec, http.StatusInternalServerError, "resolve_upstream", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	dbg.RoutingResolved(dict, up)
+	fillAPILogFromUpstream(rec, up)
 	if err := models.TakeVirtualKeyRequestsPerMinute(up.VirtualKeyId, up.RequestsPerMinute); err != nil {
 		dbg.Error("rate limit: %v", err)
+		failAPILogRecord(rec, http.StatusInternalServerError, "rate_limit", err)
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
@@ -101,6 +118,7 @@ func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.R
 	}
 	if err := models.EnsureResponsesMaxOutputTokens(dict, vkLim); err != nil {
 		dbg.Error("max tokens: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "max_tokens", err)
 		writeResponsesError(ctx, w, http.StatusBadRequest, "invalid_request_error", "%v", err)
 		return
 	}
@@ -110,10 +128,12 @@ func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.R
 			bodyOut, _, err := visual.HandleResponsesCreate(ctx, dict, up)
 			if err != nil {
 				dbg.Error("visual orchestration: %v", err)
+				failAPILogRecord(rec, http.StatusBadGateway, "visual_orchestration", err)
 				writeResponsesError(ctx, w, http.StatusBadGateway, "api_error", "visual orchestration: %v", err)
 				return
 			}
 			dbg.ClientResponse(bodyOut)
+			markAPILogSuccess(rec, bodyOut)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write(bodyOut)
@@ -126,28 +146,32 @@ func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.R
 		chatBody, _, err := visual.HandleResponsesCreateChat(ctx, dict, up)
 		if err != nil {
 			dbg.Error("visual orchestration: %v", err)
+			failAPILogRecord(rec, http.StatusBadGateway, "visual_orchestration", err)
 			writeResponsesError(ctx, w, http.StatusBadGateway, "api_error", "visual orchestration: %v", err)
 			return
 		}
 		payloads, err := openai.NonStreamChatCompletionToStreamPayloads(chatBody)
 		if err != nil {
 			dbg.Error("visual synthetic stream: %v", err)
+			failAPILogRecord(rec, http.StatusBadGateway, "visual_synthetic_stream", err)
 			writeResponsesError(ctx, w, http.StatusBadGateway, "api_error", "visual synthetic stream: %v", err)
 			return
 		}
 		adapter, err := responses.GetAdapter(up.ProviderKey, up.APIMode)
 		if err != nil {
 			dbg.Error("adapter: %v", err)
+			failAPILogRecord(rec, http.StatusBadRequest, "adapter", err)
 			writeResponsesError(ctx, w, http.StatusBadRequest, "invalid_request_error", "%v", err)
 			return
 		}
-		writeResponsesSyntheticStream(ctx, w, adapter, up.UpstreamModel, dict, payloads, up.AiKeyId, dbg)
+		writeResponsesSyntheticStream(ctx, w, adapter, up.UpstreamModel, dict, payloads, up.AiKeyId, dbg, rec)
 		return
 	}
 
 	adapter, err := responses.GetAdapter(up.ProviderKey, up.APIMode)
 	if err != nil {
 		dbg.Error("adapter: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "adapter", err)
 		writeResponsesError(ctx, w, http.StatusBadRequest, "invalid_request_error", "%v", err)
 		return
 	}
@@ -155,6 +179,7 @@ func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.R
 	chatCtx := providers.ChatContextFromUpstream(up.ProviderKey, up.BaseURL, up.APIKey, up.UpstreamModel, up.APIMode)
 	if _, err := adapter.BuildUpstreamRequest(chatCtx, dict, isStream); err != nil {
 		dbg.Error("provider request: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "provider_request", err)
 		writeResponsesError(ctx, w, http.StatusBadRequest, "invalid_request_error", "provider request: %v", err)
 		return
 	}
@@ -176,6 +201,7 @@ func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.R
 		resp, uerr := upstreamWithKeyFailover(ctx, up, timeout, build)
 		if uerr != nil {
 			dbg.Error("upstream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
+			recordUpstreamError(rec, uerr)
 			writeResponsesUpstreamError(ctx, w, uerr)
 			return
 		}
@@ -199,6 +225,7 @@ func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.R
 			}
 		}
 		dbg.ClientResponse(bodyOut)
+		markAPILogSuccess(rec, bodyOut)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(bodyOut)
@@ -209,10 +236,11 @@ func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.R
 		ch, uerr := upstreamRawStreamWithKeyFailover(ctx, up, timeout, build, upstream.ChatCompletionStreamRaw)
 		if uerr != nil {
 			dbg.Error("upstream stream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
+			recordUpstreamError(rec, uerr)
 			writeResponsesUpstreamError(ctx, w, uerr)
 			return
 		}
-		writeResponsesPassthroughStream(ctx, w, ch, up.AiKeyId, dbg)
+		writeResponsesPassthroughStream(ctx, w, ch, up.AiKeyId, dbg, rec)
 		return
 	}
 
@@ -220,10 +248,11 @@ func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.R
 		ch, uerr := upstreamRawStreamWithKeyFailover(ctx, up, timeout, build, upstream.ChatCompletionStreamRaw)
 		if uerr != nil {
 			dbg.Error("upstream stream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
+			recordUpstreamError(rec, uerr)
 			writeResponsesUpstreamError(ctx, w, uerr)
 			return
 		}
-		writeResponsesAnthropicTranslatedStream(ctx, w, ch, adapter, up.UpstreamModel, dict, up.AiKeyId, dbg)
+		writeResponsesAnthropicTranslatedStream(ctx, w, ch, adapter, up.UpstreamModel, dict, up.AiKeyId, dbg, rec)
 		return
 	}
 
@@ -233,10 +262,11 @@ func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.R
 	})
 	if uerr != nil {
 		dbg.Error("upstream stream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
+		recordUpstreamError(rec, uerr)
 		writeResponsesUpstreamError(ctx, w, uerr)
 		return
 	}
-	writeResponsesTranslatedStream(ctx, w, ch, adapter, up.UpstreamModel, dict, up.AiKeyId, dbg)
+	writeResponsesTranslatedStream(ctx, w, ch, adapter, up.UpstreamModel, dict, up.AiKeyId, dbg, rec)
 }
 
 func handleResponsesSubResource(ctx context.Context, w http.ResponseWriter, r *http.Request, method, subAction string, params *appsrv.SAppParams) {
@@ -425,17 +455,21 @@ func writeResponsesUpstreamError(ctx context.Context, w http.ResponseWriter, uer
 	writeUpstreamError(ctx, w, uerr)
 }
 
-func writeResponsesPassthroughStream(ctx context.Context, w http.ResponseWriter, ch <-chan upstream.RawSSEEvent, aiKeyId string, dbg *ProxyDebugSession) {
+func writeResponsesPassthroughStream(ctx context.Context, w http.ResponseWriter, ch <-chan upstream.RawSSEEvent, aiKeyId string, dbg *ProxyDebugSession, rec *chatlog.Record) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
 	flushIf(w)
 	streamOK := true
+	sawUsage := false
 	seq := 0
 	for evt := range ch {
 		seq++
 		dbg.ClientStreamSSE(seq, evt.Event, evt.Data)
+		if len(evt.Data) > 0 && bytes.Contains(evt.Data, []byte(`"usage"`)) {
+			noteStreamUsage(rec, evt.Data, &sawUsage)
+		}
 		if evt.Event != "" {
 			_, _ = fmt.Fprintf(w, "event: %s\n", evt.Event)
 		}
@@ -446,6 +480,7 @@ func writeResponsesPassthroughStream(ctx context.Context, w http.ResponseWriter,
 		}
 		flushIf(w)
 	}
+	finishAPILogStream(rec, streamOK, sawUsage)
 	if streamOK && aiKeyId != "" {
 		models.RecordAiKeySuccess(aiKeyId)
 	}
@@ -460,6 +495,7 @@ func writeResponsesSyntheticStream(
 	payloads [][]byte,
 	aiKeyId string,
 	dbg *ProxyDebugSession,
+	rec *chatlog.Record,
 ) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -469,15 +505,21 @@ func writeResponsesSyntheticStream(
 
 	state := adapter.NewStreamState(requestModel, requestBody)
 	streamOK := true
+	sawUsage := false
 	outSeq := 0
 	for _, payload := range payloads {
+		if len(payload) > 0 && bytes.Contains(payload, []byte(`"usage"`)) {
+			noteStreamUsage(rec, payload, &sawUsage)
+		}
 		events, err := adapter.ConvertStreamPayload(state, payload, false)
 		if err != nil {
 			dbg.Error("visual synthetic stream convert error: %v", err)
 			streamOK = false
+			failAPILogRecord(rec, http.StatusOK, "stream_convert", err)
 			break
 		}
 		outSeq++
+		noteResponsesSSEUsage(rec, events, &sawUsage)
 		writeResponsesSSEEvents(w, events, dbg, outSeq)
 	}
 	if streamOK {
@@ -485,11 +527,14 @@ func writeResponsesSyntheticStream(
 		if err != nil {
 			dbg.Error("visual synthetic stream end error: %v", err)
 			streamOK = false
+			failAPILogRecord(rec, http.StatusOK, "stream_convert", err)
 		} else {
 			outSeq++
+			noteResponsesSSEUsage(rec, events, &sawUsage)
 			writeResponsesSSEEvents(w, events, dbg, outSeq)
 		}
 	}
+	finishAPILogStream(rec, streamOK, sawUsage)
 	if streamOK && aiKeyId != "" {
 		models.RecordAiKeySuccess(aiKeyId)
 	}
@@ -504,6 +549,7 @@ func writeResponsesTranslatedStream(
 	requestBody *jsonutils.JSONDict,
 	aiKeyId string,
 	dbg *ProxyDebugSession,
+	rec *chatlog.Record,
 ) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -513,6 +559,7 @@ func writeResponsesTranslatedStream(
 
 	state := adapter.NewStreamState(requestModel, requestBody)
 	streamOK := true
+	sawUsage := false
 	outSeq := 0
 	for chunk := range ch {
 		if chunk.Done {
@@ -520,18 +567,25 @@ func writeResponsesTranslatedStream(
 			if err != nil {
 				dbg.Error("stream convert end error: %v", err)
 				streamOK = false
+				failAPILogRecord(rec, http.StatusOK, "stream_convert", err)
 				break
 			}
 			outSeq++
+			noteResponsesSSEUsage(rec, events, &sawUsage)
 			writeResponsesSSEEvents(w, events, dbg, outSeq)
 			break
 		}
 		if len(chunk.Data) == 0 {
 			continue
 		}
+		if bytes.Contains(chunk.Data, []byte(`"usage"`)) {
+			noteStreamUsage(rec, chunk.Data, &sawUsage)
+		}
 		if isResponsesUpstreamErrorChunk(chunk.Data) {
 			dbg.Error("upstream stream error chunk: %s", truncateLogBytes(chunk.Data, proxyDebugLogMax))
 			streamOK = false
+			rec.Success = false
+			rec.ErrorCode, rec.ErrorMessage = parseUpstreamErrorInfo(chunk.Data)
 			if aiKeyId != "" {
 				models.RecordAiKeyFailure(aiKeyId, parseUpstreamErrorStatus(chunk.Data))
 			}
@@ -543,11 +597,14 @@ func writeResponsesTranslatedStream(
 		if err != nil {
 			dbg.Error("stream convert error: %v", err)
 			streamOK = false
+			failAPILogRecord(rec, http.StatusOK, "stream_convert", err)
 			break
 		}
 		outSeq++
+		noteResponsesSSEUsage(rec, events, &sawUsage)
 		writeResponsesSSEEvents(w, events, dbg, outSeq)
 	}
+	finishAPILogStream(rec, streamOK, sawUsage)
 	if streamOK && aiKeyId != "" {
 		models.RecordAiKeySuccess(aiKeyId)
 	}
@@ -562,6 +619,7 @@ func writeResponsesAnthropicTranslatedStream(
 	requestBody *jsonutils.JSONDict,
 	aiKeyId string,
 	dbg *ProxyDebugSession,
+	rec *chatlog.Record,
 ) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -571,23 +629,31 @@ func writeResponsesAnthropicTranslatedStream(
 
 	state := adapter.NewStreamState(requestModel, requestBody)
 	streamOK := true
+	sawUsage := false
 	outSeq := 0
 	for evt := range ch {
 		outSeq++
 		dbg.UpstreamStreamChunk(outSeq, evt.Data)
+		if len(evt.Data) > 0 && bytes.Contains(evt.Data, []byte(`"usage"`)) {
+			noteStreamUsage(rec, evt.Data, &sawUsage)
+		}
 		events, err := responses.ConvertAnthropicStreamEvent(state, evt.Event, evt.Data, false)
 		if err != nil {
 			dbg.Error("stream convert error: %v", err)
 			streamOK = false
+			failAPILogRecord(rec, http.StatusOK, "stream_convert", err)
 			break
 		}
+		noteResponsesSSEUsage(rec, events, &sawUsage)
 		writeResponsesSSEEvents(w, events, dbg, outSeq)
 	}
 	events, err := responses.ConvertAnthropicStreamEvent(state, "", nil, true)
 	if err == nil {
 		outSeq++
+		noteResponsesSSEUsage(rec, events, &sawUsage)
 		writeResponsesSSEEvents(w, events, dbg, outSeq)
 	}
+	finishAPILogStream(rec, streamOK, sawUsage)
 	if streamOK && aiKeyId != "" {
 		models.RecordAiKeySuccess(aiKeyId)
 	}
@@ -610,6 +676,14 @@ func writeResponsesSSEEvents(w http.ResponseWriter, events []providerapi.Respons
 			_, _ = fmt.Fprint(w, "\n")
 		}
 		flushIf(w)
+	}
+}
+
+func noteResponsesSSEUsage(rec *chatlog.Record, events []providerapi.ResponsesStreamChunk, sawUsage *bool) {
+	for _, evt := range events {
+		if len(evt.Data) > 0 && bytes.Contains(evt.Data, []byte(`"usage"`)) {
+			noteStreamUsage(rec, evt.Data, sawUsage)
+		}
 	}
 }
 
