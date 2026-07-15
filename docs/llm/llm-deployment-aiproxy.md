@@ -50,7 +50,7 @@ deployment 与 routing 的关联保存在 `llm_deployment.aiproxy_routing_id`。
 
 ## 客户端访问
 
-需先创建项目级 `ai_virtual_key`，再通过 aiproxy OpenAI 兼容接口访问：
+需先创建项目级 `ai_virtual_key`（网关入口鉴权，**不是**上游 provider secret），再通过 aiproxy OpenAI 兼容接口访问。LLM 自动注册会为每个同步出的 `ai_provider` 确保一条占位 `ai_key`（`secret=unused`，本地 vLLM/Ollama/SGLang 一般不校验真实密钥）；上游转发依赖该 `ai_key`，与客户端 Bearer 的 virtual key 是两套密钥。
 
 ```bash
 curl -k "$AIPROXY/openai/v1/chat/completions" \
@@ -81,6 +81,7 @@ curl -k "$AIPROXY/openai/v1/chat/completions" \
 | `llm_deployment.aiproxy_routing_id` | `ai_routing.id` |
 | `llm.id` | `ai_provider.llm_id` |
 | `llm_deployment.id` | `ai_provider.llm_deployment_id` |
+| 每个同步出的 provider（无用户自建 enabled key 时） | `ai_key`（占位 `secret=unused`，名 `{ai_provider.name}-key`） |
 | upstream served model name（vLLM/SGLang 为 model 目录 basename，Ollama 为 `name:tag`） | `ai_model.model_key` |
 | `{deployment_name}-{upstream_model_key}` | **`ai_routing.model_key`** 与 **`aiproxy_bindings[].client_model_alias`**（同值；客户端 model 精确匹配，选路与列表优先） |
 | `{ai_routing.model_key}/{upstream_model_key}` | 层级 model id（routing 有 `model_key` 且挂多个 catalog model 时推荐；`GET /v1/models` 与请求解析均支持） |
@@ -97,6 +98,7 @@ curl -k "$AIPROXY/openai/v1/chat/completions" \
 |--------------|----------|------------------------------------------|
 | `ai_routing.name` | `llm-dep-{slug(deployment.name)}` | `llm-dep-my-qwen` |
 | `ai_provider.name` | `llm-{slug(llm.name)}` | `llm-my-qwen-0` |
+| `ai_key.name` | `{ai_provider.name}-key` | `llm-my-qwen-0-key` |
 | `ai_model.name` | `llm-{slug(llm.name)}-{slug(model_key)}` | `llm-my-qwen-0-qwen3-0-6b` |
 
 `slug(...)` 将名称规范为小写并将 `/`、`.` 等特殊字符转为 `-`。部署名或副本名为空时回退为对应 id。

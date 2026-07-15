@@ -333,6 +333,12 @@ func escapeJsonChar(sb *strings.Builder, ch byte) {
 	case '\t':
 		sb.Write([]byte{'\\', 't'})
 	default:
+		// RFC 8259: U+0000–U+001F must be escaped as \uXXXX.
+		if ch < 0x20 {
+			const hexdigits = "0123456789abcdef"
+			sb.Write([]byte{'\\', 'u', '0', '0', hexdigits[ch>>4], hexdigits[ch&0xf]})
+			return
+		}
 		sb.WriteByte(ch)
 		/*if ((ch >= 0x20 && ch <= 0x21) || (ch >= 0x23 || ch <= 0x5B) || (ch >= 0x5D && ch <= 0x10FFFF)) && ch != 0x81 && ch != 0x8d && ch != 0x8f && ch != 0x90 && ch != 0x9d {
 			sb.WriteRune(ch)
