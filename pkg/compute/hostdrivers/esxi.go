@@ -79,7 +79,7 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred
 	hostCacheImage := models.StoragecachedimageManager.GetStoragecachedimage(storageCache.GetId(), cacheImage.GetId())
 	if hostCacheImage == nil {
 		zone, _ := host.GetZone()
-		srcHostCacheImage, err = cacheImage.ChooseSourceStoragecacheInRange(api.HOST_TYPE_ESXI, []string{host.Id},
+		srcHostCacheImage, err = cacheImage.ChooseSourceStoragecacheInRange([]string{api.HOST_TYPE_ESXI}, []string{host.Id},
 			[]interface{}{zone, host.GetCloudprovider()})
 		if err != nil {
 			return err

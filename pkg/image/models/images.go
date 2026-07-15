@@ -400,6 +400,11 @@ func (img *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient
 		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "s3_info_sign_ver")] = options.Options.S3SignVersion
 	}
 
+	if strings.HasPrefix(img.Location, api.NfsPrefix) {
+		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "nfs_storage_id")] = options.Options.NfsStorageId
+		headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "nfs_image_path")] = img.Location[len(api.NfsPrefix):]
+	}
+
 	return headers
 }
 
@@ -461,6 +466,8 @@ func (self *SImage) GetPath(format string) string {
 	path := filepath.Join(options.Options.FilesystemStoreDatadir, self.Id)
 	if options.Options.StorageDriver == api.IMAGE_STORAGE_DRIVER_S3 {
 		path = filepath.Join(options.Options.S3MountPoint, self.Id)
+	} else if options.Options.StorageDriver == api.IMAGE_STORAGE_DRIVER_NFS {
+		path = filepath.Join(options.Options.NfsMountPoint, api.NfsSubDirName, self.Id)
 	}
 	if len(format) > 0 {
 		path = fmt.Sprintf("%s.%s", path, format)
@@ -1180,6 +1187,8 @@ func (self *SImage) GetLocalLocation() string {
 		return self.Location[len(api.LocalFilePrefix):]
 	} else if strings.HasPrefix(self.Location, api.S3Prefix) {
 		return path.Join(options.Options.S3MountPoint, self.Location[len(api.S3Prefix):])
+	} else if strings.HasPrefix(self.Location, api.NfsPrefix) {
+		return path.Join(options.Options.NfsMountPoint, self.Location[len(api.NfsPrefix):])
 	} else {
 		return ""
 	}
@@ -1190,6 +1199,8 @@ func (self *SImage) GetPrefix() string {
 		return api.LocalFilePrefix
 	} else if strings.HasPrefix(self.Location, api.S3Prefix) {
 		return api.S3Prefix
+	} else if strings.HasPrefix(self.Location, api.NfsPrefix) {
+		return api.NfsPrefix
 	} else {
 		return api.LocalFilePrefix
 	}
@@ -1198,6 +1209,8 @@ func (self *SImage) GetPrefix() string {
 func (self *SImage) GetNewLocation(newLocalPath string) string {
 	if strings.HasPrefix(self.Location, api.S3Prefix) {
 		return api.S3Prefix + path.Base(newLocalPath)
+	} else if strings.HasPrefix(self.Location, api.NfsPrefix) {
+		return api.NfsPrefix + path.Join(api.NfsSubDirName, path.Base(newLocalPath))
 	} else {
 		return api.LocalFilePrefix + newLocalPath
 	}

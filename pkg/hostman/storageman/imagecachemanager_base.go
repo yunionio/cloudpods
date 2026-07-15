@@ -53,6 +53,8 @@ type IImageCacheManger interface {
 
 	IsLocal() bool
 	GetStorageType() string
+	GetStorageId() string
+	GetStoragePath() string
 
 	// for diskhandler
 	PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
