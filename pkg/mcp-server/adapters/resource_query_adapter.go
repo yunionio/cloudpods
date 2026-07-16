@@ -36,6 +36,7 @@ func (a CloudpodsAdapter) ListCloudRegions(ctx context.Context, limit int, offse
 
 	// 构造查询参数
 	params := jsonutils.NewDict()
+	params.Set("scope", jsonutils.NewString("max"))
 	if limit > 0 {
 		// 设置查询结果数量限制
 		params.Set("limit", jsonutils.NewInt(int64(limit)))
@@ -92,6 +93,7 @@ func (a *CloudpodsAdapter) ListVPCs(ctx context.Context, limit int, offset int, 
 
 	// 构造查询参数
 	params := jsonutils.NewDict()
+	params.Set("scope", jsonutils.NewString("max"))
 	if limit > 0 {
 		// 设置查询结果数量限制
 		params.Set("limit", jsonutils.NewInt(int64(limit)))
@@ -148,6 +150,7 @@ func (a *CloudpodsAdapter) ListNetworks(ctx context.Context, limit int, offset i
 
 	// 构造查询参数
 	params := jsonutils.NewDict()
+	params.Set("scope", jsonutils.NewString("max"))
 	if limit > 0 {
 		// 设置查询结果数量限制
 		params.Set("limit", jsonutils.NewInt(int64(limit)))
@@ -205,6 +208,7 @@ func (a *CloudpodsAdapter) ListImages(ctx context.Context, limit int, offset int
 
 	// 构造查询参数
 	params := jsonutils.NewDict()
+	params.Set("scope", jsonutils.NewString("max"))
 	if limit > 0 {
 		// 设置查询结果数量限制
 		params.Set("limit", jsonutils.NewInt(int64(limit)))
@@ -263,6 +267,7 @@ func (a *CloudpodsAdapter) ListServerSkus(ctx context.Context, limit int, offset
 
 	// 构造查询参数
 	params := jsonutils.NewDict()
+	params.Set("scope", jsonutils.NewString("max"))
 	if limit > 0 {
 		// 设置查询结果数量限制
 		params.Set("limit", jsonutils.NewInt(int64(limit)))
@@ -361,6 +366,7 @@ func (a *CloudpodsAdapter) ListStorages(ctx context.Context, limit int, offset i
 
 	// 构造查询参数
 	params := jsonutils.NewDict()
+	params.Set("scope", jsonutils.NewString("max"))
 	if limit > 0 {
 		// 设置查询结果数量限制
 		params.Set("limit", jsonutils.NewInt(int64(limit)))
@@ -447,6 +453,7 @@ func (a *CloudpodsAdapter) ListServers(ctx context.Context, limit int, offset in
 
 	// 构造查询参数
 	params := jsonutils.NewDict()
+	params.Set("scope", jsonutils.NewString("max"))
 	if limit > 0 {
 		// 设置查询结果数量限制
 		params.Set("limit", jsonutils.NewInt(int64(limit)))
