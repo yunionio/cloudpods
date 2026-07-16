@@ -25,6 +25,12 @@ definitions:
                 description: 权限Id
                 type: string
                 x-go-name: CloudpolicyId
+            cloudpolicy_ids:
+                description: 权限Id列表
+                items:
+                    type: string
+                type: array
+                x-go-name: CloudpolicyIds
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/cloudid
     CloudgroupCreateInput:
@@ -108,6 +114,12 @@ definitions:
                 description: 权限Id
                 type: string
                 x-go-name: CloudpolicyId
+            cloudpolicy_ids:
+                description: 权限Id列表
+                items:
+                    type: string
+                type: array
+                x-go-name: CloudpolicyIds
         type: object
         x-go-package: yunion.io/x/onecloud/pkg/apis/cloudid
     CloudgroupDetails:
