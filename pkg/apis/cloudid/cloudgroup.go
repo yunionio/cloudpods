@@ -122,6 +122,8 @@ type CloudgroupAttachPolicyInput struct {
 
 	// 权限Id
 	CloudpolicyId string `json:"cloudpolicy_id"`
+	// 权限Id列表
+	CloudpolicyIds []string `json:"cloudpolicy_ids"`
 }
 
 type CloudgroupSetUsersInput struct {
@@ -140,6 +142,8 @@ type CloudgroupDetachPolicyInput struct {
 
 	// 权限Id
 	CloudpolicyId string `json:"cloudpolicy_id"`
+	// 权限Id列表
+	CloudpolicyIds []string `json:"cloudpolicy_ids"`
 }
 
 type CloudgroupSyncstatusInput struct {
