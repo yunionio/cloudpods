@@ -17,6 +17,7 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -32,23 +33,27 @@ type ResponsesStreamEvent struct {
 
 // ResponsesStreamConverter converts OpenAI chat.completion.chunk SSE to Responses SSE events.
 type ResponsesStreamConverter struct {
-	requestModel  string
-	toolMap       CodexToolMap
-	created       bool
-	completed     bool
-	seq           int64
-	responseID    string
-	model         string
-	outputIndex   int
-	textItemID    string
-	reasonItemID  string
-	textStarted   bool
-	reasonStarted bool
-	textBuf       strings.Builder
-	reasonBuf     strings.Builder
-	inputTokens   int
-	outputTokens  int
-	activeTools   map[int]*responsesStreamToolState
+	requestModel      string
+	toolMap           CodexToolMap
+	created           bool
+	completed         bool
+	seq               int64
+	responseID        string
+	model             string
+	outputIndex       int
+	textItemID        string
+	reasonItemID      string
+	textOutputIndex   int
+	reasonOutputIndex int
+	textStarted       bool
+	reasonStarted     bool
+	textDone          bool
+	reasonDone        bool
+	textBuf           strings.Builder
+	reasonBuf         strings.Builder
+	inputTokens       int
+	outputTokens      int
+	activeTools       map[int]*responsesStreamToolState
 }
 
 type responsesStreamToolState struct {
@@ -59,6 +64,7 @@ type responsesStreamToolState struct {
 	namespace   string
 	argsBuf     strings.Builder
 	added       bool
+	finalized   bool
 }
 
 // NewResponsesStreamConverter creates stream state for one Responses response.
@@ -190,6 +196,7 @@ func (s *ResponsesStreamConverter) appendText(text string) ([]ResponsesStreamEve
 	var out []ResponsesStreamEvent
 	if !s.textStarted {
 		s.textStarted = true
+		s.textOutputIndex = s.outputIndex
 		s.textItemID = fmt.Sprintf("msg_%d", s.outputIndex)
 		added, err := s.outputItemAdded("message", s.textItemID, map[string]interface{}{
 			"type":    "message",
@@ -222,6 +229,7 @@ func (s *ResponsesStreamConverter) appendReasoning(text string) ([]ResponsesStre
 	var out []ResponsesStreamEvent
 	if !s.reasonStarted {
 		s.reasonStarted = true
+		s.reasonOutputIndex = s.outputIndex
 		s.reasonItemID = fmt.Sprintf("rs_%d", s.outputIndex)
 		added, err := s.outputItemAdded("reasoning", s.reasonItemID, map[string]interface{}{
 			"type":    "reasoning",
@@ -362,11 +370,182 @@ func (s *ResponsesStreamConverter) textDelta(text string) (ResponsesStreamEvent,
 	return ResponsesStreamEvent{Event: "response.output_text.delta", Data: b}, nil
 }
 
-func (s *ResponsesStreamConverter) emitCompleted() ([]ResponsesStreamEvent, error) {
-	if s.completed {
+func (s *ResponsesStreamConverter) emitFinalizeEvents() ([]ResponsesStreamEvent, error) {
+	var out []ResponsesStreamEvent
+	if s.reasonStarted && !s.reasonDone {
+		events, err := s.emitReasoningDone()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, events...)
+	}
+	if s.textStarted && !s.textDone {
+		events, err := s.emitTextDone()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, events...)
+	}
+	toolIndexes := make([]int, 0, len(s.activeTools))
+	for idx := range s.activeTools {
+		toolIndexes = append(toolIndexes, idx)
+	}
+	sort.Ints(toolIndexes)
+	for _, idx := range toolIndexes {
+		st := s.activeTools[idx]
+		if st == nil || !st.added || st.finalized {
+			continue
+		}
+		events, err := s.emitToolDone(st)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, events...)
+	}
+	return out, nil
+}
+
+func (s *ResponsesStreamConverter) emitReasoningDone() ([]ResponsesStreamEvent, error) {
+	if !s.reasonStarted || s.reasonDone {
 		return nil, nil
 	}
-	s.completed = true
+	s.reasonDone = true
+	var out []ResponsesStreamEvent
+	partDone := map[string]interface{}{
+		"type":            "response.reasoning_summary_part.done",
+		"sequence_number": s.nextSeq(),
+		"item_id":         s.reasonItemID,
+		"output_index":    s.reasonOutputIndex,
+		"summary_index":   0,
+	}
+	b, err := json.Marshal(partDone)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, ResponsesStreamEvent{Event: "response.reasoning_summary_part.done", Data: b})
+
+	item := map[string]interface{}{
+		"type":   "reasoning",
+		"id":     s.reasonItemID,
+		"status": "completed",
+		"summary": []map[string]interface{}{
+			{"type": "text", "text": s.reasonBuf.String()},
+		},
+	}
+	itemDone, err := s.outputItemDoneAt(s.reasonOutputIndex, item)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, itemDone)
+	return out, nil
+}
+
+func (s *ResponsesStreamConverter) emitTextDone() ([]ResponsesStreamEvent, error) {
+	if !s.textStarted || s.textDone {
+		return nil, nil
+	}
+	s.textDone = true
+	text := s.textBuf.String()
+	var out []ResponsesStreamEvent
+	textDone := map[string]interface{}{
+		"type":            "response.output_text.done",
+		"sequence_number": s.nextSeq(),
+		"item_id":         s.textItemID,
+		"output_index":    s.textOutputIndex,
+		"content_index":   0,
+		"text":            text,
+	}
+	b, err := json.Marshal(textDone)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, ResponsesStreamEvent{Event: "response.output_text.done", Data: b})
+
+	partDone := map[string]interface{}{
+		"type":            "response.content_part.done",
+		"sequence_number": s.nextSeq(),
+		"item_id":         s.textItemID,
+		"output_index":    s.textOutputIndex,
+		"content_index":   0,
+		"part":            map[string]interface{}{"type": "output_text", "text": text},
+	}
+	b, err = json.Marshal(partDone)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, ResponsesStreamEvent{Event: "response.content_part.done", Data: b})
+
+	item := map[string]interface{}{
+		"type":   "message",
+		"id":     s.textItemID,
+		"status": "completed",
+		"role":   "assistant",
+		"content": []map[string]interface{}{
+			{"type": "output_text", "text": text},
+		},
+	}
+	itemDone, err := s.outputItemDoneAt(s.textOutputIndex, item)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, itemDone)
+	return out, nil
+}
+
+func (s *ResponsesStreamConverter) emitToolDone(st *responsesStreamToolState) ([]ResponsesStreamEvent, error) {
+	if st == nil || !st.added || st.finalized {
+		return nil, nil
+	}
+	st.finalized = true
+	args := st.argsBuf.String()
+	var out []ResponsesStreamEvent
+	argsDone := map[string]interface{}{
+		"type":            "response.function_call_arguments.done",
+		"sequence_number": s.nextSeq(),
+		"item_id":         st.itemID,
+		"output_index":    st.outputIndex,
+		"arguments":       args,
+	}
+	b, err := json.Marshal(argsDone)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, ResponsesStreamEvent{Event: "response.function_call_arguments.done", Data: b})
+
+	item := map[string]interface{}{
+		"type":      "function_call",
+		"id":        st.itemID,
+		"status":    "completed",
+		"call_id":   st.callID,
+		"name":      st.name,
+		"arguments": args,
+	}
+	if st.namespace != "" {
+		item["namespace"] = st.namespace
+	}
+	itemDone, err := s.outputItemDoneAt(st.outputIndex, item)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, itemDone)
+	return out, nil
+}
+
+func (s *ResponsesStreamConverter) outputItemDoneAt(outputIndex int, item map[string]interface{}) (ResponsesStreamEvent, error) {
+	data := map[string]interface{}{
+		"type":            "response.output_item.done",
+		"sequence_number": s.nextSeq(),
+		"output_index":    outputIndex,
+		"item":            item,
+	}
+	b, err := json.Marshal(data)
+	if err != nil {
+		return ResponsesStreamEvent{}, err
+	}
+	return ResponsesStreamEvent{Event: "response.output_item.done", Data: b}, nil
+}
+
+func (s *ResponsesStreamConverter) buildCompletedOutput() []interface{} {
 	output := make([]interface{}, 0)
 	if s.reasonBuf.Len() > 0 {
 		output = append(output, map[string]interface{}{
@@ -385,7 +564,13 @@ func (s *ResponsesStreamConverter) emitCompleted() ([]ResponsesStreamEvent, erro
 			"content": []map[string]interface{}{{"type": "text", "text": s.textBuf.String()}},
 		})
 	}
-	for _, st := range s.activeTools {
+	toolIndexes := make([]int, 0, len(s.activeTools))
+	for idx := range s.activeTools {
+		toolIndexes = append(toolIndexes, idx)
+	}
+	sort.Ints(toolIndexes)
+	for _, idx := range toolIndexes {
+		st := s.activeTools[idx]
 		if st == nil || !st.added {
 			continue
 		}
@@ -401,14 +586,26 @@ func (s *ResponsesStreamConverter) emitCompleted() ([]ResponsesStreamEvent, erro
 		}
 		output = append(output, item)
 	}
-	status := "completed"
+	return output
+}
+
+func (s *ResponsesStreamConverter) emitCompleted() ([]ResponsesStreamEvent, error) {
+	if s.completed {
+		return nil, nil
+	}
+	finalizeEvents, err := s.emitFinalizeEvents()
+	if err != nil {
+		return nil, err
+	}
+	s.completed = true
+	output := s.buildCompletedOutput()
 	data := map[string]interface{}{
 		"type":            "response.completed",
 		"sequence_number": s.nextSeq(),
 		"response": map[string]interface{}{
 			"id":          s.responseID,
 			"object":      "response",
-			"status":      status,
+			"status":      "completed",
 			"model":       s.model,
 			"output":      output,
 			"output_text": s.textBuf.String(),
@@ -423,7 +620,8 @@ func (s *ResponsesStreamConverter) emitCompleted() ([]ResponsesStreamEvent, erro
 	if err != nil {
 		return nil, err
 	}
-	return []ResponsesStreamEvent{{Event: "response.completed", Data: b}}, nil
+	out := append(finalizeEvents, ResponsesStreamEvent{Event: "response.completed", Data: b})
+	return out, nil
 }
 
 // ToProviderChunks maps internal events to providerapi chunks.
