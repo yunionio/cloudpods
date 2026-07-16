@@ -54,7 +54,7 @@ func NewCloudpodsServersTool(adapter *adapters.CloudpodsAdapter) *CloudpodsServe
 func (c *CloudpodsServersTool) GetTool() mcp.Tool {
 	return mcp.NewTool(
 		"cloudpods_list_servers",
-		mcp.WithDescription("查询Cloudpods虚拟机实例列表，获取虚拟机信息"),
+		mcp.WithDescription("查询Cloudpods虚拟机实例列表，获取虚拟机信息（含id、name、status）。当用户要求启动/停止/重启/删除/重置密码时：先用本工具定位目标虚拟机，拿到返回结果中的id后，必须立刻继续调用对应操作工具（cloudpods_start_server / cloudpods_stop_server / cloudpods_restart_server / cloudpods_delete_server / cloudpods_reset_server_password）完成操作，不要只查询就结束，也不要再次向用户确认（除非匹配到多台需用户选择）。"),
 		mcp.WithString("limit", mcp.Description("返回结果数量限制，默认为50")),
 		mcp.WithString("offset", mcp.Description("结果偏移量，默认为0")),
 		mcp.WithString("search", mcp.Description("按名称或ID模糊搜索")),
