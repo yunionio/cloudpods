@@ -692,25 +692,34 @@ func (self *SCloudgroup) PerformAttachPolicy(ctx context.Context, userCred mccli
 	if self.Status != apis.STATUS_AVAILABLE {
 		return nil, httperrors.NewInvalidStatusError("Can not attach policy in status %s", self.Status)
 	}
-	policyObj, err := validators.ValidateModel(ctx, userCred, CloudpolicyManager, &input.CloudpolicyId)
-	if err != nil {
-		return nil, err
+
+	policyIds := input.CloudpolicyIds
+	if len(input.CloudpolicyId) > 0 {
+		policyIds = append(policyIds, input.CloudpolicyId)
 	}
-	policy := policyObj.(*SCloudpolicy)
-	if policy.ManagerId != self.ManagerId || policy.CloudaccountId != self.CloudaccountId {
-		return nil, httperrors.NewConflictError("policy and groups do not belong to the same account")
-	}
-	_, err = self.GetCloudpolicy(input.CloudpolicyId)
-	if err == nil || errors.Cause(err) == sqlchemy.ErrDuplicateEntry {
-		return nil, httperrors.NewDuplicateResourceError("policy %s has aleady in this group", input.CloudpolicyId)
+	if len(policyIds) == 0 {
+		return nil, httperrors.NewMissingParameterError("cloudpolicy_ids")
 	}
 
-	add := []api.SPolicy{
-		{
+	add := []api.SPolicy{}
+	for i := range policyIds {
+		policyObj, err := validators.ValidateModel(ctx, userCred, CloudpolicyManager, &policyIds[i])
+		if err != nil {
+			return nil, err
+		}
+		policy := policyObj.(*SCloudpolicy)
+		if policy.ManagerId != self.ManagerId || policy.CloudaccountId != self.CloudaccountId {
+			return nil, httperrors.NewConflictError("policy and groups do not belong to the same account")
+		}
+		_, err = self.GetCloudpolicy(policy.Id)
+		if err == nil || errors.Cause(err) == sqlchemy.ErrDuplicateEntry {
+			return nil, httperrors.NewDuplicateResourceError("policy %s has aleady in this group", policy.Id)
+		}
+		add = append(add, api.SPolicy{
 			Name:       policy.Name,
 			ExternalId: policy.ExternalId,
 			PolicyType: policy.PolicyType,
-		},
+		})
 	}
 
 	return nil, self.StartSetPoliciesTask(ctx, userCred, add, nil, "")
@@ -723,23 +732,35 @@ func (self *SCloudgroup) PerformDetachPolicy(ctx context.Context, userCred mccli
 		return nil, httperrors.NewInvalidStatusError("Can not detach policy in status %s", self.Status)
 	}
 
-	policObj, err := validators.ValidateModel(ctx, userCred, CloudpolicyManager, &input.CloudpolicyId)
-	if err != nil {
-		return nil, err
+	policyIds := input.CloudpolicyIds
+	if len(input.CloudpolicyId) > 0 {
+		policyIds = append(policyIds, input.CloudpolicyId)
 	}
-	policy := policObj.(*SCloudpolicy)
-
-	_, err = self.GetCloudpolicy(input.CloudpolicyId)
-	if err != nil && errors.Cause(err) == sql.ErrNoRows {
-		return nil, nil
+	if len(policyIds) == 0 {
+		return nil, httperrors.NewMissingParameterError("cloudpolicy_ids")
 	}
 
-	del := []api.SPolicy{
-		{
+	del := []api.SPolicy{}
+	for i := range policyIds {
+		policObj, err := validators.ValidateModel(ctx, userCred, CloudpolicyManager, &policyIds[i])
+		if err != nil {
+			return nil, err
+		}
+		policy := policObj.(*SCloudpolicy)
+
+		_, err = self.GetCloudpolicy(policy.Id)
+		if err != nil && errors.Cause(err) == sql.ErrNoRows {
+			continue
+		}
+
+		del = append(del, api.SPolicy{
 			Name:       policy.Name,
 			ExternalId: policy.ExternalId,
 			PolicyType: policy.PolicyType,
-		},
+		})
+	}
+	if len(del) == 0 {
+		return nil, nil
 	}
 
 	return nil, self.StartSetPoliciesTask(ctx, userCred, nil, del, "")

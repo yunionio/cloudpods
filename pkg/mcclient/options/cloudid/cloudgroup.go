@@ -57,11 +57,19 @@ func (opts *CloudgroupIdOptions) Params() (jsonutils.JSONObject, error) {
 
 type CloudgroupPolicyOptions struct {
 	CloudgroupIdOptions
-	CLOUDPOLICY_ID string `help:"Cloudpolicy Id"`
+	CLOUDPOLICY_ID string   `help:"Cloudpolicy Id"`
+	CloudpolicyIds []string `help:"Cloudpolicy Ids"`
 }
 
 func (opts *CloudgroupPolicyOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.Marshal(map[string]string{"cloudpolicy_id": opts.CLOUDPOLICY_ID}), nil
+	params := jsonutils.NewDict()
+	if len(opts.CLOUDPOLICY_ID) > 0 {
+		params.Set("cloudpolicy_id", jsonutils.NewString(opts.CLOUDPOLICY_ID))
+	}
+	if len(opts.CloudpolicyIds) > 0 {
+		params.Set("cloudpolicy_ids", jsonutils.Marshal(opts.CloudpolicyIds))
+	}
+	return params, nil
 }
 
 type CloudgroupUserOptions struct {
