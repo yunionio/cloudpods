@@ -225,14 +225,90 @@ func TestResponsesStreamConverterText(t *testing.T) {
 		t.Fatal(err)
 	}
 	foundCompleted := false
+	foundOutputItemDone := false
 	for _, e := range end {
 		if e.Event == "response.completed" {
 			foundCompleted = true
+		}
+		if e.Event == "response.output_item.done" {
+			foundOutputItemDone = true
 		}
 	}
 	if !foundCompleted {
 		t.Fatalf("events = %+v", end)
 	}
+	if !foundOutputItemDone {
+		t.Fatalf("expected response.output_item.done in %v", responsesEventNames(end))
+	}
+}
+
+func TestResponsesStreamConverterReasoningAndToolDoneEvents(t *testing.T) {
+	conv := NewResponsesStreamConverter("deepseek-v4-flash", nil)
+	chunks := [][]byte{
+		[]byte(`{"id":"chatcmpl-1","model":"deepseek-v4-flash","choices":[{"delta":{"role":"assistant","reasoning_content":"think"}}]}`),
+		[]byte(`{"id":"chatcmpl-1","model":"deepseek-v4-flash","choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"exec_command","arguments":"{\"cmd\":\"ls\"}"}}]}}]}`),
+		[]byte(`{"id":"chatcmpl-1","model":"deepseek-v4-flash","choices":[{"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}`),
+	}
+	var events []ResponsesStreamEvent
+	for _, chunk := range chunks {
+		evs, err := conv.Feed(chunk, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		events = append(events, evs...)
+	}
+	end, err := conv.Feed(nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events = append(events, end...)
+
+	counts := map[string]int{}
+	for _, e := range events {
+		counts[e.Event]++
+	}
+	if counts["response.reasoning_summary_part.done"] != 1 {
+		t.Fatalf("reasoning_summary_part.done = %d, events=%v", counts["response.reasoning_summary_part.done"], responsesEventNames(events))
+	}
+	if counts["response.function_call_arguments.done"] != 1 {
+		t.Fatalf("function_call_arguments.done = %d, events=%v", counts["response.function_call_arguments.done"], responsesEventNames(events))
+	}
+	if counts["response.output_item.done"] < 2 {
+		t.Fatalf("output_item.done = %d, want at least 2, events=%v", counts["response.output_item.done"], responsesEventNames(events))
+	}
+	if counts["response.completed"] != 1 {
+		t.Fatalf("completed = %d, events=%v", counts["response.completed"], responsesEventNames(events))
+	}
+
+	// output_item.done for tools must appear before response.completed
+	lastToolDone := -1
+	completedAt := -1
+	for i, e := range events {
+		if e.Event == "response.output_item.done" {
+			var payload map[string]interface{}
+			if err := json.Unmarshal(e.Data, &payload); err != nil {
+				t.Fatal(err)
+			}
+			item, _ := payload["item"].(map[string]interface{})
+			if item["type"] == "function_call" {
+				lastToolDone = i
+			}
+		}
+		if e.Event == "response.completed" {
+			completedAt = i
+		}
+	}
+	if lastToolDone < 0 || completedAt < 0 || lastToolDone >= completedAt {
+		t.Fatalf("tool output_item.done must precede completed: toolDone=%d completed=%d", lastToolDone, completedAt)
+	}
+}
+
+func responsesEventNames(events []ResponsesStreamEvent) []string {
+	out := make([]string, len(events))
+	for i, e := range events {
+		out[i] = e.Event
+	}
+	return out
 }
 
 func TestNonStreamChatCompletionToStreamPayloads(t *testing.T) {
