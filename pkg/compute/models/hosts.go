@@ -5046,6 +5046,9 @@ func fetchIpmiInfo(data api.HostIpmiAttributes, hostId string) (types.SIPMIInfo,
 	if data.IpmiLanChannel != nil {
 		info.LanChannel = *data.IpmiLanChannel
 	}
+	if data.IpmiCipherSuite != nil {
+		info.CipherSuite = *data.IpmiCipherSuite
+	}
 	if data.IpmiVerified != nil {
 		info.Verified = *data.IpmiVerified
 	}

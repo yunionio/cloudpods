@@ -501,6 +501,8 @@ type HostIpmiAttributes struct {
 	IpmiPresent *bool `json:"ipmi_present"`
 	// lan channel
 	IpmiLanChannel *uint8 `json:"ipmi_lan_channel"`
+	// RMCP+ cipher suite for ipmitool -C
+	IpmiCipherSuite *int `json:"ipmi_cipher_suite"`
 	// verified
 	IpmiVerified *bool `json:"ipmi_verified"`
 	// Redfish API support
