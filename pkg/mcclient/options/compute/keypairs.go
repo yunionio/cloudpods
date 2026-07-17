@@ -21,8 +21,10 @@ import (
 )
 
 type KeypairList struct {
+	_ struct{} `mcp-desc:"列出 SSH 密钥对（keypair）。可用 search/scheme 过滤"`
+
 	options.BaseListOptions
-	Scheme string `help:"Scheme of keypair, default is RSA" choices:"RSA|DSA|ECDSA|ED25519"`
+	Scheme string `help:"Scheme of keypair, default is RSA" choices:"RSA|DSA|ECDSA|ED25519" mcp:"true"`
 }
 
 func (self *KeypairList) Params() (jsonutils.JSONObject, error) {

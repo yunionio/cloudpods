@@ -22,29 +22,29 @@ import (
 )
 
 type HostListOptions struct {
-	Schedtag        string   `help:"List hosts in schedtag"`
-	Zone            string   `help:"List hosts in zone"`
-	Region          string   `help:"List hosts in region"`
-	Wire            string   `help:"List hosts in wire"`
-	Image           string   `help:"List hosts cached images" json:"cachedimage"`
-	Storage         string   `help:"List hosts attached to storages"`
-	Baremetal       string   `help:"List hosts that is managed by baremetal system" choices:"true|false"`
+	Schedtag        string   `help:"List hosts in schedtag" mcp:"true"`
+	Zone            string   `help:"List hosts in zone" mcp:"true"`
+	Region          string   `help:"List hosts in region" mcp:"true"`
+	Wire            string   `help:"List hosts in wire" mcp:"true"`
+	Image           string   `help:"List hosts cached images" json:"cachedimage" mcp:"true"`
+	Storage         string   `help:"List hosts attached to storages" mcp:"true"`
+	Baremetal       string   `help:"List hosts that is managed by baremetal system" choices:"true|false" mcp:"true"`
 	Empty           bool     `help:"show empty host" json:"-"`
 	Occupied        bool     `help:"show occupid host" json:"-"`
 	Enabled         bool     `help:"Show enabled host only" json:"-"`
 	Disabled        bool     `help:"Show disabled host only" json:"-"`
-	HostType        string   `help:"Host type filter" choices:"baremetal|hypervisor|esxi|container|hyperv|aliyun|azure|qcloud|aws|huawei|ucloud|google|ctyun"`
+	HostType        string   `help:"Host type filter" choices:"baremetal|hypervisor|esxi|container|hyperv|aliyun|azure|qcloud|aws|huawei|ucloud|google|ctyun" mcp:"true"`
 	AnyMac          string   `help:"Mac matches one of the host's interface"`
-	AnyIp           []string `help:"IP matches one of the host's interface"`
+	AnyIp           []string `help:"IP matches one of the host's interface" mcp:"true"`
 	HostStorageType []string `help:"List host in host_storage_type"`
 
-	IsBaremetal *bool `help:"filter host list by is_baremetal=true|false"`
+	IsBaremetal *bool `help:"filter host list by is_baremetal=true|false" mcp:"true"`
 
-	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
+	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated" mcp:"true"`
 
-	Usable *bool `help:"List all zones that is usable"`
+	Usable *bool `help:"List all zones that is usable" mcp:"true"`
 
-	Hypervisor string `help:"filter hosts by hypervisor"`
+	Hypervisor string `help:"filter hosts by hypervisor" mcp:"true"`
 
 	StorageNotAttached bool `help:"List hosts not attach specified storage"`
 
@@ -105,12 +105,21 @@ func (opts *HostListOptions) Params() (jsonutils.JSONObject, error) {
 	return params, nil
 }
 
+// HostListForMcpOptions 单独包装，避免 HostListOptions 被 host-node-count 等复用时误注册。
+type HostListForMcpOptions struct {
+	_ struct{} `mcp-desc:"列出宿主机。可用 zone/region/host-type/search 过滤；详情用 climc_host_show"`
+
+	HostListOptions
+}
+
 type HostShowOptions struct {
+	_ struct{} `mcp-desc:"查询宿主机详情。ID 可用 climc_host_list 返回的 id/name"`
+
 	options.BaseShowOptions
-	ShowMetadata bool `help:"Show host metadata in details"`
-	ShowNicInfo  bool `help:"Show host nic_info in details"`
-	ShowSysInfo  bool `help:"Show host sys_info in details"`
-	ShowAll      bool `help:"Show all of host details" short-token:"a"`
+	ShowMetadata bool `help:"Show host metadata in details" mcp:"true"`
+	ShowNicInfo  bool `help:"Show host nic_info in details" mcp:"true"`
+	ShowSysInfo  bool `help:"Show host sys_info in details" mcp:"true"`
+	ShowAll      bool `help:"Show all of host details" short-token:"a" mcp:"true"`
 }
 
 func (o *HostShowOptions) Params() (jsonutils.JSONObject, error) {

@@ -29,7 +29,7 @@ func init() {
 	cmd.List(&compute.DBInstanceListOptions{})
 	cmd.Create(&compute.DBInstanceCreateOptions{})
 	cmd.Update(&compute.DBInstanceUpdateOptions{})
-	cmd.Show(&compute.DBInstanceIdOptions{})
+	cmd.Show(&compute.DBInstanceShowOptions{})
 	cmd.Delete(&compute.DBInstanceDeleteOptions{})
 	cmd.Perform("renew", &compute.DBInstanceRenewOptions{})
 	cmd.Perform("change-config", &compute.DBInstanceChangeConfigOptions{})

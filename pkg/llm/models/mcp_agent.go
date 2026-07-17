@@ -199,12 +199,18 @@ func (mcp *SMCPAgent) GetApiKey() (string, error) {
 func (man *SMCPAgentManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
 	man.SSharableVirtualResourceBaseManager.CustomizeHandlerInfo(info)
 
-	// log.Infoln("query name of handler info", info.GetName(nil))
-
 	switch info.GetName(nil) {
 	case "get_specific":
 		info.SetProcessTimeout(time.Hour * 4).SetWorkerManager(mcpAgentWorkerMan)
 	}
+}
+
+func (man *SMCPAgentManager) SetHandlerProcessTimeout(info *appsrv.SHandlerInfo, r *http.Request) time.Duration {
+	// 仅 llm 侧 mcp_agents/*/chat-stream
+	if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "chat-stream") {
+		return 4 * time.Hour
+	}
+	return man.SSharableVirtualResourceBaseManager.SetHandlerProcessTimeout(info, r)
 }
 
 func (man *SMCPAgentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.MCPAgentCreateInput) (*api.MCPAgentCreateInput, error) {
@@ -472,9 +478,12 @@ func (mcp *SMCPAgent) PerformChatStream(
 	}
 
 	w := appParams.Response
-	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.Header().Set("Content-Encoding", "identity")
+	appParams.OverrideResponseBodyWrapper = true
 
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
@@ -482,29 +491,67 @@ func (mcp *SMCPAgent) PerformChatStream(
 		return nil, errors.Error("Streaming unsupported!")
 	}
 
+	// 立刻推一条注释帧，避免 ListTools/首轮推理期间前端只看到「思考中」
+	if _, err := fmt.Fprintf(w, ": connected\n\n"); err == nil {
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+	}
+
 	_, err := mcp.process(ctx, userCred, &input, func(content string) error {
-		if len(content) > 0 {
-			for line := range strings.SplitSeq(content, "\n") {
-				fmt.Fprintf(w, "data: %s\n", line)
+		if len(content) == 0 {
+			return nil
+		}
+		// 单个 SSE 事件：多行 content 用多条 data: 表示（前端按事件拼接为 \n）
+		content = strings.ReplaceAll(content, "\r\n", "\n")
+		content = strings.ReplaceAll(content, "\r", "\n")
+		for _, line := range strings.Split(content, "\n") {
+			if _, err := fmt.Fprintf(w, "data: %s\n", line); err != nil {
+				return err
 			}
-			fmt.Fprintf(w, "\n")
-			if f, ok := w.(http.Flusher); ok {
-				f.Flush()
-			}
+		}
+		if _, err := fmt.Fprintf(w, "\n"); err != nil {
+			return err
+		}
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
 		}
 		return nil
 	})
 
 	if err != nil {
-		fmt.Fprintf(w, "data: Error: %v\n\n", err)
+		// 单行推送，避免换行 JSON 被 SSE 截断；去掉冗长 wrap 前缀
+		msg := friendlyChatStreamError(err)
+		fmt.Fprintf(w, "data: Error: %s\n\n", msg)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
 	}
 
 	return nil, nil
 }
 
-// process 处理用户请求
+// friendlyChatStreamError 面向用户的短错误文案（单行，适合 SSE）。
+func friendlyChatStreamError(err error) string {
+	if err == nil {
+		return "未知错误"
+	}
+	msg := err.Error()
+	// 去掉 "chat stream round N: " 包装，突出真正原因
+	const wrap = "chat stream round "
+	if i := strings.Index(msg, wrap); i >= 0 {
+		rest := msg[i+len(wrap):]
+		if j := strings.Index(rest, ": "); j >= 0 {
+			msg = rest[j+2:]
+		}
+	}
+	msg = strings.ReplaceAll(msg, "\r\n", " ")
+	msg = strings.ReplaceAll(msg, "\n", " ")
+	return strings.Join(strings.Fields(msg), " ")
+}
+
+// process 处理用户请求（多轮工具调用，直到模型不再发 tool_calls 或达到上限）
 func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCredential, req *api.LLMMCPAgentRequestInput, onStream func(string) error) (*api.MCPAgentResponse, error) {
-	// 获取 MCP Server 的工具列表
 	mcpServerUrl, err := mcp.GetMcpServerUrl(ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetMcpServerUrl")
@@ -516,128 +563,143 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 		return nil, errors.Wrap(err, "list MCP tools")
 	}
 	log.Infof("Got %d tools from MCP Server", len(mcpTools))
+	if onStream != nil {
+		_ = onStream("正在准备…\n")
+	}
 
-	// get llmClient
 	llmClient := mcp.GetLLMClientDriver()
 	if llmClient == nil {
 		return nil, errors.Error("failed to get LLM client driver")
 	}
-
 	tools := llmClient.ConvertMCPTools(mcpTools)
 
-	// 构建系统提示词
-	systemPrompt := buildSystemPrompt()
-
-	// 初始化消息历史
 	messages := make([]ILLMChatMessage, 0)
-	messages = append(messages, llmClient.NewSystemMessage(systemPrompt))
-
-	// 处理历史消息
+	messages = append(messages, llmClient.NewSystemMessage(buildSystemPrompt()))
 	if len(req.History) > 0 {
-		historyMessages := processHistoryMessages(
+		messages = append(messages, processHistoryMessages(
 			req.History,
 			llmClient,
 			options.Options.MCPAgentUserCharLimit,
 			options.Options.MCPAgentAssistantCharLimit,
-		)
-		messages = append(messages, historyMessages...)
+		)...)
 	}
-
 	messages = append(messages, llmClient.NewUserMessage(req.Message))
 
-	// 记录工具调用
-	var toolCallRecords []api.MCPAgentToolCallRecord
-
-	log.Infof("Phase 1: Thinking & Acting...")
-
-	// 处理流式的工具调用参数
-	type accumToolCall struct {
-		Id           string
-		Name         string
-		RawArguments strings.Builder
+	maxRounds := options.Options.MCPAgentMaxToolRounds
+	if maxRounds <= 0 {
+		maxRounds = 8
 	}
-	accToolCalls := make(map[int]*accumToolCall)
-	var accumulatedContent strings.Builder
-	var accumulatedReasoning strings.Builder
-	hasToolCalls := false
 
-	err = llmClient.ChatStream(ctx, mcp, messages, tools, func(chunk ILLMChatResponse) error {
-		if chunk.HasToolCalls() {
-			hasToolCalls = true
-			for _, tc := range chunk.GetToolCalls() {
-				idx := tc.GetIndex()
-				if _, exists := accToolCalls[idx]; !exists {
-					accToolCalls[idx] = &accumToolCall{
-						Id: tc.GetId(),
+	var toolCallRecords []api.MCPAgentToolCallRecord
+	var finalAnswer strings.Builder
+	nudged := false
+	resourceOp := looksLikeResourceOperation(req.Message)
+	labels := newProgressLabelCache()
+
+	for round := 1; round <= maxRounds; round++ {
+		log.Infof("MCP agent tool round %d/%d", round, maxRounds)
+
+		type accumToolCall struct {
+			Id           string
+			Name         string
+			RawArguments strings.Builder
+		}
+		accToolCalls := make(map[int]*accumToolCall)
+		var accumulatedContent strings.Builder
+		var accumulatedReasoning strings.Builder
+		hasToolCalls := false
+		// 首轮资源操作可能被 nudge：先不流式，避免把「计划文案」推给用户
+		optimisticStream := !(round == 1 && resourceOp && !nudged && len(tools) > 0)
+		streamedAnswer := false
+
+		// 有 tool_calls 时不推送中间文案；纯文本最终答复边生成边推送
+		err = llmClient.ChatStream(ctx, mcp, messages, tools, func(chunk ILLMChatResponse) error {
+			if chunk.HasToolCalls() {
+				hasToolCalls = true
+				for _, tc := range chunk.GetToolCalls() {
+					idx := tc.GetIndex()
+					if _, exists := accToolCalls[idx]; !exists {
+						accToolCalls[idx] = &accumToolCall{Id: tc.GetId()}
+					}
+					atc := accToolCalls[idx]
+					if id := tc.GetId(); id != "" {
+						atc.Id = id
+					}
+					if name := tc.GetFunction().GetName(); name != "" {
+						atc.Name = name
+					}
+					if args := tc.GetFunction().GetRawArguments(); args != "" {
+						atc.RawArguments.WriteString(args)
 					}
 				}
-
-				atc := accToolCalls[idx]
-				if id := tc.GetId(); id != "" {
-					atc.Id = id
-				}
-				if name := tc.GetFunction().GetName(); name != "" {
-					atc.Name = name
-				}
-				if args := tc.GetFunction().GetRawArguments(); args != "" {
-					atc.RawArguments.WriteString(args)
+			}
+			if r := chunk.GetReasoningContent(); len(r) > 0 {
+				accumulatedReasoning.WriteString(r)
+			}
+			if content := chunk.GetContent(); len(content) > 0 {
+				accumulatedContent.WriteString(content)
+				// 尚未出现 tool_calls 时按 token 增量推送，避免最终结果整段一次性返回
+				if onStream != nil && optimisticStream && !hasToolCalls {
+					streamedAnswer = true
+					if err := onStream(content); err != nil {
+						return err
+					}
 				}
 			}
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "chat stream round %d", round)
 		}
 
-		if r := chunk.GetReasoningContent(); len(r) > 0 {
-			accumulatedReasoning.WriteString(r)
-		}
-
-		content := chunk.GetContent()
-		if len(content) > 0 {
-			accumulatedContent.WriteString(content)
-			if onStream != nil {
-				if err := onStream(content); err != nil {
-					return err
+		if !hasToolCalls {
+			answer := accumulatedContent.String()
+			// 首轮对资源操作却不调工具：强制再试一轮，要求发 tool_calls
+			if round == 1 && resourceOp && !nudged && len(tools) > 0 {
+				nudged = true
+				log.Warningf("MCP agent round1 returned no tool_calls for resource op; nudging model")
+				if answer != "" {
+					messages = append(messages, llmClient.NewAssistantMessage(answer))
+				}
+				messages = append(messages, llmClient.NewUserMessage(
+					"请立刻调用合适的 climc_* 工具完成我的请求，不要只描述计划或编造查询结果。若要创建虚拟机，请从 climc_cloud_region_list 开始连续调用直到 climc_server_create。",
+				))
+				continue
+			}
+			// 未走增量推送时的兜底（例如首轮 nudge 关闭了 optimisticStream）
+			if onStream != nil && !streamedAnswer && answer != "" {
+				if err := onStream(answer); err != nil {
+					return nil, err
 				}
 			}
+			finalAnswer.WriteString(answer)
+			return &api.MCPAgentResponse{
+				Success:   true,
+				Answer:    finalAnswer.String(),
+				ToolCalls: toolCallRecords,
+			}, nil
 		}
-		return nil
-	})
 
-	if err != nil {
-		return nil, errors.Wrap(err, "phase 1 chat stream error")
-	}
-
-	// 检查是否有工具调用
-	if !hasToolCalls {
-		// 如果阶段一没有调用工具，直接返回结果
-		return &api.MCPAgentResponse{
-			Success:   true,
-			Answer:    accumulatedContent.String(),
-			ToolCalls: toolCallRecords,
-		}, nil
-	}
-
-	// Convert accumulated tool calls to ILLMToolCall
-	var toolCalls []ILLMToolCall
-	// Find max index
-	maxIdx := -1
-	for idx := range accToolCalls {
-		if idx > maxIdx {
-			maxIdx = idx
+		toolCalls := make([]ILLMToolCall, 0)
+		maxIdx := -1
+		for idx := range accToolCalls {
+			if idx > maxIdx {
+				maxIdx = idx
+			}
 		}
-	}
-
-	for i := 0; i <= maxIdx; i++ {
-		if atc, ok := accToolCalls[i]; ok {
-			var args map[string]interface{}
+		for i := 0; i <= maxIdx; i++ {
+			atc, ok := accToolCalls[i]
+			if !ok {
+				continue
+			}
+			args := make(map[string]interface{})
 			rawArgs := atc.RawArguments.String()
 			if len(rawArgs) > 0 {
 				if err := json.Unmarshal([]byte(rawArgs), &args); err != nil {
 					log.Errorf("Failed to unmarshal arguments for tool %s: %v. Raw: %s", atc.Name, err, rawArgs)
 					args = make(map[string]interface{})
 				}
-			} else {
-				args = make(map[string]interface{})
 			}
-
 			toolCalls = append(toolCalls, &SLLMToolCall{
 				Id: atc.Id,
 				Function: SLLMFunctionCall{
@@ -646,51 +708,75 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 				},
 			})
 		}
+		log.Infof("Round %d got %d tool calls", round, len(toolCalls))
+
+		records, toolMessages, err := processToolCalls(ctx, toolCalls, accumulatedReasoning.String(), accumulatedContent.String(), mcpClient, llmClient, onStream, labels)
+		if err != nil {
+			return nil, errors.Wrap(err, "process tool calls")
+		}
+		toolCallRecords = append(toolCallRecords, records...)
+		messages = append(messages, toolMessages...)
 	}
-	log.Infof("Got %d tool calls from Phase 1", len(toolCalls))
 
-	toolCallRecords, toolMessages, err := processToolCalls(ctx, toolCalls, accumulatedReasoning.String(), accumulatedContent.String(), mcpClient, llmClient)
-	if err != nil {
-		return nil, errors.Wrap(err, "process tool calls")
-	}
-
-	// 将工具调用相关的消息加入历史
-	messages = append(messages, toolMessages...)
-
-	log.Infof("Phase 2: Streaming Response...")
-
-	var finalAnswer strings.Builder
-
-	err = llmClient.ChatStream(ctx, mcp, messages, tools, func(chunk ILLMChatResponse) error {
-		content := chunk.GetContent()
-		if len(content) > 0 {
-			// 聚合最终答案
-			finalAnswer.WriteString(content)
-
-			// 实时流式输出
+	// 工具轮次用尽后，再给模型一轮纯文本总结（不再传 tools），避免只回“达到上限”而不解释最后一次工具错误
+	log.Infof("MCP agent tool rounds exhausted (%d); requesting final summary without tools", maxRounds)
+	messages = append(messages, llmClient.NewUserMessage(
+		"工具调用轮次已用尽。请根据上述工具返回结果，用中文向用户总结成功或失败原因；若创建失败请说明关键错误（如 sched_fail）与建议，不要再调用工具。",
+	))
+	var summary strings.Builder
+	err = llmClient.ChatStream(ctx, mcp, messages, nil, func(chunk ILLMChatResponse) error {
+		if content := chunk.GetContent(); len(content) > 0 {
+			summary.WriteString(content)
 			if onStream != nil {
-				if err := onStream(content); err != nil {
-					return err
-				}
+				return onStream(content)
 			}
 		}
 		return nil
 	})
-
 	if err != nil {
-		return nil, errors.Wrap(err, "phase 2 stream error")
+		log.Warningf("MCP agent final summary failed: %v", err)
+		msg := fmt.Sprintf("已达到最大工具调用轮次(%d)，请根据已有结果继续或缩小请求范围。", maxRounds)
+		if onStream != nil {
+			_ = onStream(msg)
+		}
+		return &api.MCPAgentResponse{
+			Success:   true,
+			Answer:    msg,
+			ToolCalls: toolCallRecords,
+		}, nil
 	}
-
+	answer := strings.TrimSpace(summary.String())
+	if answer == "" {
+		answer = fmt.Sprintf("已达到最大工具调用轮次(%d)，请根据已有结果继续或缩小请求范围。", maxRounds)
+		if onStream != nil {
+			_ = onStream(answer)
+		}
+	}
 	return &api.MCPAgentResponse{
 		Success:   true,
-		Answer:    finalAnswer.String(),
+		Answer:    answer,
 		ToolCalls: toolCallRecords,
 	}, nil
 }
 
-// buildSystemPrompt 构建系统提示词
+func looksLikeResourceOperation(msg string) bool {
+	m := strings.ToLower(msg)
+	keys := []string{
+		"创建", "查询", "列出", "列表", "启动", "停止", "重启", "删除", "销毁",
+		"虚拟机", "主机", "镜像", "网络", "区域", "套餐", "规格", "密码",
+		"create", "list", "start", "stop", "restart", "delete", "server", "vm",
+	}
+	for _, k := range keys {
+		if strings.Contains(m, k) {
+			return true
+		}
+	}
+	return false
+}
+
+// buildSystemPrompt 构建系统提示词（平台名来自 BaseOptions.PlatformName，支持热更新）
 func buildSystemPrompt() string {
-	return api.MCP_AGENT_SYSTEM_PROMPT
+	return fmt.Sprintf(api.MCP_AGENT_SYSTEM_PROMPT, options.ResolvedPlatformName())
 }
 
 func processHistoryMessages(
@@ -744,6 +830,8 @@ func processToolCalls(
 	reasoningContent, content string,
 	mcpClient *utils.MCPClient,
 	llmClient ILLMClient,
+	onStream func(string) error,
+	labels *progressLabelCache,
 ) ([]api.MCPAgentToolCallRecord, []ILLMChatMessage, error) {
 	toolCallRecords := make([]api.MCPAgentToolCallRecord, 0)
 	messagesToAdd := make([]ILLMChatMessage, 0)
@@ -774,6 +862,15 @@ func processToolCalls(
 			Arguments: arguments,
 			Result:    resultText,
 		})
+
+		labels.rememberFromTool(toolName, resultText)
+
+		// 向用户流式展示资源选择/查询摘要，而不是工具名
+		if onStream != nil {
+			if progress := summarizeToolProgress(toolName, arguments, resultText, labels); progress != "" {
+				_ = onStream(progress)
+			}
+		}
 
 		// 将工具执行结果加入历史
 		messagesToAdd = append(messagesToAdd, llmClient.NewToolMessage(tc.GetId(), toolName, resultText))

@@ -21,23 +21,32 @@ import (
 )
 
 type ElasticipListOptions struct {
-	Region string `help:"List eips in cloudregion"`
+	_ struct{} `mcp-desc:"列出弹性公网 IP（EIP）。可用 search/region/usable 过滤；详情 climc_eip_show，绑虚机 climc_server_associate_eip"`
 
-	Usable                    *bool  `help:"List all zones that is usable"`
-	UsableEipForAssociateType string `help:"With associate id filter which eip can associate" choices:"server|natgateway|loadbalancer"`
-	UsableEipForAssociateId   string `help:"With associate type filter which eip can associate"`
+	Region string `help:"List eips in cloudregion" mcp:"true"`
+
+	Usable                    *bool  `help:"List all zones that is usable" mcp:"true"`
+	UsableEipForAssociateType string `help:"With associate id filter which eip can associate" choices:"server|natgateway|loadbalancer" mcp:"true"`
+	UsableEipForAssociateId   string `help:"With associate type filter which eip can associate" mcp:"true"`
 	OrderByIp                 string
-	AssociateId               []string
-	AssociateType             []string
+	AssociateId               []string `mcp:"true"`
+	AssociateType             []string `mcp:"true"`
 	AssociateName             []string
-	IsAssociated              *bool
+	IsAssociated              *bool `mcp:"true"`
 
-	IpAddr []string
+	IpAddr []string `mcp:"true"`
 	options.BaseListOptions
 }
 
 func (opts *ElasticipListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(opts)
+}
+
+// EipShowOptions 单独包装，避免 BaseShowOptions 被其它资源复用时误注册。
+type EipShowOptions struct {
+	_ struct{} `mcp-desc:"查询 EIP 详情。ID 可用 climc_eip_list 返回的 id/name"`
+
+	options.BaseShowOptions
 }
 
 type EipCreateOptions struct {
