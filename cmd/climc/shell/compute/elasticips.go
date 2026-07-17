@@ -27,7 +27,7 @@ func init() {
 	cmd.Create(&compute.EipCreateOptions{})
 	cmd.Delete(&options.BaseIdOptions{})
 	cmd.Update(&compute.EipUpdateOptions{})
-	cmd.Show(&options.BaseShowOptions{})
+	cmd.Show(&compute.EipShowOptions{})
 	cmd.Perform("purge", &options.BaseIdOptions{})
 	cmd.Perform("associate", &compute.EipAssociateOptions{})
 	cmd.Perform("dissociate", &compute.EipDissociateOptions{})

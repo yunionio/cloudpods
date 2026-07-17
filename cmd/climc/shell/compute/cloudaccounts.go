@@ -24,7 +24,7 @@ func init() {
 
 	cmd := shell.NewResourceCmd(&modules.Cloudaccounts).WithKeyword("cloud-account")
 	cmd.List(&options.CloudaccountListOptions{})
-	cmd.Show(&options.SCloudAccountIdOptions{})
+	cmd.Show(&options.CloudaccountShowOptions{})
 	cmd.Delete(&options.SCloudAccountIdOptions{})
 	cmd.Update(&options.SCloudAccountUpdateBaseOptions{})
 	// cmd.PerformClassWithKeyword("preparenets-vmware", "prepare-nets", &options.SVMwareCloudAccountPrepareNetsOptions{})

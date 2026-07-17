@@ -21,14 +21,17 @@ import (
 )
 
 type CachedImageListOptions struct {
+	_ struct{} `mcp-desc:"【创建流程中的中间步骤】公有云/非KVM 选镜像。必须带 provider（如 [\"Aliyun\"]），region 必须传 climc_cloud_region_list 返回的 id（UUID），禁止传 cn-shanghai 这类云厂商 region code。不要用 ISO。查完后继续 network/sku，最后 climc_server_create"`
+
 	options.BaseListOptions
-	ImageType string `help:"image type" choices:"system|customized|shared|market"`
+	ImageType string `help:"image type；公有云系统盘常用 system" choices:"system|customized|shared|market" mcp:"true"`
 
-	Region string `help:"show images cached at cloud region"`
-	Zone   string `help:"show images cached at zone"`
+	// Region 序列化为 cloudregion_id；优先传 cloudregion UUID
+	Region string `help:"cloudregion id（推荐）或 name；不要传 cn-shanghai 这类外部 region code" json:"cloudregion_id" mcp:"true"`
+	Zone   string `help:"show images cached at zone" mcp:"true"`
 
-	HostSchedtagId string `help:"filter cached image with host schedtag"`
-	Valid          *bool  `help:"valid cachedimage"`
+	HostSchedtagId string `help:"filter cached image with host schedtag" mcp:"true"`
+	Valid          *bool  `help:"valid cachedimage" mcp:"true"`
 }
 
 func (opts *CachedImageListOptions) Params() (jsonutils.JSONObject, error) {

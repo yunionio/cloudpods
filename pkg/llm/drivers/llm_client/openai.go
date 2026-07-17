@@ -304,10 +304,12 @@ func (o *openai) doChatStreamRequest(ctx context.Context, mcpAgent *models.SMCPA
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return errors.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+		return formatLLMHTTPError(resp.StatusCode, mcpAgent.Model, body)
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
+	// 工具调用场景下单行 SSE 可能很大，提高 buffer
+	scanner.Buffer(make([]byte, 64*1024), 2*1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
 		line = strings.TrimSpace(line)
@@ -394,7 +396,7 @@ func (o *openai) doChatRequest(ctx context.Context, mcpAgent *models.SMCPAgent, 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+		return nil, formatLLMHTTPError(resp.StatusCode, mcpAgent.Model, body)
 	}
 
 	var chatResp OpenAIChatResponse
@@ -509,6 +511,57 @@ func (o *openai) ConvertMCPTools(mcpTools []mcp.Tool) []models.ILLMTool {
 		}
 	}
 	return tools
+}
+
+// formatLLMHTTPError 把上游 JSON 错误整理成可读单行提示。
+func formatLLMHTTPError(status int, model string, body []byte) error {
+	msg := extractLLMErrorMessage(body)
+	if msg == "" {
+		msg = strings.TrimSpace(string(body))
+		msg = strings.ReplaceAll(msg, "\n", " ")
+		msg = strings.Join(strings.Fields(msg), " ")
+	}
+	if msg == "" {
+		msg = http.StatusText(status)
+	}
+
+	lower := strings.ToLower(msg)
+	switch {
+	case strings.Contains(lower, "unsupported model"):
+		return errors.Errorf("模型不支持：当前配置为 %q（%s）", model, msg)
+	case status == http.StatusUnauthorized || strings.Contains(lower, "invalid api key") || strings.Contains(lower, "incorrect api key"):
+		return errors.Errorf("鉴权失败：请检查 Agent 的 API Key（%s）", msg)
+	case status == http.StatusTooManyRequests:
+		return errors.Errorf("请求过于频繁，请稍后重试（%s）", msg)
+	default:
+		return errors.Errorf("大模型接口返回 %d：%s", status, msg)
+	}
+}
+
+func extractLLMErrorMessage(body []byte) string {
+	body = bytes.TrimSpace(body)
+	if len(body) == 0 {
+		return ""
+	}
+	var payload map[string]interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+	if errObj, ok := payload["error"].(map[string]interface{}); ok {
+		if m, ok := errObj["message"].(string); ok && strings.TrimSpace(m) != "" {
+			return strings.TrimSpace(m)
+		}
+		if m, ok := errObj["msg"].(string); ok && strings.TrimSpace(m) != "" {
+			return strings.TrimSpace(m)
+		}
+	}
+	if m, ok := payload["message"].(string); ok && strings.TrimSpace(m) != "" {
+		return strings.TrimSpace(m)
+	}
+	if m, ok := payload["msg"].(string); ok && strings.TrimSpace(m) != "" {
+		return strings.TrimSpace(m)
+	}
+	return ""
 }
 
 // Structures

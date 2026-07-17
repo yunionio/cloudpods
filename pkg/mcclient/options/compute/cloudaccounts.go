@@ -26,12 +26,14 @@ import (
 )
 
 type CloudaccountListOptions struct {
-	baseoptions.BaseListOptions
-	Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event|tablestore"`
+	_ struct{} `mcp-desc:"列出云账号。可用 search/provider/status 等过滤；详情用 climc_cloud_account_show，同步用 climc_cloud_account_sync"`
 
-	ReadOnly *bool `help:"filter read only account" negative:"no-read-only"`
+	baseoptions.BaseListOptions
+	Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event|tablestore" mcp:"true"`
+
+	ReadOnly *bool `help:"filter read only account" negative:"no-read-only" mcp:"true"`
 	//DistinctField string `help:"distinct field"`
-	ProxySetting string `help:"Proxy setting id or name"`
+	ProxySetting string `help:"Proxy setting id or name" mcp:"true"`
 	// 按宿主机数量排序
 	OrderByHostCount string
 	// 按虚拟机数量排序
@@ -507,6 +509,13 @@ func (opts *SCloudAccountIdOptions) GetId() string {
 
 func (opts *SCloudAccountIdOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
+}
+
+// CloudaccountShowOptions 单独包装，避免 SCloudAccountIdOptions 被 delete/enable 等复用时误注册。
+type CloudaccountShowOptions struct {
+	_ struct{} `mcp-desc:"查询云账号详情（含 sync_status、provider、余额等）。ID 可用 climc_cloud_account_list 返回的 id/name"`
+
+	SCloudAccountIdOptions
 }
 
 type SVMwareCloudAccountUpdateCredentialOptions struct {
@@ -1182,9 +1191,18 @@ func (opts *CloudaccountUpdateCredentialOptions) Params() (jsonutils.JSONObject,
 }
 
 type CloudaccountSyncOptions struct {
+	_ struct{} `mcp-desc:"同步云账号资源（异步拉取公有云/私有云库存）。ID 用 climc_cloud_account_list 返回的 id/name；常用 force=true 强制同步，可用 region/resources 限定范围。调用后可用 climc_cloud_account_show 查看 sync_status"`
+
 	SCloudAccountIdOptions
 
-	api.SyncRangeInput
+	Force     bool     `help:"Force sync" json:"force" mcp:"true"`
+	FullSync  bool     `help:"Full sync" json:"full_sync" mcp:"true"`
+	DeepSync  bool     `help:"Deep sync" json:"deep_sync" mcp:"true"`
+	Xor       bool     `help:"Incremental xor sync mode" json:"xor" mcp:"true"`
+	Region    []string `help:"Only sync specified regions" json:"region" mcp:"true"`
+	Zone      []string `help:"Only sync specified zones" json:"zone" mcp:"true"`
+	Host      []string `help:"Only sync specified hosts" json:"host" mcp:"true"`
+	Resources []string `help:"Resource types to sync" json:"resources" mcp:"true" choices:"project|compute|network|eip|loadbalancer|objectstore|rds|cache|event|cloudid|dnszone|public_ip|intervpcnetwork|saml_auth|quota|nat|nas|waf|mongodb|es|kafka|app|cdn|container|ipv6_gateway|tablestore|modelarts|vpcpeer|misc|image"`
 }
 
 func (opts *CloudaccountSyncOptions) Params() (jsonutils.JSONObject, error) {
