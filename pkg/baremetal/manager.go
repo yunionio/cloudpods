@@ -457,7 +457,10 @@ func (m *SBaremetalManager) checkSshInfo(input *BmRegisterInput) (*ssh.Client, e
 }
 
 func (m *SBaremetalManager) checkIpmiInfo(ctx context.Context, username, password, ipAddr string) (uint8, net.HardwareAddr, error) {
-	lanPlusTool := ipmitool.NewLanPlusIPMI(ipAddr, username, password)
+	lanPlusTool, err := ipmitool.NewLanPlusIPMI(ipAddr, username, password)
+	if err != nil {
+		return 0, nil, errors.Wrap(err, "NewLanPlusIPMI")
+	}
 	sysInfo, err := ipmitool.GetSysInfo(lanPlusTool)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "GetSysInfo")
@@ -1776,7 +1779,12 @@ func (b *SBaremetalInstance) GetIPMITool() *ipmitool.LanPlusIPMI {
 		log.Debugf("GetIPMIConfig is nil")
 		return nil
 	}
-	return ipmitool.NewLanPlusIPMI(conf.IpAddr, conf.Username, conf.Password)
+	tool, err := ipmitool.NewLanPlusIPMIWithCipher(conf.IpAddr, conf.Username, conf.Password, 623, conf.CipherSuite)
+	if err != nil {
+		log.Errorf("NewLanPlusIPMIWithCipher for %s: %v", conf.IpAddr, err)
+		return nil
+	}
+	return tool
 }
 
 func (b *SBaremetalInstance) isRedfishCapable() bool {
