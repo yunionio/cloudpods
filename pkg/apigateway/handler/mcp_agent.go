@@ -86,6 +86,8 @@ func mcpAgentChatStreamHandler(ctx context.Context, w http.ResponseWriter, r *ht
 	// Prepare request to backend
 	headers := http.Header{}
 	headers.Set("Content-Type", "application/json")
+	headers.Set("Accept", "text/event-stream")
+	headers.Set("Accept-Encoding", "identity")
 
 	// Forward the request body to the backend
 	var bodyReader io.Reader
@@ -125,7 +127,9 @@ func mcpAgentChatStreamHandler(ctx context.Context, w http.ResponseWriter, r *ht
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	// For now just standard SSE headers.
+	w.Header().Set("X-Accel-Buffering", "no")
+	// 禁止中间层 gzip 缓冲整段 SSE
+	w.Header().Set("Content-Encoding", "identity")
 
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
@@ -160,6 +164,8 @@ func mcpAgentDefaultChatStreamHandler(ctx context.Context, w http.ResponseWriter
 
 	headers := http.Header{}
 	headers.Set("Content-Type", "application/json")
+	headers.Set("Accept", "text/event-stream")
+	headers.Set("Accept-Encoding", "identity")
 
 	var bodyReader io.Reader
 	if r.Body != nil {
@@ -194,6 +200,8 @@ func mcpAgentDefaultChatStreamHandler(ctx context.Context, w http.ResponseWriter
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.Header().Set("Content-Encoding", "identity")
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
 	}

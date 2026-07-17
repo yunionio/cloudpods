@@ -15,25 +15,34 @@
 package compute
 
 import (
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+
 	"yunion.io/x/jsonutils"
 
 	baseoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type ServerSkusListOptions struct {
+	_ struct{} `mcp-desc:"【创建流程中间步骤】查规格。口语 2c2g 用 spec；公有云须 provider+cloudregion。取 name 作 instance-type 后立刻 climc_server_create"`
+
 	baseoptions.BaseListOptions
-	Cloudregion            string  `help:"region Id or name"`
-	Usable                 bool    `help:"Filter usable sku"`
-	Zone                   string  `help:"zone Id or name"`
-	City                   *string `help:"city name,eg. BeiJing"`
-	Cpu                    *int    `help:"Cpu core count" json:"cpu_core_count"`
-	Mem                    *int    `help:"Memory size in MB" json:"memory_size_mb"`
-	Name                   string  `help:"Name of Sku"`
-	PostpaidStatus         string  `help:"Postpaid status" choices:"soldout|available"`
-	PrepaidStatus          string  `help:"Prepaid status" choices:"soldout|available"`
-	CpuArch                string  `help:"Cpu Arch" choices:"x86|arm"`
-	Enabled                *bool   `help:"Filter enabled skus"`
-	Distinct               bool    `help:"distinct sku by name"`
+	Cloudregion string  `help:"region Id or name" mcp:"true"`
+	Usable      bool    `help:"Filter usable sku" mcp:"true"`
+	Zone        string  `help:"zone Id or name" mcp:"true"`
+	City        *string `help:"city name,eg. BeiJing"`
+	// Spec 口语规格，如 2c2g / 2核2G / 4C8G；会解析为 cpu_core_count + memory_size_mb
+	Spec                   string `help:"Human spec like 2c2g / 2核2G / 4C8G; expands to cpu+mem(MB)" json:"-" mcp:"true"`
+	Cpu                    *int   `help:"Cpu core count；用户说2核时传2。也可改用 --spec 2c2g" json:"cpu_core_count" mcp:"true"`
+	Mem                    *int   `help:"Memory size in MB；2G=2048。也可改用 --spec 2c2g" json:"memory_size_mb" mcp:"true"`
+	Name                   string `help:"Name of Sku" mcp:"true"`
+	PostpaidStatus         string `help:"Postpaid status；创建优先 available" choices:"soldout|available" mcp:"true"`
+	PrepaidStatus          string `help:"Prepaid status" choices:"soldout|available"`
+	CpuArch                string `help:"Cpu Arch" choices:"x86|arm" mcp:"true"`
+	Enabled                *bool  `help:"Filter enabled skus" mcp:"true"`
+	Distinct               bool   `help:"distinct sku by name"`
 	OrderByTotalGuestCount string
 }
 
@@ -42,7 +51,68 @@ func (opts *ServerSkusListOptions) GetId() string {
 }
 
 func (opts *ServerSkusListOptions) Params() (jsonutils.JSONObject, error) {
+	if err := opts.applySpec(); err != nil {
+		return nil, err
+	}
 	return baseoptions.ListStructToParams(opts)
+}
+
+func (opts *ServerSkusListOptions) applySpec() error {
+	spec := strings.TrimSpace(opts.Spec)
+	if spec == "" {
+		return nil
+	}
+	cpu, memMB, err := ParseSkuSpec(spec)
+	if err != nil {
+		return err
+	}
+	if opts.Cpu == nil {
+		opts.Cpu = &cpu
+	}
+	if opts.Mem == nil {
+		opts.Mem = &memMB
+	}
+	return nil
+}
+
+// skuSpecPatterns 支持：2c2g、2C2G、4c8g、2核2G、2核2g、2vcpu2gb、2c/2g、2x2g
+var skuSpecPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)^\s*(\d+)\s*[cC]\s*[xX/]?\s*(\d+)\s*([gGmM])b?\s*$`),
+	regexp.MustCompile(`(?i)^\s*(\d+)\s*[xX/]\s*(\d+)\s*([gGmM])b?\s*$`),
+	regexp.MustCompile(`(?i)^\s*(\d+)\s*核\s*(\d+)\s*([gGmM])b?\s*$`),
+	regexp.MustCompile(`(?i)^\s*(\d+)\s*v?cpu\s*[xX/]?\s*(\d+)\s*([gGmM])b?\s*$`),
+}
+
+// ParseSkuSpec 将口语规格解析为 CPU 核数与内存 MB。
+func ParseSkuSpec(spec string) (cpu int, memMB int, err error) {
+	s := strings.TrimSpace(spec)
+	if s == "" {
+		return 0, 0, fmt.Errorf("empty sku spec")
+	}
+	for _, re := range skuSpecPatterns {
+		m := re.FindStringSubmatch(s)
+		if m == nil {
+			continue
+		}
+		cpu, err = strconv.Atoi(m[1])
+		if err != nil || cpu <= 0 {
+			return 0, 0, fmt.Errorf("invalid cpu in spec %q", spec)
+		}
+		mem, err := strconv.Atoi(m[2])
+		if err != nil || mem <= 0 {
+			return 0, 0, fmt.Errorf("invalid memory in spec %q", spec)
+		}
+		switch strings.ToLower(m[3]) {
+		case "g":
+			memMB = mem * 1024
+		case "m":
+			memMB = mem
+		default:
+			return 0, 0, fmt.Errorf("unsupported memory unit in spec %q", spec)
+		}
+		return cpu, memMB, nil
+	}
+	return 0, 0, fmt.Errorf("unrecognized sku spec %q, expect like 2c2g or 2核2G", spec)
 }
 
 type ServerSkusIdOptions struct {

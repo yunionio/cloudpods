@@ -36,7 +36,7 @@ import (
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Hosts)
-	cmd.List(&compute.HostListOptions{})
+	cmd.List(&compute.HostListForMcpOptions{})
 	cmd.GetMetadata(&options.BaseIdOptions{})
 	cmd.GetProperty(&compute.HostStatusStatisticsOptions{})
 	cmd.Update(&compute.HostUpdateOptions{})

@@ -34,16 +34,18 @@ func init() {
 	cmd.Perform("purge", &compute.CloudregionPurgeOptions{})
 
 	type CloudregionListOptions struct {
+		_ struct{} `mcp-desc:"【创建流程中的中间步骤】本工具不能完成创建。指定云厂商时必须传 provider，例如创建阿里云：provider=[\"Aliyun\"]。创建虚拟机时必须 usable=true（MCP 默认注入）。查完后继续 capability/镜像/sku，最后 climc_server_create。严禁只查区域后停止"`
+
 		options.BaseListOptions
 
-		Usable    *bool  `help:"List regions where networks are usable"`
-		UsableVpc *bool  `help:"List regions where VPC are usable"`
-		Service   string `help:"List regions which service has available skus" choices:"dbinstances|servers|elasticcaches"`
+		Usable    *bool  `help:"只列网络可用的区域；创建虚拟机时必须为 true（MCP 默认注入 usable=true）" mcp:"true"`
+		UsableVpc *bool  `help:"List regions where VPC are usable" mcp:"true"`
+		Service   string `help:"List regions which service has available skus" choices:"dbinstances|servers|elasticcaches" mcp:"true"`
 		ReadOnly  *bool  `help:"List regions with read only account"`
 
-		City string `help:"List regions in the specified city"`
+		City string `help:"List regions in the specified city" mcp:"true"`
 
-		Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
+		Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event" mcp:"true"`
 
 		DistinctField string `help:"list the specified distinct field, e.g. city, region"`
 
@@ -224,8 +226,10 @@ func init() {
 	})
 
 	type CloudregionCapabiltyOptions struct {
-		ID     string `help:"ID or name of cloud region to check" json:"-"`
-		Domain string `help:"cloud region domain"`
+		_ struct{} `mcp-desc:"【创建流程中的中间步骤】查询区域能力，尤其是可用磁盘存储类型（storage_types2 / system_storage_types）。公有云创建前必须调用：ID 用 climc_cloud_region_list 返回的 id。从返回中选系统盘 backend（如 cloud_essd、cloud_ssd），写入 disk 的 backend=。查完继续镜像/网络/sku，最后 climc_server_create"`
+
+		ID     string `help:"ID or name of cloud region to check；必须用 cloud-region-list 的 id" json:"-" mcp:"required"`
+		Domain string `help:"cloud region domain" mcp:"true"`
 
 		ShowEmulated bool `help:"show emulated cloud region"`
 	}

@@ -23,15 +23,17 @@ import (
 )
 
 type VpcListOptions struct {
+	_ struct{} `mcp-desc:"【创建流程中的中间步骤】本工具不能完成创建。创建场景下查完 VPC 后继续 climc_network_list，最后 climc_server_create。严禁只调用本工具后就停止"`
+
 	baseoptions.BaseListOptions
 
-	Usable                     *bool  `help:"Filter usable vpcs"`
-	Region                     string `help:"ID or Name of region" json:"-"`
+	Usable                     *bool  `help:"Filter usable vpcs" mcp:"true"`
+	Region                     string `help:"ID or Name of region" json:"-" mcp:"true"`
 	Globalvpc                  string `help:"Filter by globalvpc"`
 	DnsZoneId                  string `help:"Filter by DnsZone"`
 	InterVpcNetworkId          string `help:"Filter by InterVpcNetwork"`
 	ExternalAccessMode         string `help:"Filter by external access mode" choices:"distgw|eip|eip-distgw"`
-	ZoneId                     string `help:"Filter by zone which has networks"`
+	ZoneId                     string `help:"Filter by zone which has networks" mcp:"true"`
 	UsableForInterVpcNetworkId string `help:"Filter usable vpcs for inter vpc network"`
 	OrderByWireCount           string
 	CidrBlock                  string `help:"IPv4 cidr block"`

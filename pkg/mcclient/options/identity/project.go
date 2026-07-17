@@ -23,14 +23,16 @@ import (
 )
 
 type ProjectListOptions struct {
+	_ struct{} `mcp-desc:"列出项目（project/tenant）。可用 search/domain 等过滤；详情 climc_project_show，创建 climc_project_create，删除 climc_project_delete"`
+
 	options.BaseListOptions
 
-	UserId  string `help:"filter by user id"`
-	GroupId string `help:"filter by group id"`
-	IdpId   string `help:"filter by idp id"`
-	AdminId []string
+	UserId  string   `help:"filter by user id" mcp:"true"`
+	GroupId string   `help:"filter by group id" mcp:"true"`
+	IdpId   string   `help:"filter by idp id" mcp:"true"`
+	AdminId []string `mcp:"true"`
 
-	OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
+	OrderByDomain string `help:"order by domain name" choices:"asc|desc" mcp:"true"`
 }
 
 func (opts *ProjectListOptions) Params() (jsonutils.JSONObject, error) {

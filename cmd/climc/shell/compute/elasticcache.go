@@ -27,7 +27,7 @@ import (
 func init() {
 	cmd := shell.NewResourceCmd(&modules.ElasticCache).WithKeyword("elastic-cache")
 	cmd.List(&compute.ElasticCacheListOptions{})
-	cmd.Show(&compute.ElasticCacheIdOption{})
+	cmd.Show(&compute.ElasticCacheShowOptions{})
 	cmd.Create(&compute.ElasticCacheCreateOptions{})
 	cmd.Delete(&compute.ElasticCacheIdOption{})
 	cmd.Perform("restart", &compute.ElasticCacheIdOption{})

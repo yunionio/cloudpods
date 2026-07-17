@@ -198,27 +198,29 @@ const (
 	ListOrderDesc = "desc"
 )
 
+// BaseListOptions 通用列表参数。
+// 字段上的 mcp:"true" 表示该参数应对 AI/MCP 暴露（见 pkg/mcp-server/climcgen）。
 type BaseListOptions struct {
-	Limit          *int     `default:"20" help:"Page limit"`
-	Offset         *int     `default:"0" help:"Page offset"`
-	OrderBy        []string `help:"Name of the field to be ordered by"`
-	Order          string   `help:"List order" choices:"desc|asc"`
-	Details        *bool    `help:"Show more details" default:"false"`
+	Limit          *int     `default:"20" help:"Page limit" mcp:"true"`
+	Offset         *int     `default:"0" help:"Page offset" mcp:"true"`
+	OrderBy        []string `help:"Name of the field to be ordered by" mcp:"true"`
+	Order          string   `help:"List order" choices:"desc|asc" mcp:"true"`
+	Details        *bool    `help:"Show more details" default:"false" mcp:"true"`
 	ShowFailReason *bool    `help:"show fail reason fields"`
-	Search         string   `help:"Filter results by a simple keyword search"`
+	Search         string   `help:"Filter results by a simple keyword search" mcp:"true"`
 	Meta           *bool    `help:"Piggyback metadata information" json:"with_meta" token:"meta"`
-	Filter         []string `help:"Filters"`
+	Filter         []string `help:"Filters" mcp:"true"`
 	JointFilter    []string `help:"Filters with joint table col; joint_tbl.related_key(origin_key).filter_col.filter_cond(filters)"`
 	FilterAny      *bool    `help:"If true, match if any of the filters matches; otherwise, match if all of the filters match"`
 
-	Admin         *bool    `help:"Is an admin call?"`
-	Tenant        string   `help:"Tenant ID or Name" alias:"project"`
+	Admin         *bool    `help:"Is an admin call?" mcp:"true"`
+	Tenant        string   `help:"Tenant ID or Name" alias:"project" mcp:"true"`
 	ProjectDomain string   `help:"Project domain filter"`
 	User          string   `help:"User ID or Name"`
-	Field         []string `help:"Show only specified fields"`
-	Scope         string   `help:"resource scope" choices:"system|domain|project|user"`
+	Field         []string `help:"Show only specified fields" mcp:"true"`
+	Scope         string   `help:"resource scope" choices:"system|domain|project|user|max" mcp:"true"`
 
-	System           *bool `help:"Show system resource"`
+	System           *bool `help:"Show system resource" mcp:"true"`
 	PendingDelete    *bool `help:"Show only pending deleted resources"`
 	PendingDeleteAll *bool `help:"Show also pending-deleted resources" json:"-"`
 	DeleteAll        *bool `help:"Show also deleted resources" json:"-"`
@@ -245,7 +247,7 @@ type BaseListOptions struct {
 
 	Manager      []string `help:"List objects belonging to the cloud provider" json:"manager,omitempty"`
 	Account      string   `help:"List objects belonging to the cloud account" json:"account,omitempty"`
-	Provider     []string `help:"List objects from the provider" choices:"OneCloud|VMware|Aliyun|Apsara|Qcloud|Azure|Aws|Huawei|OpenStack|Ucloud|RockBase|VolcEngine|ZStack|Google|Ctyun|Cloudpods|Nutanix|BingoCloud|IncloudSphere|JDcloud|Proxmox|Ceph|CephFS|Ecloud|HCSO|HCS|HCSOP|H3C|S3|RemoteFile|Ksyun|Baidu|QingCloud|OracleCloud|SangFor|ZettaKit|UIS|CNWare" json:"provider,omitempty"`
+	Provider     []string `help:"List objects from the provider；公有云创建时必传，例如 Aliyun、Aws、Huawei" choices:"OneCloud|VMware|Aliyun|Apsara|Qcloud|Azure|Aws|Huawei|OpenStack|Ucloud|RockBase|VolcEngine|ZStack|Google|Ctyun|Cloudpods|Nutanix|BingoCloud|IncloudSphere|JDcloud|Proxmox|Ceph|CephFS|Ecloud|HCSO|HCS|HCSOP|H3C|S3|RemoteFile|Ksyun|Baidu|QingCloud|OracleCloud|SangFor|ZettaKit|UIS|CNWare" json:"provider,omitempty" mcp:"true"`
 	Brand        []string `help:"List objects belonging to a special brand"`
 	CloudEnv     string   `help:"Cloud environment" choices:"public|private|onpremise|private_or_onpremise" json:"cloud_env,omitempty"`
 	PublicCloud  *bool    `help:"List objects belonging to public cloud" json:"public_cloud"`
@@ -263,7 +265,7 @@ type BaseListOptions struct {
 	Id []string `help:"filter by id"`
 	// Name []string `help:"fitler by name"`
 
-	Status []string `help:"filter by status"`
+	Status []string `help:"filter by status" mcp:"true"`
 
 	SummaryStats bool `help:"show summary stats" json:"summary_stats"`
 }

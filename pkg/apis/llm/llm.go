@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	SERVICE_TYPE = "llm"
+	SERVICE_TYPE    = "llm"
+	SERVICE_VERSION = ""
 )
 
 type LLMBaseListDetails struct {
