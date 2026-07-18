@@ -77,44 +77,39 @@ type SStorageDeleteSnapshot struct {
 }
 
 type SDiskBackup struct {
-	SnapshotId              string              `json:"snapshot_id"`
-	SnapshotLocation        string              `json:"snapshot_location"`
-	BackupId                string              `json:"backup_id"`
-	BackupStorageId         string              `json:"backup_storage_id"`
-	BackupStorageAccessInfo *jsonutils.JSONDict `json:"backup_storage_access_info"`
+	SnapshotId              string                        `json:"snapshot_id"`
+	SnapshotLocation        string                        `json:"snapshot_location"`
+	BackupId                string                        `json:"backup_id"`
+	BackupStorageId         string                        `json:"backup_storage_id"`
+	BackupStorageAccessInfo *api.SBackupStorageAccessInfo `json:"backup_storage_access_info"`
 
 	EncryptKeyId string `json:"encrypt_key_id"`
 
 	UserCred mcclient.TokenCredential
+
+	BackupFilePath string `json:"backup_file_path"`
 }
 
 type SStorageBackup struct {
 	BackupId                string
 	BackupLocalPath         string
 	BackupStorageId         string
-	BackupStorageAccessInfo *jsonutils.JSONDict
+	BackupStorageAccessInfo *api.SBackupStorageAccessInfo
+	BackupFilePath          string
 }
 
 type SStoragePackBackup struct {
 	PackageName             string
 	BackupId                string
 	BackupStorageId         string
-	BackupStorageAccessInfo *jsonutils.JSONDict
+	BackupStorageAccessInfo *api.SBackupStorageAccessInfo
 	Metadata                api.DiskBackupPackMetadata
-}
-
-type SStoragePackInstanceBackup struct {
-	PackageName             string
-	BackupStorageId         string
-	BackupStorageAccessInfo *jsonutils.JSONDict
-	BackupIds               []string
-	Metadata                api.InstanceBackupPackMetadata
 }
 
 type SStorageUnpackInstanceBackup struct {
 	PackageName             string
 	BackupStorageId         string
-	BackupStorageAccessInfo *jsonutils.JSONDict
+	BackupStorageAccessInfo *api.SBackupStorageAccessInfo
 	MetadataOnly            *bool
 }
 
