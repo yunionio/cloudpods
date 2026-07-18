@@ -15,7 +15,6 @@
 package nfs
 
 import (
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -25,12 +24,7 @@ import (
 
 type sNfsBackupStorageFactory struct{}
 
-func (factory *sNfsBackupStorageFactory) NewBackupStore(backupStroageId string, backupStorageAccessInfo *jsonutils.JSONDict) (backupstorage.IBackupStorage, error) {
-	accessInfo := api.SBackupStorageAccessInfo{}
-	err := backupStorageAccessInfo.Unmarshal(&accessInfo)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshal access info")
-	}
+func (factory *sNfsBackupStorageFactory) NewBackupStore(backupStroageId string, accessInfo *api.SBackupStorageAccessInfo) (backupstorage.IBackupStorage, error) {
 	if len(accessInfo.NfsHost) == 0 {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "need nfs_host in backup_storage_access_info")
 	}

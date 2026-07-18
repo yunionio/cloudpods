@@ -270,12 +270,19 @@ func storageSyncBackup(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("backup_storage_access_info"))
 		return
 	}
-	backupStorage, err := backupstorage.GetBackupStorage(backupStorageId, backupStorageAccessInfo.(*jsonutils.JSONDict))
+	accessInfo := compute.SBackupStorageAccessInfo{}
+	err = backupStorageAccessInfo.Unmarshal(&accessInfo)
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewInputParameterError("unmarshal backup_storage_access_info failed %s", err))
+		return
+	}
+	backupStorage, err := backupstorage.GetBackupStorage(backupStorageId, &accessInfo)
 	if err != nil {
 		hostutils.Response(ctx, w, err)
 		return
 	}
-	exist, reason, err := backupStorage.IsBackupExists(backupId)
+	backupFilePath, _ := body.GetString("backup_file_path")
+	exist, _, reason, err := backupStorage.IsBackupExists(backupId, backupFilePath)
 	if err != nil {
 		hostutils.Response(ctx, w, err)
 		return
@@ -295,6 +302,7 @@ func storageSyncBackup(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		}
 	}
 	ret.Set("status", jsonutils.NewString(status))
+	ret.Set("reason", jsonutils.NewString(reason))
 	hostutils.Response(ctx, w, ret)
 }
 
@@ -310,7 +318,13 @@ func storageSyncBackupStorage(ctx context.Context, w http.ResponseWriter, r *htt
 		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("backup_storage_access_info"))
 		return
 	}
-	backupStorage, err := backupstorage.GetBackupStorage(backupStorageId, backupStorageAccessInfo.(*jsonutils.JSONDict))
+	accessInfo := compute.SBackupStorageAccessInfo{}
+	err = backupStorageAccessInfo.Unmarshal(&accessInfo)
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewInputParameterError("unmarshal backup_storage_access_info failed %s", err))
+		return
+	}
+	backupStorage, err := backupstorage.GetBackupStorage(backupStorageId, &accessInfo)
 	if err != nil {
 		hostutils.Response(ctx, w, err)
 		return
@@ -339,7 +353,7 @@ func storagePackInstanceBackup(ctx context.Context, w http.ResponseWriter, r *ht
 	if !checkOptions(ctx, w, body, "package_name", "backup_ids", "backup_storage_id", "backup_storage_access_info", "metadata") {
 		return
 	}
-	pb := storageman.SStoragePackInstanceBackup{}
+	pb := compute.SStoragePackInstanceBackup{}
 	err := body.Unmarshal(&pb)
 	if err != nil {
 		hostutils.Response(ctx, w, httperrors.NewInputParameterError("%s", err.Error()))
@@ -367,7 +381,7 @@ func storageUnpackInstanceBackup(ctx context.Context, w http.ResponseWriter, r *
 }
 
 func packInstanceBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	sbParams := params.(*storageman.SStoragePackInstanceBackup)
+	sbParams := params.(*compute.SStoragePackInstanceBackup)
 	packFileName, err := storageman.DoInstancePackBackup(ctx, *sbParams)
 	if err != nil {
 		return nil, errors.Wrap(err, "DoInstancePackBackup")
@@ -410,10 +424,18 @@ func storageDeleteBackup(ctx context.Context, w http.ResponseWriter, r *http.Req
 		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("backup_storage_access_info"))
 		return
 	}
+	accessInfo := compute.SBackupStorageAccessInfo{}
+	err = backupStorageAccessInfo.Unmarshal(&accessInfo)
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewInputParameterError("unmarshal backup_storage_access_info failed %s", err))
+		return
+	}
+	backupFilePath, _ := body.GetString("backup_file_path")
 	hostutils.DelayTask(ctx, deleteBackup, &storageman.SStorageBackup{
 		BackupId:                backupId,
 		BackupStorageId:         backupStorageId,
-		BackupStorageAccessInfo: backupStorageAccessInfo.(*jsonutils.JSONDict),
+		BackupStorageAccessInfo: &accessInfo,
+		BackupFilePath:          backupFilePath,
 	})
 	hostutils.ResponseOk(ctx, w)
 }
@@ -435,7 +457,7 @@ func deleteBackup(ctx context.Context, params interface{}) (jsonutils.JSONObject
 	if err != nil {
 		return nil, err
 	}
-	err = backupStorage.RemoveBackup(ctx, sbParams.BackupId)
+	err = backupStorage.RemoveBackup(ctx, sbParams.BackupId, sbParams.BackupFilePath)
 	if err != nil {
 		return nil, err
 	}

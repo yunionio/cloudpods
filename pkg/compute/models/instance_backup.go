@@ -225,16 +225,7 @@ func (self *SInstanceBackup) getMoreDetails(userCred mcclient.TokenCredential, o
 	backups, _ := self.GetBackups()
 	out.DiskBackups = []api.SSimpleBackup{}
 	for i := 0; i < len(backups); i++ {
-		out.DiskBackups = append(out.DiskBackups, api.SSimpleBackup{
-			Id:           backups[i].Id,
-			Name:         backups[i].Name,
-			SizeMb:       backups[i].SizeMb,
-			DiskSizeMb:   backups[i].DiskSizeMb,
-			DiskType:     backups[i].DiskType,
-			Status:       backups[i].Status,
-			EncryptKeyId: backups[i].EncryptKeyId,
-			CreatedAt:    backups[i].CreatedAt,
-		})
+		out.DiskBackups = append(out.DiskBackups, backups[i].ToSimpleBackup())
 	}
 	out.Size = self.SizeMb * 1024 * 1024
 	return out

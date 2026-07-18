@@ -67,6 +67,8 @@ type DiskBackupCreateOptions struct {
 
 	DISKID          string `help:"disk id" json:"disk_id"`
 	BACKUPSTORAGEID string `help:"backup storage id" json:"backup_storage_id"`
+
+	BackupPath string `help:"backup path" json:"backup_path"`
 }
 
 func (opts *DiskBackupCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -91,6 +93,9 @@ func (opts *DiskBackupCreateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	if opts.AsTarIgnoreNotExistFile {
 		input.BackupAsTar.IgnoreNotExistFile = opts.AsTarIgnoreNotExistFile
+	}
+	if opts.BackupPath != "" {
+		input.BackupFilePath = opts.BackupPath
 	}
 	return jsonutils.Marshal(input), nil
 }
