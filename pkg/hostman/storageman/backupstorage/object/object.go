@@ -109,18 +109,21 @@ func parseBucketUrl(bucketUrl string) (string, string, error) {
 const backupPathPrefix = "backups"
 const backupInstancePathPrefix = "backuppacks"
 
-func (s *SObjectBackupStorage) getBackupKey(backupId string) string {
+func (s *SObjectBackupStorage) getBackupKey(backupId string, backupFilePath string) string {
+	if len(backupFilePath) > 0 {
+		return backupFilePath
+	}
 	return fmt.Sprintf("%s/%s", backupPathPrefix, backupId)
 }
 
-func (s *SObjectBackupStorage) getBackupInstanceKey(backupInstancePackName string) string {
+func (s *SObjectBackupStorage) getBackupInstanceKey(backupInstancePackName string, _ string) string {
 	return fmt.Sprintf("%s/%s", backupInstancePathPrefix, backupInstancePackName)
 }
 
 func (s *SObjectBackupStorage) getBucket() (cloudprovider.ICloudBucket, error) {
 	bucket, err := s.store.GetIRegion().GetIBucketByName(s.bucket)
 	if err != nil {
-		return nil, errors.Wrap(err, "IBucketExist")
+		return nil, errors.Wrapf(err, "IBucketExist %s", s.bucket)
 	}
 	return bucket, nil
 }
@@ -136,42 +139,42 @@ func (s *SObjectBackupStorage) getExtBucket() (cloudprovider.ICloudBucket, error
 	return bucket, nil
 }
 
-func (s *SObjectBackupStorage) SaveBackupFrom(ctx context.Context, srcFile io.Reader, fileSize int64, backupId string) error {
-	return s.saveObject(ctx, srcFile, fileSize, backupId, s.getBackupKey)
+func (s *SObjectBackupStorage) SaveBackupFrom(ctx context.Context, srcFile io.Reader, fileSize int64, backupId string, backupFilePath string) error {
+	return s.saveObject(ctx, srcFile, fileSize, backupId, backupFilePath, s.getBackupKey)
 }
 
-func (s *SObjectBackupStorage) SaveBackupInstanceFrom(ctx context.Context, srcFile io.Reader, fileSize int64, backupId string) error {
-	return s.saveObject(ctx, srcFile, fileSize, backupId, s.getBackupInstanceKey)
+func (s *SObjectBackupStorage) SaveBackupInstanceFrom(ctx context.Context, srcFile io.Reader, fileSize int64, bakcupInstanceFilePath string) error {
+	return s.saveObject(ctx, srcFile, fileSize, bakcupInstanceFilePath, "", s.getBackupInstanceKey)
 }
 
-func (s *SObjectBackupStorage) saveObject(ctx context.Context, srcFile io.Reader, fileSize int64, id string, getKeyFunc func(string) string) error {
+func (s *SObjectBackupStorage) saveObject(ctx context.Context, srcFile io.Reader, fileSize int64, id string, backupFilePath string, getKeyFunc func(string, string) string) error {
 	bucket, err := s.getBucket()
 	if err != nil {
 		return errors.Wrap(err, "getBucket")
 	}
 
-	err = cloudprovider.UploadObject(ctx, bucket, getKeyFunc(id), 200*1024*1024, srcFile, fileSize, cloudprovider.ACLPrivate, "", nil, false)
+	err = cloudprovider.UploadObject(ctx, bucket, getKeyFunc(id, backupFilePath), 200*1024*1024, srcFile, fileSize, cloudprovider.ACLPrivate, "", nil, false)
 	if err != nil {
-		return errors.Wrapf(err, "UploadObject %d %s", fileSize, getKeyFunc(id))
+		return errors.Wrapf(err, "UploadObject %d %s", fileSize, getKeyFunc(id, backupFilePath))
 	}
 
 	return nil
 }
 
-func (s *SObjectBackupStorage) RestoreBackupTo(ctx context.Context, targetFilename string, backupId string) error {
-	return s.restoreObject(ctx, targetFilename, backupId, s.getBackupKey)
+func (s *SObjectBackupStorage) RestoreBackupTo(ctx context.Context, targetFilename string, backupId string, backupFilePath string) error {
+	return s.restoreObject(ctx, targetFilename, backupId, backupFilePath, s.getBackupKey)
 }
 
 func (s *SObjectBackupStorage) RestoreBackupInstanceTo(ctx context.Context, targetFilename string, backupId string) error {
-	return s.restoreObject(ctx, targetFilename, backupId, s.getBackupInstanceKey)
+	return s.restoreObject(ctx, targetFilename, backupId, "", s.getBackupInstanceKey)
 }
 
-func (s *SObjectBackupStorage) restoreObject(ctx context.Context, targetFilename string, id string, getKeyFunc func(string) string) error {
+func (s *SObjectBackupStorage) restoreObject(ctx context.Context, targetFilename string, id string, backupFilePath string, getKeyFunc func(string, string) string) error {
 	bucket, err := s.getBucket()
 	if err != nil {
 		return errors.Wrap(err, "getBucket")
 	}
-	reader, err := bucket.GetObject(ctx, getKeyFunc(id), nil)
+	reader, err := bucket.GetObject(ctx, getKeyFunc(id, backupFilePath), nil)
 	if err != nil {
 		return errors.Wrap(err, "GetObject")
 	}
@@ -187,47 +190,47 @@ func (s *SObjectBackupStorage) restoreObject(ctx context.Context, targetFilename
 	return nil
 }
 
-func (s *SObjectBackupStorage) RemoveBackup(ctx context.Context, backupId string) error {
-	return s.removeObject(ctx, backupId, s.getBackupKey)
+func (s *SObjectBackupStorage) RemoveBackup(ctx context.Context, backupId string, backupFilePath string) error {
+	return s.removeObject(ctx, backupId, backupFilePath, s.getBackupKey)
 }
 
 func (s *SObjectBackupStorage) RemoveBackupInstance(ctx context.Context, backupId string) error {
-	return s.removeObject(ctx, backupId, s.getBackupInstanceKey)
+	return s.removeObject(ctx, backupId, "", s.getBackupInstanceKey)
 }
 
-func (s *SObjectBackupStorage) removeObject(ctx context.Context, id string, getKeyFunc func(string) string) error {
+func (s *SObjectBackupStorage) removeObject(ctx context.Context, id string, backupFilePath string, getKeyFunc func(string, string) string) error {
 	bucket, err := s.getBucket()
 	if err != nil {
 		return errors.Wrap(err, "getBucket")
 	}
-	err = bucket.DeleteObject(ctx, getKeyFunc(id))
+	err = bucket.DeleteObject(ctx, getKeyFunc(id, backupFilePath))
 	if err != nil {
 		return errors.Wrap(err, "DeleteObject")
 	}
 	return nil
 }
 
-func (s *SObjectBackupStorage) IsBackupExists(backupId string) (bool, string, error) {
-	return s.isObjectExists(backupId, s.getBackupKey)
+func (s *SObjectBackupStorage) IsBackupExists(backupId string, backupFilePath string) (bool, int64, string, error) {
+	return s.isObjectExists(backupId, s.getBackupKey, backupFilePath)
 }
 
-func (s *SObjectBackupStorage) IsBackupInstanceExists(backupId string) (bool, string, error) {
-	return s.isObjectExists(backupId, s.getBackupInstanceKey)
+func (s *SObjectBackupStorage) IsBackupInstanceExists(backupId string) (bool, int64, string, error) {
+	return s.isObjectExists(backupId, s.getBackupInstanceKey, "")
 }
 
-func (s *SObjectBackupStorage) isObjectExists(id string, getKeyFunc func(string) string) (bool, string, error) {
+func (s *SObjectBackupStorage) isObjectExists(id string, getKeyFunc func(string, string) string, backupFilePath string) (bool, int64, string, error) {
 	bucket, err := s.getBucket()
 	if err != nil {
-		return false, "", errors.Wrap(err, "getBucket")
+		return false, -1, "", errors.Wrap(err, "getBucket")
 	}
-	_, err = cloudprovider.GetIObject(bucket, getKeyFunc(id))
+	obj, err := cloudprovider.GetIObject(bucket, getKeyFunc(id, backupFilePath))
 	if err != nil {
 		if errors.Cause(err) == errors.ErrNotFound {
-			return false, "", nil
+			return false, -1, "", nil
 		}
-		return false, "", errors.Wrap(err, "GetIObject")
+		return false, -1, "", errors.Wrap(err, "GetIObject")
 	}
-	return true, "", nil
+	return true, obj.GetSizeBytes(), "", nil
 }
 
 func (s *SObjectBackupStorage) IsOnline() (bool, string, error) {
@@ -238,7 +241,7 @@ func (s *SObjectBackupStorage) IsOnline() (bool, string, error) {
 	return exist, "", nil
 }
 
-func (s *SObjectBackupStorage) GetExternalAccessUrl(backupId string) (string, error) {
+func (s *SObjectBackupStorage) GetExternalAccessUrl(backupId string, backupFilePath string) (string, error) {
 	var bucket cloudprovider.ICloudBucket
 	var err error
 	bucket, err = s.getExtBucket()
@@ -249,7 +252,7 @@ func (s *SObjectBackupStorage) GetExternalAccessUrl(backupId string) (string, er
 			return "", errors.Wrap(err, "getBucket")
 		}
 	}
-	url, err := bucket.GetTempUrl(http.MethodGet, s.getBackupKey(backupId), 6*time.Hour)
+	url, err := bucket.GetTempUrl(http.MethodGet, s.getBackupKey(backupId, backupFilePath), 6*time.Hour)
 	if err != nil {
 		return "", errors.Wrap(err, "GetTempUrl")
 	}

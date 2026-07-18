@@ -136,6 +136,10 @@ type DiskBackupCreateInput struct {
 	apis.VirtualResourceCreateInput
 	apis.EncryptedResourceCreateInput
 
+	// swagger:ignore
+	SizeMb int `json:"size_mb"`
+	// path to find backup file, in case of create backup from a backup file
+	BackupFilePath string `json:"backup_file_path"`
 	// description: disk id
 	DiskId string `json:"disk_id"`
 	// swagger:ignore
@@ -165,6 +169,9 @@ type DiskBackupPackMetadata struct {
 	// 操作系统类型
 	OsType     string             `json:"os_type"`
 	DiskConfig *SBackupDiskConfig `json:"disk_config"`
+
+	// 备份文件路径
+	BackupFilePath string `json:"backup_file_path"`
 }
 
 type DiskBackupExportInfo struct {

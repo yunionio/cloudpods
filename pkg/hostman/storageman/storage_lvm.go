@@ -571,7 +571,7 @@ func (s *SLVMStorage) StorageBackup(ctx context.Context, params *SStorageBackup)
 		return nil, err
 	}
 	backupPath := params.BackupLocalPath
-	err = backupstorage.SaveBackupFromFile(ctx, backupPath, params.BackupId, backupStorage)
+	err = backupstorage.SaveBackupFromFile(ctx, backupPath, params.BackupId, params.BackupFilePath, backupStorage)
 	if err != nil {
 		return nil, err
 	}
