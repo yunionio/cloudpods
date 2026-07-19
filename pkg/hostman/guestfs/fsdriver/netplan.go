@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/log"
-
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/netplan"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -88,15 +87,31 @@ func newNetplanNetwork(allNics []*types.SServerNic, bondNics []*types.SServerNic
 		}
 
 		netConf := getNetplanEthernetConfig(bondNic, true, mainIp, nicCnt)
-
 		if netConf.Mtu == 0 {
 			netConf.Mtu = defaultMtu
 		}
+		if bondNic.VlanInterface {
+			ifname := fmt.Sprintf("%s.%d", bondNic.Name, bondNic.Vlan)
+			vlanConfig := &netplan.VlanConfig{
+				EthernetConfig: *netConf,
+				Link:           bondNic.Name,
+				Id:             bondNic.Vlan,
+			}
+			network.AddVlan(ifname, vlanConfig)
 
-		// TODO: implement kinds of bond mode config
-		bondConf := netplan.NewBondMode4(netConf, interfaces)
-
-		network.AddBond(bondNic.Name, bondConf)
+			bondNicConf := &netplan.EthernetConfig{
+				DHCP4:      false,
+				DHCP6:      false,
+				MacAddress: bondNic.Mac,
+				Match:      netplan.NewEthernetConfigMatchMac(bondNic.Mac),
+			}
+			bondConf := netplan.NewBondMode4(bondNicConf, interfaces)
+			network.AddBond(bondNic.Name, bondConf)
+		} else {
+			// TODO: implement kinds of bond mode config
+			bondConf := netplan.NewBondMode4(netConf, interfaces)
+			network.AddBond(bondNic.Name, bondConf)
+		}
 	}
 
 	return network
