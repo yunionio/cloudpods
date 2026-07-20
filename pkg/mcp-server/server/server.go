@@ -61,26 +61,35 @@ func NewServer() *CloudpodsMCPServer {
 }
 
 // NewServerWithOptions 同 NewServer，允许覆盖 Instructions 等。
+// 额外 NewMCPServer 参数可通过 RegisterMCPServerOptions / RegisterMCPHooks 注册。
 func NewServerWithOptions(opt *NewServerOptions) *CloudpodsMCPServer {
-	instructions := climcgen.BuildServerInstructions(options.ResolvedPlatformName())
-	if opt != nil && strings.TrimSpace(opt.Instructions) != "" {
-		instructions = opt.Instructions
-	}
-	if extra := climcgen.BuildExtraInstructions(); extra != "" {
-		instructions = strings.TrimSpace(instructions) + "\n\n" + extra
+	buildInstructions := func() string {
+		instructions := climcgen.BuildServerInstructions(options.ResolvedPlatformName())
+		if opt != nil && strings.TrimSpace(opt.Instructions) != "" {
+			instructions = opt.Instructions
+		}
+		if extra := climcgen.BuildExtraInstructions(); extra != "" {
+			instructions = strings.TrimSpace(instructions) + "\n\n" + extra
+		}
+		return instructions
 	}
 
 	serverName := strings.TrimSpace(options.Options.MCPServerName)
 	if serverName == "" {
 		serverName = options.ResolvedPlatformName()
 	}
-	mcpServer := server.NewMCPServer(
-		serverName,
-		options.Options.MCPServerVersion,
+	version := options.Options.MCPServerVersion
+	serverOpts := []server.ServerOption{
 		server.WithToolCapabilities(false),
 		server.WithRecovery(),
-		server.WithInstructions(instructions),
-	)
+		server.WithInstructions(buildInstructions()),
+	}
+	serverOpts = append(serverOpts, buildRegisteredMCPServerOptions(MCPServerBuildContext{
+		BuildInstructions: buildInstructions,
+		ServerName:        serverName,
+		Version:           version,
+	})...)
+	mcpServer := server.NewMCPServer(serverName, version, serverOpts...)
 
 	reg := registry.NewRegistry()
 	adapter := adapters.NewCloudpodsAdapter()
