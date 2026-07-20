@@ -23,9 +23,10 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/sets"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -40,12 +41,12 @@ func newNvidiaGPUManager() *nvidiaGPUManager {
 	return &nvidiaGPUManager{}
 }
 
-func (m *nvidiaGPUManager) GetType() isolated_device.ContainerDeviceType {
+func (m *nvidiaGPUManager) GetRegisterType() isolated_device.ContainerDeviceType {
 	return isolated_device.ContainerDeviceTypeNvidiaGpu
 }
 
 func (m *nvidiaGPUManager) ProbeDevices() ([]isolated_device.IDevice, error) {
-	return probeNvidiaGpus()
+	return probeNvidiaGpus(api.DEVICE_SHARING_MODE_EXCLUSIVE, m)
 }
 
 func (m *nvidiaGPUManager) NewDevices(dev *isolated_device.ContainerDevice) ([]isolated_device.IDevice, error) {
@@ -62,13 +63,12 @@ func (m *nvidiaGPUManager) GetContainerExtraConfigures(devs []*hostapi.Container
 		if dev.IsolatedDevice == nil {
 			continue
 		}
-		types := sets.NewString(
-			string(isolated_device.ContainerDeviceTypeNvidiaGpu),
-			string(isolated_device.ContainerDeviceTypeNvidiaGpuShare),
-		)
-		if !types.Has(dev.IsolatedDevice.DeviceType) {
+		iDev := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByCloudId(dev.IsolatedDevice.Id)
+		devMan := iDev.GetContainerDeviceManager()
+		if _, ok := devMan.(*nvidiaGPUManager); !ok {
 			continue
 		}
+
 		gpuIds = append(gpuIds, dev.IsolatedDevice.Path)
 	}
 	if len(gpuIds) == 0 {
@@ -91,6 +91,7 @@ func (m *nvidiaGPUManager) GetContainerExtraConfigures(devs []*hostapi.Container
 }
 
 type nvidiaGPU struct {
+	manager isolated_device.IContainerDeviceManager
 	*BaseDevice
 
 	memSize     int
@@ -114,20 +115,26 @@ func (dev *nvidiaGPU) GetDeviceMinor() int {
 	return dev.deviceMinor
 }
 
-func probeNvidiaGpus() ([]isolated_device.IDevice, error) {
+func (dev *nvidiaGPU) GetContainerDeviceManager() isolated_device.IContainerDeviceManager {
+	return dev.manager
+}
+
+func probeNvidiaGpus(sharingMode string, manager isolated_device.IContainerDeviceManager) ([]isolated_device.IDevice, error) {
 	if nvidiaGpuUsages != nil {
 		res := make([]isolated_device.IDevice, 0)
 		for pciAddr, dev := range nvidiaGpuUsages {
 			if dev.Used {
 				continue
 			}
+			dev := nvidiaGpuUsages[pciAddr].nvidiaGPU
+			dev.manager = manager
 			res = append(res, nvidiaGpuUsages[pciAddr].nvidiaGPU)
 		}
 		nvidiaGpuUsages = nil
 		return res, nil
 	}
 
-	devs, err := getNvidiaGPUs()
+	devs, err := getNvidiaGPUs(sharingMode, manager)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +145,7 @@ func probeNvidiaGpus() ([]isolated_device.IDevice, error) {
 	return res, nil
 }
 
-func getNvidiaGPUs() ([]*nvidiaGPU, error) {
+func getNvidiaGPUs(sharingMode string, manager isolated_device.IContainerDeviceManager) ([]*nvidiaGPU, error) {
 	devs := make([]*nvidiaGPU, 0)
 	// nvidia-smi --query-gpu=gpu_uuid,gpu_name,gpu_bus_id --format=csv
 	// uuid, name, pci.bus_id
@@ -190,7 +197,8 @@ func getNvidiaGPUs() ([]*nvidiaGPU, error) {
 		}
 
 		gpuDev := &nvidiaGPU{
-			BaseDevice:  NewBaseDevice(dev, isolated_device.ContainerDeviceTypeNvidiaGpu, gpuId),
+			manager:     manager,
+			BaseDevice:  NewBaseDevice(dev, api.GPU_TYPE, gpuId, sharingMode, 1),
 			memSize:     memSize,
 			gpuIndex:    indexInt,
 			deviceMinor: driverInfo.DeviceMinor,

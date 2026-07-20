@@ -59,7 +59,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils/hardware"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils/kubelet"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
-	_ "yunion.io/x/onecloud/pkg/hostman/isolated_device/container_device"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
@@ -2311,7 +2310,11 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		}
 	}
 
-	enableDevWhitelist := options.HostOptions.EnableIsolatedDeviceWhitelist
+	_, err := modules.Hosts.GetSpecific(h.GetSession(), h.HostId, "guest-isolated-devices-initialized", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "check GuestIsolatedDevicesInitialized")
+	}
+
 	offloadNics, err := h.getNicsInterfaces(options.HostOptions.OvsOffloadNics)
 	if err != nil {
 		return nil, err
@@ -2320,18 +2323,21 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 	if err != nil {
 		return nil, err
 	}
-	h.IsolatedDeviceMan.ProbePCIDevices(
-		options.HostOptions.DisableGPU,
-		options.HostOptions.DisableUSB,
-		options.HostOptions.DisableCustomDevice,
-		sriovNics, offloadNics,
-		options.HostOptions.PTNVMEConfigs,
-		options.HostOptions.AMDVgpuPFs,
-		options.HostOptions.NVIDIAVgpuPFs,
-		options.HostOptions.EnableCudaMPS,
-		options.HostOptions.EnableContainerAscendNPU,
-		enableDevWhitelist,
-	)
+	probeOpts := &isolated_device.SIsolatedDeviceProbeOptions{
+		SkipGPUs:           options.HostOptions.DisableGPU,
+		SkipUSBs:           options.HostOptions.DisableUSB,
+		SkipCustomDevs:     options.HostOptions.DisableCustomDevice,
+		EnableCudaHAMI:     options.HostOptions.EnableCudaHAMI,
+		EnableCudaMps:      options.HostOptions.EnableCudaMPS,
+		EnableContainerNPU: options.HostOptions.EnableContainerAscendNPU,
+		EnableWhitelist:    options.HostOptions.EnableIsolatedDeviceWhitelist,
+		SriovNics:          sriovNics,
+		OvsOffloadNics:     offloadNics,
+		NvmePciDisks:       options.HostOptions.PTNVMEConfigs,
+		AmdVgpuPFs:         options.HostOptions.AMDVgpuPFs,
+		NvidiaVgpuPFs:      options.HostOptions.NVIDIAVgpuPFs,
+	}
+	h.IsolatedDeviceMan.ProbePCIDevices(probeOpts)
 
 	objs, err := h.getRemoteIsolatedDevices()
 	if err != nil {
@@ -2353,7 +2359,6 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 			// detach device
 			h.IsolatedDeviceMan.AppendDetachedDevice(&info)
 		}
-
 	}
 
 	h.IsolatedDeviceMan.StartDetachTask()
@@ -2382,6 +2387,11 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 					mtx.Lock()
 					updateDevs.Add(obj)
 					mtx.Unlock()
+					info := isolated_device.CloudDeviceInfo{}
+					if err := obj.Unmarshal(&info); err != nil {
+						return errors.Wrapf(err, "unmarshal isolated device %s to cloud device info", obj)
+					}
+					dev.SetDeviceInfo(info)
 				}
 				return nil
 			}
@@ -2649,9 +2659,17 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 	hasVasmi := false
 	hasNvidiasmi := false
 	for _, dev := range devs {
-		devType := dev.GetDeviceType()
-		switch devType {
-		case string(isolated_device.ContainerDeviceTypeCphAMDGPU):
+		if !utils.IsInStringArray(dev.GetSharingMode(), api.VIRTUAL_SHARING_MODES) {
+			continue
+		}
+		if dev.GetDeviceType() == api.NETINT_TYPE {
+			hasNetint = true
+			continue
+		}
+
+		vendorId := strings.Split(dev.GetVendorDeviceId(), ":")[0]
+		switch vendorId {
+		case api.AMD_VENDOR_ID:
 			confMap, ok := conf[system_service.TELEGRAF_INPUT_RADEONTOP].(map[string]interface{})
 			if !ok {
 				conf[system_service.TELEGRAF_INPUT_RADEONTOP] = map[string]interface{}{
@@ -2665,13 +2683,9 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 					confMap[system_service.TELEGRAF_INPUT_RADEONTOP_DEV_PATHS] = devPaths
 				}
 			}
-		case string(isolated_device.ContainerNetintCAQuadra), string(isolated_device.ContainerNetintCAASIC):
-			hasNetint = true
-			continue
-		case string(isolated_device.ContainerDeviceTypeVastaitechGpu):
+		case api.VASTAITECH_VENDOR_ID:
 			hasVasmi = true
-			continue
-		case string(isolated_device.ContainerDeviceTypeNvidiaGpu), string(isolated_device.ContainerDeviceTypeNvidiaMps), string(isolated_device.ContainerDeviceTypeNvidiaGpuShare):
+		case api.NVIDIA_VENDOR_ID:
 			hasNvidiasmi = true
 		}
 	}

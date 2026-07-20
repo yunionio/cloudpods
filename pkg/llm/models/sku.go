@@ -87,7 +87,7 @@ func (man *SLLMSkuBaseManager) ValidateCreateData(ctx context.Context, userCred 
 	if input.Devices != nil {
 		for i := range *input.Devices {
 			if (*input.Devices)[i].DevType == "" {
-				(*input.Devices)[i].DevType = computeapi.CONTAINER_DEV_NVIDIA_GPU_SHARE
+				(*input.Devices)[i].DevType = computeapi.GPU_TYPE
 			}
 		}
 	}

@@ -19,7 +19,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -87,7 +86,7 @@ func (i isolatedDevice) ValidateCreateData(ctx context.Context, userCred mcclien
 		return nil, errors.Wrapf(err, "validate create data %s", jsonutils.Marshal(dev))
 	}
 	isoDev := dev.IsolatedDevice
-	podDevs, err := pod.GetIsolatedDevices()
+	podDevs, err := pod.GetGuestIsolatedDevices()
 	if err != nil {
 		return nil, errors.Wrap(err, "get isolated devices")
 	}
@@ -96,7 +95,7 @@ func (i isolatedDevice) ValidateCreateData(ctx context.Context, userCred mcclien
 		if index >= len(podDevs) {
 			return nil, httperrors.NewInputParameterError("index %d is large than isolated device size %d", index, len(podDevs))
 		}
-		isoDev.Id = podDevs[index].GetId()
+		isoDev.Id = podDevs[index].IsolatedDeviceId
 		// remove index
 		isoDev.Index = nil
 	} else {
@@ -104,13 +103,14 @@ func (i isolatedDevice) ValidateCreateData(ctx context.Context, userCred mcclien
 			return nil, httperrors.NewNotEmptyError("id is empty")
 		}
 		foundDisk := false
-		for _, d := range podDevs {
+		for i := range podDevs {
+			d := podDevs[i].GetIsolatedDevice()
 			if d.GetId() == isoDev.Id || d.GetName() == isoDev.Id {
 				isoDev.Id = d.GetId()
 				foundDisk = true
-				devType := d.DevType
-				if !sets.NewString(api.VALID_CONTAINER_DEVICE_TYPES...).Has(devType) {
-					return nil, httperrors.NewInputParameterError("device type %s is not supported by container", devType)
+				host := d.GetHost()
+				if host.HostType != api.HOST_TYPE_CONTAINER {
+					return nil, httperrors.NewInputParameterError("device %s is not supported by container", isoDev.Id)
 				}
 				break
 			}
@@ -123,13 +123,17 @@ func (i isolatedDevice) ValidateCreateData(ctx context.Context, userCred mcclien
 	return dev, nil
 }
 
-func (i isolatedDevice) ToHostDevice(dev *api.ContainerDevice) (*hostapi.ContainerDevice, error) {
+func (i isolatedDevice) ToHostDevice(dev *api.ContainerDevice, guestId string) (*hostapi.ContainerDevice, error) {
 	input := dev.IsolatedDevice
 	isoDevObj, err := models.IsolatedDeviceManager.FetchById(input.Id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Fetch isolated device by id %s", input.Id)
 	}
 	isoDev := isoDevObj.(*models.SIsolatedDevice)
+	gdev, err := isoDev.GetGuestIsolatedDevice(guestId, input.GuestIsolatedDeviceIndex)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetGuestIsolatedDevice")
+	}
 	return &hostapi.ContainerDevice{
 		Type: dev.Type,
 		IsolatedDevice: &hostapi.ContainerIsolatedDevice{
@@ -138,7 +142,10 @@ func (i isolatedDevice) ToHostDevice(dev *api.ContainerDevice) (*hostapi.Contain
 			Path:        isoDev.DevicePath,
 			CardPath:    isoDev.CardPath,
 			DeviceType:  isoDev.DevType,
+			SharingMode: isoDev.SharingMode,
 			RenderPath:  isoDev.RenderPath,
+			MemoryLimit: gdev.DeviceMemorySize,
+			SmUtilLimit: gdev.SmUtilLimit,
 			Index:       isoDev.Index,
 			DeviceMinor: isoDev.DeviceMinor,
 			OnlyEnv:     input.OnlyEnv,

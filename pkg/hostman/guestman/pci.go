@@ -22,11 +22,11 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
-	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
@@ -345,14 +345,14 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 	manager := s.manager.GetHost().GetIsolatedDeviceManager()
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
-		if s.Desc.IsolatedDevices[i].DevType == api.USB_TYPE {
+		if s.Desc.IsolatedDevices[i].DevType == compute.USB_TYPE {
 			s.Desc.IsolatedDevices[i].Usb = desc.NewUsbDevice("usb-host", dev.GetQemuId())
 			s.Desc.IsolatedDevices[i].Usb.Options = dev.GetPassthroughOptions()
 		} else {
 			id := dev.GetQemuId()
 			s.Desc.IsolatedDevices[i].VfioDevs = make([]*desc.VFIODevice, 0)
 			vfioDev := desc.NewVfioDevice(
-				*cType, "vfio-pci", id, dev.GetAddr(), s.Desc.IsolatedDevices[i].DevType == api.GPU_VGA_TYPE,
+				*cType, "vfio-pci", id, dev.GetAddr(), s.Desc.IsolatedDevices[i].GpuType == compute.GPU_VGA,
 			)
 			s.Desc.IsolatedDevices[i].VfioDevs = append(s.Desc.IsolatedDevices[i].VfioDevs, vfioDev)
 

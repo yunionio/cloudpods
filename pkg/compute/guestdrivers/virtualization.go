@@ -119,9 +119,9 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 			dev, _ := idev.(*models.SIsolatedDevice)
 			sriovWires = []string{dev.WireId}
 		} else {
-			wires, err := models.IsolatedDeviceManager.FindUnusedNicWiresByModel(netConfig.SriovDevice.Model)
+			wires, err := models.IsolatedDeviceManager.FindAvailableNicWiresByModel(netConfig.SriovDevice.Model)
 			if err != nil {
-				return nil, errors.Wrap(err, "FindUnusedNicWiresByModel")
+				return nil, errors.Wrap(err, "FindAvailableNicWiresByModel")
 			}
 			sriovWires = wires
 		}

@@ -133,6 +133,8 @@ type ServerListInput struct {
 
 	SnapshotpolicyId string `json:"snapshotpolicy_id"`
 
+	IsolatedDeviceId string `json:"isolated_device_id"`
+
 	// 是否调度到宿主机上
 	WithHost *bool `json:"with_host"`
 
@@ -1574,8 +1576,25 @@ func (conf ServerChangeConfigSettings) AddedDisk() int {
 }
 
 type ServerReleasedIsolatedDevice struct {
-	DevType string `json:"dev_type"`
-	Model   string `json:"model"`
+	DevType       string `json:"dev_type"`
+	Model         string `json:"model"`
+	GpuType       string `json:"gpu_type"`
+	SharingMode   string `json:"sharing_mode"`
+	MemoryRequest int    `json:"memory_request"`
+}
+
+type ServerAttachIsolatedDeviceBase struct {
+	AutoStart     bool   `json:"auto_start"`
+	GpuType       string `json:"gpu_type"`
+	MemoryRequest *int   `json:"memory_request"`
+	SharingMode   string `json:"sharing_mode"`
+	Count         *int   `json:"count"`
+}
+
+type ServerAttachIsolatedDeviceInput struct {
+	ServerAttachIsolatedDeviceBase
+	Device string `json:"device"`
+	Model  string `json:"model"`
 }
 
 type ServerChangeBillingTypeInput struct {
