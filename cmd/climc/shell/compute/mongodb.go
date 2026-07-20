@@ -25,7 +25,7 @@ func init() {
 	cmd := shell.NewResourceCmd(&modules.MongoDB)
 	cmd.List(&compute.MongoDBListOptions{})
 	cmd.Update(&compute.MongoDBUpdateOptions{})
-	cmd.Show(&options.BaseIdOptions{})
+	cmd.Show(&compute.MongoDBShowOptions{})
 	cmd.Delete(&options.BaseIdOptions{})
 	cmd.Get("backups", &options.BaseIdOptions{})
 	cmd.Perform("syncstatus", &options.BaseIdOptions{})

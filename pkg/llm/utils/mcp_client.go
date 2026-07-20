@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -32,6 +33,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/llm/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
@@ -60,21 +63,48 @@ type MCPClient struct {
 	messageID   int64
 	mu          sync.Mutex
 	initialized bool
+	closed      atomic.Bool
 	userCred    mcclient.TokenCredential
+
+	// requestTimeout 单次 JSON-RPC（含 tools/call）等待 SSE 回包的上限。
+	// 须覆盖 climc_server_create 的 forecast+等待（ServerCreateWaitSeconds），且小于整段 chat 超时。
+	requestTimeout time.Duration
 
 	pendingReqs map[int64]chan *rawMCPResponse
 	reqMu       sync.Mutex
 }
 
-// NewMCPClient 创建一个新的 MCP 客户端
+// NewMCPClient 创建一个新的 MCP 客户端。
+// timeout 为单次 RPC 等待 SSE 响应的超时；SSE 长连接本身不设整体 Timeout，避免读 body 被提前掐断。
 func NewMCPClient(serverURL string, timeout time.Duration, userCred mcclient.TokenCredential) *MCPClient {
+	if timeout <= 0 {
+		timeout = time.Duration(options.Options.MCPAgentTimeout) * time.Second
+	}
+	if timeout <= 0 {
+		timeout = 3 * time.Minute
+	}
 	return &MCPClient{
 		serverURL: strings.TrimSuffix(serverURL, "/"),
 		client: &http.Client{
-			Timeout: timeout,
+			Timeout: 0,
+			Transport: &http.Transport{
+				DialContext:           (&net.Dialer{Timeout: 30 * time.Second}).DialContext,
+				ResponseHeaderTimeout: 60 * time.Second,
+			},
 		},
-		userCred:    userCred,
-		pendingReqs: make(map[int64]chan *rawMCPResponse),
+		requestTimeout: timeout,
+		userCred:       userCred,
+		pendingReqs:    make(map[int64]chan *rawMCPResponse),
+	}
+}
+
+// setAuthHeaders 将当前用户 token 写入请求头，供 mcp-server SSE/message 鉴权。
+func (c *MCPClient) setAuthHeaders(req *http.Request) {
+	if c.userCred == nil {
+		return
+	}
+	if tok := strings.TrimSpace(c.userCred.GetTokenString()); tok != "" {
+		req.Header.Set(identity.AUTH_TOKEN_HEADER, tok)
 	}
 }
 
@@ -88,6 +118,7 @@ func (c *MCPClient) connectSSE(ctx context.Context) error {
 	}
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
+	c.setAuthHeaders(req)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -95,8 +126,8 @@ func (c *MCPClient) connectSSE(ctx context.Context) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
 		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
 		return errors.Errorf("SSE connection failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -125,7 +156,8 @@ func (c *MCPClient) connectSSE(ctx context.Context) error {
 			if err != nil {
 				if !foundSession {
 					initErr = err
-				} else {
+				} else if !isExpectedSSEClose(err) && !c.closed.Load() {
+					// 主动 Close / 对端正常结束时不刷告警
 					log.Warningf("SSE connection closed: %v", err)
 				}
 				return
@@ -212,7 +244,7 @@ func (c *MCPClient) Initialize(ctx context.Context) error {
 		ProtocolVersion: "2024-11-05",
 		Capabilities:    mcp.ClientCapabilities{},
 		ClientInfo: mcp.Implementation{
-			Name:    "cloudpods-mcp-agent",
+			Name:    fmt.Sprintf("%s-mcp-agent", options.ResolvedPlatformName()),
 			Version: "1.0.0",
 		},
 	}
@@ -318,7 +350,22 @@ func (c *MCPClient) sendRequest(ctx context.Context, req mcp.JSONRPCRequest) (*r
 		return &mcpResp, nil
 	}
 
-	// 如果响应为空，等待 SSE 推送
+	// 如果响应为空，等待 SSE 推送（/message 常返回空 body，结果走 SSE）
+	wait := c.requestTimeout
+	if wait <= 0 {
+		wait = 3 * time.Minute
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		remain := time.Until(deadline)
+		if remain <= 0 {
+			return nil, ctx.Err()
+		}
+		if remain < wait {
+			wait = remain
+		}
+	}
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
 	select {
 	case mcpResp := <-respChan:
 		log.Debugf("MCP response (SSE): ID=%v", mcpResp.ID)
@@ -328,8 +375,8 @@ func (c *MCPClient) sendRequest(ctx context.Context, req mcp.JSONRPCRequest) (*r
 		return mcpResp, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
-	case <-time.After(30 * time.Second):
-		return nil, errors.Error("timeout waiting for SSE response")
+	case <-timer.C:
+		return nil, errors.Errorf("timeout waiting for SSE response after %s", wait)
 	}
 }
 
@@ -423,14 +470,29 @@ func FormatToolResult(toolName string, result *mcp.CallToolResult, err error) st
 	return GetToolResultText(result)
 }
 
+// isExpectedSSEClose 判断是否为正常关闭（主动 Close / EOF / 连接已关）
+func isExpectedSSEClose(err error) bool {
+	if err == nil {
+		return true
+	}
+	if errors.Cause(err) == io.EOF || errors.Cause(err) == net.ErrClosed {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "use of closed network connection") ||
+		strings.Contains(msg, "closed network connection") ||
+		strings.Contains(msg, "http: read on closed response body")
+}
+
 // Close 关闭客户端连接
 func (c *MCPClient) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.closed.Store(true)
 	c.initialized = false
 	c.sessionURL = ""
 	if c.sseBody != nil {
-		c.sseBody.Close()
+		_ = c.sseBody.Close()
 		c.sseBody = nil
 	}
 	return nil

@@ -32,10 +32,12 @@ func init() {
 	cmd.GetProperty(&identity_options.DomainGetPropertyTagValuePairOptions{})
 	cmd.GetProperty(&identity_options.DomainGetPropertyTagValueTreeOptions{})
 
-	type DomainDetailOptions struct {
+	type DomainShowOptions struct {
+		_ struct{} `mcp-desc:"查询域详情。ID 可用 climc_domain_list 返回的 id/name"`
+
 		ID string `help:"ID or domain"`
 	}
-	R(&DomainDetailOptions{}, "domain-show", "Show detail of domain", func(s *mcclient.ClientSession, args *DomainDetailOptions) error {
+	R(&DomainShowOptions{}, "domain-show", "Show detail of domain", func(s *mcclient.ClientSession, args *DomainShowOptions) error {
 		result, err := modules.Domains.Get(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -43,7 +45,12 @@ func init() {
 		printObject(result)
 		return nil
 	})
-	R(&DomainDetailOptions{}, "domain-delete", "Delete a domain", func(s *mcclient.ClientSession, args *DomainDetailOptions) error {
+	type DomainDeleteOptions struct {
+		_ struct{} `mcp-desc:"删除域。若尚不知 id，先用 climc_domain_list 定位；确认域下无项目/用户后再删"`
+
+		ID string `help:"ID or domain"`
+	}
+	R(&DomainDeleteOptions{}, "domain-delete", "Delete a domain", func(s *mcclient.ClientSession, args *DomainDeleteOptions) error {
 		objId, err := modules.Domains.GetId(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -72,12 +79,14 @@ func init() {
 	}) */
 
 	type DomainCreateOptions struct {
-		NAME     string `help:"Name of domain"`
-		Desc     string `help:"Description"`
-		Enabled  bool   `help:"Set the domain enabled"`
-		Disabled bool   `help:"Set the domain disabled"`
+		_ struct{} `mcp-desc:"创建域。NAME 必填；可选 displayname/desc/enabled"`
 
-		Displayname string `help:"display name"`
+		NAME     string `help:"Name of domain"`
+		Desc     string `help:"Description" mcp:"true"`
+		Enabled  bool   `help:"Set the domain enabled" mcp:"true"`
+		Disabled bool   `help:"Set the domain disabled" mcp:"true"`
+
+		Displayname string `help:"display name" mcp:"true"`
 	}
 	R(&DomainCreateOptions{}, "domain-create", "Create a new domain", func(s *mcclient.ClientSession, args *DomainCreateOptions) error {
 		params := jsonutils.NewDict()

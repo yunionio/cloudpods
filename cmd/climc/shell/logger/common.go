@@ -15,13 +15,11 @@
 package logger
 
 import (
-	"yunion.io/x/pkg/util/printutils"
-
 	"yunion.io/x/onecloud/cmd/climc/shell"
 )
 
 var (
 	R           = shell.R
-	printList   = printutils.PrintJSONList
-	printObject = printutils.PrintJSONObject
+	printList   = shell.PrintList
+	printObject = shell.PrintObject
 )

@@ -15,10 +15,15 @@
 package shell
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
+	"runtime"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/printutils"
@@ -37,45 +42,111 @@ const (
 
 var outputFormat = OUTPUT_FORMAT_TABLE
 
+// goroutine 本地输出：MCP 并发 tools/call 时避免劫持全局 os.Stdout。
+type outputState struct {
+	writer io.Writer
+	format string
+}
+
+var outputStates sync.Map // uint64(goid) -> *outputState
+
 func OutputFormat(s string) {
 	outputFormat = s
 }
 
+// PushOutput 将当前 goroutine 的 shell 输出重定向到 w，并可选覆盖格式。
+// 返回的 restore 必须在同一 goroutine 调用。
+func PushOutput(w io.Writer, format string) (restore func()) {
+	id := goroutineID()
+	prev, _ := outputStates.Load(id)
+	outputStates.Store(id, &outputState{writer: w, format: format})
+	return func() {
+		if prev != nil {
+			outputStates.Store(id, prev)
+		} else {
+			outputStates.Delete(id)
+		}
+	}
+}
+
+func currentWriter() io.Writer {
+	if v, ok := outputStates.Load(goroutineID()); ok {
+		if s := v.(*outputState); s != nil && s.writer != nil {
+			return s.writer
+		}
+	}
+	return os.Stdout
+}
+
+func currentFormat() string {
+	if v, ok := outputStates.Load(goroutineID()); ok {
+		if s := v.(*outputState); s != nil && s.format != "" {
+			return s.format
+		}
+	}
+	return outputFormat
+}
+
+func goroutineID() uint64 {
+	b := make([]byte, 64)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	i := bytes.IndexByte(b, ' ')
+	if i <= 0 {
+		return 0
+	}
+	n, _ := strconv.ParseUint(string(b[:i]), 10, 64)
+	return n
+}
+
 func PrintList(list *printutils.ListResult, columns []string) {
-	switch outputFormat {
+	w := currentWriter()
+	switch currentFormat() {
 	case OUTPUT_FORMAT_TABLE:
-		printutils.PrintJSONList(list, columns)
+		if w == os.Stdout {
+			printutils.PrintJSONList(list, columns)
+			return
+		}
+		fmt.Fprint(w, jsonutils.Marshal(list).PrettyString())
+		fmt.Fprint(w, "\n")
 	case OUTPUT_FORMAT_JSON:
-		fmt.Print(jsonutils.Marshal(list).PrettyString())
-		fmt.Print("\n")
+		fmt.Fprint(w, jsonutils.Marshal(list).PrettyString())
+		fmt.Fprint(w, "\n")
 	case OUTPUT_FORMAT_YAML:
-		fmt.Print(jsonutils.Marshal(list).YAMLString())
+		fmt.Fprint(w, jsonutils.Marshal(list).YAMLString())
 	default:
-		fmt.Fprintf(os.Stderr, "unknown output format: %q\n", outputFormat)
+		fmt.Fprintf(os.Stderr, "unknown output format: %q\n", currentFormat())
 	}
 }
 
 func PrintObject(obj jsonutils.JSONObject) {
-	switch outputFormat {
+	w := currentWriter()
+	switch currentFormat() {
 	case OUTPUT_FORMAT_TABLE:
-		printutils.PrintJSONObject(obj)
+		if w == os.Stdout {
+			printutils.PrintJSONObject(obj)
+			return
+		}
+		fmt.Fprint(w, obj.PrettyString())
+		fmt.Fprint(w, "\n")
 	case OUTPUT_FORMAT_KV:
 		printObjectFmtKv(obj)
 	case OUTPUT_FORMAT_JSON:
-		fmt.Print(obj.PrettyString())
-		fmt.Print("\n")
+		fmt.Fprint(w, obj.PrettyString())
+		fmt.Fprint(w, "\n")
 	case OUTPUT_FORMAT_YAML:
-		fmt.Print(obj.YAMLString())
+		fmt.Fprint(w, obj.YAMLString())
 	case OUTPUT_FORMAT_FLATTEN_TABLE:
 		printObjectRecursive(obj)
 	case OUTPUT_FORMAT_FLATTEN_KV:
 		printObjectRecursiveEx(obj, printObjectFmtKv)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown output format: %q\n", outputFormat)
+		fmt.Fprintf(os.Stderr, "unknown output format: %q\n", currentFormat())
 	}
 }
 
 func printObjectFmtKv(obj jsonutils.JSONObject) {
+	w := currentWriter()
 	m, _ := obj.GetMap()
 	maxWidth := 0
 	keys := make([]string, 0, len(m))
@@ -95,7 +166,7 @@ func printObjectFmtKv(obj jsonutils.JSONObject) {
 		} else {
 			s = objV.String()
 		}
-		fmt.Printf("%*s: %s\n", maxWidth, k, s)
+		fmt.Fprintf(w, "%*s: %s\n", maxWidth, k, s)
 	}
 }
 
@@ -107,8 +178,24 @@ func printObjectRecursiveEx(obj jsonutils.JSONObject, cb printutils.PrintJSONObj
 	printutils.PrintJSONObjectRecursiveEx(obj, cb)
 }
 
+func PrintBatchResults(results []printutils.SubmitResult, columns []string) {
+	w := currentWriter()
+	switch currentFormat() {
+	case OUTPUT_FORMAT_JSON:
+		fmt.Fprint(w, jsonutils.Marshal(results).PrettyString())
+		fmt.Fprint(w, "\n")
+	default:
+		if w == os.Stdout {
+			printutils.PrintJSONBatchResults(results, columns)
+			return
+		}
+		fmt.Fprint(w, jsonutils.Marshal(results).PrettyString())
+		fmt.Fprint(w, "\n")
+	}
+}
+
 func printBatchResults(results []printutils.SubmitResult, columns []string) {
-	printutils.PrintJSONBatchResults(results, columns)
+	PrintBatchResults(results, columns)
 }
 
 func ExportList(list *printutils.ListResult, file string, exportKeys string, exportTexts string, columns []string) {

@@ -21,20 +21,22 @@ import (
 )
 
 type ImageListOptions struct {
+	_ struct{} `mcp-desc:"【创建流程中的中间步骤】用于查询 Glance/本地 KVM 可用镜像。公有云或非 KVM 请用 climc_cached_image_list。创建场景下查完镜像后继续查网络/规格并调用 climc_server_create。严禁只调用本工具后就停止"`
+
 	options.BaseListOptions
 
-	IsPublic                 string   `help:"filter images public or not(True, False or None)" choices:"true|false"`
-	IsStandard               string   `help:"filter images standard or non-standard" choices:"true|false"`
+	IsPublic                 string   `help:"filter images public or not(True, False or None)" choices:"true|false" mcp:"true"`
+	IsStandard               string   `help:"filter images standard or non-standard" choices:"true|false" mcp:"true"`
 	Protected                string   `help:"filter images by protected" choices:"true|false"`
-	IsUefi                   bool     `help:"list uefi image"`
-	Format                   []string `help:"Disk formats"`
+	IsUefi                   bool     `help:"list uefi image" mcp:"true"`
+	Format                   []string `help:"Disk formats" mcp:"true"`
 	SubFormats               []string `help:"Sub formats"`
-	Name                     string   `help:"Name filter"`
-	OsType                   []string `help:"Type of OS filter e.g. 'Windows, Linux, Freebsd, Android, macOS, VMWare'"`
+	Name                     string   `help:"Name filter" mcp:"true"`
+	OsType                   []string `help:"Type of OS filter e.g. 'Windows, Linux, Freebsd, Android, macOS, VMWare'" mcp:"true"`
 	OsTypePreciseMatch       bool     `help:"OS precise match"`
-	OsArch                   []string `help:"Type of OS arch filter e.g. 'x86, arm, arm64, x86_64'"`
+	OsArch                   []string `help:"Type of OS arch filter e.g. 'x86, arm, arm64, x86_64'" mcp:"true"`
 	OsArchPreciseMatch       bool     `help:"OS arch precise match"`
-	Distribution             []string `help:"Distribution filter, e.g. 'CentOS, Ubuntu, Debian, Windows'"`
+	Distribution             []string `help:"Distribution filter, e.g. 'CentOS, Ubuntu, Debian, Windows'" mcp:"true"`
 	DistributionPreciseMatch bool     `help:"Distribution precise match"`
 }
 

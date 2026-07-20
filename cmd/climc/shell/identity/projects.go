@@ -43,8 +43,10 @@ func init() {
 	cmd.PerformClass("clean", &identity_options.ProjectCleanOptions{})
 
 	type ProjectShowOptions struct {
+		_ struct{} `mcp-desc:"查询项目详情。ID 可用 climc_project_list 返回的 id/name；跨域时可传 domain"`
+
 		ID     string `help:"ID or Name of project"`
-		Domain string `help:"Domain"`
+		Domain string `help:"Domain" mcp:"true"`
 	}
 	R(&ProjectShowOptions{}, "project-show", "Show details of project", func(s *mcclient.ClientSession, args *ProjectShowOptions) error {
 		query := jsonutils.NewDict()
@@ -62,7 +64,13 @@ func init() {
 		printObject(result)
 		return nil
 	})
-	R(&ProjectShowOptions{}, "project-delete", "Delete a project", func(s *mcclient.ClientSession, args *ProjectShowOptions) error {
+	type ProjectDeleteOptions struct {
+		_ struct{} `mcp-desc:"删除项目。若尚不知 id，先用 climc_project_list 定位；跨域时可传 domain"`
+
+		ID     string `help:"ID or Name of project"`
+		Domain string `help:"Domain" mcp:"true"`
+	}
+	R(&ProjectDeleteOptions{}, "project-delete", "Delete a project", func(s *mcclient.ClientSession, args *ProjectDeleteOptions) error {
 		query := jsonutils.NewDict()
 		if len(args.Domain) > 0 {
 			domainId, err := modules.Domains.GetId(s, args.Domain, nil)
@@ -83,12 +91,14 @@ func init() {
 	})
 
 	type ProjectCreateOptions struct {
+		_ struct{} `mcp-desc:"创建项目。NAME 必填；可选 domain/displayname/desc"`
+
 		NAME        string `help:"Name of new project"`
-		Displayname string `help:"display name"`
-		Domain      string `help:"Domain"`
-		Desc        string `help:"Description"`
-		Enabled     bool   `help:"Project is enabled"`
-		Disabled    bool   `help:"Project is disabled"`
+		Displayname string `help:"display name" mcp:"true"`
+		Domain      string `help:"Domain" mcp:"true"`
+		Desc        string `help:"Description" mcp:"true"`
+		Enabled     bool   `help:"Project is enabled" mcp:"true"`
+		Disabled    bool   `help:"Project is disabled" mcp:"true"`
 	}
 	R(&ProjectCreateOptions{}, "project-create", "Create a project", func(s *mcclient.ClientSession, args *ProjectCreateOptions) error {
 		params := jsonutils.NewDict()

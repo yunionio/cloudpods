@@ -17,9 +17,14 @@ package server
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 
@@ -30,77 +35,63 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcp-server/adapters"
+	"yunion.io/x/onecloud/pkg/mcp-server/climcgen"
 	"yunion.io/x/onecloud/pkg/mcp-server/options"
 	"yunion.io/x/onecloud/pkg/mcp-server/registry"
-	"yunion.io/x/onecloud/pkg/mcp-server/tools"
 )
 
 // CloudpodsMCPServer 是 MCP 服务器的核心结构体，包含配置、日志、MCP 实例、注册中心和工具列表
 type CloudpodsMCPServer struct {
 	mcpServer *server.MCPServer
 	registry  *registry.Registry
-	tools     []tools.Tool
+	tools     []climcgen.Tool
 }
 
-// NewServer 创建一个新的 Cloudpods MCP 服务器实例，初始化 MCP 服务器和注册中心，并创建所有工具
-func NewServer() *CloudpodsMCPServer {
+// NewServerOptions 创建 MCP 服务器时可覆盖的选项。
+type NewServerOptions struct {
+	// Instructions MCP 全局说明；空则使用 climcgen.BuildServerInstructions(PlatformName)（再叠加 RegisterExtraInstructions）
+	Instructions string
+}
 
-	// 创建mcp server对象
+// NewServer 创建一个新的 Cloudpods MCP 服务器实例。
+// 工具从 climc shell.CommandTable + Options struct tag（mcp-desc）自动生成；
+// 可通过 climcgen.RegisterExtraTools 追加工具。
+func NewServer() *CloudpodsMCPServer {
+	return NewServerWithOptions(nil)
+}
+
+// NewServerWithOptions 同 NewServer，允许覆盖 Instructions 等。
+func NewServerWithOptions(opt *NewServerOptions) *CloudpodsMCPServer {
+	instructions := climcgen.BuildServerInstructions(options.ResolvedPlatformName())
+	if opt != nil && strings.TrimSpace(opt.Instructions) != "" {
+		instructions = opt.Instructions
+	}
+	if extra := climcgen.BuildExtraInstructions(); extra != "" {
+		instructions = strings.TrimSpace(instructions) + "\n\n" + extra
+	}
+
+	serverName := strings.TrimSpace(options.Options.MCPServerName)
+	if serverName == "" {
+		serverName = options.ResolvedPlatformName()
+	}
 	mcpServer := server.NewMCPServer(
-		options.Options.MCPServerName,
+		serverName,
 		options.Options.MCPServerVersion,
 		server.WithToolCapabilities(false),
 		server.WithRecovery(),
+		server.WithInstructions(instructions),
 	)
 
-	// 创建注册中心对象
 	reg := registry.NewRegistry()
-
-	var allTools []tools.Tool
-
-	// 创建mcclient sdk的适配器对象
 	adapter := adapters.NewCloudpodsAdapter()
 
-	// 创建具体的工具函数对象
-	// 用于查询资源的工具函数
-	regionsTool := tools.NewCloudpodsRegionsTool(adapter)
-	vpcsTool := tools.NewCloudpodsVPCsTool(adapter)
-	networksTool := tools.NewCloudpodsNetworksTool(adapter)
-	imagesTool := tools.NewCloudpodsImagesTool(adapter)
-	skusTool := tools.NewCloudpodsServerSkusTool(adapter)
-	storagesTool := tools.NewCloudpodsStoragesTool(adapter)
-	serversTool := tools.NewCloudpodsServersTool(adapter)
-
-	// 用于操作资源的工具函数
-	serverStartTool := tools.NewCloudpodsServerStartTool(adapter)
-	serverStopTool := tools.NewCloudpodsServerStopTool(adapter)
-	serverRestartTool := tools.NewCloudpodsServerRestartTool(adapter)
-	serverResetPasswordTool := tools.NewCloudpodsServerResetPasswordTool(adapter)
-	serverDeleteTool := tools.NewCloudpodsServerDeleteTool(adapter)
-	serverCreateTool := tools.NewCloudpodsServerCreateTool(adapter)
-	serverMonitorTool := tools.NewCloudpodsServerMonitorTool(adapter)
-	serverStatsTool := tools.NewCloudpodsServerStatsTool(adapter)
-
-	// 将所有的工具函数存储到一个切片中
-	allTools = append(
-		allTools,
-		regionsTool,
-		vpcsTool,
-		networksTool,
-		imagesTool,
-		skusTool,
-		storagesTool,
-		serversTool,
-
-		serverStartTool,
-		serverStopTool,
-		serverRestartTool,
-		serverResetPasswordTool,
-		serverDeleteTool,
-		serverCreateTool,
-		serverMonitorTool,
-		serverStatsTool,
-	)
+	allTools, err := climcgen.BuildTools(adapter)
+	if err != nil {
+		log.Fatalf("build climc MCP tools failed: %s", err)
+	}
+	if extra := climcgen.BuildExtraTools(); len(extra) > 0 {
+		allTools = append(extra, allTools...)
+	}
 
 	return &CloudpodsMCPServer{
 		mcpServer: mcpServer,
@@ -111,24 +102,17 @@ func NewServer() *CloudpodsMCPServer {
 
 // Initialize 初始化注册中心和所有工具
 func (s *CloudpodsMCPServer) Initialize() error {
-
-	// 初始化工具注册中心
 	if err := s.registry.Initialize(s.mcpServer); err != nil {
 		return fmt.Errorf("初始化工具注册中心失败: %w", err)
 	}
-
-	// 注册内置工具
 	if err := s.registerAllTools(); err != nil {
 		return fmt.Errorf("注册内置工具失败: %w", err)
 	}
-
 	return nil
 }
 
-// registerAllTools 将所有工具注册到注册中心
 func (s *CloudpodsMCPServer) registerAllTools() error {
 	for _, tool := range s.tools {
-		// 注册距离查询工具
 		if err := s.registry.RegisterTool(
 			tool.GetName(),
 			tool.GetTool(),
@@ -137,65 +121,62 @@ func (s *CloudpodsMCPServer) registerAllTools() error {
 			return fmt.Errorf("注册工具失败: %w", err)
 		}
 	}
-
-	log.Infof("All tools register completed")
+	log.Infof("All tools register completed, count=%d", len(s.tools))
 	return nil
+}
+
+// authenticateRequest 从 Header 注入会话凭据（可选）；无凭据时 ok=false，仍返回原 ctx。
+// /sse 与 tools/list 允许匿名；tools/call 在工具 Handler 内强制鉴权。
+func authenticateRequest(ctx context.Context, r *http.Request) (context.Context, bool) {
+	tokenStr := r.Header.Get(api.AUTH_TOKEN_HEADER)
+	akStr := r.Header.Get("AK")
+	skStr := r.Header.Get("SK")
+	apiKey := r.Header.Get("X-API-Key")
+
+	if tokenStr != "" {
+		if auth.IsAuthed() {
+			userCred, err := auth.Verify(ctx, tokenStr)
+			if err != nil {
+				log.Errorf("Verify token failed: %s", err)
+			} else {
+				ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, userCred)
+				return ctx, true
+			}
+		}
+	}
+
+	if akStr != "" && skStr != "" {
+		ctx = context.WithValue(ctx, adapters.ContextKeyAK, akStr)
+		ctx = context.WithValue(ctx, adapters.ContextKeySK, skStr)
+		return ctx, true
+	}
+
+	if apiKey != "" {
+		if auth.IsAuthed() {
+			if userCred, err := auth.Verify(ctx, apiKey); err == nil {
+				ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, userCred)
+				return ctx, true
+			}
+		}
+		decoded, err := base64.StdEncoding.DecodeString(apiKey)
+		if err == nil {
+			parts := strings.SplitN(string(decoded), ":", 2)
+			if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+				ctx = context.WithValue(ctx, adapters.ContextKeyAK, parts[0])
+				ctx = context.WithValue(ctx, adapters.ContextKeySK, parts[1])
+				return ctx, true
+			}
+		}
+	}
+
+	return ctx, false
 }
 
 // Start 以sse模式启动 mcp 服务
 func (s *CloudpodsMCPServer) Start() error {
-	// 设置 contextFunc 来从 HTTP header 中提取认证信息并放入 context
-	// 支持：X-Auth-Token（token）、AK/SK（Cursor 双 header）、X-API-Key（Claude 单 header：token 或 base64(ak:sk)）
 	contextFunc := func(ctx context.Context, r *http.Request) context.Context {
-		tokenStr := r.Header.Get(api.AUTH_TOKEN_HEADER)
-		akStr := r.Header.Get("AK")
-		skStr := r.Header.Get("SK")
-		apiKey := r.Header.Get("X-API-Key")
-
-		// 1) 优先使用 X-Auth-Token
-		if tokenStr != "" {
-			if auth.IsAuthed() {
-				userCred, err := auth.Verify(ctx, tokenStr)
-				if err != nil {
-					log.Errorf("Verify token failed: %s", err)
-				} else {
-					ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, userCred)
-					log.Debugf("UserCred set in context from HTTP header token")
-					return ctx
-				}
-			}
-		}
-
-		// 2) Cursor 方式：直接使用 AK、SK 两个 Header
-		if akStr != "" && skStr != "" {
-			ctx = context.WithValue(ctx, adapters.ContextKeyAK, akStr)
-			ctx = context.WithValue(ctx, adapters.ContextKeySK, skStr)
-			log.Debugf("AK/SK set in context from headers")
-			return ctx
-		}
-
-		// 3) Claude 方式：X-API-Key 可为 token，或 base64(ak:sk)
-		if apiKey != "" {
-			if auth.IsAuthed() {
-				if userCred, err := auth.Verify(ctx, apiKey); err == nil {
-					ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, userCred)
-					log.Debugf("UserCred set in context from X-API-Key token")
-					return ctx
-				}
-			}
-			decoded, err := base64.StdEncoding.DecodeString(apiKey)
-			if err == nil {
-				parts := strings.SplitN(string(decoded), ":", 2)
-				if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
-					ctx = context.WithValue(ctx, adapters.ContextKeyAK, parts[0])
-					ctx = context.WithValue(ctx, adapters.ContextKeySK, parts[1])
-					log.Debugf("AK/SK set in context from X-API-Key base64(ak:sk)")
-					return ctx
-				}
-			}
-		}
-
-		return ctx
+		ctx2, _ := authenticateRequest(ctx, r)
+		return ctx2
 	}
 
 	mux := http.NewServeMux()
@@ -223,17 +204,37 @@ func (s *CloudpodsMCPServer) Start() error {
 	mux.Handle(sseServer.CompleteSsePath(), sseServer.SSEHandler())
 	mux.Handle(sseServer.CompleteMessagePath(), sseServer.MessageHandler())
 
-	if err := sseServer.Start(fmt.Sprintf("%s:%d", options.Options.Address, options.Options.Port)); err != nil {
-		return err
-	}
-	log.Infof("Start mcp server successfully")
+	addr := fmt.Sprintf("%s:%d", options.Options.Address, options.Options.Port)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- sseServer.Start(addr)
+	}()
 
-	return nil
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	log.Infof("Start mcp server successfully on %s", addr)
+	select {
+	case err := <-errCh:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+		return nil
+	case sig := <-sigCh:
+		log.Infof("Received signal %v, shutting down mcp server...", sig)
+		signal.Stop(sigCh)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := sseServer.Shutdown(ctx); err != nil {
+			return fmt.Errorf("graceful shutdown failed: %w", err)
+		}
+		log.Infof("Mcp server stopped")
+		return nil
+	}
 }
 
-// StartStdio  以stdio模式启动 mcp 服务
+// StartStdio 以stdio模式启动 mcp 服务
 func (s *CloudpodsMCPServer) StartStdio() error {
-
 	err := server.ServeStdio(s.mcpServer)
 	if err != nil {
 		return err

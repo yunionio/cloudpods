@@ -24,18 +24,20 @@ import (
 )
 
 type StorageListOptions struct {
+	_ struct{} `mcp-desc:"【创建流程中的中间步骤】本工具不能完成创建。创建场景下查完存储后立刻 climc_server_create。严禁只调用本工具后就停止"`
+
 	options.BaseListOptions
 
 	Share    *bool  `help:"Share storage list"`
 	Local    *bool  `help:"Local storage list"`
-	Usable   *bool  `help:"Usable storage list"`
-	Zone     string `help:"List storages in zone" json:"-"`
-	Region   string `help:"List storages in region"`
+	Usable   *bool  `help:"Usable storage list" mcp:"true"`
+	Zone     string `help:"List storages in zone" json:"-" mcp:"true"`
+	Region   string `help:"List storages in region" mcp:"true"`
 	Schedtag string `help:"filter storage by schedtag"`
-	HostId   string `help:"filter storages which attached the specified host"`
+	HostId   string `help:"filter storages which attached the specified host" mcp:"true"`
 
 	HostSchedtagId string `help:"filter storage by host schedtag"`
-	ImageId        string `help:"filter storage by image"`
+	ImageId        string `help:"filter storage by image" mcp:"true"`
 	IsBaremetal    *bool  `help:"Baremetal storage list"`
 }
 

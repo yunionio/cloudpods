@@ -23,15 +23,17 @@ import (
 )
 
 type SecGroupRulesListOptions struct {
+	_ struct{} `mcp-desc:"列出安全组规则。建议传 secgroup（安全组 id/name）；详情 climc_secgroup_rule_show，创建 climc_secgroup_rule_create，删除 climc_secgroup_rule_delete"`
+
 	options.BaseListOptions
-	Secgroup     string   `help:"Secgroup ID or Name"`
-	SecgroupName string   `help:"Search rules by fuzzy secgroup name"`
-	Projects     []string `help:"Filter rules by project"`
-	Direction    string   `help:"filter Direction of rule" choices:"in|out"`
-	Protocol     string   `help:"filter Protocol of rule" choices:"any|tcp|udp|icmp"`
-	Action       string   `help:"filter Actin of rule" choices:"allow|deny"`
-	Ports        string   `help:"filter Ports of rule"`
-	Ip           string   `help:"filter cidr of rule"`
+	Secgroup     string   `help:"Secgroup ID or Name" mcp:"true"`
+	SecgroupName string   `help:"Search rules by fuzzy secgroup name" mcp:"true"`
+	Projects     []string `help:"Filter rules by project" mcp:"true"`
+	Direction    string   `help:"filter Direction of rule" choices:"in|out" mcp:"true"`
+	Protocol     string   `help:"filter Protocol of rule" choices:"any|tcp|udp|icmp" mcp:"true"`
+	Action       string   `help:"filter Actin of rule" choices:"allow|deny" mcp:"true"`
+	Ports        string   `help:"filter Ports of rule" mcp:"true"`
+	Ip           string   `help:"filter cidr of rule" mcp:"true"`
 }
 
 func (opts *SecGroupRulesListOptions) Params() (jsonutils.JSONObject, error) {
@@ -39,10 +41,25 @@ func (opts *SecGroupRulesListOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type SecGroupRulesCreateOptions struct {
+	_ struct{} `mcp-desc:"创建安全组规则。SECGROUP 为安全组 id/name，RULE 为规则字符串（如 in:allow tcp 22）；可用 climc_secgroup_list 定位安全组"`
+
 	SECGROUP string `help:"Secgroup ID or Name" metavar:"Secgroup"`
 	RULE     string `json:"-"`
-	Priority int64  `help:"priority of Rule" default:"50"`
-	Desc     string `help:"Description" json:"description"`
+	Priority int64  `help:"priority of Rule" default:"50" mcp:"true"`
+	Desc     string `help:"Description" json:"description" mcp:"true"`
+}
+
+// SecGroupRuleShowOptions / SecGroupRuleDeleteOptions 单独包装，避免复用 BaseShow/BaseId 误注册。
+type SecGroupRuleShowOptions struct {
+	_ struct{} `mcp-desc:"查询单条安全组规则详情。ID 可用 climc_secgroup_rule_list 返回的 id"`
+
+	options.BaseShowOptions
+}
+
+type SecGroupRuleDeleteOptions struct {
+	_ struct{} `mcp-desc:"删除安全组规则。若尚不知 id，先用 climc_secgroup_rule_list（建议带 secgroup）定位"`
+
+	options.BaseIdOptions
 }
 
 func (opts *SecGroupRulesCreateOptions) Params() (jsonutils.JSONObject, error) {
