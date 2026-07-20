@@ -127,8 +127,9 @@ func init() {
 	cmd.Perform("update-sub-ips", &options.ServerUpdateSubIpsOptions{})
 	cmd.BatchPerform("restore-virtual-isolated-devices", &options.ServerIdsOptions{})
 	cmd.BatchPerform("set-os-info", &options.ServerSetOSInfoOptions{})
-	cmd.BatchPerform("start-rescue", &options.ServerStartOptions{})
-	cmd.BatchPerform("stop-rescue", &options.ServerStartOptions{})
+	// 与 server-start 复用参数时单独包一层，避免继承 mcp-desc 被注册为 MCP tool
+	cmd.BatchPerform("start-rescue", &options.ServerStartRescueOptions{})
+	cmd.BatchPerform("stop-rescue", &options.ServerStopRescueOptions{})
 	cmd.BatchPerform("sync-os-info", &options.ServerIdsOptions{})
 	cmd.BatchPerform("set-root-disk-matcher", &options.ServerSetRootDiskMatcher{})
 	cmd.Perform("disable-auto-merge-snapshot", &options.ServerDisableAutoMergeSnapshot{})

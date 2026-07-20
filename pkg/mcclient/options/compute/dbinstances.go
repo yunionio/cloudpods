@@ -73,10 +73,12 @@ func (opts *DBInstanceCreateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type DBInstanceListOptions struct {
+	_ struct{} `mcp-desc:"列出 RDS（dbinstance）。可用 search/provider/region 等过滤；详情用 climc_dbinstance_show"`
+
 	options.BaseListOptions
-	BillingType string `help:"billing type" choices:"postpaid|prepaid"`
-	IpAddr      []string
-	SecgroupId  string
+	BillingType string   `help:"billing type" choices:"postpaid|prepaid" mcp:"true"`
+	IpAddr      []string `mcp:"true"`
+	SecgroupId  string   `mcp:"true"`
 }
 
 func (opts *DBInstanceListOptions) Params() (jsonutils.JSONObject, error) {
@@ -93,6 +95,13 @@ func (opts *DBInstanceIdOptions) GetId() string {
 
 func (opts *DBInstanceIdOptions) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
+}
+
+// DBInstanceShowOptions 单独包装，避免 IdOptions 被 reboot/sync 等复用时误注册。
+type DBInstanceShowOptions struct {
+	_ struct{} `mcp-desc:"查询 RDS（dbinstance）详情。ID 可用 climc_dbinstance_list 返回的 id/name"`
+
+	DBInstanceIdOptions
 }
 
 type DBInstanceRenewOptions struct {

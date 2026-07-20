@@ -47,9 +47,11 @@ type BaseActionListOptions struct {
 }
 
 type ActionListOptions struct {
+	_ struct{} `mcp-desc:"查询操作日志（谁在何时对资源做了什么）。可按对象类型 type（如 server/disk/host）、对象 id、时间 since/until、action、user、project、succ/fail 过滤；默认 limit=20。排查创建失败、误操作、审计时优先调用"`
+
 	BaseActionListOptions
 	Service []string `help:"service name"`
-	Id      string   `help:"" metavar:"OBJ_ID"`
+	Id      string   `help:"filter by object id" metavar:"OBJ_ID"`
 	Type    []string `help:"Type of relevant object" metavar:"OBJ_TYPE"`
 }
 

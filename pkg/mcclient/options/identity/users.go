@@ -21,14 +21,16 @@ import (
 )
 
 type UserListOptions struct {
+	_ struct{} `mcp-desc:"列出用户。可用 search/name/domain 等过滤；详情 climc_user_show，创建 climc_user_create，删除 climc_user_delete"`
+
 	options.BaseListOptions
-	Name                    string `help:"Filter by name"`
-	OrderByDomain           string `help:"order by domain name" choices:"asc|desc"`
-	Role                    string `help:"Filter by role"`
-	RoleAssignmentDomainId  string `help:"filter role assignment domain"`
-	RoleAssignmentProjectId string `help:"filter role assignment project"`
-	IdpId                   string `help:"filter by idp_id"`
-	IdpEntityId             string `help:"filter by idp_entity_id"`
+	Name                    string `help:"Filter by name" mcp:"true"`
+	OrderByDomain           string `help:"order by domain name" choices:"asc|desc" mcp:"true"`
+	Role                    string `help:"Filter by role" mcp:"true"`
+	RoleAssignmentDomainId  string `help:"filter role assignment domain" mcp:"true"`
+	RoleAssignmentProjectId string `help:"filter role assignment project" mcp:"true"`
+	IdpId                   string `help:"filter by idp_id" mcp:"true"`
+	IdpEntityId             string `help:"filter by idp_entity_id" mcp:"true"`
 }
 
 func (opts *UserListOptions) Params() (jsonutils.JSONObject, error) {

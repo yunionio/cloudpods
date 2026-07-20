@@ -24,7 +24,7 @@ var (
 	R                 = shell.R
 	printList         = shell.PrintList
 	printObject       = shell.PrintObject
-	printBatchResults = printutils.PrintJSONBatchResults
+	printBatchResults = shell.PrintBatchResults
 
 	InvalidUpdateError   = shell.InvalidUpdateError
 	printObjectRecursive = printutils.PrintJSONObjectRecursive

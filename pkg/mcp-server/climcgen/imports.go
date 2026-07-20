@@ -12,20 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tools
+package climcgen
 
+// 导入 climc shell 子包以填充 shell.CommandTable
 import (
-	"context"
-
-	"github.com/mark3labs/mcp-go/mcp"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/compute"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/identity"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/image"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/logger"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/monitor"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/scheduler"
 )
-
-// Tool 是所有工具的接口，定义了工具的基本方法
-// GetTool 返回 MCP 工具定义
-// Handle 处理工具调用请求
-// GetName 返回工具名称
-type Tool interface {
-	GetTool() mcp.Tool
-	Handle(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error)
-	GetName() string
-}

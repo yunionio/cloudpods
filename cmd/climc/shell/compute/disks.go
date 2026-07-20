@@ -42,7 +42,7 @@ import (
 func init() {
 	cmd := shell.NewResourceCmd(&modules.Disks)
 	cmd.List(&compute_options.DiskListOptions{})
-	cmd.Show(&compute_options.DiskIdOptions{})
+	cmd.Show(&compute_options.DiskShowOptions{})
 	cmd.Perform("public", &compute_options.DiskIdOptions{})
 	cmd.Perform("private", &compute_options.DiskIdOptions{})
 	cmd.Perform("syncstatus", &compute_options.DiskIdOptions{})
@@ -55,13 +55,7 @@ func init() {
 	cmd.Perform("change-billing-type", new(compute_options.DiskChangeBillingTypeOptions))
 	cmd.Perform("change-storage-type", &compute_options.DiskChangeStorageTypeOptions{})
 
-	type DiskDeleteOptions struct {
-		ID                    []string `help:"ID of disks to delete" metavar:"DISK"`
-		OverridePendingDelete bool     `help:"Delete disk directly instead of pending delete" short-token:"f"`
-		DeleteSnapshots       bool     `help:"Delete disk snapshots before delete disk"`
-	}
-
-	R(&DiskDeleteOptions{}, "disk-delete", "Delete a disk", func(s *mcclient.ClientSession, args *DiskDeleteOptions) error {
+	R(&compute_options.DiskDeleteOptions{}, "disk-delete", "Delete a disk", func(s *mcclient.ClientSession, args *compute_options.DiskDeleteOptions) error {
 		params := jsonutils.NewDict()
 		if args.OverridePendingDelete {
 			params.Add(jsonutils.JSONTrue, "override_pending_delete")
@@ -173,11 +167,7 @@ func init() {
 		return nil
 	})
 
-	type DiskResizeOptions struct {
-		DISK string `help:"ID or name of disk"`
-		SIZE string `help:"Size of disk"`
-	}
-	R(&DiskResizeOptions{}, "disk-resize", "Resize a disk", func(s *mcclient.ClientSession, args *DiskResizeOptions) error {
+	R(&compute_options.DiskResizeOptions{}, "disk-resize", "Resize a disk", func(s *mcclient.ClientSession, args *compute_options.DiskResizeOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.SIZE), "size")
 		disk, err := modules.Disks.PerformAction(s, args.DISK, "resize", params)
