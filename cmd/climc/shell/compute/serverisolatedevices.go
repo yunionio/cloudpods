@@ -23,15 +23,15 @@ import (
 
 func init() {
 	type ServerAttachDeviceOptions struct {
-		SERVER string `help:"ID or name of server"`
-		DEVICE string `help:"ID of isolated device to attach"`
-		Type   string `help:"Device type" choices:"GPU-HPC|GPU-VGA|PCI"`
+		SERVER  string `help:"ID or name of server"`
+		DEVICE  string `help:"ID of isolated device to attach"`
+		GpuType string `help:"Type of GPU to attach to" choices:"HPC|VGA"`
 	}
 	R(&ServerAttachDeviceOptions{}, "server-attach-isolated-device", "Attach an existing isolated device to a virtual server", func(s *mcclient.ClientSession, args *ServerAttachDeviceOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.DEVICE), "device")
-		if len(args.Type) > 0 {
-			params.Add(jsonutils.NewString(args.Type), "dev_type")
+		if args.GpuType != "" {
+			params.Add(jsonutils.NewString(args.GpuType), "gpu_type")
 		}
 		srv, err := modules.Servers.PerformAction(s, args.SERVER, "attach-isolated-device", params)
 		if err != nil {
@@ -44,11 +44,13 @@ func init() {
 	type ServerDetachDeviceOptions struct {
 		SERVER  string `help:"ID or name of server"`
 		DEVICE  string `help:"ID of isolated device to detach"`
+		INDEX   int    `help:"Index of isolated device to detach"`
 		IsForce bool   `help:"Force detach isolated device"`
 	}
 	R(&ServerDetachDeviceOptions{}, "server-detach-isolated-device", "Detach a isolated device from a virtual server", func(s *mcclient.ClientSession, args *ServerDetachDeviceOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.DEVICE), "device")
+		params.Add(jsonutils.NewInt(int64(args.INDEX)), "index")
 		if args.IsForce {
 			params.Set("is_force", jsonutils.JSONTrue)
 		}

@@ -100,7 +100,7 @@ func getSRIOVNics(hostNics []HostNic) ([]*sSRIOVNicDevice, error) {
 
 func NewSRIOVNicDevice(dev *PCIDevice, devType, wireId, pfName string, virtfn int, isInfinibandNic bool) *sSRIOVNicDevice {
 	return &sSRIOVNicDevice{
-		sSRIOVBaseDevice: newSRIOVBaseDevice(dev, devType),
+		sSRIOVBaseDevice: newSRIOVBaseDevice(dev, devType, api.DEVICE_SHARING_MODE_SRIOV),
 		WireId:           wireId,
 		pfName:           pfName,
 		virtfn:           virtfn,

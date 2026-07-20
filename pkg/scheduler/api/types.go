@@ -55,31 +55,7 @@ var (
 		AggregateStrategyPrefer,
 		AggregateStrategyAvoid,
 	)
-
-	ValidGpuTypes = sets.NewString(
-		GPU_HPC_TYPE,
-		GPU_VGA_TYPE,
-	)
-
-	ValidPassthroughTypes = sets.NewString(
-		DIRECT_PCI_TYPE,
-		USB_TYPE,
-		NIC_TYPE,
-	).Union(ValidGpuTypes)
-
-	IsolatedVendorIDMap = map[string]string{
-		NVIDIA: NVIDIA_VENDOR_ID,
-		AMD:    AMD_VENDOR_ID,
-	}
-
-	IsolatedIDVendorMap = map[string]string{}
 )
-
-func init() {
-	for k, v := range IsolatedVendorIDMap {
-		IsolatedIDVendorMap[v] = k
-	}
-}
 
 func SchedtagStrategyCheck(strategy string) (err error) {
 	if !AggregateStrategySets.Has(strategy) {
