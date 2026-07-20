@@ -80,6 +80,7 @@ type ServerListOptions struct {
 
 	WithUserMeta *bool `help:"filter by user metadata" negative:"without_user_meta"`
 
+	IsolateDeviceId            string `help:"filter guest with isolated device id" json:"isolate_device_id"`
 	WithHost                   *bool  `help:"filter guest with host or not" negative:"without_host"`
 	SnapshotpolicyId           string `help:"filter guest with snapshotpolicy or not" json:"snapshotpolicy_id"`
 	BindingDisksSnapshotpolicy *bool  `help:"filter guest with disks binding snapshotpolicy or not" negative:"no-binding-disks-snapshotpolicy" json:"binding_disks_snapshotpolicy"`

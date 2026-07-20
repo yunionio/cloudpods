@@ -91,11 +91,12 @@ func (task *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) 
 	}
 	res := guest.GetSchedMigrateParams(task.GetUserCred(), input)
 
-	if devs, _ := guest.GetIsolatedDevices(); len(devs) > 0 {
+	if devs, _ := guest.GetGuestIsolatedDevices(); len(devs) > 0 {
 		preferNumaNodesSet := cpuset.NewBuilder()
 		for i := range devs {
-			if devs[i].NumaNode >= 0 {
-				preferNumaNodesSet.Add(int(devs[i].NumaNode))
+			dev := devs[i].GetIsolatedDevice()
+			if dev.NumaNode >= 0 {
+				preferNumaNodesSet.Add(int(dev.NumaNode))
 			}
 		}
 		res.PreferNumaNodes = preferNumaNodesSet.Result().ToSlice()

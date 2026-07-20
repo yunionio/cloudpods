@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -77,10 +76,6 @@ func (manager *SIsolatedDeviceModelManager) ValidateCreateData(ctx context.Conte
 	query jsonutils.JSONObject,
 	input api.IsolatedDeviceModelCreateInput,
 ) (api.IsolatedDeviceModelCreateInput, error) {
-	if utils.IsInStringArray(input.DevType, api.VALID_PASSTHROUGH_TYPES) {
-		return input, httperrors.NewInputParameterError("device type %q is not supported", input.DevType)
-	}
-
 	input.VendorId = strings.ToLower(input.VendorId)
 	input.DeviceId = strings.ToLower(input.DeviceId)
 	deviceVendorReg := regexp.MustCompile(`^[a-f0-9]{4}$`)

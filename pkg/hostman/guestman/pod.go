@@ -37,7 +37,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
-	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -838,7 +837,8 @@ func (s *sPodGuestInstance) GetPodContainerCriIds() []string {
 
 func (s *sPodGuestInstance) HasContainerNvidiaGpu() bool {
 	for i := range s.Desc.IsolatedDevices {
-		if utils.IsInStringArray(s.Desc.IsolatedDevices[i].DevType, computeapi.NVIDIA_GPU_TYPES) {
+		vendor := strings.Split(s.Desc.IsolatedDevices[i].VendorDeviceId, ":")[0]
+		if vendor == computeapi.NVIDIA_VENDOR_ID {
 			return true
 		}
 	}
@@ -2340,39 +2340,6 @@ func (s *sPodGuestInstance) getEtcFilesMount(ctrId string) ([]*runtimeapi.Mount,
 	return []*runtimeapi.Mount{etcHostsMount, etcHostnameMount, etcResolvConfMount}, nil
 }
 
-type FilteredContainerDevices struct {
-	EnvDevs  []*hostapi.ContainerDevice
-	CDIDevs  []*hostapi.ContainerDevice
-	RestDevs []*hostapi.ContainerDevice
-}
-
-func filterContainerIsolatedDevices(devs []*hostapi.ContainerDevice, devTypes sets.String) FilteredContainerDevices {
-	envDevs := []*hostapi.ContainerDevice{}
-	restDevs := []*hostapi.ContainerDevice{}
-	cdiDevs := []*hostapi.ContainerDevice{}
-	for i := range devs {
-		dev := devs[i]
-		if dev.IsolatedDevice != nil {
-			devType := dev.IsolatedDevice.DeviceType
-			if !devTypes.Has(devType) {
-				continue
-			}
-			if dev.IsolatedDevice.IsCDIUsed() {
-				cdiDevs = append(cdiDevs, dev)
-			} else if len(dev.IsolatedDevice.OnlyEnv) > 0 {
-				envDevs = append(envDevs, dev)
-			} else {
-				restDevs = append(restDevs, dev)
-			}
-		}
-	}
-	return FilteredContainerDevices{
-		EnvDevs:  envDevs,
-		CDIDevs:  cdiDevs,
-		RestDevs: restDevs,
-	}
-}
-
 func getEnvsFromDevices(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue {
 	retEnvs := []*runtimeapi.KeyValue{}
 	for _, dev := range devs {
@@ -2411,32 +2378,48 @@ func getEnvsFromDevices(devs []*hostapi.ContainerDevice) []*runtimeapi.KeyValue 
 }
 
 func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.ContainerSpec, ctrCfg *runtimeapi.ContainerConfig) error {
-	devTypes := sets.NewString(
-		string(isolated_device.ContainerDeviceTypeNvidiaGpu),
-		string(isolated_device.ContainerDeviceTypeNvidiaMps),
-		string(isolated_device.ContainerDeviceTypeNvidiaGpuShare),
-		string(isolated_device.ContainerDeviceTypeAscendNpu),
-	)
-	fDevs := filterContainerIsolatedDevices(spec.Devices, devTypes)
-	if len(fDevs.EnvDevs) != 0 {
-		ctrCfg.Envs = append(ctrCfg.Envs, getEnvsFromDevices(fDevs.EnvDevs)...)
-	}
-	restDevsByType := map[string][]*hostapi.ContainerDevice{}
-	restDevTypeOrder := []string{}
-	for i := range fDevs.RestDevs {
-		dev := fDevs.RestDevs[i]
+	envDevs := []*hostapi.ContainerDevice{}
+	restDevs := []*hostapi.ContainerDevice{}
+	cdiDevs := []*hostapi.ContainerDevice{}
+	for i := range spec.Devices {
+		dev := spec.Devices[i]
+		if dev.IsolatedDevice == nil {
+			continue
+		}
 		devType := dev.IsolatedDevice.DeviceType
-		if _, ok := restDevsByType[devType]; !ok {
-			restDevTypeOrder = append(restDevTypeOrder, devType)
+		if devType != computeapi.GPU_TYPE && devType != computeapi.NPU_TYPE {
+			continue
 		}
-		restDevsByType[devType] = append(restDevsByType[devType], dev)
+		if dev.IsolatedDevice.IsCDIUsed() {
+			cdiDevs = append(cdiDevs, dev)
+		} else if len(dev.IsolatedDevice.OnlyEnv) > 0 {
+			envDevs = append(envDevs, dev)
+		} else {
+			restDevs = append(restDevs, dev)
+		}
 	}
-	for _, devType := range restDevTypeOrder {
-		devs := restDevsByType[devType]
-		devMan, err := isolated_device.GetContainerDeviceManager(isolated_device.ContainerDeviceType(devType))
-		if err != nil {
-			return errors.Wrapf(err, "GetContainerDeviceManager by type %q", devType)
+
+	if len(envDevs) != 0 {
+		ctrCfg.Envs = append(ctrCfg.Envs, getEnvsFromDevices(envDevs)...)
+	}
+	restDevsByType := map[isolated_device.IContainerDeviceManager][]*hostapi.ContainerDevice{}
+	restDevTypeOrder := []isolated_device.IContainerDeviceManager{}
+	for i := range restDevs {
+		dev := restDevs[i]
+
+		iDev := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByCloudId(dev.IsolatedDevice.Id)
+		if iDev == nil {
+			return errors.Wrapf(errors.ErrNotFound, "device %s not exist", dev.IsolatedDevice.Id)
 		}
+		devMan := iDev.GetContainerDeviceManager()
+
+		if _, ok := restDevsByType[devMan]; !ok {
+			restDevTypeOrder = append(restDevTypeOrder, devMan)
+		}
+		restDevsByType[devMan] = append(restDevsByType[devMan], dev)
+	}
+	for _, devMan := range restDevTypeOrder {
+		devs := restDevsByType[devMan]
 		envs, mounts := devMan.GetContainerExtraConfigures(devs)
 		if len(envs) > 0 {
 			ctrCfg.Envs = append(ctrCfg.Envs, envs...)
@@ -2446,8 +2429,8 @@ func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.Container
 		}
 	}
 
-	if len(fDevs.CDIDevs) > 0 {
-		cdiDevs, err := isolated_device.GetContainerCDIDevices(fDevs.CDIDevs)
+	if len(cdiDevs) > 0 {
+		cdiDevs, err := isolated_device.GetContainerCDIDevices(cdiDevs)
 		if err != nil {
 			return errors.Wrap(err, "GetContainerCDIDevices")
 		}

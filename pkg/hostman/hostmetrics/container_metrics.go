@@ -146,7 +146,7 @@ func (m PodCphAmdGpuMetrics) GetUniformName() string {
 func (m PodCphAmdGpuMetrics) GetTag() map[string]string {
 	return map[string]string{
 		"dev_id":   m.DevId,
-		"dev_type": apis.CONTAINER_DEV_CPH_AMD_GPU,
+		"dev_type": apis.GPU_TYPE,
 	}
 }
 
@@ -183,7 +183,7 @@ func (m PodVastaitechGpuMetrics) GetUniformName() string {
 func (m PodVastaitechGpuMetrics) GetTag() map[string]string {
 	return map[string]string{
 		"dev_id":   m.DevId,
-		"dev_type": apis.CONTAINER_DEV_VASTAITECH_GPU,
+		"dev_type": apis.NPU_TYPE,
 	}
 }
 
@@ -226,14 +226,18 @@ func (m PodNvidiaGpuMetrics) GetUniformName() string {
 }
 
 func (m PodNvidiaGpuMetrics) GetTag() map[string]string {
-	devType := apis.CONTAINER_DEV_NVIDIA_GPU
+	devType := apis.GPU_TYPE
+	sharingMode := apis.DEVICE_SHARING_MODE_UNLIMITED
 	if options.HostOptions.EnableCudaMPS {
-		devType = apis.CONTAINER_DEV_NVIDIA_MPS
+		sharingMode = apis.DEVICE_SHARING_MODE_MPS
+	} else if options.HostOptions.EnableCudaHAMI {
+		sharingMode = apis.DEVICE_SHARING_MODE_HAMI
 	}
 	return map[string]string{
 		"index":          strconv.Itoa(m.Index),
 		"physical_index": strconv.Itoa(m.PhysicalIndex),
 		"dev_type":       devType,
+		"sharing_mode":   sharingMode,
 	}
 }
 

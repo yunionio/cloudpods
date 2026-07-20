@@ -15,7 +15,6 @@
 package container_device
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -24,7 +23,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -44,12 +45,12 @@ func newNvidiaMPSManager() *nvidiaMPSManager {
 	return &nvidiaMPSManager{}
 }
 
-func (m *nvidiaMPSManager) GetType() isolated_device.ContainerDeviceType {
+func (m *nvidiaMPSManager) GetRegisterType() isolated_device.ContainerDeviceType {
 	return isolated_device.ContainerDeviceTypeNvidiaMps
 }
 
 func (m *nvidiaMPSManager) ProbeDevices() ([]isolated_device.IDevice, error) {
-	return getNvidiaMPSGpus(options.HostOptions.CudaMPSReplicas)
+	return m.getNvidiaMPSGpus(options.HostOptions.CudaMPSReplicas)
 }
 
 func (m *nvidiaMPSManager) NewDevices(dev *isolated_device.ContainerDevice) ([]isolated_device.IDevice, error) {
@@ -60,7 +61,7 @@ func (m *nvidiaMPSManager) NewDevices(dev *isolated_device.ContainerDevice) ([]i
 		return nil, err
 	}
 
-	return getNvidiaMPSGpusByDevPath(dev.VirtualNumber, dev.Path)
+	return m.getNvidiaMPSGpusByDevPath(dev.VirtualNumber, dev.Path)
 }
 
 func (m *nvidiaMPSManager) NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {
@@ -81,9 +82,12 @@ func (m *nvidiaMPSManager) GetContainerExtraConfigures(devs []*hostapi.Container
 		if dev.IsolatedDevice == nil {
 			continue
 		}
-		if isolated_device.ContainerDeviceType(dev.IsolatedDevice.DeviceType) != isolated_device.ContainerDeviceTypeNvidiaMps {
+		iDev := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByCloudId(dev.IsolatedDevice.Id)
+		devMan := iDev.GetContainerDeviceManager()
+		if _, ok := devMan.(*nvidiaMPSManager); !ok {
 			continue
 		}
+
 		gpuIds = append(gpuIds, dev.IsolatedDevice.Path)
 	}
 	if len(gpuIds) == 0 {
@@ -116,6 +120,7 @@ func (m *nvidiaMPSManager) GetContainerExtraConfigures(devs []*hostapi.Container
 }
 
 type nvidiaMPS struct {
+	manager *nvidiaMPSManager
 	*BaseDevice
 
 	MemSizeMB        int
@@ -145,6 +150,10 @@ func (c *nvidiaMPS) GetNvidiaMpsThreadPercentage() int {
 	return c.ThreadPercentage
 }
 
+func (dev *nvidiaMPS) GetContainerDeviceManager() isolated_device.IContainerDeviceManager {
+	return dev.manager
+}
+
 func parseMemSize(memTotalStr string) (int, error) {
 	if !strings.HasSuffix(memTotalStr, " MiB") {
 		return -1, errors.Errorf("unknown mem string suffix")
@@ -153,9 +162,9 @@ func parseMemSize(memTotalStr string) (int, error) {
 	return strconv.Atoi(memStr)
 }
 
-func getNvidiaMPSGpusByDevPath(cudaMPSReplicas int, devPath string) ([]isolated_device.IDevice, error) {
+func (m *nvidiaMPSManager) getNvidiaMPSGpusByDevPath(cudaMPSReplicas int, devPath string) ([]isolated_device.IDevice, error) {
 	configuredByDevPath = true
-	pDev, err := NewPCIGPURenderBaseDevice(devPath, 0, isolated_device.ContainerDeviceTypeNvidiaMps)
+	pDev, err := NewPCIGPURenderBaseDevice(devPath, 0, computeapi.GPU_TYPE, computeapi.DEVICE_SHARING_MODE_MPS)
 	if err != nil {
 		return nil, errors.Wrap(err, "new PCIGPURenderBaseDevice")
 	}
@@ -200,21 +209,17 @@ func getNvidiaMPSGpusByDevPath(cudaMPSReplicas int, devPath string) ([]isolated_
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetPCIStrByAddr %s", gpuPciAddr)
 		}
-
-		for i := 0; i < cudaMPSReplicas; i++ {
-			dev := isolated_device.NewPCIDevice2(pciOutput[0])
-			gpuDev := &nvidiaMPS{
-				BaseDevice:       NewBaseDevice(dev, isolated_device.ContainerDeviceTypeNvidiaMps, gpuId),
-				MemSizeMB:        memSize / cudaMPSReplicas,
-				MemTotalMB:       memSize,
-				ThreadPercentage: 100 / cudaMPSReplicas,
-				gpuIndex:         index,
-			}
-			gpuDev.SetModelName(gpuName)
-			devAddr := gpuDev.GetAddr()
-			gpuDev.SetAddr(fmt.Sprintf("%s-%d", devAddr, i), devAddr)
-			devs = append(devs, gpuDev)
+		dev := isolated_device.NewPCIDevice2(pciOutput[0])
+		gpuDev := &nvidiaMPS{
+			manager:          m,
+			BaseDevice:       NewBaseDevice(dev, computeapi.GPU_TYPE, gpuId, computeapi.DEVICE_SHARING_MODE_MPS, cudaMPSReplicas),
+			MemSizeMB:        memSize / cudaMPSReplicas,
+			MemTotalMB:       memSize,
+			ThreadPercentage: 100 / cudaMPSReplicas,
+			gpuIndex:         index,
 		}
+		gpuDev.SetModelName(gpuName)
+		devs = append(devs, gpuDev)
 	}
 	if len(devs) == 0 {
 		return nil, nil
@@ -222,7 +227,7 @@ func getNvidiaMPSGpusByDevPath(cudaMPSReplicas int, devPath string) ([]isolated_
 	return devs, nil
 }
 
-func getNvidiaMPSGpus(cudaMPSReplicas int) ([]isolated_device.IDevice, error) {
+func (m *nvidiaMPSManager) getNvidiaMPSGpus(cudaMPSReplicas int) ([]isolated_device.IDevice, error) {
 	if configuredByDevPath {
 		return nil, nil
 	}
@@ -257,20 +262,17 @@ func getNvidiaMPSGpus(cudaMPSReplicas int) ([]isolated_device.IDevice, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetPCIStrByAddr %s", gpuPciAddr)
 		}
-		for i := 0; i < cudaMPSReplicas; i++ {
-			dev := isolated_device.NewPCIDevice2(pciOutput[0])
-			gpuDev := &nvidiaMPS{
-				BaseDevice:       NewBaseDevice(dev, isolated_device.ContainerDeviceTypeNvidiaMps, gpuId),
-				MemSizeMB:        memSize / cudaMPSReplicas,
-				MemTotalMB:       memSize,
-				ThreadPercentage: 100 / cudaMPSReplicas,
-				gpuIndex:         index,
-			}
-			gpuDev.SetModelName(gpuName)
-			devAddr := gpuDev.GetAddr()
-			gpuDev.SetAddr(fmt.Sprintf("%s-%d", devAddr, i), devAddr)
-			devs = append(devs, gpuDev)
+		dev := isolated_device.NewPCIDevice2(pciOutput[0])
+		gpuDev := &nvidiaMPS{
+			manager:          m,
+			BaseDevice:       NewBaseDevice(dev, computeapi.GPU_TYPE, gpuId, computeapi.DEVICE_SHARING_MODE_MPS, cudaMPSReplicas),
+			MemSizeMB:        memSize / cudaMPSReplicas,
+			MemTotalMB:       memSize,
+			ThreadPercentage: 100 / cudaMPSReplicas,
+			gpuIndex:         index,
 		}
+		gpuDev.SetModelName(gpuName)
+		devs = append(devs, gpuDev)
 	}
 	if len(devs) == 0 {
 		return nil, nil

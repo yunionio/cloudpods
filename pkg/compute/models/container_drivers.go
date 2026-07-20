@@ -134,7 +134,7 @@ type IContainerDeviceDriver interface {
 	GetType() apis.ContainerDeviceType
 	ValidatePodCreateData(ctx context.Context, userCred mcclient.TokenCredential, dev *api.ContainerDevice, input *api.ServerCreateInput) error
 	ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, pod *SGuest, dev *api.ContainerDevice) (*api.ContainerDevice, error)
-	ToHostDevice(dev *api.ContainerDevice) (*hostapi.ContainerDevice, error)
+	ToHostDevice(dev *api.ContainerDevice, guestId string) (*hostapi.ContainerDevice, error)
 }
 
 type IContainerLifecyleDriver interface {

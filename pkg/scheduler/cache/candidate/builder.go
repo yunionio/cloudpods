@@ -43,7 +43,8 @@ type baseBuilder struct {
 	hosts    []computemodels.SHost
 	hostDict map[string]*computemodels.SHost
 
-	isolatedDevicesDict map[string][]interface{}
+	isolatedDevicesDict      map[string][]interface{}
+	isolatedDeviceGuestsDict map[string][]string
 
 	hostCloudproviers map[string]*computemodels.SCloudprovider
 	hostCloudaccounts map[string]*computemodels.SCloudaccount
@@ -181,23 +182,23 @@ func (b *baseBuilder) setHosts(ids []string) error {
 	return nil
 }
 
-func (b *baseBuilder) getIsolatedDevices(hostID string) (devs []computemodels.SIsolatedDevice) {
+func (b *baseBuilder) getIsolatedDevices(hostID string) (devs []computemodels.IsolatedDeviceAllocateStat) {
 	devObjs, ok := b.isolatedDevicesDict[hostID]
-	devs = make([]computemodels.SIsolatedDevice, 0)
+	devs = make([]computemodels.IsolatedDeviceAllocateStat, 0)
 	if !ok {
 		return
 	}
 	for _, obj := range devObjs {
-		dev := obj.(computemodels.SIsolatedDevice)
+		dev := obj.(computemodels.IsolatedDeviceAllocateStat)
 		devs = append(devs, dev)
 	}
 	return
 }
 
 func (b *baseBuilder) setIsolatedDevs(ids []string, errMessageChannel chan error) {
-	devs := computemodels.IsolatedDeviceManager.FindByHosts(ids)
+	devs := computemodels.IsolatedDeviceManager.GetHostsIsolatedDeviceStats(ids)
 	dict, err := utils.GroupBy(devs, func(obj interface{}) (string, error) {
-		dev, ok := obj.(computemodels.SIsolatedDevice)
+		dev, ok := obj.(computemodels.IsolatedDeviceAllocateStat)
 		if !ok {
 			return "", utils.ConvertError(obj, "computemodels.SIsolatedDevice")
 		}
@@ -208,6 +209,8 @@ func (b *baseBuilder) setIsolatedDevs(ids []string, errMessageChannel chan error
 		return
 	}
 	b.isolatedDevicesDict = dict
+	devGuests := computemodels.IsolatedDeviceManager.GetHostsGuestIsolatedDevices(ids)
+	b.isolatedDeviceGuestsDict = devGuests
 }
 
 func (b *baseBuilder) setCloudproviderAccounts(hosts []computemodels.SHost, errCh chan error) {

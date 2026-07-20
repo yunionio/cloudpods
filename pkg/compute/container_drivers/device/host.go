@@ -70,7 +70,7 @@ func (h hostDevice) ValidateCreateData(ctx context.Context, userCred mcclient.To
 	return dev, nil
 }
 
-func (h hostDevice) ToHostDevice(dev *api.ContainerDevice) (*hostapi.ContainerDevice, error) {
+func (h hostDevice) ToHostDevice(dev *api.ContainerDevice, guestId string) (*hostapi.ContainerDevice, error) {
 	return &hostapi.ContainerDevice{
 		Type:          apis.CONTAINER_DEVICE_TYPE_HOST,
 		ContainerPath: dev.Host.ContainerPath,

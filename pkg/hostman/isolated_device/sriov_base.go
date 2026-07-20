@@ -70,9 +70,9 @@ func detectSRIOVDevice(vfBDF string) (*PCIDevice, error) {
 	return dev, nil
 }
 
-func newSRIOVBaseDevice(dev *PCIDevice, devType string) *sSRIOVBaseDevice {
+func newSRIOVBaseDevice(dev *PCIDevice, devType, sharingMode string) *sSRIOVBaseDevice {
 	return &sSRIOVBaseDevice{
-		SBaseDevice: NewBaseDevice(dev, devType),
+		SBaseDevice: NewBaseDevice(dev, devType, sharingMode),
 	}
 }
 

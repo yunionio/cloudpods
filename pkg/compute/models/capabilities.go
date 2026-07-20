@@ -869,9 +869,11 @@ func getStorageTypes(
 }
 
 type PCIDevModelTypes struct {
-	Model   string
-	DevType string
-	SizeMB  int
+	Model         string
+	DevType       string
+	SharingMode   string
+	NvmeSizeMB    int
+	DevMemorySize int
 
 	VirtualDev bool
 	Hypervisor string
@@ -885,7 +887,7 @@ func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredentia
 		hostQuery = StorageManager.FilterByOwner(ctx, hostQuery, StorageManager, userCred, ownerId, rbacscope.ScopeDomain)
 	}
 	if len(tenantId) > 0 {
-		devicesQ = devicesQ.IsNullOrEmpty("guest_id")
+		devicesQ = IsolatedDeviceManager.GetAvailableIsolatedDeviceQuery(devicesQ)
 		subq := db.SharedResourceManager.Query("resource_id")
 		subq = subq.Equals("resource_type", IsolatedDeviceManager.Keyword())
 		subq = subq.Equals("target_project_id", tenantId)
@@ -916,7 +918,7 @@ func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredentia
 	devices := devicesQ.SubQuery()
 	hosts := hostQuery.SubQuery()
 
-	q := devices.Query(hosts.Field("host_type"), devices.Field("model"), devices.Field("dev_type"), devices.Field("nvme_size_mb"))
+	q := devices.Query(hosts.Field("host_type"), devices.Field("model"), devices.Field("dev_type"), devices.Field("sharing_mode"), devices.Field("nvme_size_mb"), devices.Field("memory_size"))
 	q = q.Filter(sqlchemy.NotIn(devices.Field("dev_type"), []string{api.USB_TYPE, api.NIC_TYPE}))
 	if zone != nil {
 		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
@@ -935,7 +937,7 @@ func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredentia
 			sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")),
 		))
 	}*/
-	q = q.GroupBy(hosts.Field("host_type"), devices.Field("model"), devices.Field("dev_type"), devices.Field("nvme_size_mb"))
+	q = q.GroupBy(hosts.Field("host_type"), devices.Field("model"), devices.Field("dev_type"), devices.Field("sharing_mode"), devices.Field("nvme_size_mb"), devices.Field("memory_size"))
 
 	rows, err := q.Rows()
 	if err != nil {
@@ -946,20 +948,21 @@ func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredentia
 	gpus := make([]PCIDevModelTypes, 0)
 	gpuModels := make([]string, 0)
 	for rows.Next() {
-		var m, t string
-		var sizeMB int
+		var m, t, sharingMode string
+		var nvmeSizeMB int
+		var memSizeMB int
 		var vdev bool
 		var hypervisor string
 		var hostType string
-		rows.Scan(&hostType, &m, &t, &sizeMB)
+		rows.Scan(&hostType, &m, &t, &sharingMode, &nvmeSizeMB, &memSizeMB)
 
 		if m == "" {
 			continue
 		}
-		if utils.IsInStringArray(t, api.VITRUAL_DEVICE_TYPES) {
+		if utils.IsInStringArray(sharingMode, api.VIRTUAL_SHARING_MODES) {
 			vdev = true
 		}
-		if utils.IsInStringArray(t, api.VALID_CONTAINER_DEVICE_TYPES) {
+		if hostType == api.HOST_TYPE_CONTAINER {
 			hypervisor = api.HYPERVISOR_POD
 		} else {
 			hypervisor = api.HYPERVISOR_KVM
@@ -969,7 +972,7 @@ func getIsolatedDeviceInfo(ctx context.Context, userCred mcclient.TokenCredentia
 			hypervisor = api.HYPERVISOR_ZETTAKIT
 		}
 
-		gpus = append(gpus, PCIDevModelTypes{m, t, sizeMB, vdev, hypervisor})
+		gpus = append(gpus, PCIDevModelTypes{m, t, sharingMode, nvmeSizeMB, memSizeMB, vdev, hypervisor})
 
 		if !utils.IsInStringArray(m, gpuModels) {
 			gpuModels = append(gpuModels, m)

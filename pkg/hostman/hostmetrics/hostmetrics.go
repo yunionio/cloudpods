@@ -661,12 +661,17 @@ func NewGuestPodMonitor(
 	hasCphAmdGpu := false
 	hasVastaitechGpu := false
 	for i := range podDesc.IsolatedDevices {
-		if utils.IsInStringArray(podDesc.IsolatedDevices[i].DevType, compute.NVIDIA_GPU_TYPES) {
+		if !utils.IsInStringArray(podDesc.IsolatedDevices[i].SharingMode, compute.VIRTUAL_SHARING_MODES) {
+			continue
+		}
+		vendorId := strings.Split(podDesc.IsolatedDevices[i].VendorDeviceId, ":")[0]
+		switch vendorId {
+		case compute.NVIDIA_VENDOR_ID:
 			hasNvGpu = true
-		} else if podDesc.IsolatedDevices[i].DevType == compute.CONTAINER_DEV_VASTAITECH_GPU {
-			hasVastaitechGpu = true
-		} else if podDesc.IsolatedDevices[i].DevType == compute.CONTAINER_DEV_CPH_AMD_GPU {
+		case compute.AMD_VENDOR_ID:
 			hasCphAmdGpu = true
+		case compute.VASTAITECH_VENDOR_ID:
+			hasVastaitechGpu = true
 		}
 	}
 

@@ -561,12 +561,14 @@ func (manager *SGuestManager) ListItemFilter(
 
 	devTypeQ := func(q *sqlchemy.SQuery, checkType, backup *bool, dType string, conditions []sqlchemy.ICondition) []sqlchemy.ICondition {
 		if checkType != nil {
-			isodev := IsolatedDeviceManager.Query().SubQuery()
-			isodevCons := []sqlchemy.ICondition{sqlchemy.IsNotNull(isodev.Field("guest_id"))}
+			guestIdev := GuestIsolatedDeviceManager.Query().SubQuery()
+			sgq := guestIdev.Query(guestIdev.Field("guest_id")).GroupBy(guestIdev.Field("guest_id"))
+
 			if len(dType) > 0 {
-				isodevCons = append(isodevCons, sqlchemy.Startswith(isodev.Field("dev_type"), dType))
+				isodev := IsolatedDeviceManager.Query().SubQuery()
+				sgq = sgq.Join(isodev, sqlchemy.Equals(guestIdev.Field("isolated_device_id"), isodev.Field("id")))
+				sgq = sgq.Filter(sqlchemy.Startswith(isodev.Field("dev_type"), dType))
 			}
-			sgq := isodev.Query(isodev.Field("guest_id")).Filter(sqlchemy.AND(isodevCons...))
 			cond := sqlchemy.NotIn
 			if *checkType {
 				cond = sqlchemy.In
@@ -729,6 +731,12 @@ func (manager *SGuestManager) ListItemFilter(
 			q = q.IsNullOrEmpty("host_id")
 		}
 	}
+	if len(query.IsolatedDeviceId) > 0 {
+		sq := GuestIsolatedDeviceManager.Query("guest_id").
+			Equals("isolated_device_id", query.IsolatedDeviceId).SubQuery()
+		q = q.In("id", sq)
+	}
+
 	if len(query.SnapshotpolicyId) > 0 {
 		sp := SnapshotPolicyResourceManager.Query("resource_id").
 			Equals("resource_type", api.SNAPSHOT_POLICY_TYPE_SERVER).
@@ -2008,7 +2016,7 @@ func (manager *SGuestManager) validateCreateData(
 
 		hasGpuVga := func() bool {
 			for i := 0; i < len(input.IsolatedDevices); i++ {
-				if input.IsolatedDevices[i].DevType == api.GPU_VGA_TYPE {
+				if input.IsolatedDevices[i].GpuType == api.GPU_VGA {
 					return true
 				}
 			}
@@ -2314,9 +2322,9 @@ func (manager *SGuestManager) validateCreateData(
 	nvidiaVgpuCnt := 0
 	gpuCnt := 0
 	for i := 0; i < len(input.IsolatedDevices); i++ {
-		if input.IsolatedDevices[i].DevType == api.LEGACY_VGPU_TYPE {
+		if input.IsolatedDevices[i].SharingMode == api.DEVICE_SHARING_MODE_MDEV {
 			nvidiaVgpuCnt += 1
-		} else if utils.IsInStringArray(input.IsolatedDevices[i].DevType, api.VALID_GPU_TYPES) {
+		} else if input.IsolatedDevices[i].DevType == api.GPU_TYPE {
 			gpuCnt += 1
 		}
 	}
@@ -4740,11 +4748,10 @@ func _guestResourceCountQuery(
 	diskBackupSubQuery := backupDiskQuery.SubQuery()
 	// diskBackupSubQuery := diskQuery.IsNotEmpty("backup_storage_id").SubQuery()
 
-	isolated := IsolatedDeviceManager.Query().SubQuery()
+	guestIdevs := GuestIsolatedDeviceManager.Query().SubQuery()
 
-	isoDevQuery := isolated.Query(isolated.Field("guest_id"), sqlchemy.COUNT("device_sum"))
-	isoDevQuery = isoDevQuery.Filter(sqlchemy.IsNotNull(isolated.Field("guest_id")))
-	isoDevQuery = isoDevQuery.GroupBy(isolated.Field("guest_id"))
+	isoDevQuery := guestIdevs.Query(guestIdevs.Field("guest_id"), sqlchemy.COUNT("device_sum"))
+	isoDevQuery = isoDevQuery.GroupBy(guestIdevs.Field("guest_id"))
 
 	isoDevSubQuery := isoDevQuery.SubQuery()
 
@@ -4896,10 +4903,11 @@ func (self *SGuest) allocSriovNicDevice(
 	if err != nil {
 		return errors.Wrap(err, "self.createIsolatedDeviceOnHost")
 	}
-	dev, err := self.GetIsolatedDeviceByNetworkIndex(gn.Index)
+	gdev, err := self.GetGuestIsolatedDeviceByNetworkIndex(gn.Index)
 	if err != nil {
 		return errors.Wrap(err, "self.GetIsolatedDeviceByNetworkIndex")
 	}
+	dev := gdev.GetIsolatedDevice()
 	if dev.OvsOffloadInterface != "" {
 		_, err = db.Update(gn, func() error {
 			gn.Ifname = dev.OvsOffloadInterface
@@ -4976,9 +4984,9 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 				dev, _ := idev.(*SIsolatedDevice)
 				sriovWires = []string{dev.WireId}
 			} else {
-				wires, err := IsolatedDeviceManager.FindUnusedNicWiresByModel(netConfig.SriovDevice.Model)
+				wires, err := IsolatedDeviceManager.FindAvailableNicWiresByModel(netConfig.SriovDevice.Model)
 				if err != nil {
-					return nil, errors.Wrap(err, "FindUnusedNicWiresByModel")
+					return nil, errors.Wrap(err, "FindAvailableNicWiresByModel")
 				}
 				sriovWires = wires
 			}
@@ -5718,7 +5726,9 @@ func (self *SGuest) getExtraOptions(ctx context.Context) jsonutils.JSONObject {
 }
 
 func (self *SGuest) GetIsolatedDevices() ([]SIsolatedDevice, error) {
-	q := IsolatedDeviceManager.Query().Equals("guest_id", self.Id)
+	gq := GuestIsolatedDeviceManager.Query().Equals("guest_id", self.Id).SubQuery()
+	q := IsolatedDeviceManager.Query()
+	q = q.Join(gq, sqlchemy.Equals(q.Field("id"), gq.Field("isolated_device_id")))
 	devs := []SIsolatedDevice{}
 	err := db.FetchModelObjects(IsolatedDeviceManager, q, &devs)
 	if err != nil {
@@ -5727,9 +5737,10 @@ func (self *SGuest) GetIsolatedDevices() ([]SIsolatedDevice, error) {
 	return devs, nil
 }
 
-func (self *SGuest) GetIsolatedDeviceByNetworkIndex(index int) (*SIsolatedDevice, error) {
-	dev := SIsolatedDevice{}
-	q := IsolatedDeviceManager.Query().Equals("guest_id", self.Id).Equals("network_index", index)
+func (self *SGuest) GetGuestIsolatedDeviceByNetworkIndex(index int) (*SGuestIsolatedDevice, error) {
+	dev := SGuestIsolatedDevice{}
+	q := GuestIsolatedDeviceManager.Query().Equals("network_index", index).Equals("guest_id", self.Id)
+
 	if cnt, err := q.CountWithError(); err != nil {
 		return nil, err
 	} else if cnt == 0 {
@@ -5739,13 +5750,17 @@ func (self *SGuest) GetIsolatedDeviceByNetworkIndex(index int) (*SIsolatedDevice
 	if err != nil {
 		return nil, err
 	}
-	dev.SetModelManager(IsolatedDeviceManager, &dev)
+	dev.SetModelManager(GuestIsolatedDeviceManager, &dev)
 	return &dev, nil
 }
 
 func (self *SGuest) GetIsolatedDeviceByDiskIndex(index int8) (*SIsolatedDevice, error) {
 	dev := SIsolatedDevice{}
-	q := IsolatedDeviceManager.Query().Equals("guest_id", self.Id).Equals("disk_index", index)
+	q := IsolatedDeviceManager.Query()
+	gidq := GuestIsolatedDeviceManager.Query().
+		Equals("guest_id", self.Id).Equals("disk_index", index).SubQuery()
+	q = q.Join(gidq, sqlchemy.Equals(q.Field("id"), gidq.Field("isolated_device_id")))
+
 	if cnt, err := q.CountWithError(); err != nil {
 		return nil, err
 	} else if cnt == 0 {
@@ -5803,8 +5818,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *a
 		desc.IsVolatileHost = true
 	}
 
-	// isolated devices
-	isolatedDevs, _ := self.GetIsolatedDevices()
+	isolatedDevs, _ := self.GetGuestIsolatedDevices()
 	for _, dev := range isolatedDevs {
 		desc.IsolatedDevices = append(desc.IsolatedDevices, dev.getDesc())
 	}
@@ -6064,10 +6078,11 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	spec.Set("nic", nicSpecs)
 
 	// get isolate device spec
-	guestgpus, _ := self.GetIsolatedDevices()
+	guestgpus, _ := self.GetGuestIsolatedDevices()
 	gpuSpecs := []GpuSpec{}
-	for _, guestgpu := range guestgpus {
-		if strings.HasPrefix(guestgpu.DevType, "GPU") {
+	for i := range guestgpus {
+		guestgpu := guestgpus[i].GetIsolatedDevice()
+		if guestgpu.DevType == api.GPU_TYPE {
 			gs := guestgpu.GetGpuSpec()
 			gpuSpecs = append(gpuSpecs, *gs)
 		}
@@ -7197,16 +7212,17 @@ func (self *SGuest) ToNetworksConfig() []*api.NetworkConfig {
 }
 
 func (self *SGuest) ToIsolatedDevicesConfig() []*api.IsolatedDeviceConfig {
-	guestIsolatedDevices, _ := self.GetIsolatedDevices()
+	guestIsolatedDevices, _ := self.GetGuestIsolatedDevices()
 	if len(guestIsolatedDevices) == 0 {
 		return nil
 	}
 	ret := make([]*api.IsolatedDeviceConfig, len(guestIsolatedDevices))
-	for idx, guestIsolatedDevice := range guestIsolatedDevices {
+	for idx := range guestIsolatedDevices {
+		dev := guestIsolatedDevices[idx].GetIsolatedDevice()
 		devConf := new(api.IsolatedDeviceConfig)
-		devConf.Model = guestIsolatedDevice.Model
-		devConf.Vendor = guestIsolatedDevice.getVendor()
-		devConf.DevType = guestIsolatedDevice.DevType
+		devConf.Model = dev.Model
+		devConf.Vendor = dev.getVendor()
+		devConf.DevType = dev.DevType
 		ret[idx] = devConf
 	}
 	return ret
