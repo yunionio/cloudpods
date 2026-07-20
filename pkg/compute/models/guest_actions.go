@@ -6663,20 +6663,52 @@ func (self *SGuest) PerformChangeDiskDriver(ctx context.Context, userCred mcclie
 	if gd == nil {
 		return nil, httperrors.NewBadRequestError("failed get guest disk by disk id %s", input.DiskId)
 	}
-	if input.Driver == gd.Driver {
-		return nil, nil
+	var driverChanged = false
+	if input.Driver != "" {
+		if input.Driver != gd.Driver {
+			driverChanged = true
+		}
+		if !utils.IsInStringArray(input.Driver, []string{api.DISK_DRIVER_VIRTIO, api.DISK_DRIVER_PVSCSI, api.DISK_DRIVER_IDE, api.DISK_DRIVER_SCSI}) {
+			return nil, httperrors.NewInputParameterError("unknown driver %s", input.Driver)
+		}
 	}
-	if !utils.IsInStringArray(input.Driver, []string{api.DISK_DRIVER_VIRTIO, api.DISK_DRIVER_PVSCSI, api.DISK_DRIVER_IDE, api.DISK_DRIVER_SCSI}) {
-		return nil, httperrors.NewInputParameterError("unknown driver %s", input.Driver)
+	if input.CacheMode != "" && gd.CacheMode != input.CacheMode {
+		if input.CacheMode != "none" {
+			input.AioMode = "threads"
+		}
+		if !utils.IsInStringArray(input.CacheMode, []string{api.DISK_CACHE_MODE_WRITETHROGH, api.DISK_CACHE_MODE_DIRECTSYNC, api.DISK_CACHE_MODE_WRITEBACK, api.DISK_CACHE_MODE_NONE}) {
+			return nil, httperrors.NewInputParameterError("unknown cache_mode %s", input.CacheMode)
+		}
 	}
+	if input.AioMode != "" && gd.AioMode != input.AioMode {
+		if !utils.IsInStringArray(input.AioMode, []string{api.DISK_AIO_MODE_NATIVE, api.DISK_AIO_MOD_THREADS}) {
+			return nil, httperrors.NewInputParameterError("unknown aio_mode %s", input.AioMode)
+		}
+		cacheMode := gd.CacheMode
+		if input.CacheMode != "" {
+			cacheMode = input.CacheMode
+		}
+		if input.AioMode == "native" && cacheMode != "none" {
+			return nil, httperrors.NewBadRequestError("AIO mode %s with cache mode %s is not supported", input.AioMode, cacheMode)
+		}
+	}
+
 	_, err := db.Update(gd, func() error {
-		gd.Driver = input.Driver
+		if input.Driver != "" {
+			gd.Driver = input.Driver
+		}
+		if input.AioMode != "" {
+			gd.AioMode = input.AioMode
+		}
+		if input.CacheMode != "" {
+			gd.CacheMode = input.CacheMode
+		}
 		return nil
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed update disk driver")
 	}
-	if self.Bios == api.VM_BOOT_MODE_UEFI {
+	if driverChanged && self.Bios == api.VM_BOOT_MODE_UEFI {
 		drv, err := self.GetDriver()
 		if err != nil {
 			return nil, err
