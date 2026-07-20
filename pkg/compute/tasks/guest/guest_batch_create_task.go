@@ -148,6 +148,19 @@ func (task *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	}
 
 	host, _ := guest.GetHost()
+	if guest.Bios == "" && guest.Hypervisor == api.HYPERVISOR_BAREMETAL {
+		bios := api.VM_BOOT_MODE_BIOS
+		if host.IsUEFIBoot() {
+			bios = api.VM_BOOT_MODE_UEFI
+		}
+		_, err = db.Update(guest, func() error {
+			guest.Bios = bios
+			return nil
+		})
+		if err != nil {
+			log.Errorf("failed update bios to %s: %s", bios, err)
+		}
+	}
 
 	quotaCpuMem := models.SQuota{Count: 1, Cpu: int(guest.VcpuCount), Memory: guest.VmemSize}
 	keys, err := guest.GetQuotaKeys()
