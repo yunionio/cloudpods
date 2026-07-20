@@ -901,7 +901,7 @@ func (h *SHostInfo) detectKvmModuleSupport() string {
 }
 
 func (h *SHostInfo) detectNestSupport() {
-	if sysutils.IsNestEnabled() {
+	if sysutils.DetectNestSupport(options.HostOptions.EnableNestedVirtualization) == sysutils.HOST_NEST_ENABLE {
 		h.sysinfo.Nest = "enabled"
 	} else {
 		h.sysinfo.Nest = "disabled"
