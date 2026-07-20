@@ -14,7 +14,11 @@
 
 package options
 
-import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+import (
+	"strings"
+
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+)
 
 type LLMOptions struct {
 	common_options.CommonOptions
@@ -49,10 +53,11 @@ type LLMOptions struct {
 
 	// MCP Agent 配置
 	MCPServerURL    string `help:"MCP Server URL" default:"http://default-mcp-server:30876"`
-	MCPAgentTimeout int    `help:"MCP Agent request timeout in seconds" default:"120"`
+	MCPAgentTimeout int    `help:"MCP Agent request timeout in seconds" default:"180"`
 
 	MCPAgentUserCharLimit      int `help:"MCP Agent user char limit" default:"3200"`
 	MCPAgentAssistantCharLimit int `help:"MCP Agent assistant char limit" default:"6400"`
+	MCPAgentMaxToolRounds      int `help:"Max MCP tool-call rounds per chat request" default:"16"`
 
 	// LLM model catalog (browsable curated entries). Value can be either an
 	// http(s) URL or a local file path; sources without an http:// or https://
@@ -73,3 +78,28 @@ type LLMOptions struct {
 var (
 	Options LLMOptions
 )
+
+const DefaultPlatformName = "Cloudpods"
+
+// ResolvedPlatformName 返回配置中的平台展示名，空则回退 DefaultPlatformName。
+func ResolvedPlatformName() string {
+	name := strings.TrimSpace(Options.PlatformName)
+	if name == "" {
+		return DefaultPlatformName
+	}
+	return name
+}
+
+func OnOptionsChange(oldO, newO interface{}) bool {
+	oldOpts := oldO.(*LLMOptions)
+	newOpts := newO.(*LLMOptions)
+
+	changed := false
+	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		changed = true
+	}
+	if common_options.OnDBOptionsChange(&oldOpts.DBOptions, &newOpts.DBOptions) {
+		changed = true
+	}
+	return changed
+}

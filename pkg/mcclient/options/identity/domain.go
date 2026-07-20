@@ -22,9 +22,11 @@ import (
 )
 
 type DomainListOptions struct {
+	_ struct{} `mcp-desc:"列出域（domain）。可用 search 等过滤；详情 climc_domain_show，创建 climc_domain_create，删除 climc_domain_delete"`
+
 	options.BaseListOptions
-	IdpId       string `help:"filter by idp_id"`
-	IdpEntityId string `help:"filter by idp_entity_id"`
+	IdpId       string `help:"filter by idp_id" mcp:"true"`
+	IdpEntityId string `help:"filter by idp_entity_id" mcp:"true"`
 }
 
 func (opts *DomainListOptions) Params() (jsonutils.JSONObject, error) {

@@ -25,7 +25,7 @@ func init() {
 	cmd := shell.NewResourceCmd(&modules.Kafkas)
 	cmd.List(&compute.KafkaListOptions{})
 	cmd.Update(&compute.KafkaUpdateOptions{})
-	cmd.Show(&compute.KafkaIdOption{})
+	cmd.Show(&compute.KafkaShowOptions{})
 	cmd.Get("topics", &options.BaseIdOptions{})
 	cmd.Delete(&compute.KafkaIdOption{})
 	cmd.Perform("syncstatus", &compute.KafkaIdOption{})

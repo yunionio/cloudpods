@@ -15,17 +15,15 @@
 package monitor
 
 import (
-	"yunion.io/x/pkg/util/printutils"
-
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 var (
 	R                 = shell.R
-	printList         = printutils.PrintJSONList
-	printObject       = printutils.PrintJSONObject
-	printBatchResults = printutils.PrintJSONBatchResults
+	printList         = shell.PrintList
+	printObject       = shell.PrintObject
+	printBatchResults = shell.PrintBatchResults
 )
 
 func NewResourceCmd(manager modulebase.IBaseManager) *shell.ResourceCmd {

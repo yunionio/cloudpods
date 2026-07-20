@@ -37,26 +37,28 @@ import (
 var ErrEmtptyUpdate = errors.Error("No valid update data")
 
 type ServerListOptions struct {
-	Zone               string   `help:"Zone ID or Name"`
+	_ struct{} `mcp-desc:"当用户要求启动/停止/重启/删除/重置密码时：先用本工具定位目标，拿到返回结果中的 id 后，必须立刻继续调用对应操作工具完成操作，不要只查询就结束"`
+
+	Zone               string   `help:"Zone ID or Name" mcp:"true"`
 	Wire               string   `help:"Wire ID or Name"`
-	Network            string   `help:"Network ID or Name"`
+	Network            string   `help:"Network ID or Name" mcp:"true"`
 	Disk               string   `help:"Disk ID or Name"`
-	Host               string   `help:"Host ID or Name"`
+	Host               string   `help:"Host ID or Name" mcp:"true"`
 	Baremetal          *bool    `help:"Show baremetal servers"`
 	Gpu                *bool    `help:"Show gpu servers"`
 	Secgroup           string   `help:"Secgroup ID or Name"`
 	AdminSecgroup      string   `help:"AdminSecgroup ID or Name"`
-	Hypervisor         string   `help:"Show server of hypervisor" choices:"kvm|esxi|pod|baremetal|aliyun|azure|aws|huawei|ucloud|volcengine|zstack|openstack|google|ctyun|incloudsphere|nutanix|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox|ksyun|baidu|cucloud|qingcloud|sangfor|zettakit|uis|cnware"`
-	Region             string   `help:"Show servers in cloudregion"`
+	Hypervisor         string   `help:"Show server of hypervisor" choices:"kvm|esxi|pod|baremetal|aliyun|azure|aws|huawei|ucloud|volcengine|zstack|openstack|google|ctyun|incloudsphere|nutanix|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox|ksyun|baidu|cucloud|qingcloud|sangfor|zettakit|uis|cnware" mcp:"true"`
+	Region             string   `help:"Show servers in cloudregion" mcp:"true"`
 	WithEip            *bool    `help:"Show Servers with EIP"`
 	WithoutEip         *bool    `help:"Show Servers without EIP"`
-	OsType             string   `help:"OS Type" choices:"linux|windows|vmware"`
-	Vpc                []string `help:"Vpc id or name"`
+	OsType             string   `help:"OS Type" choices:"linux|windows|vmware" mcp:"true"`
+	Vpc                []string `help:"Vpc id or name" mcp:"true"`
 	UsableServerForEip string   `help:"Eip id or name"`
 	WithoutUserMeta    *bool    `help:"Show Servers without user metadata"`
 	EipAssociable      *bool    `help:"Show Servers can associate with eip"`
 	HostSn             string   `help:"Host SN"`
-	IpAddr             string   `help:"Fileter by ip"`
+	IpAddr             string   `help:"Fileter by ip" mcp:"true"`
 	IpAddrs            []string `help:"Fileter by ips"`
 
 	OrderByDisk    string `help:"Order by disk size" choices:"asc|desc"`
@@ -128,6 +130,8 @@ func (o *ServerConvertToKvmOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerStartOptions struct {
+	_ struct{} `mcp-desc:"用户要求启动时必须调用本工具真正执行，仅调用 climc_server_list 查询不算完成。若尚不知 id，先用 climc_server_list（可用 search）定位，拿到 id 后立即调用本工具，不要只查询就结束"`
+
 	ServerIdsOptions
 
 	QemuVersion string `help:"prefer qemu version" json:"qemu_version"`
@@ -136,6 +140,16 @@ type ServerStartOptions struct {
 
 func (o *ServerStartOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.Marshal(o), nil
+}
+
+// ServerStartRescueOptions 与启动参数相同，单独包装以免继承 server-start 的 mcp-desc。
+type ServerStartRescueOptions struct {
+	ServerStartOptions
+}
+
+// ServerStopRescueOptions 与启动参数相同，单独包装以免继承 server-start 的 mcp-desc。
+type ServerStopRescueOptions struct {
+	ServerStartOptions
 }
 
 type ServerIdsOptions struct {
@@ -194,6 +208,8 @@ func (o *ServerCreateBackupOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerShowOptions struct {
+	_ struct{} `mcp-desc:"查询单台虚拟机详情。ID 可用 climc_server_list 返回的 id/name；查看状态、配置、IP 等信息时使用"`
+
 	options.BaseShowOptions `id->help:"ID or name of the server"`
 }
 
@@ -249,22 +265,22 @@ func ParseServerDeployInfoList(list []string) ([]*computeapi.DeployConfig, error
 }
 
 type ServerCreateCommonConfig struct {
-	Manager string   `help:"Preferred cloudprovider where virtual server should bd created" json:"prefer_manager"`
-	Region  string   `help:"Preferred region where virtual server should be created" json:"prefer_region"`
-	Zone    string   `help:"Preferred zone where virtual server should be created" json:"prefer_zone"`
+	Manager string   `help:"Preferred cloudprovider where virtual server should bd created" json:"prefer_manager" mcp:"true"`
+	Region  string   `help:"Preferred region where virtual server should be created" json:"prefer_region" mcp:"true"`
+	Zone    string   `help:"Preferred zone where virtual server should be created" json:"prefer_zone" mcp:"true"`
 	Zones   []string `help:"Preferred zones where virtual server should be created" json:"prefer_zones"`
 	Wire    string   `help:"Preferred wire where virtual server should be created" json:"prefer_wire"`
-	Host    string   `help:"Preferred host where virtual server should be created" json:"prefer_host"`
+	Host    string   `help:"Preferred host where virtual server should be created" json:"prefer_host" mcp:"true"`
 
 	ResourceType   string   `help:"Resource type" choices:"shared|prepaid|dedicated"`
 	Schedtag       []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
-	Net            []string `help:"Network descriptions" metavar:"NETWORK"`
+	Net            []string `help:"Network descriptions；可省略，省略时 MCP 自动用 random（等价 nets:[{exit:false}]）走自动调度" metavar:"NETWORK" mcp:"true"`
 	NetPortMapping []string `help:"Network port mapping, e.g. 'index=0,port=80,host_port=8080,protocol=<tcp|udp>,host_port_range=<int>-<int>,remote_ips=x.x.x.x|y.y.y.y'" short-token:"p"`
 	NetSchedtag    []string `help:"Network schedtag description, e.g. '0:<tag>:<strategy>'"`
 	IsolatedDevice []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
-	Project        string   `help:"'Owner project ID or Name" json:"tenant"`
+	Project        string   `help:"'Owner project ID or Name" json:"tenant" mcp:"true"`
 	User           string   `help:"Owner user ID or Name"`
-	Count          int      `help:"Create multiple simultaneously" default:"1"`
+	Count          int      `help:"Create multiple simultaneously" default:"1" mcp:"true"`
 	Disk           []string `help:"
 	Disk descriptions
 	size: 500M, 10G
@@ -277,16 +293,17 @@ type ServerCreateCommonConfig struct {
 	medium: rotate, ssd, hybrid
 	disk_type: sys, data
 	mountpoint: /, /opt
-	storage_type: local, rbd, nas, nfs
+	storage_type/backend: local, rbd, nas, nfs；公有云用 cloud-region-capability 的 storage_types2（如 cloud_essd）
 	snapshot_id: use snapshot-list get snapshot id
 	disk_id: use disk-list get disk id
 	storage_id: use storage-list get storage id
-	image_id: use image-list get image id
+	image_id: use image-list/cached-image-list get image id
 	for example:
 		--disk 'image_id=c2be02a4-7ff2-43e6-8a00-a489e04d2d6f,size=10G,driver=ide,storage_type=rbd,auto_delete=true'
+		--disk 'size=40g,image=<id>,backend=cloud_essd'
 		--disk 'size=500M'
 		--disk 'snpahost_id=1ceb8c6d-6571-451d-8957-4bd3a871af85'
-	" nargs:"+"`
+	" nargs:"+" mcp:"true"`
 	DiskSchedtag []string `help:"Disk schedtag description, e.g. '0:<tag>:<strategy>'"`
 }
 
@@ -371,7 +388,7 @@ func (o ServerCreateCommonConfig) Data() (*computeapi.ServerConfigs, error) {
 
 type ServerConfigs struct {
 	ServerCreateCommonConfig
-	Hypervisor                   string `help:"Hypervisor type" choices:"kvm|pod|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack|ucloud|volcengine|zstack|google|ctyun|incloudsphere|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox|sangfor|zettakit|uis"`
+	Hypervisor                   string `help:"Hypervisor type" choices:"kvm|pod|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack|ucloud|volcengine|zstack|google|ctyun|incloudsphere|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox|sangfor|zettakit|uis" mcp:"true"`
 	Backup                       bool   `help:"Create server with backup server"`
 	BackupHost                   string `help:"Perfered host where virtual backup server should be created"`
 	AutoSwitchToBackupOnHostDown bool   `help:"Auto switch to backup server on host down"`
@@ -448,30 +465,32 @@ type ServerCreateFromInstanceSnapshot struct {
 }
 
 type ServerCreateOptions struct {
+	_ struct{} `mcp-desc:"【创建虚拟机的最终动作】自动 scheduler-forecast→创建→等待 running/ready。最少：name、disk（image+backend）、规格。超时返回 wait_pending+server_id，用 climc_server_show 续查，勿重复创建"`
+
 	ServerCreateOptionalOptions
 
-	NAME string `help:"Name of server" json:"-"`
+	NAME string `help:"虚拟机名称模板；默认配合 generate-name 自动去重" json:"-" mcp:"required"`
 }
 
 type ServerCreateOptionalOptions struct {
 	ServerConfigs
 
-	MemSpec        string `help:"Memory size Or Instance Type" metavar:"MEMSPEC" json:"-"`
+	MemSpec        string `help:"Memory size Or Instance Type" metavar:"MEMSPEC" json:"-" mcp:"true"`
 	CpuSockets     int    `help:"Cpu sockets"`
 	EnableMemclean bool   `help:"clean guest memory after guest exit" json:"enable_memclean"`
 	EnableTpm      bool   `help:"enable tpm device" json:"enable_tpm"`
 
-	Keypair          string   `help:"SSH Keypair"`
-	Password         string   `help:"Default user password"`
-	LoginAccount     string   `help:"Guest login account"`
-	Iso              string   `help:"ISO image ID" metavar:"IMAGE_ID" json:"cdrom"`
+	Keypair          string   `help:"SSH Keypair" mcp:"true"`
+	Password         string   `help:"Default user password" mcp:"true"`
+	LoginAccount     string   `help:"Guest login account" mcp:"true"`
+	Iso              string   `help:"ISO image ID" metavar:"IMAGE_ID" json:"cdrom" mcp:"true"`
 	IsoBootIndex     *int8    `help:"Iso bootindex" metavar:"IMAGE_BOOT_INDEX" json:"cdrom_boot_index"`
-	VcpuCount        int      `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
+	VcpuCount        int      `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu" mcp:"true"`
 	ExtraCpuCount    int      `help:"Extra allocate cpu count" json:"extra_cpu_count"`
-	InstanceType     string   `help:"instance flavor"`
+	InstanceType     string   `help:"instance flavor" mcp:"true"`
 	Vga              string   `help:"VGA driver" choices:"std|vmware|cirrus|qxl|virtio"`
 	Vdi              string   `help:"VDI protocool" choices:"vnc|spice"`
-	Bios             string   `help:"BIOS" choices:"BIOS|UEFI"`
+	Bios             string   `help:"BIOS" choices:"BIOS|UEFI" mcp:"true"`
 	Machine          string   `help:"Machine type" choices:"pc|q35"`
 	Desc             string   `help:"Description" metavar:"<DESCRIPTION>" json:"description"`
 	Boot             string   `help:"Boot device" metavar:"<BOOT_DEVICE>" choices:"disk|cdrom" json:"-"`
@@ -479,20 +498,20 @@ type ServerCreateOptionalOptions struct {
 	NoAccountInit    *bool    `help:"Not reset account password"`
 	AllowDelete      *bool    `help:"Unlock server to allow deleting" json:"-"`
 	ShutdownBehavior string   `help:"Behavior after VM server shutdown" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate|stop_release_gpu"`
-	AutoStart        bool     `help:"Auto start server after it is created"`
+	AutoStart        bool     `help:"Auto start server after it is created" mcp:"true"`
 	Deploy           []string `help:"Specify deploy files in virtual server file system" json:"-"`
 	DeployTelegraf   bool     `help:"Deploy telegraf agent if guest os is supported"`
 	Group            []string `help:"Group ID or Name of virtual server"`
 	System           bool     `help:"Create a system VM, sysadmin ONLY option" json:"is_system"`
 	TaskNotify       *bool    `help:"Setup task notify" json:"-"`
 	FakeCreate       *bool    `help:"Fake create server"`
-	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`
+	DryRun           *bool    `help:"Dry run to validate create params (not preschedule)；MCP 创建会自动调 scheduler-forecast 预调度，一般无需手动传" json:"-" mcp:"true"`
 	UserDataFile     string   `help:"user_data file path" json:"-"`
 	InstanceSnapshot string   `help:"instance snapshot" json:"instance_snapshot"`
 	Secgroups        []string `help:"secgroups" json:"secgroups"`
 	NetworkTags      []string `help:"GCP network tags, google only; when set, secgroups can be omitted" json:"network_tags"`
 
-	OsType string `help:"os type, e.g. Linux, Windows, etc."`
+	OsType string `help:"os type, e.g. Linux, Windows, etc." mcp:"true"`
 
 	Duration  string `help:"valid duration of the server, e.g. 1H, 1D, 1W, 1M, 1Y, ADMIN ONLY option"`
 	AutoRenew bool   `help:"auto renew for prepaid server"`
@@ -507,7 +526,7 @@ type ServerCreateOptionalOptions struct {
 	KickstartMaxRetries     int    `help:"Kickstart max retries" default:"3" json:"-"`
 	KickstartTimeoutMinutes int    `help:"Kickstart timeout in minutes" default:"60" json:"-"`
 
-	GenerateName bool `help:"name is generated by pattern" json:"-"`
+	GenerateName bool `help:"name is generated by pattern" json:"-" mcp:"true"`
 
 	EipBw         int    `help:"allocate EIP with bandwidth in MB when server is created" json:"eip_bw,omitzero"`
 	EipTxBw       int    `help:"allocate EIP with上行带宽 in MB when server is created" json:"eip_tx_bw,omitzero"`
@@ -519,7 +538,7 @@ type ServerCreateOptionalOptions struct {
 	PublicIpBw         int    `help:"associate public ip with bandwidth in MB where server is created" json:"public_ip_bw,omitzero"`
 	PublicIpChargeType string `help:"newly allocated public ip charge type" choices:"traffic|bandwidth" json:"public_ip_charge_type,omitempty"`
 
-	GuestImageID string `help:"create from guest image, need to specify the guest image id"`
+	GuestImageID string `help:"create from guest image, need to specify the guest image id" mcp:"true"`
 
 	EncryptKey string   `help:"encryption key"`
 	Tags       []string `help:"tags in the form of key=value"`
@@ -755,9 +774,11 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 }
 
 type ServerStopOptions struct {
+	_ struct{} `mcp-desc:"用户要求停止时必须调用本工具真正执行，仅调用 climc_server_list 查询不算完成。若尚不知 id，先用 climc_server_list（可用 search）定位，拿到 id 后立即调用本工具，不要只查询就结束"`
+
 	ID           []string `help:"ID or Name of server" json:"-"`
-	Force        *bool    `help:"Stop server forcefully" json:"is_force"`
-	StopCharging *bool    `help:"Stop charging when server stop"`
+	Force        *bool    `help:"Stop server forcefully" json:"is_force" mcp:"true"`
+	StopCharging *bool    `help:"Stop charging when server stop" mcp:"true"`
 }
 
 func (o *ServerStopOptions) GetIds() []string {
@@ -816,12 +837,14 @@ func (opts *ServerUpdateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerDeleteOptions struct {
+	_ struct{} `mcp-desc:"用户要求删除时必须调用本工具真正执行，仅调用 climc_server_list 查询不算完成。若尚不知 id，先用 climc_server_list（可用 search）定位，拿到 id 后立即调用本工具，不要只查询就结束"`
+
 	ServerIdsOptions
-	OverridePendingDelete *bool `help:"Delete server directly instead of pending delete" short-token:"f"`
-	DeleteSnapshots       *bool `help:"Delete server snapshots"`
-	DeleteDisks           *bool `help:"Delete server disks"`
-	DeleteEip             *bool `help:"Delete eip"`
-	DeleteBastionServer   *bool `help:"Remove from bastion host"`
+	OverridePendingDelete *bool `help:"Delete server directly instead of pending delete" short-token:"f" mcp:"true"`
+	DeleteSnapshots       *bool `help:"Delete server snapshots" mcp:"true"`
+	DeleteDisks           *bool `help:"Delete server disks" mcp:"true"`
+	DeleteEip             *bool `help:"Delete eip" mcp:"true"`
+	DeleteBastionServer   *bool `help:"Remove from bastion host" mcp:"true"`
 }
 
 func (o *ServerDeleteOptions) QueryParams() (jsonutils.JSONObject, error) {
@@ -994,9 +1017,11 @@ func (o *ServerKickstartCompleteOptions) Params() (jsonutils.JSONObject, error) 
 }
 
 type ServerMonitorOptions struct {
+	_ struct{} `mcp-desc:"【QEMU Monitor，不是监控指标】向虚机发送 HMP/QMP。查 CPU/内存等指标请用 climc_monitor_unifiedmonitor_query"`
+
 	ServerIdOptions
 
-	Qmp     bool   `help:"Use qmp protocol, default is hmp"`
+	Qmp     bool   `help:"Use qmp protocol, default is hmp" mcp:"true"`
 	COMMAND string `help:"Qemu Monitor command to send"`
 }
 
@@ -1053,12 +1078,14 @@ func (o *ServerQgaGetNetwork) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerSetPasswordOptions struct {
+	_ struct{} `mcp-desc:"用户要求重置密码时必须调用本工具真正执行，仅调用 climc_server_list 查询不算完成。若尚不知 id，先用 climc_server_list（可用 search）定位，拿到 id 后立即调用本工具，不要只查询就结束"`
+
 	ServerIdOptions
 
-	Username      string `help:"Which user to set password" json:"username"`
-	Password      string `help:"Password content" json:"password"`
-	ResetPassword bool   `help:"Force reset password"`
-	AutoStart     bool   `help:"Auto start server after reset password"`
+	Username      string `help:"Which user to set password" json:"username" mcp:"true"`
+	Password      string `help:"Password content" json:"password" mcp:"required"`
+	ResetPassword bool   `help:"Force reset password" mcp:"true"`
+	AutoStart     bool   `help:"Auto start server after reset password" mcp:"true"`
 }
 
 func (o *ServerSetPasswordOptions) Params() (jsonutils.JSONObject, error) {
@@ -1146,14 +1173,16 @@ func (o *ServerChangeOwnerOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerRebuildRootOptions struct {
+	_ struct{} `mcp-desc:"重装系统盘。ID 为虚机 id；可选 image、password、auto-start。先 climc_server_list / climc_image_list 定位"`
+
 	ID            string `help:"Server to rebuild root" json:"-"`
-	ImageId       string `help:"New root Image template ID" json:"image_id" token:"image"`
-	Keypair       string `help:"ssh Keypair used for login"`
+	ImageId       string `help:"New root Image template ID" json:"image_id" token:"image" mcp:"true"`
+	Keypair       string `help:"ssh Keypair used for login" mcp:"true"`
 	Password      string `help:"Default user password"`
-	LoginAccount  string `help:"Guest login account"`
-	NoAccountInit *bool  `help:"Not reset account password"`
-	AutoStart     *bool  `help:"Auto start server after it is created"`
-	AllDisks      *bool  `help:"Rebuild all disks including data disks"`
+	LoginAccount  string `help:"Guest login account" mcp:"true"`
+	NoAccountInit *bool  `help:"Not reset account password" mcp:"true"`
+	AutoStart     *bool  `help:"Auto start server after it is created" mcp:"true"`
+	AllDisks      *bool  `help:"Rebuild all disks including data disks" mcp:"true"`
 	UserData      string `hlep:"user data scripts"`
 }
 
@@ -1180,16 +1209,18 @@ func (o *ServerRebuildRootOptions) Description() string {
 }
 
 type ServerChangeConfigOptions struct {
+	_ struct{} `mcp-desc:"调整虚机配置（CPU/内存/套餐）。ID 用 climc_server_list；传 ncpu/vmem 或 instance-type。改配前确认状态允许"`
+
 	ServerIdOptions
-	VcpuCount     *int     `help:"New number of Virtual CPU cores" json:"vcpu_count" token:"ncpu"`
-	ExtraCpuCount *int     `help:"Extra allocate cpu count" json:"extra_cpu_count"`
-	CpuSockets    *int     `help:"Cpu sockets"`
-	VmemSize      string   `help:"New memory size" json:"vmem_size" token:"vmem"`
-	Disk          []string `help:"Data disk description, from the 1st data disk to the last one, empty string if no change for this data disk"`
+	VcpuCount     *int     `help:"New number of Virtual CPU cores" json:"vcpu_count" token:"ncpu" mcp:"true"`
+	ExtraCpuCount *int     `help:"Extra allocate cpu count" json:"extra_cpu_count" mcp:"true"`
+	CpuSockets    *int     `help:"Cpu sockets" mcp:"true"`
+	VmemSize      string   `help:"New memory size" json:"vmem_size" token:"vmem" mcp:"true"`
+	Disk          []string `help:"Data disk description, from the 1st data disk to the last one, empty string if no change for this data disk" mcp:"true"`
 
-	InstanceType string `help:"Instance Type, e.g. S2.SMALL2 for qcloud"`
+	InstanceType string `help:"Instance Type, e.g. S2.SMALL2 for qcloud" mcp:"true"`
 
-	ForceStop *bool `help:"Force stop the server before changing config" json:"force_stop"`
+	ForceStop *bool `help:"Force stop the server before changing config" json:"force_stop" mcp:"true"`
 
 	ResetTrafficLimits []string `help:"reset traffic limits, mac,rx,tx"`
 	SetTrafficLimits   []string `help:"set traffic limits, mac,rx,tx"`
@@ -1296,8 +1327,10 @@ func (o *ServerResetOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerRestartOptions struct {
+	_ struct{} `mcp-desc:"用户要求重启时必须调用本工具真正执行，仅调用 climc_server_list 查询不算完成。若尚不知 id，先用 climc_server_list（可用 search）定位，拿到 id 后立即调用本工具，不要只查询就结束"`
+
 	ID      []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
-	IsForce *bool    `help:"Force reset or not; default false" json:"is_force"`
+	IsForce *bool    `help:"Force reset or not; default false" json:"is_force" mcp:"true"`
 }
 
 func (o *ServerRestartOptions) GetIds() []string {
@@ -1403,8 +1436,10 @@ func (opts *ServerBatchMetadataOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerAssociateEipOptions struct {
+	_ struct{} `mcp-desc:"将 EIP 绑定到虚机。需虚机 ID 与 EIP（climc_eip_list 的 id/name）"`
+
 	ServerIdOptions
-	EIP string `help:"ID or name of EIP to associate"`
+	EIP string `help:"ID or name of EIP to associate" mcp:"required"`
 }
 
 func (o *ServerAssociateEipOptions) Params() (jsonutils.JSONObject, error) {

@@ -58,9 +58,9 @@ func (o *ResourceMetricsOptions) GetInput() (*api.ResourceMetricsQueryInput, err
 }
 
 type MeasurementsQueryOptions struct {
-	Scope           string `json:"scope"`
-	ProjectDomainId string `json:"project_domin_id"`
-	ProjectId       string `json:"project_id"`
+	Scope           string `json:"scope" mcp:"true"`
+	ProjectDomainId string `json:"project_domin_id" mcp:"true"`
+	ProjectId       string `json:"project_id" mcp:"true"`
 }
 
 func (o MeasurementsQueryOptions) Params() (jsonutils.JSONObject, error) {
@@ -82,19 +82,21 @@ func (o DatabasesQueryOptions) Property() string {
 }
 
 type MetricQueryOptions struct {
+	_ struct{} `mcp-desc:"查询云平台监控指标时序（unifiedmonitor，非 QEMU）。必填 MEASUREMENT+FIELD；过滤用 from/to/interval/tags。不要用 climc_server_monitor"`
+
 	MeasurementsQueryOptions
 
 	MEASUREMENT string `help:"metric measurement. e.g.: cpu, vm_cpu, vm_mem, disk..."`
 	FIELD       string `help:"metric field. e.g.: usage_active, free..."`
 
-	Interval        string   `help:"metric interval. e.g.: 5m, 1h"`
-	From            string   `help:"start time(RFC3339 format). e.g.: 2023-12-06T21:54:42.123Z"`
-	To              string   `help:"end time(RFC3339 format). e.g.: 2023-12-18T21:54:42.123Z"`
-	Tags            []string `help:"filter tags. e.g.: vm_name=vm1"`
-	GroupBy         []string `help:"group by tag"`
-	UseMean         bool     `help:"calcuate mean result for field"`
-	SkipCheckSeries bool     `help:"skip checking series: not fetch extra tags from region service"`
-	Reducer         string   `help:"series result reducer. e.g.: sum, percentile(95)"`
+	Interval        string   `help:"metric interval. e.g.: 5m, 1h" mcp:"true"`
+	From            string   `help:"start time(RFC3339 format). e.g.: 2023-12-06T21:54:42.123Z" mcp:"true"`
+	To              string   `help:"end time(RFC3339 format). e.g.: 2023-12-18T21:54:42.123Z" mcp:"true"`
+	Tags            []string `help:"filter tags. e.g.: vm_name=vm1" mcp:"true"`
+	GroupBy         []string `help:"group by tag" mcp:"true"`
+	UseMean         bool     `help:"calcuate mean result for field" mcp:"true"`
+	SkipCheckSeries bool     `help:"skip checking series: not fetch extra tags from region service" mcp:"true"`
+	Reducer         string   `help:"series result reducer. e.g.: sum, percentile(95)" mcp:"true"`
 }
 
 func (o MetricQueryOptions) GetQueryInput() (*api.MetricQueryInput, error) {

@@ -21,7 +21,16 @@ import (
 )
 
 type MongoDBListOptions struct {
+	_ struct{} `mcp-desc:"列出 MongoDB 实例。可用 search 等过滤；详情用 climc_mongodb_show"`
+
 	options.BaseListOptions
+}
+
+// MongoDBShowOptions 单独包装，避免复用 BaseIdOptions 误注册。
+type MongoDBShowOptions struct {
+	_ struct{} `mcp-desc:"查询 MongoDB 实例详情。ID 可用 climc_mongodb_list 返回的 id/name"`
+
+	options.BaseIdOptions
 }
 
 func (opts *MongoDBListOptions) Params() (jsonutils.JSONObject, error) {

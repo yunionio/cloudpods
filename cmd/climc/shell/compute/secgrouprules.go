@@ -17,15 +17,14 @@ package compute
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
 func init() {
 	cmd := shell.NewResourceCmd(&modules.SecGroupRules).WithKeyword("secgroup-rule")
 	cmd.List(&compute.SecGroupRulesListOptions{})
-	cmd.Show(&options.BaseShowOptions{})
-	cmd.Delete(&options.BaseIdOptions{})
+	cmd.Show(&compute.SecGroupRuleShowOptions{})
+	cmd.Delete(&compute.SecGroupRuleDeleteOptions{})
 	cmd.Create(&compute.SecGroupRulesCreateOptions{})
 	cmd.Update(&compute.SecGroupRulesUpdateOptions{})
 }

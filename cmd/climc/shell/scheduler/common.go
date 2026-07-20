@@ -22,9 +22,9 @@ import (
 
 var (
 	R                 = shell.R
-	printList         = printutils.PrintJSONList
-	printObject       = printutils.PrintJSONObject
-	printBatchResults = printutils.PrintJSONBatchResults
+	printList         = shell.PrintList
+	printObject       = shell.PrintObject
+	printBatchResults = shell.PrintBatchResults
 
 	InvalidUpdateError   = shell.InvalidUpdateError
 	printObjectRecursive = printutils.PrintJSONObjectRecursive
