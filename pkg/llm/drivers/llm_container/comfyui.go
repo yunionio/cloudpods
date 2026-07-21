@@ -88,27 +88,7 @@ func (c *comfyui) GetContainerSpec(ctx context.Context, llm *models.SLLM, image 
 		},
 	}
 
-	effDevs := models.GetEffectiveDevices(llm, sku)
-	if len(devices) == 0 && effDevs != nil && len(*effDevs) > 0 {
-		for i := range *effDevs {
-			index := i
-			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
-				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
-				IsolatedDevice: &computeapi.ContainerIsolatedDevice{
-					Index: &index,
-				},
-			})
-		}
-	} else if len(devices) > 0 {
-		for i := range devices {
-			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
-				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
-				IsolatedDevice: &computeapi.ContainerIsolatedDevice{
-					Id: devices[i].Id,
-				},
-			})
-		}
-	}
+	appendContainerIsolatedDevices(&spec, llm, sku, devices)
 
 	// Volume Mounts, see: https://github.com/YanWenKun/ComfyUI-Docker?tab=readme-ov-file#quick-start---nvidia-gpu
 	diskIndex := 0

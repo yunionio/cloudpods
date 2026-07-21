@@ -222,8 +222,13 @@ func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	if sku != nil {
 		backendParameters = sku.BackendParameters
 	}
-	hasMountedModels := len(postOverlays) > 0 || models.SkuHasLocalHostPathModel(sku)
-	startScript := buildSGLangEntrypointScript(hasMountedModels, tensorParallelSize, backendParameters, effSpec)
+	preferred := ""
+	if effSpec != nil {
+		preferred = effSpec.PreferredModel
+	}
+	modelPath := models.PickContainerModelMountPath(models.CollectContainerModelMountPaths(llm, sku), preferred)
+	hasMountedModels := modelPath != "" || len(postOverlays) > 0 || models.SkuHasLocalHostPathModel(sku)
+	startScript := buildSGLangEntrypointScript(modelPath, tensorParallelSize, backendParameters, effSpec)
 	envs := []*commonapi.ContainerKeyValue{
 		{
 			Key:   "HUGGING_FACE_HUB_CACHE",
@@ -249,27 +254,7 @@ func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 		spec.StartupProbe = newLLMHTTPStartupProbe(api.LLM_SGLANG_DEFAULT_PORT, "/v1/models")
 	}
 
-	effDevs := models.GetEffectiveDevices(llm, sku)
-	if len(devices) == 0 && effDevs != nil && len(*effDevs) > 0 {
-		for i := range *effDevs {
-			index := i
-			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
-				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
-				IsolatedDevice: &computeapi.ContainerIsolatedDevice{
-					Index: &index,
-				},
-			})
-		}
-	} else if len(devices) > 0 {
-		for i := range devices {
-			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
-				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
-				IsolatedDevice: &computeapi.ContainerIsolatedDevice{
-					Id: devices[i].Id,
-				},
-			})
-		}
-	}
+	appendContainerIsolatedDevices(&spec, llm, sku, devices)
 
 	diskIndex := 0
 	ctrVols := []*commonapi.ContainerVolumeMount{
@@ -596,36 +581,14 @@ func buildSGLangServeFlags(modelPath string, tensorParallelSize int, backendPara
 	)
 }
 
-func buildSGLangEntrypointScript(hasMountedModels bool, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecSGLang) string {
-	modelsPath := shellQuoteSingle(api.LLM_SGLANG_MODELS_PATH)
-	if !hasMountedModels {
-		return fmt.Sprintf("mkdir -p %s && exec sleep infinity", modelsPath)
+func buildSGLangEntrypointScript(modelPath string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecSGLang) string {
+	modelPath = strings.TrimSpace(modelPath)
+	if modelPath == "" {
+		return "exec sleep infinity"
 	}
-
-	preferredPath := ""
-	if effSpec != nil && strings.TrimSpace(effSpec.PreferredModel) != "" {
-		preferredPath = path.Join(api.LLM_SGLANG_MODELS_PATH, strings.TrimSpace(effSpec.PreferredModel))
-	}
-	serveCmd := strings.Join(buildSGLangServeFlagsWithModelExpr(
-		`"$model"`,
-		`"$(basename "$model")"`,
-		tensorParallelSize,
-		backendParameters,
-		effSpec,
-	), " ")
+	serveCmd := strings.Join(buildSGLangServeFlags(modelPath, tensorParallelSize, backendParameters, effSpec), " ")
 	return strings.Join([]string{
 		"set -e",
-		fmt.Sprintf("mkdir -p %s", modelsPath),
-		fmt.Sprintf("preferred=%s", shellQuoteSingle(preferredPath)),
-		`if [ -n "$preferred" ] && [ -d "$preferred" ]; then`,
-		`  model="$preferred"`,
-		"else",
-		fmt.Sprintf(`  model="$(find %s -mindepth 1 -maxdepth 1 -type d | sort | head -n 1)"`, modelsPath),
-		"fi",
-		`if [ -z "$model" ]; then`,
-		`  echo "no mounted SGLang model found" >&2`,
-		"  exit 1",
-		"fi",
 		fmt.Sprintf("exec %s %s", api.LLM_SGLANG_EXEC_PATH, serveCmd),
 	}, "\n")
 }

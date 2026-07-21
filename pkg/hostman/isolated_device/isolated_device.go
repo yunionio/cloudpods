@@ -810,6 +810,10 @@ func (dev *SBaseDevice) GetSharingMode() string {
 	return dev.sharingMode
 }
 
+func (dev *SBaseDevice) SetSharingMode(mode string) {
+	dev.sharingMode = mode
+}
+
 func (dev *SBaseDevice) GetPfName() string {
 	return ""
 }
