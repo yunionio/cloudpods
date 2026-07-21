@@ -193,7 +193,13 @@ func (s *CloudpodsMCPServer) Start() error {
 	sseServer := server.NewSSEServer(
 		s.mcpServer,
 		server.WithSSEContextFunc(contextFunc),
-		server.WithHTTPServer(&http.Server{Handler: mux}),
+		// Gateway proxies /api/s/mcp-server/sse → /sse and sets X-Forwarded-Prefix.
+		// Clients must POST messages to /api/s/mcp-server/message, not /message.
+		server.WithDynamicBasePath(func(r *http.Request, _ string) string {
+			return strings.TrimSuffix(r.Header.Get("X-Forwarded-Prefix"), "/")
+		}),
+		server.WithUseFullURLForMessageEndpoint(false),
+		server.WithHTTPServer(&http.Server{Handler: withAccessLog(mux)}),
 	)
 	mux.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request) {
 		appsrv.VersionHandler(context.Background(), w, r)

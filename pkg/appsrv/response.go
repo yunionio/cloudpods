@@ -18,8 +18,10 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"mime"
 	"net"
 	"net/http"
+	"strings"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -36,6 +38,8 @@ type responseWriterChannel struct {
 	bodyResp   chan responseWriterResponse
 	statusChan chan int
 	statusResp chan bool
+	flushChan  chan struct{}
+	flushResp  chan struct{}
 
 	isClosed bool
 }
@@ -47,6 +51,8 @@ func newResponseWriterChannel(backend http.ResponseWriter) responseWriterChannel
 		bodyResp:   make(chan responseWriterResponse),
 		statusChan: make(chan int),
 		statusResp: make(chan bool),
+		flushChan:  make(chan struct{}),
+		flushResp:  make(chan struct{}),
 		isClosed:   false,
 	}
 }
@@ -76,14 +82,32 @@ func (w *responseWriterChannel) WriteHeader(status int) {
 	<-w.statusResp
 }
 
-// implent http.Flusher
+// Flush implements http.Flusher. Flush must run on the same goroutine as Write
+// (wait loop); otherwise SSE via ReverseProxy never reaches the client.
 func (w *responseWriterChannel) Flush() {
 	if w.isClosed {
 		return
 	}
+	w.flushChan <- struct{}{}
+	<-w.flushResp
+}
+
+func (w *responseWriterChannel) flushBackend() {
 	if f, ok := w.backend.(http.Flusher); ok {
 		f.Flush()
 	}
+}
+
+func (w *responseWriterChannel) isEventStream() bool {
+	ct := w.backend.Header().Get("Content-Type")
+	if ct == "" {
+		return false
+	}
+	baseCT, _, err := mime.ParseMediaType(ct)
+	if err != nil {
+		return strings.HasPrefix(ct, "text/event-stream")
+	}
+	return baseCT == "text/event-stream"
 }
 
 // Hijack implements the Hijacker.Hijack method. Our response is both a ResponseWriter
@@ -121,6 +145,11 @@ func (w *responseWriterChannel) wait(ctx context.Context, workerChan chan *SWork
 			// log.Infof("Recive body: %s, more: %v", len(bytes), more)
 			if more {
 				c, e := w.backend.Write(bytes)
+				// SSE / streaming: flush immediately after each chunk so clients
+				// see events without waiting for handler completion.
+				if e == nil && w.isEventStream() {
+					w.flushBackend()
+				}
 				w.bodyResp <- responseWriterResponse{count: c, err: e}
 			} else {
 				stop = true
@@ -130,6 +159,13 @@ func (w *responseWriterChannel) wait(ctx context.Context, workerChan chan *SWork
 			if more {
 				w.backend.WriteHeader(status)
 				w.statusResp <- true
+			} else {
+				stop = true
+			}
+		case _, more := <-w.flushChan:
+			if more {
+				w.flushBackend()
+				w.flushResp <- struct{}{}
 			} else {
 				stop = true
 			}
@@ -148,4 +184,6 @@ func (w *responseWriterChannel) closeChannels() {
 	close(w.bodyResp)
 	close(w.statusChan)
 	close(w.statusResp)
+	close(w.flushChan)
+	close(w.flushResp)
 }
