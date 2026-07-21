@@ -26,7 +26,7 @@ import (
 )
 
 type ServerSkusListOptions struct {
-	_ struct{} `mcp-desc:"【创建流程中间步骤】查规格。口语 2c2g 用 spec；公有云须 provider+cloudregion。取 name 作 instance-type 后立刻 climc_server_create"`
+	_ struct{} `mcp-desc:"【创建流程中的中间步骤】查规格。口语 2c2g 用 spec；公有云须 provider+cloudregion。取 name 作 instance-type 后立刻 climc_server_create"`
 
 	baseoptions.BaseListOptions
 	Cloudregion string  `help:"region Id or name" mcp:"true"`

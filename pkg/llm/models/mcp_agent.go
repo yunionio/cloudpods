@@ -198,11 +198,19 @@ func (mcp *SMCPAgent) GetApiKey() (string, error) {
 
 func (man *SMCPAgentManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
 	man.SSharableVirtualResourceBaseManager.CustomizeHandlerInfo(info)
+	// chat-stream / tool-request 等长耗时接口：显式抬高 processTimeout。
+	// 仅靠 callback 时，若路径未命中仍会落回 default_process_timeout_seconds=60，
+	// 导致 climc_server_create 等待公有云部署时被提前取消（表现为 SSE timeout）。
+	info.SetProcessTimeout(time.Hour * 4).SetWorkerManager(mcpAgentWorkerMan)
+}
 
-	switch info.GetName(nil) {
-	case "get_specific":
-		info.SetProcessTimeout(time.Hour * 4).SetWorkerManager(mcpAgentWorkerMan)
+// mcpToolCallTimeout 单次 tools/call 等待上限；至少 10 分钟以覆盖公有云创建。
+func mcpToolCallTimeout() time.Duration {
+	sec := options.Options.MCPAgentTimeout
+	if sec < 600 {
+		sec = 600
 	}
+	return time.Duration(sec) * time.Second
 }
 
 func (man *SMCPAgentManager) SetHandlerProcessTimeout(info *appsrv.SHandlerInfo, r *http.Request) time.Duration {
@@ -556,7 +564,7 @@ func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCreden
 	if err != nil {
 		return nil, errors.Wrap(err, "GetMcpServerUrl")
 	}
-	mcpClient := utils.NewMCPClient(mcpServerUrl, 10*time.Minute, userCred)
+	mcpClient := utils.NewMCPClient(mcpServerUrl, mcpToolCallTimeout(), userCred)
 	defer mcpClient.Close()
 	mcpTools, err := mcpClient.ListTools(ctx)
 	if err != nil {
@@ -851,8 +859,10 @@ func processToolCalls(
 
 		log.Infof("Calling tool: %s with arguments: %v", toolName, arguments)
 
-		// 调用 MCP 工具
-		result, err := mcpClient.CallTool(ctx, toolName, arguments)
+		// 独立超时 + WithoutCancel：避免父请求短 deadline（如 60s）掐断公有云 create 等待
+		toolCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), mcpToolCallTimeout())
+		result, err := mcpClient.CallTool(toolCtx, toolName, arguments)
+		cancel()
 		resultText := utils.FormatToolResult(toolName, result, err)
 		log.Infoln("Get result from mcp query", resultText)
 

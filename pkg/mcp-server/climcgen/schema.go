@@ -147,7 +147,7 @@ func buildInputSchema(cmd shell.CMD) (json.RawMessage, error) {
 	// 强化 create 关键字段说明，降低调用门槛
 	if isCreate {
 		if prop, ok := properties["disk"].(map[string]interface{}); ok {
-			prop["description"] = "系统盘描述，数组。公有云示例：[\"size=40g,image=<镜像ID>,backend=cloud_essd\"]；backend 必须来自 climc_cloud_region_capability 的 storage_types2；ISO 请用 cdrom 而不是 disk.image"
+			prop["description"] = "系统盘描述，数组。公有云：[\"size=40g,image=<镜像ID>,backend=cloud_essd\"]；CAS/UIS/SangFor：[\"size=40g,backend=dir\"]（不要 image，ISO 用 cdrom）；backend 来自 capability.storage_types2"
 			properties["disk"] = prop
 		}
 		if prop, ok := properties["net"].(map[string]interface{}); ok {
@@ -155,8 +155,12 @@ func buildInputSchema(cmd shell.CMD) (json.RawMessage, error) {
 			properties["net"] = prop
 		}
 		if prop, ok := properties["cdrom"].(map[string]interface{}); ok {
-			prop["description"] = "ISO/光驱镜像 ID；系统盘不要挂 ISO 镜像"
+			prop["description"] = "ISO/光驱镜像 ID（CAS/UIS/SangFor 必填，取自 climc_cached_image_list）；系统盘不要再挂 ISO 的 image"
 			properties["cdrom"] = prop
+		}
+		if prop, ok := properties["hypervisor"].(map[string]interface{}); ok {
+			prop["description"] = "Hypervisor；私有云 CAS 传 cas，公有云传 Aliyun/Aws 等对应值；省略时多为 kvm"
+			properties["hypervisor"] = prop
 		}
 	}
 
@@ -260,13 +264,13 @@ func toolNameFromCommand(command string) string {
 }
 
 func buildDescription(cmd shell.CMD) string {
+	// mcp-desc 已写给模型看时，不再拼接英文 climc Desc，避免中英重复占 token、稀释意图。
+	if mcp := collectMcpDesc(cmd.Options); mcp != "" {
+		return fmt.Sprintf("[climc %s] %s", cmd.Command, mcp)
+	}
 	desc := strings.TrimSpace(cmd.Desc)
 	if desc == "" {
 		desc = fmt.Sprintf("Execute climc command %s", cmd.Command)
 	}
-	desc = fmt.Sprintf("[climc %s] %s", cmd.Command, desc)
-	if mcp := collectMcpDesc(cmd.Options); mcp != "" {
-		desc += "。" + mcp
-	}
-	return desc
+	return fmt.Sprintf("[climc %s] %s", cmd.Command, desc)
 }

@@ -23,19 +23,24 @@ import (
 
 // serverInstructionsTemplate 返回给 MCP 客户端的全局使用说明模板，%s 为 PlatformName。
 // 细则写在本说明；各工具 mcp-desc 保持一行摘要，避免重复占 token。
+// 创建顺序对齐控制台：区域→能力→规格→镜像→创建（见 dashboard vminstance/create）。
 const serverInstructionsTemplate = `%s MCP（climc tools）使用规则：
 
 认证：initialize / tools/list 可匿名；tools/call 必须带 Header（X-Auth-Token，或 AK+SK，或 X-API-Key=base64(ak:sk)），不要在工具参数传密钥。
 
 0. 严禁空口编造：未实际调用 climc_* 并拿到返回前，禁止声称“已查到/已创建成功”。
 1. *-list 只用于准备参数，不等于任务完成；同一轮可并行多个查询。
-2. 创建虚拟机（连续到 climc_server_create）：
-   a) climc_cloud_region_list（公有云须 provider；创建时 usable=true）
-   b) climc_cloud_region_capability → 取 storage_types2 作 disk.backend
-   c) climc_image_list（KVM）或 climc_cached_image_list（公有云，须 provider+region=区域 id）
-   d) climc_server_sku_list（口语 2c2g 用 spec=\"2c2g\"）或直接 ncpu/mem
-   e) climc_server_create（name、disk 含 image+backend、规格；公有云 hypervisor+prefer-region）。net 可省略自动调度。工具会 forecast 预调度并等待 running/ready；若返回 wait_pending，用 climc_server_show 继续查，勿重复创建。
-3. 启停/重启/删除/重置密码/改配/挂盘/绑 EIP：climc_server_list 定位 id 后立刻调用对应操作工具。
+2. 创建虚拟机（连续到 climc_server_create；顺序：区域→能力→规格→镜像→创建）：
+   a) climc_cloud_region_list（公有云/私有云须 provider；创建时 usable=true）
+   b) climc_cloud_region_capability → 取 storage_types2[hypervisor] 作 disk.backend（CAS 常为 dir/fs）
+   c) climc_server_sku_list（口语 2c2g 用 spec=\"2c2g\"；公有云须 provider+cloudregion）或直接 ncpu/mem
+   d) 镜像：KVM 用 climc_image_list；公有云/私有云用 climc_cached_image_list（须 provider+region=区域 id）
+   e) climc_server_create：
+      - KVM/公有云：name、disk 含 image+backend、规格；公有云 hypervisor+prefer-region
+      - CAS/UIS/SangFor：hypervisor=cas（等）、prefer-region、disk=\"size=..,backend=dir\"（不要 image）、cdrom=<ISO cached-image id>
+      - net 可省略自动调度。工具会 forecast→创建并等待 running/ready；若返回 wait_pending，用 climc_server_show 续查，勿重复创建。
+      - 若 final_status 含 fail：结果中会带 fail_reason 与 fail_diagnostics.action_logs（平台操作日志）；也可 climc_action_show type=server id=<id> fail=true。
+3. 启停/重启/删除/重置密码/改配/挂盘/绑 EIP：climc_server_list 定位 id 后立刻调用对应操作工具。删除时若锁定会自动解锁。
 4. 监控指标用 climc_monitor_unifiedmonitor_query；climc_server_monitor 是 QEMU HMP/QMP，不是指标。
 5. 缺参只追问真正缺失项；已有 id 直接下一步。
 `
@@ -50,7 +55,10 @@ func BuildServerInstructions(platformName string) string {
 	return fmt.Sprintf(serverInstructionsTemplate, name)
 }
 
+// createFlowMidStepMarker 创建流程中间查询工具标记（须与 Options mcp-desc 一致）。
+const createFlowMidStepMarker = "创建流程中的中间步骤"
+
 // isCreateFlowListCommand：创建流程中间查询工具（Options mcp-desc 含该标记）。
 func isCreateFlowListCommand(opt interface{}) bool {
-	return strings.Contains(collectMcpDesc(opt), "创建流程中的中间步骤")
+	return strings.Contains(collectMcpDesc(opt), createFlowMidStepMarker)
 }
