@@ -200,6 +200,9 @@ func (s *CloudpodsMCPServer) Start() error {
 		}),
 		server.WithUseFullURLForMessageEndpoint(false),
 		server.WithHTTPServer(&http.Server{Handler: withAccessLog(mux)}),
+		// 长耗时 tools/call（如公有云 create）期间保持 SSE 活跃，避免中间代理空闲断开
+		server.WithKeepAlive(true),
+		server.WithKeepAliveInterval(15*time.Second),
 	)
 	mux.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request) {
 		appsrv.VersionHandler(context.Background(), w, r)

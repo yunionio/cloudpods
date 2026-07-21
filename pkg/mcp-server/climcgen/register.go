@@ -70,7 +70,7 @@ func discoverMcpDescCommands() []string {
 		switch {
 		case cmd.Command == "server-create" || strings.Contains(desc, "最终动作") || strings.Contains(desc, "优先调用"):
 			r.rank = 0
-		case strings.Contains(desc, "创建流程中的中间步骤"):
+		case strings.Contains(desc, createFlowMidStepMarker):
 			r.rank = 1
 		}
 		found = append(found, r)

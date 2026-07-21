@@ -21,7 +21,7 @@ import (
 )
 
 type CachedImageListOptions struct {
-	_ struct{} `mcp-desc:"【创建流程中的中间步骤】公有云/非KVM 选镜像。必须带 provider（如 [\"Aliyun\"]），region 必须传 climc_cloud_region_list 返回的 id（UUID），禁止传 cn-shanghai 这类云厂商 region code。不要用 ISO。查完后继续 network/sku，最后 climc_server_create"`
+	_ struct{} `mcp-desc:"【创建流程中的中间步骤】公有云/私有云选镜像。必须带 provider（如 [\"Aliyun\"]/[\"CAS\"]），region 传 cloudregion UUID。公有云系统盘用非 ISO；CAS/UIS/SangFor 选 ISO，创建时作 cdrom（系统盘不要挂 image）。查完后继续 sku，最后 climc_server_create"`
 
 	options.BaseListOptions
 	ImageType string `help:"image type；公有云系统盘常用 system" choices:"system|customized|shared|market" mcp:"true"`
