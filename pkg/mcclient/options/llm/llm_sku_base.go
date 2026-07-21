@@ -24,7 +24,7 @@ type LLMSkuBaseCreateOptions struct {
 	// DiskOverlay    string `help:"disk overlay, e.g. /opt/steam-data/base:/opt/steam-data/games"`
 	TemplateId   string
 	PortMappings []string `help:"port mapping in the format of protocol:port[:prefix][:first_port_offset][:env_key=env_value], e.g. tcp:5555:192.168.0.0/16:5:WOLF_BASE_PORT=20000"`
-	Devices      []string `help:"device info in the format of model[:path[:dev_type]], e.g. 'GeForce RTX 4060'"`
+	Devices      []string `help:"device info in the format of model[:path[:dev_type[:sharing_mode]]], e.g. 'GeForce RTX 4060'"`
 	HostPaths    []string `json:"-" help:"host path mount in format path=<host_path>,type=<directory|file>,container_index=<index>,mount_path=<container_path>[,auto_create=<bool>][,read_only=<bool>][,propagation=<private|rslave|rshared>][,fs_user=<uid>][,fs_group=<gid>][,uid=<uid>][,gid=<gid>][,permissions=<mode>]; repeatable"`
 
 	Env      []string `help:"env in format of key=value"`
@@ -69,7 +69,7 @@ type LLMSkuBaseUpdateOptions struct {
 	// Dpi          *int
 	// Fps          *int
 	PortMappings []string `help:"port mapping in the format of protocol:port[:prefix][:first_port_offset], e.g. tcp:5555:192.168.0.0/16,10.10.0.0/16:1000"`
-	Devices      []string `help:"device info in the format of model[:path[:dev_type]], e.g. QuadraT2A:/dev/nvme1n1, Device::VASTAITECH_GPU"`
+	Devices      []string `help:"device info in the format of model[:path[:dev_type[:sharing_mode]]], e.g. QuadraT2A:/dev/nvme1n1, Device::VASTAITECH_GPU"`
 	HostPaths    []string `json:"-" help:"host path mount in format path=<host_path>,type=<directory|file>,container_index=<index>,mount_path=<container_path>[,auto_create=<bool>][,read_only=<bool>][,propagation=<private|rslave|rshared>][,fs_user=<uid>][,fs_group=<gid>][,uid=<uid>][,gid=<gid>][,permissions=<mode>]; repeatable"`
 	Env          []string `help:"env in the format of key=value, e.g. AUTHENTICATION_PATH=/bupt-test/"`
 	Property     []string `help:"extra properties of key=value, e.g. tango32=true"`
@@ -364,16 +364,21 @@ func fetchDevices(devStrs []string, dict *jsonutils.JSONDict) {
 		if len(segs) > 0 {
 			devpath := ""
 			devType := ""
+			sharingMode := ""
 			if len(segs) > 1 {
 				devpath = segs[1]
 			}
 			if len(segs) > 2 {
 				devType = segs[2]
 			}
+			if len(segs) > 3 {
+				sharingMode = segs[3]
+			}
 			devs = append(devs, api.Device{
-				Model:      segs[0],
-				DevicePath: devpath,
-				DevType:    devType,
+				Model:       segs[0],
+				DevicePath:  devpath,
+				DevType:     devType,
+				SharingMode: sharingMode,
 			})
 		}
 	}

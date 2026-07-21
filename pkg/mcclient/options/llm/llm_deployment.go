@@ -55,7 +55,7 @@ type LLMDeploymentCreateOptions struct {
 	SkuStorageType   string   `help:"SKU storage type, e.g. local" json:"-"`
 	SkuTemplateId    string   `help:"SKU storage template id" json:"-"`
 	SkuPortMappings  []string `help:"port mapping protocol:port[:prefix][:offset][:envs]; repeatable" json:"-"`
-	SkuDevices       []string `help:"device model[:path[:dev_type]]; repeatable" json:"-"`
+	SkuDevices       []string `help:"device model[:path[:dev_type[:sharing_mode]]]; repeatable" json:"-"`
 	SkuEnv           []string `help:"env key=value; repeatable" json:"-"`
 	SkuProperty      []string `help:"property key=value; repeatable" json:"-"`
 	SkuMountedModels []string `help:"already-imported InstantModel ref, format name:tag; repeatable" json:"-"`

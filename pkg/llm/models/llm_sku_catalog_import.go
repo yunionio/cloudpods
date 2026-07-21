@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -122,6 +123,9 @@ func EnableInstantModelForUse(ctx context.Context, userCred mcclient.TokenCreden
 		return errors.Wrapf(err, "fetch InstantModel %s", id)
 	}
 	im := obj.(*SInstantModel)
+	if im.Status != imageapi.IMAGE_STATUS_ACTIVE {
+		return errors.Wrapf(errors.ErrInvalidStatus, "cannot enable InstantModel %s of status %s", id, im.Status)
+	}
 	if im.Enabled.IsTrue() {
 		return nil
 	}

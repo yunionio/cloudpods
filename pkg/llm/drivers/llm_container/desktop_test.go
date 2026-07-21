@@ -18,8 +18,12 @@ func TestAppendContainerIsolatedDevicesFromSku(t *testing.T) {
 	if len(spec.Devices) != 1 {
 		t.Fatalf("devices len = %d", len(spec.Devices))
 	}
-	if spec.Devices[0].IsolatedDevice == nil || spec.Devices[0].IsolatedDevice.Index == nil || *spec.Devices[0].IsolatedDevice.Index != 0 {
-		t.Fatalf("device index = %#v", spec.Devices[0].IsolatedDevice)
+	iso := spec.Devices[0].IsolatedDevice
+	if iso == nil || iso.Index == nil || *iso.Index != 0 {
+		t.Fatalf("device index = %#v", iso)
+	}
+	if iso.GuestIsolatedDeviceIndex != 0 {
+		t.Fatalf("guest_isolated_device_index = %d", iso.GuestIsolatedDeviceIndex)
 	}
 }
 
@@ -30,6 +34,9 @@ func TestAppendContainerIsolatedDevicesById(t *testing.T) {
 	appendContainerIsolatedDevices(&spec, nil, nil, []computeapi.SIsolatedDevice{dev})
 	if len(spec.Devices) != 1 || spec.Devices[0].IsolatedDevice == nil || spec.Devices[0].IsolatedDevice.Id != "gpu-1" {
 		t.Fatalf("devices = %#v", spec.Devices)
+	}
+	if spec.Devices[0].IsolatedDevice.GuestIsolatedDeviceIndex != 0 {
+		t.Fatalf("guest_isolated_device_index = %d", spec.Devices[0].IsolatedDevice.GuestIsolatedDeviceIndex)
 	}
 }
 

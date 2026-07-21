@@ -7,8 +7,11 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/llm/options"
@@ -21,7 +24,7 @@ import (
 const (
 	autoGpuMemoryUtilizationSafetyFactor = 1.10
 	autoGpuMemoryUtilizationMin          = 0.05
-	autoGpuMemoryUtilizationMax          = 0.95
+	autoGpuMemoryUtilizationMax          = 1.0
 
 	sglangAutoGpuMemoryMetadataReserveMB = 512
 )
@@ -107,6 +110,18 @@ func calculateAutoGpuMemoryUtilization(requiredVramMB int64, gpuMemoryMB int64, 
 	return calculateAutoGpuMemoryUtilizationFromPerGPURequired(
 		float64(requiredVramMB)/float64(normalizeTensorParallelSize(tensorParallelSize)),
 		gpuMemoryMB,
+		false,
+	)
+}
+
+func calculateAutoGpuMemoryUtilizationClampMax(requiredVramMB int64, gpuMemoryMB int64, tensorParallelSize int) (float64, error) {
+	if requiredVramMB <= 0 {
+		return 0, errors.Wrap(httperrors.ErrInputParameter, "mounted model gpu_memory_required is empty")
+	}
+	return calculateAutoGpuMemoryUtilizationFromPerGPURequired(
+		float64(requiredVramMB)/float64(normalizeTensorParallelSize(tensorParallelSize)),
+		gpuMemoryMB,
+		true,
 	)
 }
 
@@ -114,7 +129,7 @@ func instantModelEstimatedVramRequirementMB(model *SInstantModel) int64 {
 	if model == nil {
 		return 0
 	}
-	return int64(vram.EstimateClaimMb(model.WeightSizeBytes, model.LlmType))
+	return int64(vram.EstimateClaimMbWithContext(model.WeightSizeBytes, model.LlmType, api.LLM_DEFAULT_CONTEXT_TOKENS))
 }
 
 func runtimeArgKeyIn(key string, keys []string) bool {
@@ -275,22 +290,92 @@ func parseTokenLimitValue(value string) (int64, bool) {
 	return int64(math.Ceil(parsed * multiplier)), true
 }
 
-func calculateAutoGpuMemoryUtilizationFromPerGPURequired(perGPURequiredMB float64, gpuMemoryMB int64) (float64, error) {
+func calculateAutoGpuMemoryUtilizationFromPerGPURequired(perGPURequiredMB float64, gpuMemoryMB int64, clampToMax bool) (float64, error) {
 	if gpuMemoryMB <= 0 {
 		return 0, errors.Wrap(httperrors.ErrInputParameter, "gpu memory_mb is empty")
 	}
 	raw := perGPURequiredMB * autoGpuMemoryUtilizationSafetyFactor / float64(gpuMemoryMB)
+	log.Infof("auto gpu_memory_utilization calc: perGPURequiredMB=%.2f gpuMemoryMB=%d safetyFactor=%.2f raw=%.4f clampToMax=%v max=%.2f min=%.2f",
+		perGPURequiredMB, gpuMemoryMB, autoGpuMemoryUtilizationSafetyFactor, raw, clampToMax, autoGpuMemoryUtilizationMax, autoGpuMemoryUtilizationMin)
 	if raw > autoGpuMemoryUtilizationMax {
+		if clampToMax {
+			log.Infof("auto gpu_memory_utilization clamp: raw=%.4f -> %.2f", raw, autoGpuMemoryUtilizationMax)
+			return autoGpuMemoryUtilizationMax, nil
+		}
 		return 0, errors.Wrapf(httperrors.ErrInputParameter,
 			"model requires %.2f GPU memory utilization, exceeds max %.2f", raw, autoGpuMemoryUtilizationMax)
 	}
 	if raw < autoGpuMemoryUtilizationMin {
+		log.Infof("auto gpu_memory_utilization raise: raw=%.4f -> %.2f", raw, autoGpuMemoryUtilizationMin)
 		raw = autoGpuMemoryUtilizationMin
 	}
-	return math.Ceil(raw*100) / 100, nil
+	result := math.Ceil(raw*100) / 100
+	log.Infof("auto gpu_memory_utilization result: %.2f", result)
+	return result, nil
+}
+
+// skuDevicesHaveHami reports whether any SKU device uses HAMI sharing after normalization.
+func skuDevicesHaveHami(sku *SLLMSku) bool {
+	if sku == nil || sku.Devices == nil {
+		return false
+	}
+	for i := range *sku.Devices {
+		dev := (*sku.Devices)[i]
+		normalizeLLMSkuDevice(&dev)
+		if dev.SharingMode == computeapi.DEVICE_SHARING_MODE_HAMI {
+			return true
+		}
+	}
+	return false
+}
+
+// resolveHamiAllocatedMemoryMB returns the per-GPU HAMI slice size (MiB) used as
+// the visible GPU memory for auto gpu-memory-utilization. Prefer device.MemoryMb;
+// otherwise ceil-split EstimateVramClaimMb across devices. Returns the minimum
+// across devices.
+func resolveHamiAllocatedMemoryMB(sku *SLLMSku) (int64, error) {
+	claim := 0
+	if sku != nil {
+		claim = sku.EstimateVramClaimMb()
+	}
+	return resolveHamiAllocatedMemoryMBWithClaim(sku, claim)
+}
+
+func resolveHamiAllocatedMemoryMBWithClaim(sku *SLLMSku, claimMb int) (int64, error) {
+	if sku == nil || sku.Devices == nil || len(*sku.Devices) == 0 {
+		return 0, errors.Wrap(httperrors.ErrInputParameter, "HAMI allocated memory requires GPU devices")
+	}
+	n := len(*sku.Devices)
+	perDevFromClaim := 0
+	if claimMb > 0 && n > 0 {
+		perDevFromClaim = (claimMb + n - 1) / n
+	}
+	var minMem int64
+	for i := range *sku.Devices {
+		dev := (*sku.Devices)[i]
+		normalizeLLMSkuDevice(&dev)
+		mem := dev.MemoryMb
+		if mem <= 0 {
+			mem = perDevFromClaim
+		}
+		if mem <= 0 {
+			return 0, errors.Wrap(httperrors.ErrInputParameter,
+				"HAMI allocated memory is 0: set devices[].memory_mb or mount InstantModel with weight_size_bytes")
+		}
+		if minMem == 0 || int64(mem) < minMem {
+			minMem = int64(mem)
+		}
+	}
+	return minMem, nil
 }
 
 func calculateDeploymentAutoGpuMemoryUtilization(sku *SLLMSku, requiredVramMB int64, gpuMemoryMB int64, tensorParallelSize int) (float64, error) {
+	// HAMI visible memory is the slice (MemoryRequest / CUDA_DEVICE_MEMORY_LIMIT),
+	// not the physical card. Caller must pass allocated slice as gpuMemoryMB.
+	// When required ≈ allocated, safety factor may exceed 1.0 — clamp instead of error.
+	if skuDevicesHaveHami(sku) {
+		return calculateAutoGpuMemoryUtilizationClampMax(requiredVramMB, gpuMemoryMB, tensorParallelSize)
+	}
 	if sku != nil && api.LLMContainerType(sku.LLMType) == api.LLM_CONTAINER_SGLANG {
 		return calculateSGLangAutoGpuMemoryUtilization(sku, requiredVramMB, gpuMemoryMB, tensorParallelSize)
 	}
@@ -492,14 +577,23 @@ func BuildDeploymentResolvedGpuMemoryLLMSpec(ctx context.Context, userCred mccli
 	if err != nil {
 		return nil, err
 	}
-	gpuMemoryMB, err := minGpuMemoryMB(ctx, userCred, sku.Devices)
+	isHami := skuDevicesHaveHami(sku)
+	var gpuMemoryMB int64
+	if isHami {
+		gpuMemoryMB, err = resolveHamiAllocatedMemoryMB(sku)
+	} else {
+		gpuMemoryMB, err = minGpuMemoryMB(ctx, userCred, sku.Devices)
+	}
 	if err != nil {
 		return nil, err
 	}
+	log.Infof("auto gpu_memory_utilization resolve: deploy=%s sku=%s/%s llmType=%s hami=%v requiredModelVramMB=%d (no KV) gpuMemoryMB=%d tensorParallelSize=%d",
+		deploy.Id, sku.Id, sku.Name, sku.LLMType, isHami, requiredVramMB, gpuMemoryMB, tensorParallelSize)
 	utilization, err := calculateDeploymentAutoGpuMemoryUtilization(sku, requiredVramMB, gpuMemoryMB, tensorParallelSize)
 	if err != nil {
 		return nil, err
 	}
+	log.Infof("auto gpu_memory_utilization final: deploy=%s sku=%s utilization=%.2f", deploy.Id, sku.Id, utilization)
 	return buildAutoGpuMemoryUtilizationLLMSpec(sku, utilization)
 }
 
@@ -512,21 +606,12 @@ func maxMountedModelVramRequirementMB(sku *SLLMSku) (int64, error) {
 	if len(modelIds) == 0 {
 		return 0, httperrors.NewInputParameterError("auto_gpu_memory_utilization requires mounted models: configure mounted_models on the LLM SKU")
 	}
-	var maxRequiredVramMB int64
-	for _, modelId := range modelIds {
-		obj, err := GetInstantModelManager().FetchById(modelId)
-		if err != nil {
-			return 0, errors.Wrapf(err, "fetch InstantModel %s", modelId)
-		}
-		requiredVramMB := instantModelEstimatedVramRequirementMB(obj.(*SInstantModel))
-		if requiredVramMB > maxRequiredVramMB {
-			maxRequiredVramMB = requiredVramMB
-		}
-	}
-	if maxRequiredVramMB <= 0 {
+	// Model weights + framework only; KV headroom belongs in HAMI slice (EstimateVramClaimMb), not util numerator.
+	requiredVramMB := int64(sku.EstimateModelVramMb())
+	if requiredVramMB <= 0 {
 		return 0, errors.Wrap(httperrors.ErrInputParameter, "mounted model vram requirement is empty")
 	}
-	return maxRequiredVramMB, nil
+	return requiredVramMB, nil
 }
 
 func minGpuMemoryMB(ctx context.Context, userCred mcclient.TokenCredential, devices *api.Devices) (int64, error) {
@@ -556,7 +641,7 @@ func fetchMinIsolatedDeviceMemoryMB(ctx context.Context, userCred mcclient.Token
 	}
 	if len(results.Data) == 0 {
 		return 0, errors.Wrapf(httperrors.ErrResourceNotFound,
-			"unused isolated device not found for %s", isolatedDeviceMemoryFilterDesc(device))
+			"matching isolated device not found for %s", isolatedDeviceMemoryFilterDesc(device))
 	}
 	memory, err := minIsolatedDeviceMemoryMB(results.Data)
 	if err != nil {
@@ -567,11 +652,18 @@ func fetchMinIsolatedDeviceMemoryMB(ctx context.Context, userCred mcclient.Token
 
 func buildIsolatedDeviceMemoryParams(device api.Device) *jsonutils.JSONDict {
 	params := jsonutils.NewDict()
-	params.Set("unused", jsonutils.JSONTrue)
+	dev := device
+	normalizeLLMSkuDevice(&dev)
+	// Exclusive GPUs must be unused. Virtual sharing modes (HAMI/UNLIMITED/MPS)
+	// can still have free VRAM/slots while guest joins exist, so skip unused.
+	if !utils.IsInStringArray(dev.SharingMode, computeapi.VIRTUAL_SHARING_MODES) {
+		params.Set("unused", jsonutils.JSONTrue)
+	}
 	params.Set("show_baremetal_isolated_devices", jsonutils.JSONTrue)
-	setStringArrayParam(params, "dev_type", device.DevType)
-	setStringArrayParam(params, "model", device.Model)
-	setStringArrayParam(params, "device_path", device.DevicePath)
+	setStringArrayParam(params, "dev_type", dev.DevType)
+	setStringArrayParam(params, "sharing_mode", dev.SharingMode)
+	setStringArrayParam(params, "model", dev.Model)
+	setStringArrayParam(params, "device_path", dev.DevicePath)
 	return params
 }
 

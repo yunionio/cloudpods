@@ -15,6 +15,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/llm/utils/vram"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	imagemodules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
@@ -170,6 +171,7 @@ func (manager *SLLMSkuManager) FetchCustomizeColumns(
 		} else {
 			for i, sku := range skus {
 				modelIds := sku.GetMountedModels()
+				res[i].VramClaimMb = EstimateVramClaimMbFromInstantModels(sku.LLMType, modelIds, instModels, effectiveMaxModelLen(&sku))
 				if len(modelIds) > 0 {
 					res[i].MountedModelDetails = make([]api.MountedModelInfo, 0)
 					for _, modelId := range modelIds {
@@ -184,6 +186,10 @@ func (manager *SLLMSkuManager) FetchCustomizeColumns(
 					}
 				}
 			}
+		}
+	} else {
+		for i := range skus {
+			res[i].VramClaimMb = 0
 		}
 	}
 	{
@@ -321,6 +327,93 @@ func (sku *SLLMSku) GetMountedModels() []string {
 		return nil
 	}
 	return drv.GetMountedModels(sku)
+}
+
+// EstimateVramClaimMb returns heuristic VRAM (MiB) from the largest mounted
+// InstantModel's weight_size_bytes, including KV reserve for effective
+// max_model_len. 0 means unknown / no mounted weights.
+func (sku *SLLMSku) EstimateVramClaimMb() int {
+	if sku == nil {
+		return 0
+	}
+	return EstimateVramClaimMbFromMountedModels(sku.LLMType, sku.GetMountedModels(), effectiveMaxModelLen(sku))
+}
+
+// EstimateModelVramMb returns weight+framework VRAM (MiB) without KV reserve.
+// Used as the numerator for auto gpu-memory-utilization; HAMI slice sizing
+// continues to use EstimateVramClaimMb (WithContext).
+func (sku *SLLMSku) EstimateModelVramMb() int {
+	if sku == nil {
+		return 0
+	}
+	return EstimateModelVramMbFromMountedModels(sku.LLMType, sku.GetMountedModels())
+}
+
+// effectiveMaxModelLen returns SKU-configured max-model-len, or the platform default.
+func effectiveMaxModelLen(sku *SLLMSku) int {
+	if sku == nil {
+		return api.LLM_DEFAULT_CONTEXT_TOKENS
+	}
+	keys := []string{"max-model-len"}
+	if val, ok := tokenLimitFromBackendParameters(sku.BackendParameters, keys); ok && val > 0 {
+		return int(val)
+	}
+	switch api.LLMContainerType(sku.LLMType) {
+	case api.LLM_CONTAINER_VLLM:
+		if sku.LLMSpec != nil && sku.LLMSpec.Vllm != nil {
+			for _, arg := range sku.LLMSpec.Vllm.CustomizedArgs {
+				if arg == nil || !runtimeArgKeyIn(arg.Key, keys) {
+					continue
+				}
+				if val, ok := parseTokenLimitValue(arg.Value); ok && val > 0 {
+					return int(val)
+				}
+			}
+		}
+	case api.LLM_CONTAINER_SGLANG:
+		if val, ok := sglangRuntimeIntArg(sku, keys); ok && val > 0 {
+			return int(val)
+		}
+	}
+	return api.LLM_DEFAULT_CONTEXT_TOKENS
+}
+
+func maxMountedInstantModelWeightBytes(modelIds []string) int64 {
+	var maxWeight int64
+	for _, id := range modelIds {
+		if strings.TrimSpace(id) == "" {
+			continue
+		}
+		obj, err := GetInstantModelManager().FetchById(id)
+		if err != nil {
+			continue
+		}
+		if w := obj.(*SInstantModel).WeightSizeBytes; w > maxWeight {
+			maxWeight = w
+		}
+	}
+	return maxWeight
+}
+
+// EstimateModelVramMbFromMountedModels estimates model VRAM without KV reserve.
+func EstimateModelVramMbFromMountedModels(llmType string, modelIds []string) int {
+	return vram.EstimateClaimMb(maxMountedInstantModelWeightBytes(modelIds), llmType)
+}
+
+// EstimateVramClaimMbFromMountedModels estimates VRAM from InstantModel ids.
+func EstimateVramClaimMbFromMountedModels(llmType string, modelIds []string, maxModelLen int) int {
+	return vram.EstimateClaimMbWithContext(maxMountedInstantModelWeightBytes(modelIds), llmType, maxModelLen)
+}
+
+// EstimateVramClaimMbFromInstantModels uses already-fetched InstantModel rows.
+func EstimateVramClaimMbFromInstantModels(llmType string, modelIds []string, models map[string]SInstantModel, maxModelLen int) int {
+	var maxWeight int64
+	for _, id := range modelIds {
+		if m, ok := models[id]; ok && m.WeightSizeBytes > maxWeight {
+			maxWeight = m.WeightSizeBytes
+		}
+	}
+	return vram.EstimateClaimMbWithContext(maxWeight, llmType, maxModelLen)
 }
 
 func (sku *SLLMSku) GetLLMContainerDriver() ILLMContainerDriver {
