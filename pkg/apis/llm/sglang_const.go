@@ -8,5 +8,5 @@ const (
 	LLM_SGLANG_HF_ENDPOINT = LLM_VLLM_HF_ENDPOINT
 	LLM_SGLANG_CACHE_DIR   = "/root/.cache/huggingface"
 	LLM_SGLANG_BASE_PATH   = "/data/models"
-	LLM_SGLANG_MODELS_PATH = "/data/models/huggingface"
+	LLM_SGLANG_MODELS_PATH = LLM_SGLANG_BASE_PATH
 )

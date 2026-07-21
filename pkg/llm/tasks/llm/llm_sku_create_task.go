@@ -45,6 +45,7 @@ func (task *LLMSkuCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 		string(importInput.LlmType),
 		importInput.ModelName,
 		importInput.ModelTag,
+		importInput.Source,
 	); err != nil {
 		log.Warningf("LLMSkuCreateTask FindReadyInstantModel: %s; importing a fresh InstantModel", err)
 	} else if existing != nil {

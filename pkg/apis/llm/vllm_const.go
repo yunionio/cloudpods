@@ -8,5 +8,5 @@ const (
 	LLM_VLLM_HF_ENDPOINT = "https://hf-mirror.com"
 	LLM_VLLM_CACHE_DIR   = "/root/.cache/huggingface"
 	LLM_VLLM_BASE_PATH   = "/data/models"
-	LLM_VLLM_MODELS_PATH = "/data/models/huggingface"
+	LLM_VLLM_MODELS_PATH = LLM_VLLM_BASE_PATH
 )

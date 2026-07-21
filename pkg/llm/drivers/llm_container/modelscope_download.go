@@ -67,7 +67,7 @@ func downloadModelScopeSnapshot(
 	}
 
 	modelBase := filepath.Base(modelID)
-	localDir := filepath.Join(tmpDir, "modelscope", modelBase)
+	localDir := filepath.Join(tmpDir, modelBase)
 	if err := os.MkdirAll(localDir, 0755); err != nil {
 		return "", nil, errors.Wrap(err, "mkdir local model dir")
 	}

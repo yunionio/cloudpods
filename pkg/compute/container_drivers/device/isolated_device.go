@@ -96,6 +96,7 @@ func (i isolatedDevice) ValidateCreateData(ctx context.Context, userCred mcclien
 			return nil, httperrors.NewInputParameterError("index %d is large than isolated device size %d", index, len(podDevs))
 		}
 		isoDev.Id = podDevs[index].IsolatedDeviceId
+		isoDev.GuestIsolatedDeviceIndex = int(podDevs[index].Index)
 		// remove index
 		isoDev.Index = nil
 	} else {
@@ -107,6 +108,7 @@ func (i isolatedDevice) ValidateCreateData(ctx context.Context, userCred mcclien
 			d := podDevs[i].GetIsolatedDevice()
 			if d.GetId() == isoDev.Id || d.GetName() == isoDev.Id {
 				isoDev.Id = d.GetId()
+				isoDev.GuestIsolatedDeviceIndex = int(podDevs[i].Index)
 				foundDisk = true
 				host := d.GetHost()
 				if host.HostType != api.HOST_TYPE_CONTAINER {

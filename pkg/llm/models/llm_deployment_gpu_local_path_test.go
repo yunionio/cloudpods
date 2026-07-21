@@ -28,10 +28,6 @@ func TestSkuCanAutoGpuMemoryUtilizationLocalPath(t *testing.T) {
 	if skuCanAutoGpuMemoryUtilization(localSku) {
 		t.Fatal("local_path SKU should not allow auto GPU util")
 	}
-	localSku.VramClaimMb = 16384
-	if skuCanAutoGpuMemoryUtilization(localSku) {
-		t.Fatal("local_path SKU should not allow auto GPU util even with vram_claim_mb")
-	}
 	if !skuCanAutoGpuMemoryUtilization(nil) {
 		t.Fatal("nil sku should keep legacy default true")
 	}
@@ -58,7 +54,6 @@ func TestDisableDeploymentAutoGpuMemoryUtilizationForLocalPath(t *testing.T) {
 
 func TestMaxMountedModelVramRequirementMBLocalPathRejected(t *testing.T) {
 	sku := localPathTestSku()
-	sku.VramClaimMb = 20480
 	_, err := maxMountedModelVramRequirementMB(sku)
 	if err == nil {
 		t.Fatal("expected error for local_path SKU auto GPU util")

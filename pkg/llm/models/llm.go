@@ -143,9 +143,8 @@ func skuFromLLMSkuCreateInput(input *api.LLMSkuCreateInput) *SLLMSku {
 		Source:    input.Source,
 		LocalPath: input.LocalPath,
 		SLLMSkuBase: SLLMSkuBase{
-			Devices:     input.Devices,
-			VramClaimMb: input.VramClaimMb,
-			HostPaths:   input.HostPaths,
+			Devices:   input.Devices,
+			HostPaths: input.HostPaths,
 		},
 	}
 	if len(input.PreferHosts) > 0 {
