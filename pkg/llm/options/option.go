@@ -52,8 +52,9 @@ type LLMOptions struct {
 	ArtifactS3Prefix                 string `help:"MinIO/S3 object key prefix for benchmark artifacts" default:"llm-benchmarks"`
 
 	// MCP Agent 配置
-	MCPServerURL    string `help:"MCP Server URL" default:"http://default-mcp-server:30876"`
-	MCPAgentTimeout int    `help:"MCP Agent request timeout in seconds" default:"180"`
+	MCPServerURL string `help:"MCP Server URL" default:"http://default-mcp-server:30876"`
+	// MCPAgentTimeout 单次 MCP tools/call（含 server-create 等待）超时；须大于 mcp-server 的 ServerCreateWaitSeconds
+	MCPAgentTimeout int `help:"MCP Agent tools/call timeout in seconds (cover public-cloud server create wait)" default:"600"`
 
 	MCPAgentUserCharLimit      int `help:"MCP Agent user char limit" default:"3200"`
 	MCPAgentAssistantCharLimit int `help:"MCP Agent assistant char limit" default:"6400"`
