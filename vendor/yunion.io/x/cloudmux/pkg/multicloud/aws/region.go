@@ -18,15 +18,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/organizations"
-	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
-
-	"github.com/aws/aws-sdk-go/service/wafv2"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -35,10 +30,6 @@ import (
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/cloudmux/pkg/multicloud"
-)
-
-var (
-	lock sync.RWMutex
 )
 
 var RegionLocations = map[string]string{
@@ -143,8 +134,8 @@ const (
 	CLOUDWATCH_SERVICE_NAME = "monitoring"
 	CLOUDWATCH_SERVICE_ID   = "CloudWatch"
 
-	CLOUD_TRAIL_SERVICE_NAME = "CloudTrail"
-	CLOUD_TRAIL_SERVICE_ID   = "cloudtrail"
+	CLOUD_TRAIL_SERVICE_NAME = "cloudtrail"
+	CLOUD_TRAIL_SERVICE_ID   = "CloudTrail"
 
 	ROUTE53_SERVICE_NAME = "route53"
 	ROUTE53_SERVICE_ID   = "Route 53"
@@ -175,16 +166,21 @@ const (
 
 	DYNAMODB_SERVICE_NAME = "dynamodb"
 	DYNAMODB_SERVICE_ID   = "DynamoDB"
+
+	ORG_SERVICE_NAME = "organizations"
+	ORG_SERVICE_ID   = "Organizations"
+
+	CE_SERVICE_NAME = "ce"
+	CE_SERVICE_ID   = "Cost Explorer"
+
+	WAF_SERVICE_NAME = "wafv2"
+	WAF_SERVICE_ID   = "WAFV2"
 )
 
 type SRegion struct {
 	multicloud.SRegion
 
-	client                 *SAwsClient
-	s3Client               *s3.Client
-	wafClient              *wafv2.WAFV2
-	organizationClient     *organizations.Organizations
-	resourceGroupTagClient *resourcegroupstaggingapi.ResourceGroupsTaggingAPI
+	client *SAwsClient
 
 	RegionEndpoint string `xml:"regionEndpoint"`
 	RegionId       string `xml:"regionName"`
@@ -199,28 +195,6 @@ func (self *SRegion) GetClient() *SAwsClient {
 
 func (self *SRegion) getAwsSession() (*session.Session, error) {
 	return self.client.getAwsSession(self.RegionId, true)
-}
-
-func (self *SRegion) getWafClient() (*wafv2.WAFV2, error) {
-	if self.wafClient == nil {
-		s, err := self.getAwsSession()
-		if err != nil {
-			return nil, errors.Wrapf(err, "getAwsSession")
-		}
-		self.wafClient = wafv2.New(s)
-	}
-	return self.wafClient, nil
-}
-
-func (self *SRegion) getResourceGroupTagClient() (*resourcegroupstaggingapi.ResourceGroupsTaggingAPI, error) {
-	if self.resourceGroupTagClient == nil {
-		s, err := self.getAwsSession()
-		if err != nil {
-			return nil, errors.Wrap(err, "getAwsSession")
-		}
-		self.resourceGroupTagClient = resourcegroupstaggingapi.New(s)
-	}
-	return self.resourceGroupTagClient, nil
 }
 
 func (self *SRegion) elbRequest(apiName string, params map[string]string, retval interface{}) error {
@@ -262,6 +236,14 @@ func (self *SRegion) dynamodbRequest(apiName string, params map[string]interface
 
 func (self *SRegion) eksRequest(apiName, path string, params map[string]interface{}, retval interface{}) error {
 	return self.client.invoke(self.RegionId, EKS_SERVICE_NAME, EKS_SERVICE_ID, "2017-11-01", apiName, path, params, retval, true)
+}
+
+func (self *SRegion) cloudtrailRequest(apiName string, params map[string]interface{}, retval interface{}) error {
+	return self.client.invoke(self.RegionId, CLOUD_TRAIL_SERVICE_NAME, CLOUD_TRAIL_SERVICE_ID, "2013-11-01", apiName, "", params, retval, true)
+}
+
+func (self *SRegion) wafRequest(apiName string, params map[string]interface{}, retval interface{}) error {
+	return self.client.invoke(self.RegionId, WAF_SERVICE_NAME, WAF_SERVICE_ID, "2019-07-29", apiName, "", params, retval, true)
 }
 
 // ///////////////////////////////////////////////////////////////////////////
@@ -358,8 +340,56 @@ func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	return ret, nil
 }
 
+func (self *SRegion) getOrCreateZone(zoneName string, cache map[string]*SZone) (*SZone, error) {
+	if len(zoneName) == 0 {
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "empty availability zone")
+	}
+	if cache != nil {
+		if zone, ok := cache[zoneName]; ok {
+			return zone, nil
+		}
+	}
+	zone := &SZone{
+		region:   self,
+		ZoneName: zoneName,
+	}
+	if cache != nil {
+		cache[zoneName] = zone
+	}
+	return zone, nil
+}
+
+func (self *SRegion) initInstanceHost(inst *SInstance, zoneCache map[string]*SZone) error {
+	zoneName := inst.Placement.AvailabilityZone
+	zone, err := self.getOrCreateZone(zoneName, zoneCache)
+	if err != nil {
+		return err
+	}
+	if len(inst.Placement.HostId) > 0 {
+		hosts, err := zone.GetIHosts()
+		if err != nil {
+			return err
+		}
+		for i := range hosts {
+			if hosts[i].GetId() == inst.Placement.HostId {
+				bindInstanceHost(inst, zone, hosts[i])
+				return nil
+			}
+		}
+	}
+	bindInstanceHost(inst, zone, &SHost{zone: zone})
+	return nil
+}
+
 func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	return self.GetInstance(id)
+	inst, err := self.GetInstance(id)
+	if err != nil {
+		return nil, err
+	}
+	if err := self.initInstanceHost(inst, nil); err != nil {
+		return nil, err
+	}
+	return inst, nil
 }
 
 func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
@@ -835,7 +865,11 @@ func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	}
 
 	ivms := make([]cloudprovider.ICloudVM, len(vms))
+	zoneCache := make(map[string]*SZone)
 	for i := 0; i < len(vms); i += 1 {
+		if err := region.initInstanceHost(&vms[i], zoneCache); err != nil {
+			return nil, err
+		}
 		ivms[i] = &vms[i]
 	}
 	return ivms, nil

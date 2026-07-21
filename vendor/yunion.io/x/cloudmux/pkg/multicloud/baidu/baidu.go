@@ -36,6 +36,7 @@ import (
 
 const (
 	CLOUD_PROVIDER_BAIDU_CN = "百度云"
+	CLOUD_PROVIDER_BAIDU_EN = "Baidu"
 	BAIDU_DEFAULT_REGION    = "bj"
 	ISO8601                 = "2006-01-02T15:04:05Z"
 

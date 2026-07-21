@@ -42,6 +42,7 @@ import (
 
 const (
 	CLOUD_PROVIDER_CUCLOUD_CN = "联通云"
+	CLOUD_PROVIDER_CUCLOUD_EN = "CUCloud"
 	CUCLOUD_DEFAULT_REGION    = "cn-langfang-2"
 )
 

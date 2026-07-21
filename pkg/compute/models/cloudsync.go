@@ -2771,16 +2771,19 @@ func syncOnPremiseCloudProviderInfo(
 		}
 
 		if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) || syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK) {
-			remoteVpcs, err := iregion.GetIVpcs()
-			if err != nil {
-				msg := fmt.Sprintf("GetIVpcs for provider %s failed %s", provider.GetName(), err)
-				log.Errorf("%s", msg)
-				return err
-			}
-			{
-				// sync wires
-				localVpc := VpcManager.FetchDefaultVpc()
-				syncVpcWires(ctx, userCred, syncResults, provider, localVpc, remoteVpcs[0], zone, syncRange)
+			// Proxmox does not sync remote L2 wires; host-nics attach to on-premise wires only
+			if provider.Provider != api.CLOUD_PROVIDER_PROXMOX {
+				remoteVpcs, err := iregion.GetIVpcs()
+				if err != nil {
+					msg := fmt.Sprintf("GetIVpcs for provider %s failed %s", provider.GetName(), err)
+					log.Errorf("%s", msg)
+					return err
+				}
+				{
+					// sync wires
+					localVpc := VpcManager.FetchDefaultVpc()
+					syncVpcWires(ctx, userCred, syncResults, provider, localVpc, remoteVpcs[0], zone, syncRange)
+				}
 			}
 		}
 

@@ -39,6 +39,7 @@ import (
 
 const (
 	CLOUD_PROVIDER_QINGCLOUD_CN = "青云"
+	CLOUD_PROVIDER_QINGCLOUD_EN = "QingCloud"
 	QINGCLOUD_DEFAULT_REGION    = "pek3"
 	ISO8601                     = "2006-01-02T15:04:05Z"
 )

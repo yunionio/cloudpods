@@ -215,10 +215,10 @@ func (region *SRegion) ListServerGroupServers(serverGroupId string) ([]AlbServer
 	params := map[string]string{
 		"RegionId":      region.RegionId,
 		"ServerGroupId": serverGroupId,
+		"MaxResults":    "100",
 	}
 
 	ret := []AlbServer{}
-	nextToken := ""
 	for {
 		body, err := region.albRequest("ListServerGroupServers", params)
 		if err != nil {
@@ -237,7 +237,7 @@ func (region *SRegion) ListServerGroupServers(serverGroupId string) ([]AlbServer
 		if len(part.Servers) == 0 || len(part.NextToken) == 0 {
 			break
 		}
-		params["NextToken"] = nextToken
+		params["NextToken"] = part.NextToken
 	}
 
 	return ret, nil
