@@ -95,6 +95,8 @@ func (t *ClimcTool) Handle(ctx context.Context, req mcp.CallToolRequest) (*mcp.C
 	var output string
 	if t.cmd.Command == "server-create" {
 		output, err = t.handleServerCreate(ctx, session, args)
+	} else if t.cmd.Command == "server-delete" {
+		output, err = t.handleServerDelete(ctx, session, args)
 	} else {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -124,13 +126,13 @@ func nextStepHint(command string, options interface{}) string {
 	case command == "cloud-region-capability":
 		return `[MCP下一步] 记下 storage_types2 中的系统盘类型（如 cloud_essd）。继续 climc_cached_image_list 与 climc_server_sku_list，然后 climc_server_create（disk 带 backend；net 可省略）。`
 	case command == "cached-image-list":
-		return `[MCP下一步] 确认已带 provider 及 region=区域id。继续 climc_server_sku_list（若未查），然后立刻 climc_server_create（disk 含 image+backend；net 可省略）；禁止用 ISO，不要重复查同一镜像列表。`
+		return `[MCP下一步] 确认已带 provider 及 region=区域id。CAS/UIS/SangFor 选 ISO 作 cdrom；公有云系统盘勿用 ISO。继续 sku（若未查）后立刻 climc_server_create。`
 	case command == "image-list":
-		return `[MCP下一步] KVM 用本结果；公有云请改用 climc_cached_image_list。继续 sku 后立刻 climc_server_create。`
+		return `[MCP下一步] KVM 用本结果；公有云/CAS 等私有云请改用 climc_cached_image_list。继续 sku 后立刻 climc_server_create。`
 	case command == "network-list" || command == "vpc-list":
 		return `[MCP下一步] 若用户未指定网络，可省略 net，直接 climc_server_create 走自动调度；若已选中网络 id，create 时传入 net=["<id>"]。`
 	case command == "server-sku-list" || command == "storage-list":
-		return `[MCP下一步] 请立刻调用 climc_server_create；disk 须含 backend；net 可省略（自动 random / nets:[{exit:false}]）。`
+		return `[MCP下一步] 请立刻调用 climc_server_create；KVM/公有云 disk 须含 image+backend；CAS 类用 cdrom+disk(size,backend)。net 可省略。`
 	case command == "server-list":
 		return `[MCP下一步] 若用户要启动/停止/重启/删除/改配/重置密码/挂盘/绑定 EIP，拿到 id 后立刻调用对应操作工具，不要只查询就结束。`
 	case command == "cloud-account-list":
@@ -146,7 +148,9 @@ func nextStepHint(command string, options interface{}) string {
 	case command == "docs_search":
 		return `[MCP下一步] 对最相关 path 调用 docs_get 阅读正文后再回答用户。`
 	case command == "action-show":
-		return `[MCP下一步] 这是操作审计日志。若要继续改资源，回到对应 climc_* 操作工具。`
+		return `[MCP下一步] 操作审计日志。创建失败时优先看 notes/__reason__；若要继续改资源，回到对应 climc_* 操作工具。`
+	case command == "server-create":
+		return `[MCP下一步] 若 wait_pending：用 climc_server_show 续查，勿重复创建。若 final_status 含 fail：看返回的 fail_reason / fail_diagnostics.action_logs，或 climc_action_show type=server id=<id> fail=true。`
 	case isCreateFlowListCommand(options):
 		return `[MCP下一步] 这只是创建前的资源查询。任务完成条件是成功调用 climc_server_create。`
 	default:
