@@ -38,7 +38,7 @@ import (
 var ErrEmtptyUpdate = errors.Error("No valid update data")
 
 type ServerListOptions struct {
-	_ struct{} `mcp-desc:"当用户要求启动/停止/重启/删除/重置密码时：先用本工具定位目标，拿到返回结果中的 id 后，必须立刻继续调用对应操作工具完成操作，不要只查询就结束"`
+	_ struct{} `mcp-desc:"列出虚机。操作（启停/重启/删除/重置密码）前用本工具取 id，取到后立刻调用对应操作工具，不要只查询就结束"`
 
 	Zone               string   `help:"Zone ID or Name" mcp:"true"`
 	Wire               string   `help:"Wire ID or Name"`
@@ -49,7 +49,7 @@ type ServerListOptions struct {
 	Gpu                *bool    `help:"Show gpu servers"`
 	Secgroup           string   `help:"Secgroup ID or Name"`
 	AdminSecgroup      string   `help:"AdminSecgroup ID or Name"`
-	Hypervisor         string   `help:"Show server of hypervisor" choices:"kvm|esxi|pod|baremetal|aliyun|azure|aws|huawei|ucloud|volcengine|zstack|openstack|google|ctyun|incloudsphere|nutanix|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox|ksyun|baidu|cucloud|qingcloud|sangfor|zettakit|uis|cnware" mcp:"true"`
+	Hypervisor         string   `help:"Show server of hypervisor" choices:"kvm|esxi|pod|baremetal|aliyun|azure|aws|huawei|ucloud|volcengine|zstack|openstack|google|ctyun|incloudsphere|nutanix|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox|ksyun|baidu|cucloud|qingcloud|sangfor|zettakit|uis|cas|cnware" mcp:"true"`
 	Region             string   `help:"Show servers in cloudregion" mcp:"true"`
 	WithEip            *bool    `help:"Show Servers with EIP"`
 	WithoutEip         *bool    `help:"Show Servers without EIP"`
@@ -131,7 +131,7 @@ func (o *ServerConvertToKvmOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerStartOptions struct {
-	_ struct{} `mcp-desc:"用户要求启动时必须调用本工具真正执行，仅调用 climc_server_list 查询不算完成。若尚不知 id，先用 climc_server_list（可用 search）定位，拿到 id 后立即调用本工具，不要只查询就结束"`
+	_ struct{} `mcp-desc:"启动虚机（真正执行）。未知 id 时先 climc_server_list；拿到 id 后立刻调用，仅查询不算完成"`
 
 	ServerIdsOptions
 
@@ -389,7 +389,7 @@ func (o ServerCreateCommonConfig) Data() (*computeapi.ServerConfigs, error) {
 
 type ServerConfigs struct {
 	ServerCreateCommonConfig
-	Hypervisor                   string `help:"Hypervisor type" choices:"kvm|pod|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack|ucloud|volcengine|zstack|google|ctyun|incloudsphere|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox|sangfor|zettakit|uis" mcp:"true"`
+	Hypervisor                   string `help:"Hypervisor type" choices:"kvm|pod|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack|ucloud|volcengine|zstack|google|ctyun|incloudsphere|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox|sangfor|zettakit|uis|cas|cnware" mcp:"true"`
 	Backup                       bool   `help:"Create server with backup server"`
 	BackupHost                   string `help:"Perfered host where virtual backup server should be created"`
 	AutoSwitchToBackupOnHostDown bool   `help:"Auto switch to backup server on host down"`
@@ -466,7 +466,7 @@ type ServerCreateFromInstanceSnapshot struct {
 }
 
 type ServerCreateOptions struct {
-	_ struct{} `mcp-desc:"【创建虚拟机的最终动作】自动 scheduler-forecast→创建→等待 running/ready。最少：name、disk（image+backend）、规格。超时返回 wait_pending+server_id，用 climc_server_show 续查，勿重复创建"`
+	_ struct{} `mcp-desc:"【创建虚拟机的最终动作】自动 forecast→创建→等待 running/ready。最少：name、规格。KVM/公有云：disk 含 image+backend；CAS/UIS/SangFor：hypervisor=cas 等，系统盘仅 size+backend（dir/fs），镜像用 cdrom=ISO(cached-image id)，并传 prefer-region。超时返回 wait_pending+server_id，用 climc_server_show 续查，勿重复创建"`
 
 	ServerCreateOptionalOptions
 
@@ -779,7 +779,7 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 }
 
 type ServerStopOptions struct {
-	_ struct{} `mcp-desc:"用户要求停止时必须调用本工具真正执行，仅调用 climc_server_list 查询不算完成。若尚不知 id，先用 climc_server_list（可用 search）定位，拿到 id 后立即调用本工具，不要只查询就结束"`
+	_ struct{} `mcp-desc:"停止虚机（真正执行）。未知 id 时先 climc_server_list；拿到 id 后立刻调用，仅查询不算完成"`
 
 	ID           []string `help:"ID or Name of server" json:"-"`
 	Force        *bool    `help:"Stop server forcefully" json:"is_force" mcp:"true"`
@@ -842,7 +842,7 @@ func (opts *ServerUpdateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerDeleteOptions struct {
-	_ struct{} `mcp-desc:"用户要求删除时必须调用本工具真正执行，仅调用 climc_server_list 查询不算完成。若尚不知 id，先用 climc_server_list（可用 search）定位，拿到 id 后立即调用本工具，不要只查询就结束"`
+	_ struct{} `mcp-desc:"删除虚机（真正执行；若 disable_delete 会先自动解锁）。未知 id 时先 climc_server_list；拿到 id 后立刻调用，仅查询不算完成"`
 
 	ServerIdsOptions
 	OverridePendingDelete *bool `help:"Delete server directly instead of pending delete" short-token:"f" mcp:"true"`
@@ -1083,7 +1083,7 @@ func (o *ServerQgaGetNetwork) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerSetPasswordOptions struct {
-	_ struct{} `mcp-desc:"用户要求重置密码时必须调用本工具真正执行，仅调用 climc_server_list 查询不算完成。若尚不知 id，先用 climc_server_list（可用 search）定位，拿到 id 后立即调用本工具，不要只查询就结束"`
+	_ struct{} `mcp-desc:"重置虚机密码（真正执行）。未知 id 时先 climc_server_list；拿到 id 后立刻调用，仅查询不算完成"`
 
 	ServerIdOptions
 
@@ -1332,7 +1332,7 @@ func (o *ServerResetOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type ServerRestartOptions struct {
-	_ struct{} `mcp-desc:"用户要求重启时必须调用本工具真正执行，仅调用 climc_server_list 查询不算完成。若尚不知 id，先用 climc_server_list（可用 search）定位，拿到 id 后立即调用本工具，不要只查询就结束"`
+	_ struct{} `mcp-desc:"重启虚机（真正执行）。未知 id 时先 climc_server_list；拿到 id 后立刻调用，仅查询不算完成"`
 
 	ID      []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
 	IsForce *bool    `help:"Force reset or not; default false" json:"is_force" mcp:"true"`
