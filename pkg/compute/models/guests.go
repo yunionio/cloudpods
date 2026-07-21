@@ -4239,6 +4239,24 @@ func (self *SGuest) attach2NetworkOnce(
 }
 
 func getCloudNicNetwork(ctx context.Context, vnic cloudprovider.ICloudNic, host *SHost, ipList []string, index int) (*SNetwork, error) {
+	findByIp := func() (*SNetwork, error) {
+		ip := vnic.GetIP()
+		if len(ip) == 0 {
+			if index < len(ipList) {
+				ip = ipList[index]
+			}
+			if len(ip) == 0 {
+				return nil, fmt.Errorf("Cannot find inetwork for vnics %s: no ip", vnic.GetMAC())
+			}
+		}
+		return host.getNetworkOfIPOnHost(ctx, ip)
+	}
+
+	// Proxmox does not sync remote L2/networks; always resolve on-premise network by IP
+	if host.HostType == api.HOST_TYPE_PROXMOX {
+		return findByIp()
+	}
+
 	vnetId := vnic.GetINetworkId()
 	if len(vnetId) == 0 {
 		if vnic.InClassicNetwork() {
@@ -4255,17 +4273,7 @@ func getCloudNicNetwork(ctx context.Context, vnic cloudprovider.ICloudNic, host 
 			}
 			return NetworkManager.GetOrCreateClassicNetwork(ctx, wire)
 		}
-		ip := vnic.GetIP()
-		if len(ip) == 0 {
-			if index < len(ipList) {
-				ip = ipList[index]
-			}
-			if len(ip) == 0 {
-				return nil, fmt.Errorf("Cannot find inetwork for vnics %s: no ip", vnic.GetMAC())
-			}
-		}
-		// find network by IP
-		return host.getNetworkOfIPOnHost(ctx, ip)
+		return findByIp()
 	}
 	localNetObj, err := db.FetchByExternalIdAndManagerId(NetworkManager, vnetId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		// vpc := VpcManager.Query().SubQuery()

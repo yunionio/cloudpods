@@ -185,20 +185,47 @@ func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, 
 	return []cloudprovider.ICloudStoragecache{storageCache}, nil
 }
 
-func (region *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	instance, err := region.GetInstance(id)
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetInstance(%s)", id)
-	}
+func (region *SRegion) buildHypervisorMap() (map[string]*SHypervisor, error) {
 	hosts, err := region.GetIHosts()
 	if err != nil {
 		return nil, err
+	}
+	m := make(map[string]*SHypervisor, len(hosts))
+	for i := range hosts {
+		host := hosts[i].(*SHypervisor)
+		m[host.HypervisorHostname] = host
+	}
+	return m, nil
+}
+
+func (region *SRegion) initInstanceHost(instance *SInstance, hostMap map[string]*SHypervisor) error {
+	if hostMap != nil {
+		if host, ok := hostMap[instance.HypervisorHostname]; ok {
+			instance.host = host
+		}
+		return nil
+	}
+	hosts, err := region.GetIHosts()
+	if err != nil {
+		return err
 	}
 	for i := range hosts {
 		host := hosts[i].(*SHypervisor)
 		if instance.HypervisorHostname == host.HypervisorHostname {
 			instance.host = host
+			return nil
 		}
+	}
+	return nil
+}
+
+func (region *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	instance, err := region.GetInstance(id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetInstance(%s)", id)
+	}
+	if err := region.initInstanceHost(instance, nil); err != nil {
+		return nil, err
 	}
 	return instance, nil
 }
@@ -616,8 +643,15 @@ func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetInstances")
 	}
+	hostMap, err := region.buildHypervisorMap()
+	if err != nil {
+		return nil, err
+	}
 	ret := []cloudprovider.ICloudVM{}
 	for i := range vms {
+		if err := region.initInstanceHost(&vms[i], hostMap); err != nil {
+			return nil, err
+		}
 		ret = append(ret, &vms[i])
 	}
 	return ret, nil

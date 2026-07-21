@@ -70,12 +70,13 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 }
 
 func (self *SRegion) GetName() string {
-	return self.RegionName
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_QINGCLOUD_CN, self.RegionName)
 }
 
 func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
+	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_QINGCLOUD_EN, self.RegionName)
 	table := cloudprovider.SModelI18nTable{}
-	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(self.Region)
+	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
 	return table
 }
 

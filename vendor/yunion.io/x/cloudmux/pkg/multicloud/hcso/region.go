@@ -169,6 +169,40 @@ func (self *SRegion) fetchIVpcs() error {
 	return nil
 }
 
+func (self *SRegion) getOrCreateZone(zoneName string, cache map[string]*SZone) (*SZone, error) {
+	if len(zoneName) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty zone")
+	}
+	if cache != nil {
+		if zone, ok := cache[zoneName]; ok {
+			return zone, nil
+		}
+	}
+	zone := &SZone{
+		region:   self,
+		ZoneName: zoneName,
+	}
+	if cache != nil {
+		cache[zoneName] = zone
+	}
+	return zone, nil
+}
+
+func (self *SRegion) initInstanceHost(instance *SInstance, zoneCache map[string]*SZone) error {
+	zone, err := self.getOrCreateZone(instance.OSEXTAZAvailabilityZone, zoneCache)
+	if err != nil {
+		return err
+	}
+	instance.host = &SHost{
+		zone:      zone,
+		vms:       nil,
+		projectId: self.client.projectId,
+		Id:        instance.HostID,
+		Name:      instance.OSEXTSRVATTRHost,
+	}
+	return nil
+}
+
 func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	if len(id) == 0 {
 		return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetIVMById")
@@ -179,18 +213,10 @@ func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 		return nil, err
 	}
 
-	zone, err := self.getZoneById(instance.OSEXTAZAvailabilityZone)
-	if err != nil {
-		return nil, errors.Wrap(err, "getZoneById")
+	if err := self.initInstanceHost(&instance, nil); err != nil {
+		return nil, err
 	}
-	instance.host = &SHost{
-		zone:      zone,
-		vms:       nil,
-		projectId: self.client.projectId,
-		Id:        instance.HostID,
-		Name:      instance.OSEXTSRVATTRHost,
-	}
-	return &instance, err
+	return &instance, nil
 }
 
 func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
@@ -1030,8 +1056,12 @@ func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "GetInstances")
 	}
+	zoneCache := make(map[string]*SZone)
 	ret := []cloudprovider.ICloudVM{}
 	for i := range vms {
+		if err := region.initInstanceHost(&vms[i], zoneCache); err != nil {
+			return nil, err
+		}
 		ret = append(ret, &vms[i])
 	}
 	return ret, nil

@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/cloudmux/pkg/apis/compute"
@@ -56,7 +55,7 @@ type SWebAcl struct {
 	multicloud.SResourceBase
 	AwsTags
 	region *SRegion
-	*sWafWebACL
+	SWafWebACL
 
 	scope     string
 	LockToken string
@@ -137,7 +136,7 @@ func (self *SRegion) GetWebAcl(id, name, scope string) (*SWebAcl, error) {
 		"Scope": scope,
 	}
 	resp := struct {
-		WebACL    *sWafWebACL
+		WebACL    *SWafWebACL
 		LockToken string
 	}{}
 	err := self.wafRequest("GetWebACL", params, &resp)
@@ -147,7 +146,10 @@ func (self *SRegion) GetWebAcl(id, name, scope string) (*SWebAcl, error) {
 		}
 		return nil, errors.Wrapf(err, "GetWebAcl")
 	}
-	ret := &SWebAcl{region: self, scope: scope, sWafWebACL: resp.WebACL, LockToken: resp.LockToken}
+	ret := &SWebAcl{region: self, scope: scope, LockToken: resp.LockToken}
+	if resp.WebACL != nil {
+		ret.SWafWebACL = *resp.WebACL
+	}
 	return ret, nil
 }
 
@@ -214,15 +216,15 @@ func (self *SWebAcl) GetEnabled() bool {
 }
 
 func (self *SWebAcl) GetGlobalId() string {
-	return *self.ARN
+	return self.ARN
 }
 
 func (self *SWebAcl) GetName() string {
-	return *self.Name
+	return self.Name
 }
 
 func (self *SWebAcl) GetId() string {
-	return *self.ARN
+	return self.ARN
 }
 
 func (self *SWebAcl) GetWafType() cloudprovider.TWafType {
@@ -238,11 +240,11 @@ func (self *SWebAcl) GetStatus() string {
 
 func (self *SWebAcl) GetDefaultAction() *cloudprovider.DefaultAction {
 	ret := &cloudprovider.DefaultAction{}
-	if self.sWafWebACL.DefaultAction == nil {
+	if self.DefaultAction == nil {
 		self.Refresh()
 	}
-	if self.sWafWebACL.DefaultAction != nil {
-		action := self.sWafWebACL.DefaultAction
+	if self.DefaultAction != nil {
+		action := self.DefaultAction
 		if action.Allow != nil {
 			ret.Action = cloudprovider.WafActionAllow
 		} else if action.Block != nil {
@@ -253,16 +255,17 @@ func (self *SWebAcl) GetDefaultAction() *cloudprovider.DefaultAction {
 }
 
 func (self *SWebAcl) Refresh() error {
-	acl, err := self.region.GetWebAcl(*self.Id, *self.Name, self.scope)
+	acl, err := self.region.GetWebAcl(self.Id, self.Name, self.scope)
 	if err != nil {
 		return errors.Wrapf(err, "GetWebAcl")
 	}
-	self.sWafWebACL = acl.sWafWebACL
-	return jsonutils.Update(self, acl)
+	self.SWafWebACL = acl.SWafWebACL
+	self.LockToken = acl.LockToken
+	return nil
 }
 
 func (self *SWebAcl) Delete() error {
-	return self.region.DeleteWebAcl(*self.Id, *self.Name, self.scope, self.LockToken)
+	return self.region.DeleteWebAcl(self.Id, self.Name, self.scope, self.LockToken)
 }
 
 func (self *SRegion) CreateICloudWafInstance(opts *cloudprovider.WafCreateOptions) (cloudprovider.ICloudWafInstance, error) {
@@ -333,7 +336,7 @@ func reverseConvertField(opts cloudprovider.SWafStatement) *sWafFieldToMatch {
 			ret.QueryString = &sWafQueryString{}
 		}
 	case cloudprovider.WafMatchFiledHeader:
-		ret.SingleHeader = &sWafSingleHeader{Name: awsWafString(opts.MatchFieldKey)}
+		ret.SingleHeader = &sWafSingleHeader{Name: opts.MatchFieldKey}
 	case cloudprovider.WafMatchFiledUriPath:
 		ret.UriPath = &sWafUriPath{}
 	}
@@ -342,51 +345,50 @@ func reverseConvertField(opts cloudprovider.SWafStatement) *sWafFieldToMatch {
 
 func reverseConvertStatement(statement cloudprovider.SWafStatement) *sWafStatement {
 	ret := &sWafStatement{}
-	trans := []*sWafTextTransformation{}
+	trans := []sWafTextTransformation{}
 	if statement.Transformations != nil {
 		for i, tran := range *statement.Transformations {
-			t := &sWafTextTransformation{Priority: awsWafInt64(int64(i))}
+			t := sWafTextTransformation{Priority: int64(i)}
 			switch tran {
 			case cloudprovider.WafTextTransformationNone:
-				t.Type = awsWafString(wafTextTransformationTypeNone)
+				t.Type = wafTextTransformationTypeNone
 			case cloudprovider.WafTextTransformationLowercase:
-				t.Type = awsWafString(wafTextTransformationTypeLowercase)
+				t.Type = wafTextTransformationTypeLowercase
 			case cloudprovider.WafTextTransformationCmdLine:
-				t.Type = awsWafString(wafTextTransformationTypeCmdLine)
+				t.Type = wafTextTransformationTypeCmdLine
 			case cloudprovider.WafTextTransformationUrlDecode:
-				t.Type = awsWafString(wafTextTransformationTypeUrlDecode)
+				t.Type = wafTextTransformationTypeUrlDecode
 			case cloudprovider.WafTextTransformationHtmlEntityDecode:
-				t.Type = awsWafString(wafTextTransformationTypeHtmlEntityDecode)
+				t.Type = wafTextTransformationTypeHtmlEntityDecode
 			case cloudprovider.WafTextTransformationCompressWithSpace:
-				t.Type = awsWafString(wafTextTransformationTypeCompressWhiteSpace)
+				t.Type = wafTextTransformationTypeCompressWhiteSpace
 			}
 			trans = append(trans, t)
 		}
 	}
-	rules := []*sWafExcludedRule{}
+	rules := []sWafExcludedRule{}
 	if statement.ExcludeRules != nil {
 		for _, r := range *statement.ExcludeRules {
-			name := r.Name
-			rules = append(rules, &sWafExcludedRule{Name: &name})
+			rules = append(rules, sWafExcludedRule{Name: r.Name})
 		}
 	}
 	field := reverseConvertField(statement)
 	switch statement.Type {
 	case cloudprovider.WafStatementTypeRate:
-		rate := &sWafRateBasedStatement{AggregateKeyType: awsWafString("IP")}
+		rate := &sWafRateBasedStatement{AggregateKeyType: "IP"}
 		limit := int(0)
 		if statement.MatchFieldValues != nil && len(*statement.MatchFieldValues) == 1 {
 			limit, _ = strconv.Atoi((*statement.MatchFieldValues)[0])
 		}
-		rate.Limit = awsWafInt64(int64(limit))
+		rate.Limit = int64(limit)
 		if len(statement.ForwardedIPHeader) > 0 {
-			rate.ForwardedIPConfig = &sWafForwardedIPConfig{HeaderName: awsWafString(statement.ForwardedIPHeader)}
+			rate.ForwardedIPConfig = &sWafForwardedIPConfig{HeaderName: statement.ForwardedIPHeader}
 		}
 		ret.RateBasedStatement = rate
 	case cloudprovider.WafStatementTypeIPSet:
-		ipset := &sWafIPSetReferenceStatement{ARN: awsWafString(statement.IPSetId)}
+		ipset := &sWafIPSetReferenceStatement{ARN: statement.IPSetId}
 		if len(statement.ForwardedIPHeader) > 0 {
-			ipset.IPSetForwardedIPConfig = &sWafIPSetForwardedIPConfig{HeaderName: awsWafString(statement.ForwardedIPHeader)}
+			ipset.IPSetForwardedIPConfig = &sWafIPSetForwardedIPConfig{HeaderName: statement.ForwardedIPHeader}
 		}
 		ret.IPSetReferenceStatement = ipset
 	case cloudprovider.WafStatementTypeXssMatch:
@@ -398,25 +400,20 @@ func reverseConvertStatement(statement cloudprovider.SWafStatement) *sWafStateme
 		if statement.MatchFieldValues != nil && len(*statement.MatchFieldValues) == 1 {
 			value, _ = strconv.Atoi((*statement.MatchFieldValues)[0])
 		}
-		size.Size = awsWafInt64(int64(value))
+		size.Size = int64(value)
 		ret.SizeConstraintStatement = size
 	case cloudprovider.WafStatementTypeGeoMatch:
 		geo := &sWafGeoMatchStatement{}
-		values := []*string{}
 		if statement.MatchFieldValues != nil {
-			for i := range *statement.MatchFieldValues {
-				v := (*statement.MatchFieldValues)[i]
-				values = append(values, &v)
-			}
-			geo.CountryCodes = values
+			geo.CountryCodes = append(geo.CountryCodes, (*statement.MatchFieldValues)...)
 		}
 		if len(statement.ForwardedIPHeader) > 0 {
-			geo.ForwardedIPConfig = &sWafForwardedIPConfig{HeaderName: awsWafString(statement.ForwardedIPHeader)}
+			geo.ForwardedIPConfig = &sWafForwardedIPConfig{HeaderName: statement.ForwardedIPHeader}
 		}
 		ret.GeoMatchStatement = geo
 	case cloudprovider.WafStatementTypeRegexSet:
 		regex := &sWafRegexPatternSetReferenceStatement{
-			ARN:                 awsWafString(statement.RegexSetId),
+			ARN:                 statement.RegexSetId,
 			FieldToMatch:        field,
 			TextTransformations: trans,
 		}
@@ -428,11 +425,11 @@ func reverseConvertStatement(statement cloudprovider.SWafStatement) *sWafStateme
 			TextTransformations: trans,
 		}
 		if len(statement.Operator) > 0 {
-			bm.PositionalConstraint = awsWafString(string(statement.Operator))
+			bm.PositionalConstraint = string(statement.Operator)
 		}
 		ret.ByteMatchStatement = bm
 	case cloudprovider.WafStatementTypeRuleGroup:
-		rg := &sWafRuleGroupReferenceStatement{ARN: awsWafString(statement.RuleGroupId), ExcludedRules: rules}
+		rg := &sWafRuleGroupReferenceStatement{ARN: statement.RuleGroupId, ExcludedRules: rules}
 		ret.RuleGroupReferenceStatement = rg
 	case cloudprovider.WafStatementTypeSqliMatch:
 		sqli := &sWafSqliMatchStatement{FieldToMatch: field, TextTransformations: trans}
@@ -440,8 +437,8 @@ func reverseConvertStatement(statement cloudprovider.SWafStatement) *sWafStateme
 	case cloudprovider.WafStatementTypeLabelMatch:
 	case cloudprovider.WafStatementTypeManagedRuleGroup:
 		rg := &sWafManagedRuleGroupStatement{
-			Name:          awsWafString(statement.ManagedRuleGroupName),
-			VendorName:    awsWafString("aws"),
+			Name:          statement.ManagedRuleGroupName,
+			VendorName:    "aws",
 			ExcludedRules: rules,
 		}
 		ret.ManagedRuleGroupStatement = rg
@@ -451,9 +448,9 @@ func reverseConvertStatement(statement cloudprovider.SWafStatement) *sWafStateme
 
 func (self *SWebAcl) AddRule(opts *cloudprovider.SWafRule) (cloudprovider.ICloudWafRule, error) {
 	rules := self.Rules
-	rule := &sWafRuleItem{
-		Name:     awsWafString(opts.Name),
-		Priority: awsWafInt64(int64(opts.Priority)),
+	rule := SWafRuleItem{
+		Name:     opts.Name,
+		Priority: int64(opts.Priority),
 	}
 	if opts.Action != nil {
 		action := &sWafRuleAction{}
@@ -477,13 +474,13 @@ func (self *SWebAcl) AddRule(opts *cloudprovider.SWafRule) (cloudprovider.ICloud
 	case cloudprovider.WafStatementConditionOr:
 		ss := &sWafOrStatement{}
 		for _, s := range opts.Statements {
-			ss.Statements = append(ss.Statements, reverseConvertStatement(s))
+			ss.Statements = append(ss.Statements, *reverseConvertStatement(s))
 		}
 		statement.OrStatement = ss
 	case cloudprovider.WafStatementConditionAnd:
 		ss := &sWafAndStatement{}
 		for _, s := range opts.Statements {
-			ss.Statements = append(ss.Statements, reverseConvertStatement(s))
+			ss.Statements = append(ss.Statements, *reverseConvertStatement(s))
 		}
 		statement.AndStatement = ss
 	case cloudprovider.WafStatementConditionNot:
@@ -503,10 +500,10 @@ func (self *SWebAcl) AddRule(opts *cloudprovider.SWafRule) (cloudprovider.ICloud
 	rules = append(rules, rule)
 	params := map[string]interface{}{
 		"LockToken":        self.LockToken,
-		"Id":               *self.Id,
-		"Name":             *self.Name,
+		"Id":               self.Id,
+		"Name":             self.Name,
 		"Scope":            self.scope,
-		"Description":      *self.Description,
+		"Description":      self.Description,
 		"DefaultAction":    self.DefaultAction,
 		"VisibilityConfig": self.VisibilityConfig,
 		"Rules":            rules,
@@ -515,7 +512,7 @@ func (self *SWebAcl) AddRule(opts *cloudprovider.SWafRule) (cloudprovider.ICloud
 	if err != nil {
 		return nil, errors.Wrapf(err, "UpdateWebACL")
 	}
-	ret := &sWafRule{waf: self, sWafRuleItem: rule}
+	ret := &sWafRule{waf: self, SWafRuleItem: &rule}
 	return ret, nil
 }
 
@@ -525,9 +522,9 @@ func (self *SWebAcl) GetCloudResources() ([]cloudprovider.SCloudResource, error)
 		return ret, nil
 	}
 	for _, resType := range []string{"APPLICATION_LOAD_BALANCER", "API_GATEWAY", "APPSYNC"} {
-		resIds, err := self.region.ListResourcesForWebACL(resType, *self.ARN)
+		resIds, err := self.region.ListResourcesForWebACL(resType, self.ARN)
 		if err != nil {
-			return nil, errors.Wrapf(err, "ListResourcesForWebACL(%s, %s)", resType, *self.ARN)
+			return nil, errors.Wrapf(err, "ListResourcesForWebACL(%s, %s)", resType, self.ARN)
 		}
 		for _, resId := range resIds {
 			ret = append(ret, cloudprovider.SCloudResource{

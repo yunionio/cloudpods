@@ -16,11 +16,13 @@ package esxi
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/performance"
 	"github.com/vmware/govmomi/view"
+	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/log"
@@ -33,6 +35,34 @@ const (
 	MONTYPE_HOSTSYSTEM     = "HostSystem"
 	MONTYPE_VIRTUALMACHINE = "VirtualMachine"
 )
+
+var (
+	metricTimeSkewLogMu sync.Mutex
+	metricTimeSkewLogAt = map[string]time.Time{}
+)
+
+// alignMetricTimeRange 将本地计算的查询窗口对齐到 vCenter 时钟。
+// cloudmon 比 vCenter 快时，未对齐的时间窗对 vCenter 是「未来」，QueryPerf 会返回空。
+func (self *SESXiClient) alignMetricTimeRange(start, end time.Time) (time.Time, time.Time) {
+	startUTC := start.UTC()
+	endUTC := end.UTC()
+	vcNow, err := methods.GetCurrentTime(self.context, self.client.Client)
+	if err != nil || vcNow == nil {
+		return startUTC, endUTC
+	}
+	skew := time.Since(*vcNow)
+	if skew > time.Minute {
+		startUTC = startUTC.Add(-skew)
+		endUTC = endUTC.Add(-skew)
+		metricTimeSkewLogMu.Lock()
+		if time.Since(metricTimeSkewLogAt[self.host]) >= time.Hour {
+			log.Warningf("esxi metric time skew %s ahead of vCenter %s, aligned query window", skew.Round(time.Second), self.host)
+			metricTimeSkewLogAt[self.host] = time.Now()
+		}
+		metricTimeSkewLogMu.Unlock()
+	}
+	return startUTC, endUTC
+}
 
 func (self *SESXiClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	metricName := ""
@@ -58,6 +88,8 @@ func (self *SESXiClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) ([
 }
 
 func (self *SESXiClient) getEcsMetrics(metricName string, metricType cloudprovider.TMetricType, start, end time.Time) ([]cloudprovider.MetricValues, error) {
+	start, end = self.alignMetricTimeRange(start, end)
+
 	m := view.NewManager(self.client.Client)
 	v, err := m.CreateContainerView(self.context, self.client.Client.ServiceContent.RootFolder, nil, true)
 	if err != nil {
@@ -80,6 +112,7 @@ func (self *SESXiClient) getEcsMetrics(metricName string, metricType cloudprovid
 
 	queries := []types.PerfQuerySpec{}
 	for i := range vms {
+		s, e := start, end
 		query := types.PerfQuerySpec{
 			Entity: vms[i].Reference(),
 			MetricId: []types.PerfMetricId{
@@ -89,8 +122,8 @@ func (self *SESXiClient) getEcsMetrics(metricName string, metricType cloudprovid
 			},
 			Format:     "normal",
 			IntervalId: 20,
-			StartTime:  &start,
-			EndTime:    &end,
+			StartTime:  &s,
+			EndTime:    &e,
 		}
 		if metricType == cloudprovider.VM_METRIC_TYPE_DISK_USAGE {
 			query.IntervalId = 0
@@ -165,6 +198,8 @@ func (self *SESXiClient) GetHostMetrics(opts *cloudprovider.MetricListOptions) (
 }
 
 func (self *SESXiClient) getHostMetrics(metricName string, metricType cloudprovider.TMetricType, start, end time.Time) ([]cloudprovider.MetricValues, error) {
+	start, end = self.alignMetricTimeRange(start, end)
+
 	m := view.NewManager(self.client.Client)
 	v, err := m.CreateContainerView(self.context, self.client.Client.ServiceContent.RootFolder, nil, true)
 	if err != nil {
@@ -193,6 +228,7 @@ func (self *SESXiClient) getHostMetrics(metricName string, metricType cloudprovi
 
 	queries := []types.PerfQuerySpec{}
 	for i := range vms {
+		s, e := start, end
 		query := types.PerfQuerySpec{
 			Entity: vms[i].Reference(),
 			MetricId: []types.PerfMetricId{
@@ -202,8 +238,8 @@ func (self *SESXiClient) getHostMetrics(metricName string, metricType cloudprovi
 			},
 			Format:     "normal",
 			IntervalId: 0,
-			StartTime:  &start,
-			EndTime:    &end,
+			StartTime:  &s,
+			EndTime:    &e,
 		}
 		queries = append(queries, query)
 	}

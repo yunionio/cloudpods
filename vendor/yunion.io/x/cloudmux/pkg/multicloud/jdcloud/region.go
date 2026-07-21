@@ -70,7 +70,7 @@ func (r *SRegion) GetId() string {
 }
 
 func (r *SRegion) GetName() string {
-	return r.Name
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_JDCLOUD_CN, r.Name)
 }
 
 func (r *SRegion) GetGlobalId() string {
@@ -200,18 +200,41 @@ func (r *SRegion) GetIEipById(id string) (cloudprovider.ICloudEIP, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
+func (r *SRegion) getOrCreateZone(az string, cache map[string]*SZone) (*SZone, error) {
+	if len(az) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	if cache != nil {
+		if zone, ok := cache[az]; ok {
+			return zone, nil
+		}
+	}
+	zone := &SZone{
+		region: r,
+		ID:     az,
+	}
+	if cache != nil {
+		cache[az] = zone
+	}
+	return zone, nil
+}
+
+func (r *SRegion) initInstanceHost(vm *SInstance, zoneCache map[string]*SZone) error {
+	zone, err := r.getOrCreateZone(vm.Az, zoneCache)
+	if err != nil {
+		return err
+	}
+	vm.host = &SHost{zone: zone}
+	return nil
+}
+
 func (r *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	vm, err := r.GetInstanceById(id)
 	if err != nil {
 		return nil, err
 	}
-	izone, err := r.getIZoneByRealId(vm.Az)
-	if err != nil {
+	if err := r.initInstanceHost(vm, nil); err != nil {
 		return nil, err
-	}
-	zone := izone.(*SZone)
-	vm.host = &SHost{
-		zone: zone,
 	}
 	return vm, nil
 }
@@ -328,7 +351,11 @@ func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 		n++
 	}
 	ivms := make([]cloudprovider.ICloudVM, len(vms))
+	zoneCache := make(map[string]*SZone)
 	for i := range vms {
+		if err := region.initInstanceHost(&vms[i], zoneCache); err != nil {
+			return nil, err
+		}
 		ivms[i] = &vms[i]
 	}
 	return ivms, nil

@@ -33,7 +33,14 @@ type SZone struct {
 }
 
 func (self *SZone) GetName() string {
-	return self.Name
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_ORACLE_CN, self.Name)
+}
+
+func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
+	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_ORACLE_EN, self.Name)
+	table := cloudprovider.SModelI18nTable{}
+	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
+	return table
 }
 
 func (self *SZone) GetId() string {
@@ -50,11 +57,6 @@ func (self *SZone) GetStatus() string {
 
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
 	return self.region
-}
-
-func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
-	table := cloudprovider.SModelI18nTable{}
-	return table
 }
 
 func (self *SZone) getHost() *SHost {

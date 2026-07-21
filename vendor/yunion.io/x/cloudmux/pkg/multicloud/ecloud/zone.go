@@ -37,7 +37,14 @@ func (z *SZone) GetId() string {
 }
 
 func (z *SZone) GetName() string {
-	return fmt.Sprintf("%s %s", z.region.GetName(), z.ZoneName)
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_ECLOUD_CN, z.ZoneName)
+}
+
+func (z *SZone) GetI18n() cloudprovider.SModelI18nTable {
+	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_ECLOUD_EN, z.ZoneName)
+	table := cloudprovider.SModelI18nTable{}
+	table["name"] = cloudprovider.NewSModelI18nEntry(z.GetName()).CN(z.GetName()).EN(en)
+	return table
 }
 
 func (z *SZone) GetGlobalId() string {
@@ -54,11 +61,6 @@ func (z *SZone) Refresh() error {
 
 func (z *SZone) IsEmulated() bool {
 	return false
-}
-
-func (z *SZone) GetI18n() cloudprovider.SModelI18nTable {
-	table := cloudprovider.SModelI18nTable{}
-	return table
 }
 
 func (z *SZone) GetIRegion() cloudprovider.ICloudRegion {

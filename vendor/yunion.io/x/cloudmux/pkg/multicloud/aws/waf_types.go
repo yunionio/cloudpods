@@ -25,181 +25,179 @@ const (
 
 type sWafEmpty struct{}
 
-type sWafAllowAction struct{}
-type sWafBlockAction struct{}
-type sWafCountAction struct{}
+func (sWafEmpty) MarshalJSON() ([]byte, error) {
+	return []byte("{}"), nil
+}
+
+type sWafAllowAction struct{ sWafEmpty }
+type sWafBlockAction struct{ sWafEmpty }
+type sWafCountAction struct{ sWafEmpty }
 
 type sWafDefaultAction struct {
-	Allow *sWafAllowAction
-	Block *sWafBlockAction
+	Allow *sWafAllowAction `json:"Allow"`
+	Block *sWafBlockAction `json:"Block"`
 }
 
 type sWafRuleAction struct {
-	Allow *sWafAllowAction
-	Block *sWafBlockAction
-	Count *sWafCountAction
+	Allow *sWafAllowAction `json:"Allow"`
+	Block *sWafBlockAction `json:"Block"`
+	Count *sWafCountAction `json:"Count"`
 }
 
 type sWafVisibilityConfig struct {
-	CloudWatchMetricsEnabled bool
-	MetricName               string
-	SampledRequestsEnabled   bool
+	CloudWatchMetricsEnabled bool   `json:"CloudWatchMetricsEnabled"`
+	MetricName               string `json:"MetricName"`
+	SampledRequestsEnabled   bool   `json:"SampledRequestsEnabled"`
 }
 
-type sWafBody struct{}
-type sWafMethod struct{}
-type sWafQueryString struct{}
-type sWafUriPath struct{}
-type sWafAllQueryArguments struct{}
+type sWafBody struct{ sWafEmpty }
+type sWafMethod struct{ sWafEmpty }
+type sWafQueryString struct{ sWafEmpty }
+type sWafUriPath struct{ sWafEmpty }
+type sWafAllQueryArguments struct{ sWafEmpty }
 type sWafSingleQueryArgument struct {
-	Name *string
+	Name string `json:"Name"`
 }
 type sWafSingleHeader struct {
-	Name *string
+	Name string `json:"Name"`
 }
 
 type sWafFieldToMatch struct {
-	AllQueryArguments   *sWafAllQueryArguments
-	Body                *sWafBody
-	Method              *sWafMethod
-	QueryString         *sWafQueryString
-	SingleHeader        *sWafSingleHeader
-	SingleQueryArgument *sWafSingleQueryArgument
-	UriPath             *sWafUriPath
+	AllQueryArguments   *sWafAllQueryArguments   `json:"AllQueryArguments"`
+	Body                *sWafBody                `json:"Body"`
+	Method              *sWafMethod              `json:"Method"`
+	QueryString         *sWafQueryString         `json:"QueryString"`
+	SingleHeader        *sWafSingleHeader        `json:"SingleHeader"`
+	SingleQueryArgument *sWafSingleQueryArgument `json:"SingleQueryArgument"`
+	UriPath             *sWafUriPath             `json:"UriPath"`
 }
 
 type sWafTextTransformation struct {
-	Priority *int64
-	Type     *string
+	Priority int64  `json:"Priority"`
+	Type     string `json:"Type"`
 }
 
 type sWafExcludedRule struct {
-	Name *string
+	Name string `json:"Name"`
 }
 
 type sWafForwardedIPConfig struct {
-	HeaderName *string
+	HeaderName string `json:"HeaderName"`
 }
 
 type sWafIPSetForwardedIPConfig struct {
-	HeaderName *string
+	HeaderName string `json:"HeaderName"`
 }
 
 type sWafAndStatement struct {
-	Statements []*sWafStatement
+	Statements []sWafStatement `json:"Statements"`
 }
 
 type sWafOrStatement struct {
-	Statements []*sWafStatement
+	Statements []sWafStatement `json:"Statements"`
 }
 
 type sWafNotStatement struct {
-	Statement *sWafStatement
+	Statement *sWafStatement `json:"Statement"`
 }
 
 type sWafRateBasedStatement struct {
-	Limit              *int64
-	ForwardedIPConfig  *sWafForwardedIPConfig
-	AggregateKeyType   *string
-	ScopeDownStatement *sWafStatement
+	Limit              int64                  `json:"Limit"`
+	ForwardedIPConfig  *sWafForwardedIPConfig `json:"ForwardedIPConfig"`
+	AggregateKeyType   string                 `json:"AggregateKeyType"`
+	ScopeDownStatement *sWafStatement         `json:"ScopeDownStatement"`
 }
 
 type sWafIPSetReferenceStatement struct {
-	ARN                     *string
-	IPSetForwardedIPConfig  *sWafIPSetForwardedIPConfig
+	ARN                    string                      `json:"ARN"`
+	IPSetForwardedIPConfig *sWafIPSetForwardedIPConfig `json:"IPSetForwardedIPConfig"`
 }
 
 type sWafXssMatchStatement struct {
-	FieldToMatch        *sWafFieldToMatch
-	TextTransformations []*sWafTextTransformation
+	FieldToMatch        *sWafFieldToMatch       `json:"FieldToMatch"`
+	TextTransformations []sWafTextTransformation `json:"TextTransformations"`
 }
 
 type sWafSizeConstraintStatement struct {
-	ComparisonOperator  *string
-	FieldToMatch        *sWafFieldToMatch
-	Size                *int64
-	TextTransformations []*sWafTextTransformation
+	ComparisonOperator  string                   `json:"ComparisonOperator"`
+	FieldToMatch        *sWafFieldToMatch        `json:"FieldToMatch"`
+	Size                int64                    `json:"Size"`
+	TextTransformations []sWafTextTransformation `json:"TextTransformations"`
 }
 
 type sWafGeoMatchStatement struct {
-	CountryCodes      []*string
-	ForwardedIPConfig *sWafForwardedIPConfig
+	CountryCodes      []string               `json:"CountryCodes"`
+	ForwardedIPConfig *sWafForwardedIPConfig `json:"ForwardedIPConfig"`
 }
 
 type sWafRegexPatternSetReferenceStatement struct {
-	ARN                 *string
-	FieldToMatch        *sWafFieldToMatch
-	TextTransformations []*sWafTextTransformation
+	ARN                 string                   `json:"ARN"`
+	FieldToMatch        *sWafFieldToMatch        `json:"FieldToMatch"`
+	TextTransformations []sWafTextTransformation `json:"TextTransformations"`
 }
 
 type sWafByteMatchStatement struct {
-	FieldToMatch          *sWafFieldToMatch
-	PositionalConstraint  *string
-	SearchString          []byte
-	TextTransformations   []*sWafTextTransformation
+	FieldToMatch         *sWafFieldToMatch        `json:"FieldToMatch"`
+	PositionalConstraint string                   `json:"PositionalConstraint"`
+	SearchString         []byte                   `json:"SearchString"`
+	TextTransformations  []sWafTextTransformation `json:"TextTransformations"`
 }
 
 type sWafRuleGroupReferenceStatement struct {
-	ARN           *string
-	ExcludedRules []*sWafExcludedRule
+	ARN           string             `json:"ARN"`
+	ExcludedRules []sWafExcludedRule `json:"ExcludedRules"`
 }
 
 type sWafSqliMatchStatement struct {
-	FieldToMatch        *sWafFieldToMatch
-	TextTransformations []*sWafTextTransformation
+	FieldToMatch        *sWafFieldToMatch       `json:"FieldToMatch"`
+	TextTransformations []sWafTextTransformation `json:"TextTransformations"`
 }
 
 type sWafManagedRuleGroupStatement struct {
-	Name          *string
-	VendorName    *string
-	ExcludedRules []*sWafExcludedRule
+	Name          string             `json:"Name"`
+	VendorName    string             `json:"VendorName"`
+	ExcludedRules []sWafExcludedRule `json:"ExcludedRules"`
 }
 
 type sWafLabelMatchStatement struct {
-	Key   *string
-	Scope *string
+	Key   string `json:"Key"`
+	Scope string `json:"Scope"`
 }
 
 type sWafStatement struct {
-	AndStatement                      *sWafAndStatement
-	ByteMatchStatement                *sWafByteMatchStatement
-	GeoMatchStatement                 *sWafGeoMatchStatement
-	IPSetReferenceStatement           *sWafIPSetReferenceStatement
-	LabelMatchStatement               *sWafLabelMatchStatement
-	ManagedRuleGroupStatement         *sWafManagedRuleGroupStatement
-	NotStatement                      *sWafNotStatement
-	OrStatement                       *sWafOrStatement
-	RateBasedStatement                *sWafRateBasedStatement
-	RegexPatternSetReferenceStatement *sWafRegexPatternSetReferenceStatement
-	RuleGroupReferenceStatement       *sWafRuleGroupReferenceStatement
-	SizeConstraintStatement           *sWafSizeConstraintStatement
-	SqliMatchStatement                *sWafSqliMatchStatement
-	XssMatchStatement                 *sWafXssMatchStatement
+	AndStatement                      *sWafAndStatement                      `json:"AndStatement"`
+	ByteMatchStatement                *sWafByteMatchStatement                `json:"ByteMatchStatement"`
+	GeoMatchStatement                 *sWafGeoMatchStatement                 `json:"GeoMatchStatement"`
+	IPSetReferenceStatement           *sWafIPSetReferenceStatement           `json:"IPSetReferenceStatement"`
+	LabelMatchStatement               *sWafLabelMatchStatement               `json:"LabelMatchStatement"`
+	ManagedRuleGroupStatement         *sWafManagedRuleGroupStatement         `json:"ManagedRuleGroupStatement"`
+	NotStatement                      *sWafNotStatement                      `json:"NotStatement"`
+	OrStatement                       *sWafOrStatement                       `json:"OrStatement"`
+	RateBasedStatement                *sWafRateBasedStatement                `json:"RateBasedStatement"`
+	RegexPatternSetReferenceStatement *sWafRegexPatternSetReferenceStatement `json:"RegexPatternSetReferenceStatement"`
+	RuleGroupReferenceStatement       *sWafRuleGroupReferenceStatement       `json:"RuleGroupReferenceStatement"`
+	SizeConstraintStatement           *sWafSizeConstraintStatement           `json:"SizeConstraintStatement"`
+	SqliMatchStatement                *sWafSqliMatchStatement                `json:"SqliMatchStatement"`
+	XssMatchStatement                 *sWafXssMatchStatement                 `json:"XssMatchStatement"`
 }
 
-type sWafRuleItem struct {
-	Action           *sWafRuleAction
-	Name             *string
-	Priority         *int64
-	Statement        *sWafStatement
-	VisibilityConfig *sWafVisibilityConfig
+// SWafRuleItem must be exported: anonymous embed field name must be exportable for jsonutils.
+type SWafRuleItem struct {
+	Action           *sWafRuleAction       `json:"Action"`
+	Name             string                `json:"Name"`
+	Priority         int64                 `json:"Priority"`
+	Statement        *sWafStatement        `json:"Statement"`
+	VisibilityConfig *sWafVisibilityConfig `json:"VisibilityConfig"`
 }
 
-type sWafWebACL struct {
-	ARN              *string
-	Capacity         *int64
-	DefaultAction    *sWafDefaultAction
-	Description      *string
-	Id               *string
-	Name             *string
-	Rules            []*sWafRuleItem
-	VisibilityConfig *sWafVisibilityConfig
-}
-
-func awsWafString(s string) *string {
-	return &s
-}
-
-func awsWafInt64(i int64) *int64 {
-	return &i
+// SWafWebACL must be exported: anonymous embed field name must be exportable for jsonutils.
+type SWafWebACL struct {
+	ARN              string                `json:"ARN"`
+	Capacity         int64                 `json:"Capacity"`
+	DefaultAction    *sWafDefaultAction    `json:"DefaultAction"`
+	Description      string                `json:"Description"`
+	Id               string                `json:"Id"`
+	Name             string                `json:"Name"`
+	Rules            []SWafRuleItem        `json:"Rules"`
+	VisibilityConfig *sWafVisibilityConfig `json:"VisibilityConfig"`
 }

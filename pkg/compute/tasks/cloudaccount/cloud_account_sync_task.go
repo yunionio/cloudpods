@@ -44,7 +44,12 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 	if cloudaccount.Provider == api.CLOUD_PROVIDER_VMWARE || cloudaccount.Provider == api.CLOUD_PROVIDER_PROXMOX {
 		cloudaccount.SetStatus(ctx, self.UserCred, api.CLOUD_PROVIDER_SYNC_NETWORK, "StartSyncOnPremiseNetworkTask")
 		zone, _ := self.Params.GetString("zone")
-		err := cloudaccount.PrepareEsxiHostNetwork(ctx, self.UserCred, zone)
+		var err error
+		if cloudaccount.Provider == api.CLOUD_PROVIDER_PROXMOX {
+			err = cloudaccount.PrepareProxmoxHostNetwork(ctx, self.UserCred, zone)
+		} else {
+			err = cloudaccount.PrepareEsxiHostNetwork(ctx, self.UserCred, zone)
+		}
 		if err != nil {
 			d := jsonutils.NewDict()
 			d.Set("error", jsonutils.NewString(err.Error()))
