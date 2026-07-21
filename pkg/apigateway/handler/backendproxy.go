@@ -65,6 +65,10 @@ func (h *SBackendServiceProxyHandler) requestManipulator(ctx context.Context, r 
 	if slashPos <= 0 {
 		return r, httperrors.NewBadRequestError("invalid request URL %s", r.URL.Path)
 	}
+	serviceName := path[:slashPos]
+	// Tell upstream (e.g. mcp-server SSE) the external path prefix so endpoint
+	// events point clients back through the gateway: /api/s/<service>/message
+	r.Header.Set("X-Forwarded-Prefix", "/api/s/"+serviceName)
 	path = path[slashPos:]
 	if strings.HasPrefix(path, "/r/") {
 		path = path[len("/r/"):]
