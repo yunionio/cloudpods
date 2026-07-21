@@ -15,8 +15,6 @@
 package aws
 
 import (
-	"github.com/aws/aws-sdk-go/service/wafv2"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -75,57 +73,52 @@ func (self *SRegion) ListIPSets(scope string) ([]SWafIPSet, error) {
 	if scope == SCOPE_CLOUDFRONT && self.RegionId != "us-east-1" {
 		return []SWafIPSet{}, nil
 	}
-	client, err := self.getWafClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getWafClient")
-	}
 	ret := []SWafIPSet{}
-	input := wafv2.ListIPSetsInput{}
-	input.SetScope(scope)
+	params := map[string]interface{}{"Scope": scope}
 	for {
-		resp, err := client.ListIPSets(&input)
+		resp := struct {
+			IPSets     []SWafIPSet
+			NextMarker string
+		}{}
+		err := self.wafRequest("ListIPSets", params, &resp)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ListIPSets")
 		}
-		part := []SWafIPSet{}
-		jsonutils.Update(&part, resp.IPSets)
-		ret = append(ret, part...)
-		if resp.NextMarker == nil || len(*resp.NextMarker) == 0 {
+		ret = append(ret, resp.IPSets...)
+		if len(resp.NextMarker) == 0 {
 			break
 		}
-		input.SetNextMarker(*resp.NextMarker)
+		params["NextMarker"] = resp.NextMarker
 	}
 	return ret, nil
 }
 
 func (self *SRegion) GetIPSet(id, name, scope string) (*SWafIPSet, error) {
-	client, err := self.getWafClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getWafClient")
+	params := map[string]interface{}{
+		"Id":    id,
+		"Name":  name,
+		"Scope": scope,
 	}
-	input := wafv2.GetIPSetInput{}
-	input.SetId(id)
-	input.SetName(name)
-	input.SetScope(scope)
-	resp, err := client.GetIPSet(&input)
+	resp := struct {
+		IPSet     map[string]interface{}
+		LockToken string
+	}{}
+	err := self.wafRequest("GetIPSet", params, &resp)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetIPSet")
 	}
-	ret := &SWafIPSet{LockToken: *resp.LockToken}
+	ret := &SWafIPSet{LockToken: resp.LockToken}
 	return ret, jsonutils.Update(ret, resp.IPSet)
 }
 
 func (self *SRegion) DeleteIPSet(id, name, scope, lockToken string) error {
-	client, err := self.getWafClient()
-	if err != nil {
-		return errors.Wrapf(err, "getWafClient")
+	params := map[string]interface{}{
+		"Id":        id,
+		"Name":      name,
+		"Scope":     scope,
+		"LockToken": lockToken,
 	}
-	input := wafv2.DeleteIPSetInput{}
-	input.SetId(id)
-	input.SetName(name)
-	input.SetScope(scope)
-	input.SetLockToken(lockToken)
-	_, err = client.DeleteIPSet(&input)
+	err := self.wafRequest("DeleteIPSet", params, nil)
 	return errors.Wrapf(err, "DeleteIPSet")
 }
 

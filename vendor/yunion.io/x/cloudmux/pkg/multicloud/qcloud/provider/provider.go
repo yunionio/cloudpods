@@ -459,3 +459,7 @@ func (self *SQcloudProvider) GetMetrics(opts *cloudprovider.MetricListOptions) (
 func (self *SQcloudProvider) GetISSLCertificates() ([]cloudprovider.ICloudSSLCertificate, error) {
 	return self.client.GetISSLCertificates()
 }
+
+func (self *SQcloudProvider) GetNotices() ([]cloudprovider.INotice, error) {
+	return self.client.GetNotices()
+}

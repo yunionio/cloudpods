@@ -15,13 +15,9 @@
 package aws
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/aws/aws-sdk-go-v2/service/organizations"
-	"github.com/aws/aws-sdk-go-v2/service/organizations/types"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -74,98 +70,117 @@ const (
 	AISERVICES_OPT_OUT_POLICY = "AISERVICES_OPT_OUT_POLICY"
 )
 
-func (r *SRegion) ListPolicies(filter string) ([]SOrgPolicy, error) {
-	cfg, err := r.getConfig()
-	if err != nil {
-		return nil, errors.Wrap(err, "getConfig")
-	}
-	orgCli := organizations.NewFromConfig(cfg)
-	var nextToken *string
-	policies := make([]SOrgPolicy, 0)
+type sOrgPolicySummary struct {
+	Arn         string
+	AwsManaged  bool
+	Description string
+	Id          string
+	Name        string
+	Type        string
+}
 
+type sOrgAccount struct {
+	Id              string
+	Name            string
+	Arn             string
+	Email           string
+	State           string
+	Paths           []string
+	JoinedMethod    string
+	JoinedTimestamp float64
+}
+
+type sOrganization struct {
+	MasterAccountId string
+}
+
+type sOrganizationalUnit struct {
+	Name string
+}
+
+func (r *SRegion) orgRequest(apiName string, params map[string]interface{}, retval interface{}) error {
+	return r.client.orgRequest(apiName, params, retval)
+}
+
+func (r *SRegion) ListPolicies(filter string) ([]SOrgPolicy, error) {
+	params := map[string]interface{}{
+		"Filter": filter,
+	}
+	policies := make([]SOrgPolicy, 0)
 	for {
-		input := organizations.ListPoliciesInput{}
-		input.Filter = types.PolicyType(filter)
-		if nextToken != nil {
-			input.NextToken = nextToken
-		}
-		parts, err := orgCli.ListPolicies(context.Background(), &input)
+		ret := struct {
+			Policies  []sOrgPolicySummary
+			NextToken string
+		}{}
+		err := r.orgRequest("ListPolicies", params, &ret)
 		if err != nil {
 			return nil, errors.Wrap(err, "ListPolicies")
 		}
-		for _, pPtr := range parts.Policies {
-			p := SOrgPolicy{
-				Arn:         *pPtr.Arn,
-				AwsManaged:  pPtr.AwsManaged,
-				Description: *pPtr.Description,
-				Id:          *pPtr.Id,
-				Name:        *pPtr.Name,
-				Type:        string(pPtr.Type),
-			}
-			policies = append(policies, p)
+		for _, p := range ret.Policies {
+			policies = append(policies, SOrgPolicy{
+				Arn:         p.Arn,
+				AwsManaged:  p.AwsManaged,
+				Description: p.Description,
+				Id:          p.Id,
+				Name:        p.Name,
+				Type:        p.Type,
+			})
 		}
-		if parts.NextToken == nil || len(*parts.NextToken) == 0 {
+		if len(ret.NextToken) == 0 {
 			break
-		} else {
-			nextToken = parts.NextToken
 		}
+		params["NextToken"] = ret.NextToken
 	}
 	return policies, nil
 }
 
 func (r *SRegion) ListPoliciesForTarget(filter string, targetId string) ([]SOrgPolicy, error) {
-	cfg, err := r.getConfig()
-	if err != nil {
-		return nil, errors.Wrap(err, "getConfig")
+	params := map[string]interface{}{
+		"Filter":   filter,
+		"TargetId": targetId,
 	}
-	orgCli := organizations.NewFromConfig(cfg)
-	var nextToken *string
 	policies := make([]SOrgPolicy, 0)
-
 	for {
-		input := organizations.ListPoliciesForTargetInput{}
-		input.Filter = types.PolicyType(filter)
-		input.TargetId = &targetId
-		if nextToken != nil {
-			input.NextToken = nextToken
-		}
-		parts, err := orgCli.ListPoliciesForTarget(context.Background(), &input)
+		ret := struct {
+			Policies  []sOrgPolicySummary
+			NextToken string
+		}{}
+		err := r.orgRequest("ListPoliciesForTarget", params, &ret)
 		if err != nil {
 			return nil, errors.Wrap(err, "ListPoliciesForTarget")
 		}
-		for _, pPtr := range parts.Policies {
-			p := SOrgPolicy{
-				Arn:         *pPtr.Arn,
-				AwsManaged:  pPtr.AwsManaged,
-				Description: *pPtr.Description,
-				Id:          *pPtr.Id,
-				Name:        *pPtr.Name,
-				Type:        string(pPtr.Type),
-			}
-			policies = append(policies, p)
+		for _, p := range ret.Policies {
+			policies = append(policies, SOrgPolicy{
+				Arn:         p.Arn,
+				AwsManaged:  p.AwsManaged,
+				Description: p.Description,
+				Id:          p.Id,
+				Name:        p.Name,
+				Type:        p.Type,
+			})
 		}
-		if parts.NextToken == nil || len(*parts.NextToken) == 0 {
+		if len(ret.NextToken) == 0 {
 			break
-		} else {
-			nextToken = parts.NextToken
 		}
+		params["NextToken"] = ret.NextToken
 	}
 	return policies, nil
 }
 
 func (r *SRegion) DescribeOrgPolicy(pId string) (jsonutils.JSONObject, error) {
-	cfg, err := r.getConfig()
-	if err != nil {
-		return nil, errors.Wrap(err, "getConfig")
+	params := map[string]interface{}{
+		"PolicyId": pId,
 	}
-	orgCli := organizations.NewFromConfig(cfg)
-	input := organizations.DescribePolicyInput{}
-	input.PolicyId = &pId
-	output, err := orgCli.DescribePolicy(context.Background(), &input)
+	ret := struct {
+		Policy struct {
+			Content string
+		}
+	}{}
+	err := r.orgRequest("DescribePolicy", params, &ret)
 	if err != nil {
 		return nil, errors.Wrap(err, "DescribePolicy")
 	}
-	content, err := jsonutils.ParseString(*output.Policy.Content)
+	content, err := jsonutils.ParseString(ret.Policy.Content)
 	if err != nil {
 		return nil, errors.Wrap(err, "ParseJSON")
 	}
@@ -173,53 +188,49 @@ func (r *SRegion) DescribeOrgPolicy(pId string) (jsonutils.JSONObject, error) {
 }
 
 func (r *SRegion) ListAccounts() ([]SAccount, error) {
-	cfg, err := r.getConfig()
-	if err != nil {
-		return nil, errors.Wrap(err, "getConfig")
-	}
-	orgCli := organizations.NewFromConfig(cfg)
-	input := organizations.DescribeOrganizationInput{}
-	orgOutput, err := orgCli.DescribeOrganization(context.Background(), &input)
+	orgRet := struct {
+		Organization sOrganization
+	}{}
+	err := r.orgRequest("DescribeOrganization", map[string]interface{}{}, &orgRet)
 	if err != nil {
 		log.Errorf("%#v", err)
 		return nil, errors.Wrap(err, "DescribeOrganization")
 	}
 
-	var nextToken *string
+	params := map[string]interface{}{}
 	accounts := make([]SAccount, 0)
 	for {
-		input := organizations.ListAccountsInput{}
-		if nextToken != nil {
-			input.NextToken = nextToken
-		}
-		parts, err := orgCli.ListAccounts(context.Background(), &input)
+		part := struct {
+			Accounts  []sOrgAccount
+			NextToken string
+		}{}
+		err := r.orgRequest("ListAccounts", params, &part)
 		if err != nil {
 			return nil, errors.Wrap(err, "ListAccounts")
 		}
-		for _, actPtr := range parts.Accounts {
+		for _, act := range part.Accounts {
 			account := SAccount{
-				ID:              *actPtr.Id,
-				Name:            *actPtr.Id,
-				Arn:             *actPtr.Arn,
-				Email:           *actPtr.Email,
-				State:           string(actPtr.State),
-				JoinedMethod:    string(actPtr.JoinedMethod),
-				JoinedTimestamp: *actPtr.JoinedTimestamp,
-				Path:            actPtr.Paths,
+				ID:              act.Id,
+				Name:            act.Id,
+				Arn:             act.Arn,
+				Email:           act.Email,
+				State:           act.State,
+				JoinedMethod:    act.JoinedMethod,
+				JoinedTimestamp: time.Unix(0, int64(act.JoinedTimestamp*float64(time.Second))),
+				Path:            act.Paths,
 			}
-			if actPtr.Name != nil && len(*actPtr.Name) > 0 {
-				account.Name = *actPtr.Name
+			if len(act.Name) > 0 {
+				account.Name = act.Name
 			}
-			if *orgOutput.Organization.MasterAccountId == *actPtr.Id {
+			if orgRet.Organization.MasterAccountId == act.Id {
 				account.IsMaster = true
 			}
 			accounts = append(accounts, account)
 		}
-		if parts.NextToken == nil || len(*parts.NextToken) == 0 {
+		if len(part.NextToken) == 0 {
 			break
-		} else {
-			nextToken = parts.NextToken
 		}
+		params["NextToken"] = part.NextToken
 	}
 	return accounts, nil
 }
@@ -262,21 +273,15 @@ func (awscli *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 		// For OU IDs in path (prefix "ou-"), we also best-effort resolve OU name via DescribeOrganizationalUnit.
 		tagsByAccount := map[string]map[string]string{}
 		ouNameCache := map[string]string{}
-		cfg, cfgErr := defRegion.getConfig()
-		if cfgErr == nil {
-			orgCli := organizations.NewFromConfig(cfg)
-			for _, account := range accounts {
-				tags, tErr := getAccountPathTags(orgCli, account.Path, ouNameCache)
-				if tErr != nil {
-					log.Debugf("getAccountPathTags %s: %v", account.ID, tErr)
-					continue
-				}
-				if len(tags) > 0 {
-					tagsByAccount[account.ID] = tags
-				}
+		for _, account := range accounts {
+			tags, tErr := getAccountPathTags(awscli, account.Path, ouNameCache)
+			if tErr != nil {
+				log.Debugf("getAccountPathTags %s: %v", account.ID, tErr)
+				continue
 			}
-		} else {
-			log.Debugf("getConfig for organizations: %v", cfgErr)
+			if len(tags) > 0 {
+				tagsByAccount[account.ID] = tags
+			}
 		}
 
 		subAccounts := []cloudprovider.SSubAccount{}
@@ -317,7 +322,7 @@ func (awscli *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 	}
 }
 
-func getAccountPathTags(orgCli *organizations.Client, paths []string, ouNameCache map[string]string) (map[string]string, error) {
+func getAccountPathTags(client *SAwsClient, paths []string, ouNameCache map[string]string) (map[string]string, error) {
 	// AWS Organizations account "Paths" can be:
 	// - multiple path strings (account may exist in multiple hierarchies)
 	// - each path string could be a concatenation like "r-xxxx/ou-yyyy/ou-zzzz"
@@ -359,7 +364,7 @@ func getAccountPathTags(orgCli *organizations.Client, paths []string, ouNameCach
 			}
 
 			if len(ouIds) > 0 {
-				tags, err := getOuIdsTags(orgCli, ouIds, ouNameCache)
+				tags, err := getOuIdsTags(client, ouIds, ouNameCache)
 				if err != nil {
 					return nil, err
 				}
@@ -386,7 +391,7 @@ func getAccountPathTags(orgCli *organizations.Client, paths []string, ouNameCach
 
 		// Non-concatenated single segment.
 		if strings.HasPrefix(pathStr, "ou-") {
-			tags, err := getOuIdsTags(orgCli, []string{pathStr}, ouNameCache)
+			tags, err := getOuIdsTags(client, []string{pathStr}, ouNameCache)
 			if err != nil {
 				return nil, err
 			}
@@ -404,7 +409,7 @@ func getAccountPathTags(orgCli *organizations.Client, paths []string, ouNameCach
 	return map[string]string{}, nil
 }
 
-func getOuIdsTags(orgCli *organizations.Client, ouIds []string, ouNameCache map[string]string) (map[string]string, error) {
+func getOuIdsTags(client *SAwsClient, ouIds []string, ouNameCache map[string]string) (map[string]string, error) {
 	tags := map[string]string{}
 	level := 1
 	for _, ouId := range ouIds {
@@ -415,15 +420,17 @@ func getOuIdsTags(orgCli *organizations.Client, ouIds []string, ouNameCache map[
 
 		ouName, ok := ouNameCache[ouId]
 		if !ok {
-			descInput := organizations.DescribeOrganizationalUnitInput{}
-			descInput.OrganizationalUnitId = &ouId
-			descOutput, descErr := orgCli.DescribeOrganizationalUnit(context.Background(), &descInput)
+			params := map[string]interface{}{
+				"OrganizationalUnitId": ouId,
+			}
+			ret := struct {
+				OrganizationalUnit sOrganizationalUnit
+			}{}
+			descErr := client.orgRequest("DescribeOrganizationalUnit", params, &ret)
 			if descErr != nil {
 				return nil, errors.Wrap(descErr, "DescribeOrganizationalUnit")
 			}
-			if descOutput.OrganizationalUnit != nil && descOutput.OrganizationalUnit.Name != nil {
-				ouName = *descOutput.OrganizationalUnit.Name
-			}
+			ouName = ret.OrganizationalUnit.Name
 			ouNameCache[ouId] = ouName
 		}
 
@@ -451,33 +458,31 @@ func isAWSAccountID(s string) bool {
 }
 
 func (r *SRegion) ListParents(childId string) error {
-	cfg, err := r.getConfig()
-	if err != nil {
-		return errors.Wrap(err, "getConfig")
+	params := map[string]interface{}{
+		"ChildId": childId,
 	}
-	orgCli := organizations.NewFromConfig(cfg)
-	input := organizations.ListParentsInput{}
-	input.ChildId = &childId
-	parents, err := orgCli.ListParents(context.Background(), &input)
+	ret := struct {
+		Parents []interface{}
+	}{}
+	err := r.orgRequest("ListParents", params, &ret)
 	if err != nil {
 		return errors.Wrap(err, "ListParents")
 	}
-	log.Debugf("%#v", parents)
+	log.Debugf("%#v", ret)
 	return nil
 }
 
 func (r *SRegion) DescribeOrganizationalUnit(ouId string) error {
-	cfg, err := r.getConfig()
-	if err != nil {
-		return errors.Wrap(err, "getConfig")
+	params := map[string]interface{}{
+		"OrganizationalUnitId": ouId,
 	}
-	orgCli := organizations.NewFromConfig(cfg)
-	input := organizations.DescribeOrganizationalUnitInput{}
-	input.OrganizationalUnitId = &ouId
-	output, err := orgCli.DescribeOrganizationalUnit(context.Background(), &input)
+	ret := struct {
+		OrganizationalUnit sOrganizationalUnit
+	}{}
+	err := r.orgRequest("DescribeOrganizationalUnit", params, &ret)
 	if err != nil {
 		return errors.Wrap(err, "DescribeOrganizationUnit")
 	}
-	log.Debugf("%#v", output)
+	log.Debugf("%#v", ret)
 	return nil
 }

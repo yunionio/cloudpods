@@ -203,19 +203,36 @@ func (rule *SAlbRule) Update(ctx context.Context, opts *cloudprovider.SLoadbalan
 // region methods
 func (region *SRegion) GetAlbRules(listenerId string) ([]SAlbRule, error) {
 	params := map[string]string{
-		"RegionId":      region.RegionId,
-		"ListenerIds.1": listenerId,
+		"RegionId":   region.RegionId,
+		"MaxResults": "100",
 	}
-
-	body, err := region.albRequest("ListRules", params)
-	if err != nil {
-		return nil, err
+	if len(listenerId) > 0 {
+		params["ListenerIds.1"] = listenerId
 	}
 
 	rules := []SAlbRule{}
-	err = body.Unmarshal(&rules, "Rules")
-	if err != nil {
-		return nil, err
+	nextToken := ""
+	for {
+		if nextToken != "" {
+			params["NextToken"] = nextToken
+		}
+
+		body, err := region.albRequest("ListRules", params)
+		if err != nil {
+			return nil, err
+		}
+
+		pageRules := []SAlbRule{}
+		err = body.Unmarshal(&pageRules, "Rules")
+		if err != nil {
+			return nil, err
+		}
+		rules = append(rules, pageRules...)
+
+		nextToken, _ = body.GetString("NextToken")
+		if nextToken == "" {
+			break
+		}
 	}
 
 	return rules, nil

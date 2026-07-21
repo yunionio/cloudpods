@@ -85,12 +85,13 @@ func (region *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 }
 
 func (region *SRegion) GetName() string {
-	return region.RegionName
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_KSYUN_CN, region.RegionName)
 }
 
 func (region *SRegion) GetI18n() cloudprovider.SModelI18nTable {
+	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_KSYUN_EN, region.RegionName)
 	table := cloudprovider.SModelI18nTable{}
-	table["name"] = cloudprovider.NewSModelI18nEntry(region.GetName()).CN(region.GetName()).EN(region.Region)
+	table["name"] = cloudprovider.NewSModelI18nEntry(region.GetName()).CN(region.GetName()).EN(en)
 	return table
 }
 
@@ -258,14 +259,45 @@ func (region *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return iStores, nil
 }
 
+func (r *SRegion) getOrCreateZone(zoneId string, cache map[string]*SZone) (*SZone, error) {
+	if len(zoneId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty zone")
+	}
+	if cache != nil {
+		if zone, ok := cache[zoneId]; ok {
+			return zone, nil
+		}
+	}
+	zone := &SZone{
+		region:           r,
+		AvailabilityZone: zoneId,
+	}
+	if cache != nil {
+		cache[zoneId] = zone
+	}
+	return zone, nil
+}
+
+func (r *SRegion) initInstanceHost(vm *SInstance, zoneCache map[string]*SZone) error {
+	zone, err := r.getOrCreateZone(vm.AvailabilityZone, zoneCache)
+	if err != nil {
+		return err
+	}
+	vm.host = zone.getHost()
+	return nil
+}
+
 func (r *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	vms, err := r.GetInstances("", nil)
 	if err != nil {
 		return nil, err
 	}
+	zoneCache := make(map[string]*SZone)
 	ret := []cloudprovider.ICloudVM{}
 	for i := range vms {
-		vms[i].region = r
+		if err := r.initInstanceHost(&vms[i], zoneCache); err != nil {
+			return nil, err
+		}
 		ret = append(ret, &vms[i])
 	}
 	return ret, nil
@@ -276,7 +308,9 @@ func (r *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	if err != nil {
 		return nil, err
 	}
-	vm.region = r
+	if err := r.initInstanceHost(vm, nil); err != nil {
+		return nil, err
+	}
 	return vm, nil
 }
 

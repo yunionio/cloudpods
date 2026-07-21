@@ -43,11 +43,13 @@ func (self *SRegion) GetId() string {
 }
 
 func (self *SRegion) GetName() string {
-	return self.LocalName
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_UCLOUD_CN, self.LocalName)
 }
 
 func (self *SRegion) GetI18n() cloudprovider.SModelI18nTable {
+	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_UCLOUD_EN, self.LocalName)
 	table := cloudprovider.SModelI18nTable{}
+	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
 	return table
 }
 
@@ -70,9 +72,40 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	return cloudprovider.SGeographicInfo{}
 }
 
+func (self *SRegion) getOrCreateZone(zoneId string, cache map[string]*SZone) (*SZone, error) {
+	if len(zoneId) == 0 {
+		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "empty zone")
+	}
+	if cache != nil {
+		if zone, ok := cache[zoneId]; ok {
+			return zone, nil
+		}
+	}
+	zone := &SZone{
+		region: self,
+		ZoneId: zoneId,
+	}
+	if cache != nil {
+		cache[zoneId] = zone
+	}
+	return zone, nil
+}
+
+func (self *SRegion) initInstanceHost(vm *SInstance, zoneCache map[string]*SZone) error {
+	zone, err := self.getOrCreateZone(vm.Zone, zoneCache)
+	if err != nil {
+		return err
+	}
+	vm.host = zone.getHost()
+	return nil
+}
+
 func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	instance, err := self.GetInstance(id)
 	if err != nil {
+		return nil, err
+	}
+	if err := self.initInstanceHost(instance, nil); err != nil {
 		return nil, err
 	}
 	return instance, nil
@@ -497,8 +530,12 @@ func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	if err != nil {
 		return nil, err
 	}
+	zoneCache := make(map[string]*SZone)
 	ret := []cloudprovider.ICloudVM{}
 	for i := range vms {
+		if err := region.initInstanceHost(&vms[i], zoneCache); err != nil {
+			return nil, err
+		}
 		ret = append(ret, &vms[i])
 	}
 	return ret, nil
