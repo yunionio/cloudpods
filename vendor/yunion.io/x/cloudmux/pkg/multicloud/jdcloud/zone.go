@@ -95,7 +95,7 @@ func (z *SZone) GetId() string {
 }
 
 func (z *SZone) GetName() string {
-	return z.Name
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_JDCLOUD_CN, z.Name)
 }
 
 func (z *SZone) GetGlobalId() string {

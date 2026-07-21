@@ -53,6 +53,13 @@ func NewWebsocketProxyServer(s *session.SSession) (*WebsocketProxyServer, error)
 	proxySrv.Backend = func(_ *http.Request) *url.URL {
 		return u
 	}
+	proxySrv.Director = func(_ *http.Request, out http.Header) {
+		// Use backend host, not the incoming webconsole Host header
+		out.Set("Host", u.Host)
+		if len(info.Cookie) > 0 {
+			out.Set("Cookie", info.Cookie)
+		}
+	}
 	proxySrv.Upgrader = &upgrader
 	return &WebsocketProxyServer{
 		Session: s,
@@ -62,8 +69,5 @@ func NewWebsocketProxyServer(s *session.SSession) (*WebsocketProxyServer, error)
 }
 
 func (s *WebsocketProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if len(s.cookie) > 0 {
-		r.Header.Set("Cookie", s.cookie)
-	}
 	s.proxy.ServeHTTP(w, r)
 }

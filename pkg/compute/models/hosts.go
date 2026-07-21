@@ -6946,14 +6946,24 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 						enables = append(enables, extNics[j])
 					}
 				} else {
-					wireId := ""
-					extWire := extNics[j].GetIWire()
-					if extWire != nil {
-						wire, err := WireManager.FetchWireByExternalId(provider.Id, extWire.GetGlobalId())
-						if err != nil {
-							result.AddError(err)
+					wireId := netIfs[i].WireId
+					ipAddr := extNics[j].GetIpAddr()
+					// Proxmox only associates to on-premise wires; do not sync remote L2 wire ids
+					if provider.Provider != api.CLOUD_PROVIDER_PROXMOX {
+						extWire := extNics[j].GetIWire()
+						if extWire != nil {
+							wire, err := WireManager.FetchWireByExternalId(provider.Id, extWire.GetGlobalId())
+							if err != nil {
+								result.AddError(err)
+							} else {
+								wireId = wire.Id
+							}
 						} else {
-							wireId = wire.Id
+							wireId = ""
+						}
+					} else if len(ipAddr) > 0 {
+						if ipWire, werr := WireManager.GetOnPremiseWireOfIp(ipAddr); werr == nil {
+							wireId = ipWire.Id
 						}
 					}
 					// in sync, sync interface and bridge
@@ -7038,7 +7048,25 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 		netif := host.GetNetInterface(enables[i].GetMac(), enables[i].GetVlanId())
 		// always true reserved address pool
 		log.Debugf("enable netif %s", enables[i].GetMac())
-		err = host.EnableNetif(ctx, userCred, netif, "", enables[i].GetIpAddr(), "", "", "", true, true, false, false)
+		ipAddr := enables[i].GetIpAddr()
+		if provider.Provider == api.CLOUD_PROVIDER_PROXMOX && len(ipAddr) > 0 {
+			ipWire, werr := WireManager.GetOnPremiseWireOfIp(ipAddr)
+			if werr != nil {
+				result.AddError(werr)
+				continue
+			}
+			if netif.WireId != ipWire.Id {
+				_, err := db.Update(netif, func() error {
+					netif.WireId = ipWire.Id
+					return nil
+				})
+				if err != nil {
+					result.AddError(err)
+					continue
+				}
+			}
+		}
+		err = host.EnableNetif(ctx, userCred, netif, "", ipAddr, "", "", "", true, true, false, false)
 		if err != nil {
 			result.AddError(err)
 		} else {
@@ -7060,16 +7088,21 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 			strBridge = &bridge
 		}
 		wireId := ""
-		extWire := extNic.GetIWire()
-		if extWire != nil {
-			wire, err := WireManager.FetchWireByExternalId(provider.Id, extWire.GetGlobalId())
-			if err != nil {
-				result.AddError(err)
-			} else {
-				wireId = wire.Id
+		ipAddr := extNic.GetIpAddr()
+		// Proxmox does not sync remote L2 wires; leave wireId empty so addNetif
+		// resolves the on-premise wire via GetOnPremiseWireOfIp.
+		if provider.Provider != api.CLOUD_PROVIDER_PROXMOX {
+			extWire := extNic.GetIWire()
+			if extWire != nil {
+				wire, err := WireManager.FetchWireByExternalId(provider.Id, extWire.GetGlobalId())
+				if err != nil {
+					result.AddError(err)
+				} else {
+					wireId = wire.Id
+				}
 			}
 		}
-		err = host.addNetif(ctx, userCred, extNic.GetMac(), extNic.GetVlanId(), wireId, extNic.GetIpAddr(), "", 0,
+		err = host.addNetif(ctx, userCred, extNic.GetMac(), extNic.GetVlanId(), wireId, ipAddr, "", 0,
 			compute.TNicType(extNic.GetNicType()), int(extNic.GetIndex()),
 			extNic.IsLinkUp(), int16(extNic.GetMtu()), false, strNetIf, strBridge, true, true, false, false)
 		if err != nil {

@@ -427,12 +427,30 @@ func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudpr
 	if err != nil {
 		return nil, err
 	}
-	ret := &cloudprovider.ServerVncOutput{}
-	ret.Protocol = "vnc"
-	ret.Host = self.host.cli.host
-	ret.Port = int64(vnc.Port)
-	ret.Password = vnc.Ticket
-	ret.Hypervisor = api.HYPERVISOR_PROXMOX
+	// Official Proxmox console: connect via vncwebsocket on API port (8006),
+	// authenticated by PVEAuthCookie + vncticket query param.
+	vncURL := fmt.Sprintf(
+		"wss://%s:%d/api2/json/nodes/%s/qemu/%d/vncwebsocket?port=%d&vncticket=%s",
+		self.host.cli.host,
+		self.host.cli.port,
+		self.Node,
+		self.VmId,
+		vnc.Port,
+		url.QueryEscape(vnc.Ticket),
+	)
+	ret := &cloudprovider.ServerVncOutput{
+		Protocol:   "vnc",
+		Url:        vncURL,
+		Host:       self.host.cli.host,
+		Port:       int64(self.host.cli.port),
+		Password:   vnc.Password,
+		Cookie:     "PVEAuthCookie=" + self.host.cli.authTicket,
+		Hypervisor: api.HYPERVISOR_PROXMOX,
+	}
+	if len(ret.Password) == 0 {
+		// fallback for older PVE without generate-password
+		ret.Password = vnc.Ticket
+	}
 	return ret, nil
 }
 
@@ -1126,16 +1144,17 @@ func (self *SProxmoxClient) GenVM(name, node string, cores, memMB int) (*SInstan
 }
 
 type InstanceVnc struct {
-	Port   int
-	Ticket string
-	Cert   string
+	Port     int
+	Ticket   string
+	Cert     string
+	Password string
 }
 
 func (self *SProxmoxClient) GetVNCInfo(node string, vmId int) (*InstanceVnc, error) {
 	res := fmt.Sprintf("/nodes/%s/qemu/%d/vncproxy", node, vmId)
 	resp, err := self.post(res, map[string]interface{}{
 		"websocket":         "1",
-		"generate-password": "0",
+		"generate-password": "1",
 	})
 	if err != nil {
 		return nil, err
