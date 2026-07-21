@@ -71,12 +71,13 @@ func (zone *SZone) GetGlobalId() string {
 }
 
 func (zone *SZone) GetName() string {
-	return fmt.Sprintf("%s", zone.ZoneId)
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_VOLCENGINE_CN, zone.ZoneId)
 }
 
 func (zone *SZone) GetI18n() cloudprovider.SModelI18nTable {
+	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_VOLCENGINE_EN, zone.ZoneId)
 	table := cloudprovider.SModelI18nTable{}
-	table["name"] = cloudprovider.NewSModelI18nEntry(zone.GetName()).CN(zone.GetName())
+	table["name"] = cloudprovider.NewSModelI18nEntry(zone.GetName()).CN(zone.GetName()).EN(en)
 	return table
 }
 

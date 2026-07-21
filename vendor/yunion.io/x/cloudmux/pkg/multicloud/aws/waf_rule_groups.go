@@ -15,8 +15,6 @@
 package aws
 
 import (
-	"github.com/aws/aws-sdk-go/service/wafv2"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 )
@@ -33,39 +31,34 @@ func (self *SRegion) ListAvailableManagedRuleGroups(scope string) ([]SWafRuleGro
 	if scope == SCOPE_CLOUDFRONT && self.RegionId != "us-east-1" {
 		return []SWafRuleGroup{}, nil
 	}
-	client, err := self.getWafClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getWafClient")
-	}
 	ret := []SWafRuleGroup{}
-	input := wafv2.ListAvailableManagedRuleGroupsInput{}
-	input.SetScope(scope)
+	params := map[string]interface{}{"Scope": scope}
 	for {
-		resp, err := client.ListAvailableManagedRuleGroups(&input)
+		resp := struct {
+			ManagedRuleGroups []SWafRuleGroup
+			NextMarker        string
+		}{}
+		err := self.wafRequest("ListAvailableManagedRuleGroups", params, &resp)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ListAvailableManagedRuleGroups")
 		}
-		part := []SWafRuleGroup{}
-		jsonutils.Update(&part, resp.ManagedRuleGroups)
-		ret = append(ret, part...)
-		if resp.NextMarker == nil || len(*resp.NextMarker) == 0 {
+		ret = append(ret, resp.ManagedRuleGroups...)
+		if len(resp.NextMarker) == 0 {
 			break
 		}
-		input.SetNextMarker(*resp.NextMarker)
+		params["NextMarker"] = resp.NextMarker
 	}
 	return ret, nil
 }
 
 func (self *SRegion) DescribeManagedRuleGroup(name, scope, vendorName string) (*SWafRuleGroup, error) {
-	client, err := self.getWafClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getWafClient")
+	params := map[string]interface{}{
+		"Name":       name,
+		"Scope":      scope,
+		"VendorName": vendorName,
 	}
-	input := wafv2.DescribeManagedRuleGroupInput{}
-	input.SetName(name)
-	input.SetScope(scope)
-	input.SetVendorName(vendorName)
-	resp, err := client.DescribeManagedRuleGroup(&input)
+	resp := map[string]interface{}{}
+	err := self.wafRequest("DescribeManagedRuleGroup", params, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -80,39 +73,36 @@ func (self *SRegion) ListRuleGroups(scope string) ([]SWafRuleGroup, error) {
 	if scope == SCOPE_CLOUDFRONT && self.RegionId != "us-east-1" {
 		return []SWafRuleGroup{}, nil
 	}
-	client, err := self.getWafClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getWafClient")
-	}
 	ret := []SWafRuleGroup{}
-	input := wafv2.ListRuleGroupsInput{}
-	input.SetScope(scope)
+	params := map[string]interface{}{"Scope": scope}
 	for {
-		resp, err := client.ListRuleGroups(&input)
+		resp := struct {
+			RuleGroups []SWafRuleGroup
+			NextMarker string
+		}{}
+		err := self.wafRequest("ListRuleGroups", params, &resp)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ListRuleGroups")
 		}
-		part := []SWafRuleGroup{}
-		jsonutils.Update(&part, resp.RuleGroups)
-		ret = append(ret, part...)
-		if resp.NextMarker == nil || len(*resp.NextMarker) == 0 {
+		ret = append(ret, resp.RuleGroups...)
+		if len(resp.NextMarker) == 0 {
 			break
 		}
-		input.SetNextMarker(*resp.NextMarker)
+		params["NextMarker"] = resp.NextMarker
 	}
 	return ret, nil
 }
 
 func (self *SRegion) GetRuleGroup(id, name, scope string) (*SWafRuleGroup, error) {
-	client, err := self.getWafClient()
-	if err != nil {
-		return nil, errors.Wrapf(err, "getWafClient")
+	params := map[string]interface{}{
+		"Id":    id,
+		"Name":  name,
+		"Scope": scope,
 	}
-	input := wafv2.GetRuleGroupInput{}
-	input.SetId(id)
-	input.SetName(name)
-	input.SetScope(scope)
-	resp, err := client.GetRuleGroup(&input)
+	resp := struct {
+		RuleGroup map[string]interface{}
+	}{}
+	err := self.wafRequest("GetRuleGroup", params, &resp)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetRuleGroup")
 	}
@@ -121,15 +111,12 @@ func (self *SRegion) GetRuleGroup(id, name, scope string) (*SWafRuleGroup, error
 }
 
 func (self *SRegion) DeleteRuleGroup(id, name, scope, lockToken string) error {
-	client, err := self.getWafClient()
-	if err != nil {
-		return errors.Wrapf(err, "getWafClient")
+	params := map[string]interface{}{
+		"Id":        id,
+		"Name":      name,
+		"Scope":     scope,
+		"LockToken": lockToken,
 	}
-	input := wafv2.DeleteRuleGroupInput{}
-	input.SetId(id)
-	input.SetName(name)
-	input.SetScope(scope)
-	input.SetLockToken(lockToken)
-	_, err = client.DeleteRuleGroup(&input)
+	err := self.wafRequest("DeleteRuleGroup", params, nil)
 	return errors.Wrapf(err, "DeleteRuleGroup")
 }

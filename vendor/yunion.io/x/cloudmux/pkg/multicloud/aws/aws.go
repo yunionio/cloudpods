@@ -16,19 +16,20 @@ package aws
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	sdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -301,40 +302,33 @@ func (client *SAwsClient) fetchOwnerId() error {
 }
 
 func (client *SAwsClient) fetchBuckets() error {
-	s, err := client.getDefaultSession(true)
+	s3cli, err := client.GetS3Client()
 	if err != nil {
-		return errors.Wrap(err, "getDefaultSession")
+		return errors.Wrap(err, "GetS3Client")
 	}
-	s3cli := s3.New(s)
-	output, err := s3cli.ListBuckets(&s3.ListBucketsInput{})
+	output, err := s3cli.ListBuckets(context.Background(), &s3.ListBucketsInput{})
 	if err != nil {
-		if e, ok := err.(awserr.Error); ok && e.Code() == "AccessDenied" {
-			return errors.Wrapf(cloudprovider.ErrForbidden, "%s", e.Message())
+		if strings.Contains(err.Error(), "AccessDenied") {
+			return errors.Wrapf(cloudprovider.ErrForbidden, "%s", err.Error())
 		}
 		return errors.Wrap(err, "ListBuckets")
 	}
 
 	ret := make([]cloudprovider.ICloudBucket, 0)
 	for _, bInfo := range output.Buckets {
-		if err := FillZero(bInfo); err != nil {
-			log.Errorf("s3cli.Binfo.FillZero error %s", err)
+		if bInfo.Name == nil {
 			continue
 		}
 
-		input := &s3.GetBucketLocationInput{}
-		input.Bucket = bInfo.Name
-		output, err := s3cli.GetBucketLocation(input)
+		locOutput, err := s3cli.GetBucketLocation(context.Background(), &s3.GetBucketLocationInput{
+			Bucket: bInfo.Name,
+		})
 		if err != nil {
 			log.Errorf("s3cli.GetBucketLocation error %s", err)
 			continue
 		}
 
-		if err := FillZero(output); err != nil {
-			log.Errorf("s3cli.GetBucketLocation.FillZero error %s", err)
-			continue
-		}
-
-		location := *output.LocationConstraint
+		location := string(locOutput.LocationConstraint)
 		if len(location) == 0 {
 			// https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketLocation.html
 			// Buckets in Region us-east-1 have a LocationConstraint of null.
@@ -345,11 +339,15 @@ func (client *SAwsClient) fetchBuckets() error {
 			log.Errorf("client.getIRegionByRegionId %s fail %s", location, err)
 			continue
 		}
+		creationDate := time.Time{}
+		if bInfo.CreationDate != nil {
+			creationDate = *bInfo.CreationDate
+		}
 		b := SBucket{
 			region:       region.(*SRegion),
 			Name:         *bInfo.Name,
 			Location:     location,
-			CreationDate: *bInfo.CreationDate,
+			CreationDate: creationDate,
 		}
 		ret = append(ret, &b)
 	}
@@ -529,6 +527,14 @@ func (self *SAwsClient) dnsRequest(apiName string, params map[string]string, ret
 
 func (self *SAwsClient) stsRequest(apiName string, params map[string]string, retval interface{}) error {
 	return self.request("", STS_SERVICE_NAME, STS_SERVICE_ID, "2011-06-15", apiName, params, retval, false)
+}
+
+func (self *SAwsClient) orgRequest(apiName string, params map[string]interface{}, retval interface{}) error {
+	return self.invoke("", ORG_SERVICE_NAME, ORG_SERVICE_ID, "2016-11-28", apiName, "", params, retval, true)
+}
+
+func (self *SAwsClient) ceRequest(apiName string, params map[string]interface{}, retval interface{}) error {
+	return self.invoke(self.getCostExplorerRegion(), CE_SERVICE_NAME, CE_SERVICE_ID, "2017-10-25", apiName, "", params, retval, true)
 }
 
 func (self *SAwsClient) GetCapabilities() []string {

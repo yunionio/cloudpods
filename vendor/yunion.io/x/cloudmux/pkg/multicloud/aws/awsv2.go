@@ -73,3 +73,11 @@ func (r *SRegion) GetS3Client() (*s3.Client, error) {
 	}
 	return s3.NewFromConfig(cfg), nil
 }
+
+func (client *SAwsClient) GetS3Client() (*s3.Client, error) {
+	cfg, err := client.getConfig(context.Background(), client.getDefaultRegionId(), true)
+	if err != nil {
+		return nil, errors.Wrap(err, "getConfig")
+	}
+	return s3.NewFromConfig(cfg), nil
+}

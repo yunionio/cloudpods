@@ -64,7 +64,7 @@ func (wire *SWire) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (wire *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	networks, err := wire.vpc.region.GetNetworks([]string{wire.vpc.VpcId}, []string{}, wire.zone.GetName())
+	networks, err := wire.vpc.region.GetNetworks([]string{wire.vpc.VpcId}, []string{}, wire.zone.GetId())
 	if err != nil {
 		return nil, errors.Wrap(err, "GetNetworks")
 	}

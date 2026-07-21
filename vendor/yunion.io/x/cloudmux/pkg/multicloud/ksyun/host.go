@@ -33,7 +33,7 @@ type SHost struct {
 }
 
 func (host *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	instances, err := host.zone.region.GetInstances(host.zone.GetName(), []string{})
+	instances, err := host.zone.region.GetInstances(host.zone.GetId(), []string{})
 	if err != nil {
 		return nil, err
 	}

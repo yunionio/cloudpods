@@ -48,7 +48,14 @@ func (r *SRegion) GetId() string {
 }
 
 func (r *SRegion) GetName() string {
-	return r.RegionName
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_ECLOUD_CN, r.RegionName)
+}
+
+func (r *SRegion) GetI18n() cloudprovider.SModelI18nTable {
+	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_ECLOUD_EN, r.RegionName)
+	table := cloudprovider.SModelI18nTable{}
+	table["name"] = cloudprovider.NewSModelI18nEntry(r.GetName()).CN(r.GetName()).EN(en)
+	return table
 }
 
 func (r *SRegion) GetGlobalId() string {
@@ -65,11 +72,6 @@ func (r *SRegion) Refresh() error {
 
 func (r *SRegion) IsEmulated() bool {
 	return false
-}
-
-func (r *SRegion) GetI18n() cloudprovider.SModelI18nTable {
-	table := cloudprovider.SModelI18nTable{}
-	return table
 }
 
 // GetLatitude() float32
@@ -360,24 +362,48 @@ func (r *SRegion) GetIEipById(id string) (cloudprovider.ICloudEIP, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
+func (r *SRegion) getOrCreateZone(vm *SInstance, cache map[string]*SZone) (*SZone, error) {
+	zoneCode := vm.AvailableZone
+	if len(zoneCode) == 0 {
+		zoneCode = vm.ZoneId
+	}
+	if len(zoneCode) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	if cache != nil {
+		if zone, ok := cache[zoneCode]; ok {
+			return zone, nil
+		}
+	}
+	zone := &SZone{
+		region:   r,
+		ZoneId:   vm.ZoneId,
+		ZoneCode: zoneCode,
+	}
+	if cache != nil {
+		cache[zoneCode] = zone
+	}
+	return zone, nil
+}
+
+func (r *SRegion) initInstanceHost(vm *SInstance, zoneCache map[string]*SZone) error {
+	zone, err := r.getOrCreateZone(vm, zoneCache)
+	if err != nil {
+		return err
+	}
+	vm.host = &SHost{zone: zone}
+	return nil
+}
+
 func (r *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	vm, err := r.GetInstance(id)
 	if err != nil {
 		return nil, err
 	}
-	zones, err := r.GetZones()
-	if err != nil {
+	if err := r.initInstanceHost(vm, nil); err != nil {
 		return nil, err
 	}
-	for i := range zones {
-		if zones[i].ZoneId == vm.ZoneId {
-			vm.host = &SHost{
-				zone: &zones[i],
-			}
-			return vm, nil
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
+	return vm, nil
 }
 
 func (r *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
@@ -623,7 +649,11 @@ func (region *SRegion) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 		return nil, errors.Wrap(err, "GetVMs")
 	}
 	ivms := make([]cloudprovider.ICloudVM, len(vms))
+	zoneCache := make(map[string]*SZone)
 	for i := range vms {
+		if err := region.initInstanceHost(&vms[i], zoneCache); err != nil {
+			return nil, err
+		}
 		ivms[i] = &vms[i]
 	}
 	return ivms, nil
