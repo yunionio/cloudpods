@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
@@ -68,15 +69,24 @@ func (p *SReverseProxy) ServeHTTP(ctx context.Context, w http.ResponseWriter, r 
 	}
 	log.Debugf("Forwarding to servie: %q, url: %q", p.serviceName, remoteUrl.String())
 	proxy := httputil.NewSingleHostReverseProxy(remoteUrl)
+	// SSE / long-polling: flush immediately; never ask upstream for gzip (buffers whole stream).
+	proxy.FlushInterval = -1
 	proxy.Transport = &http.Transport{
-		Proxy:             http.ProxyFromEnvironment,
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-		DisableKeepAlives: true,
+		Proxy:              http.ProxyFromEnvironment,
+		TLSClientConfig:    &tls.Config{InsecureSkipVerify: true},
+		DisableKeepAlives:  true,
+		DisableCompression: true,
+		IdleConnTimeout:    90 * time.Second,
+	}
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		resp.Header.Set("X-Accel-Buffering", "no")
+		return nil
 	}
 	r, err = p.manipulator(ctx, r)
 	if err != nil {
 		httperrors.InternalServerError(ctx, w, "%v", err)
 		return
 	}
+	r.Header.Del("Accept-Encoding")
 	proxy.ServeHTTP(w, r)
 }
