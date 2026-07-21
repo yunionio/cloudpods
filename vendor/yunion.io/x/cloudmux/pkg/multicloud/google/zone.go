@@ -53,12 +53,13 @@ func (region *SRegion) GetZones(regionId string, maxResults int, pageToken strin
 }
 
 func (zone *SZone) GetName() string {
-	return zone.Name
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_GOOGLE_CN, zone.Name)
 }
 
 func (zone *SZone) GetI18n() cloudprovider.SModelI18nTable {
+	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_GOOGLE, zone.Name)
 	table := cloudprovider.SModelI18nTable{}
-	table["name"] = cloudprovider.NewSModelI18nEntry(zone.GetName()).CN(zone.GetName())
+	table["name"] = cloudprovider.NewSModelI18nEntry(zone.GetName()).CN(zone.GetName()).EN(en)
 	return table
 }
 

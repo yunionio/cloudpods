@@ -61,12 +61,13 @@ func (region *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 }
 
 func (region *SRegion) GetName() string {
-	return region.RegionName
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_ORACLE_CN, region.RegionName)
 }
 
 func (region *SRegion) GetI18n() cloudprovider.SModelI18nTable {
+	en := fmt.Sprintf("%s %s", CLOUD_PROVIDER_ORACLE_EN, region.RegionName)
 	table := cloudprovider.SModelI18nTable{}
-	table["name"] = cloudprovider.NewSModelI18nEntry(region.GetName()).CN(region.GetName()).EN(region.RegionName)
+	table["name"] = cloudprovider.NewSModelI18nEntry(region.GetName()).CN(region.GetName()).EN(en)
 	return table
 }
 

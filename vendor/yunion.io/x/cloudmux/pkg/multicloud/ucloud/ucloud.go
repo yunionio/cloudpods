@@ -53,6 +53,7 @@ UCloud DiskType貌似也是一个奇葩的存在
 const (
 	CLOUD_PROVIDER_UCLOUD    = api.CLOUD_PROVIDER_UCLOUD
 	CLOUD_PROVIDER_UCLOUD_CN = "UCloud"
+	CLOUD_PROVIDER_UCLOUD_EN = "UCloud"
 
 	UCLOUD_DEFAULT_REGION = "cn-bj2"
 
@@ -142,10 +143,6 @@ func NewUcloudClient(cfg *UcloudClientConfig) (*SUcloudClient, error) {
 		return nil, err
 	}
 
-	err = client.fetchBuckets()
-	if err != nil {
-		return nil, err
-	}
 	return &client, nil
 }
 

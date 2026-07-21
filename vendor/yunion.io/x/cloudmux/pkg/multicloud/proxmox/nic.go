@@ -49,7 +49,7 @@ func (self *SInstanceNic) GetDriver() string {
 }
 
 func (self *SInstanceNic) InClassicNetwork() bool {
-	return true
+	return false
 }
 
 func (self *SInstanceNic) GetSubAddress() ([]string, error) {
@@ -57,7 +57,8 @@ func (self *SInstanceNic) GetSubAddress() ([]string, error) {
 }
 
 func (self *SInstanceNic) GetINetworkId() string {
-	return self.NetworkId
+	// Proxmox does not sync remote networks; resolve on-premise network by guest IP
+	return ""
 }
 
 func (self *SInstanceNic) AssignAddress(ipAddrs []string) error {

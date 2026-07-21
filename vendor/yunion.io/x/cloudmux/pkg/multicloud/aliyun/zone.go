@@ -160,8 +160,21 @@ func (self *SZone) GetName() string {
 }
 
 func (self *SZone) GetI18n() cloudprovider.SModelI18nTable {
+	var en string
+	if self.region.GetCloudEnv() == ALIYUN_FINANCE_CLOUDENV && !strings.Contains(self.LocalName, "金融") {
+		i := strings.Index(self.LocalName, "可用")
+		var localname string
+		if i >= 0 {
+			localname = self.LocalName[0:i] + "金融云 " + self.LocalName[i:]
+		} else {
+			localname = self.LocalName + " 金融云"
+		}
+		en = fmt.Sprintf("%s %s", CLOUD_PROVIDER_ALIYUN_EN, localname)
+	} else {
+		en = fmt.Sprintf("%s %s", CLOUD_PROVIDER_ALIYUN_EN, self.LocalName)
+	}
 	table := cloudprovider.SModelI18nTable{}
-	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName())
+	table["name"] = cloudprovider.NewSModelI18nEntry(self.GetName()).CN(self.GetName()).EN(en)
 	return table
 }
 

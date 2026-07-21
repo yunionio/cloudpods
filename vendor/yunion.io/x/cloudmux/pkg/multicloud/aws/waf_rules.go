@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/service/wafv2"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
@@ -30,7 +28,7 @@ import (
 
 type sWafRule struct {
 	waf *SWebAcl
-	*wafv2.Rule
+	*SWafRuleItem
 }
 
 func (self *sWafRule) GetAction() *cloudprovider.DefaultAction {
@@ -56,7 +54,7 @@ func (self *sWafRule) GetType() string {
 }
 
 func (self *sWafRule) GetName() string {
-	return *self.Rule.Name
+	return self.SWafRuleItem.Name
 }
 
 func (self *sWafRule) GetGlobalId() string {
@@ -64,31 +62,28 @@ func (self *sWafRule) GetGlobalId() string {
 }
 
 func (self *sWafRule) GetPriority() int {
-	return int(*self.Rule.Priority)
+	return int(self.SWafRuleItem.Priority)
 }
 
 func (self *sWafRule) Delete() error {
-	input := wafv2.UpdateWebACLInput{}
-	rules := []*wafv2.Rule{}
+	rules := []SWafRuleItem{}
 	for _, rule := range self.waf.Rules {
-		if *rule.Name == *self.Name {
+		if rule.Name == self.Name {
 			continue
 		}
 		rules = append(rules, rule)
 	}
-	input.SetRules(rules)
-	input.SetLockToken(self.waf.LockToken)
-	input.SetId(*self.waf.Id)
-	input.SetName(*self.waf.Name)
-	input.SetScope(self.waf.scope)
-	input.SetDescription(*self.waf.Description)
-	input.SetDefaultAction(self.waf.DefaultAction)
-	input.SetVisibilityConfig(self.waf.WebACL.VisibilityConfig)
-	client, err := self.waf.region.getWafClient()
-	if err != nil {
-		return errors.Wrapf(err, "getWafClient")
+	params := map[string]interface{}{
+		"Rules":            rules,
+		"LockToken":        self.waf.LockToken,
+		"Id":               self.waf.Id,
+		"Name":             self.waf.Name,
+		"Scope":            self.waf.scope,
+		"Description":      self.waf.Description,
+		"DefaultAction":    self.waf.DefaultAction,
+		"VisibilityConfig": self.waf.VisibilityConfig,
 	}
-	_, err = client.UpdateWebACL(&input)
+	err := self.waf.region.wafRequest("UpdateWebACL", params, nil)
 	return errors.Wrapf(err, "UpdateWebACL")
 }
 
@@ -101,14 +96,14 @@ func (self *sWafRule) GetExpression() string {
 }
 
 func (self *sWafRule) GetStatementCondition() cloudprovider.TWafStatementCondition {
-	if self.Rule.Statement == nil {
+	if self.SWafRuleItem.Statement == nil {
 		return cloudprovider.WafStatementConditionNone
 	}
-	if self.Rule.Statement.AndStatement != nil {
+	if self.SWafRuleItem.Statement.AndStatement != nil {
 		return cloudprovider.WafStatementConditionAnd
-	} else if self.Rule.Statement.OrStatement != nil {
+	} else if self.SWafRuleItem.Statement.OrStatement != nil {
 		return cloudprovider.WafStatementConditionOr
-	} else if self.Rule.Statement.NotStatement != nil {
+	} else if self.SWafRuleItem.Statement.NotStatement != nil {
 		return cloudprovider.WafStatementConditionNot
 	}
 	return cloudprovider.WafStatementConditionNone
@@ -130,18 +125,18 @@ func (self *sWafRule) GetConfig() (jsonutils.JSONObject, error) {
 	return jsonutils.NewDict(), nil
 }
 
-type sWafStatement struct {
-	*wafv2.Statement
+type sWafStatementView struct {
+	*sWafStatement
 }
 
-func (self *sWafStatement) convert() cloudprovider.SWafStatement {
+func (self *sWafStatementView) convert() cloudprovider.SWafStatement {
 	statement := cloudprovider.SWafStatement{
 		Transformations: &cloudprovider.TextTransformations{},
 	}
 	if self.ByteMatchStatement != nil {
 		statement.Type = cloudprovider.WafStatementTypeByteMatch
-		if self.ByteMatchStatement.PositionalConstraint != nil {
-			operator := strings.ReplaceAll(utils.CamelSplit(*self.ByteMatchStatement.PositionalConstraint, "_"), "_", "")
+		if len(self.ByteMatchStatement.PositionalConstraint) > 0 {
+			operator := strings.ReplaceAll(utils.CamelSplit(self.ByteMatchStatement.PositionalConstraint, "_"), "_", "")
 			if operator == "None" {
 				operator = ""
 			}
@@ -154,40 +149,38 @@ func (self *sWafStatement) convert() cloudprovider.SWafStatement {
 		statement.Type = cloudprovider.WafStatementTypeGeoMatch
 		statement.MatchFieldKey = "CountryCodes"
 		values := cloudprovider.TWafMatchFieldValues{}
-		for i := range self.GeoMatchStatement.CountryCodes {
-			values = append(values, *self.GeoMatchStatement.CountryCodes[i])
-		}
+		values = append(values, self.GeoMatchStatement.CountryCodes...)
 		statement.MatchFieldValues = &values
 		if self.GeoMatchStatement.ForwardedIPConfig != nil {
-			statement.ForwardedIPHeader = *self.GeoMatchStatement.ForwardedIPConfig.HeaderName
+			statement.ForwardedIPHeader = self.GeoMatchStatement.ForwardedIPConfig.HeaderName
 		}
 	} else if self.IPSetReferenceStatement != nil {
 		statement.Type = cloudprovider.WafStatementTypeIPSet
-		statement.IPSetId = *self.IPSetReferenceStatement.ARN
+		statement.IPSetId = self.IPSetReferenceStatement.ARN
 		if self.IPSetReferenceStatement.IPSetForwardedIPConfig != nil {
-			statement.ForwardedIPHeader = *self.IPSetReferenceStatement.IPSetForwardedIPConfig.HeaderName
+			statement.ForwardedIPHeader = self.IPSetReferenceStatement.IPSetForwardedIPConfig.HeaderName
 		}
 	} else if self.ManagedRuleGroupStatement != nil {
 		statement.Type = cloudprovider.WafStatementTypeManagedRuleGroup
-		statement.ManagedRuleGroupName = *self.ManagedRuleGroupStatement.Name
+		statement.ManagedRuleGroupName = self.ManagedRuleGroupStatement.Name
 		fillExcludeRules(&statement, self.ManagedRuleGroupStatement.ExcludedRules)
 	} else if self.RateBasedStatement != nil {
 		statement.Type = cloudprovider.WafStatementTypeRate
-		statement.MatchFieldValues = &cloudprovider.TWafMatchFieldValues{fmt.Sprintf("%d", *self.RateBasedStatement.Limit)}
+		statement.MatchFieldValues = &cloudprovider.TWafMatchFieldValues{fmt.Sprintf("%d", self.RateBasedStatement.Limit)}
 		if self.RateBasedStatement.ForwardedIPConfig != nil {
-			statement.ForwardedIPHeader = *self.RateBasedStatement.ForwardedIPConfig.HeaderName
+			statement.ForwardedIPHeader = self.RateBasedStatement.ForwardedIPConfig.HeaderName
 		}
 	} else if self.RegexPatternSetReferenceStatement != nil {
 		statement.Type = cloudprovider.WafStatementTypeRegexSet
-		statement.RegexSetId = *self.RegexPatternSetReferenceStatement.ARN
+		statement.RegexSetId = self.RegexPatternSetReferenceStatement.ARN
 		fillStatement(&statement, self.RegexPatternSetReferenceStatement.FieldToMatch)
 	} else if self.RuleGroupReferenceStatement != nil {
 		statement.Type = cloudprovider.WafStatementTypeRuleGroup
-		statement.RuleGroupId = *self.RuleGroupReferenceStatement.ARN
+		statement.RuleGroupId = self.RuleGroupReferenceStatement.ARN
 		fillExcludeRules(&statement, self.RuleGroupReferenceStatement.ExcludedRules)
 	} else if self.SizeConstraintStatement != nil {
 		statement.Type = cloudprovider.WafStatementTypeSize
-		statement.Operator = cloudprovider.TWafOperator(*self.SizeConstraintStatement.ComparisonOperator)
+		statement.Operator = cloudprovider.TWafOperator(self.SizeConstraintStatement.ComparisonOperator)
 		statement.MatchFieldValues = &cloudprovider.TWafMatchFieldValues{fmt.Sprintf("%d", self.SizeConstraintStatement.Size)}
 		fillStatement(&statement, self.SizeConstraintStatement.FieldToMatch)
 		fillTransformations(&statement, self.SizeConstraintStatement.TextTransformations)
@@ -201,21 +194,24 @@ func (self *sWafStatement) convert() cloudprovider.SWafStatement {
 		fillTransformations(&statement, self.XssMatchStatement.TextTransformations)
 	} else if self.LabelMatchStatement != nil {
 		statement.Type = cloudprovider.WafStatementTypeLabelMatch
-		if self.LabelMatchStatement.Scope != nil {
-			statement.MatchFieldKey = *self.LabelMatchStatement.Scope
+		if len(self.LabelMatchStatement.Scope) > 0 {
+			statement.MatchFieldKey = self.LabelMatchStatement.Scope
 		}
-		if self.LabelMatchStatement.Key != nil {
-			statement.MatchFieldValues = &cloudprovider.TWafMatchFieldValues{*self.LabelMatchStatement.Key}
+		if len(self.LabelMatchStatement.Key) > 0 {
+			statement.MatchFieldValues = &cloudprovider.TWafMatchFieldValues{self.LabelMatchStatement.Key}
 		}
 	} else if self.NotStatement != nil {
-		s := &sWafStatement{Statement: self.NotStatement.Statement}
+		s := &sWafStatementView{sWafStatement: self.NotStatement.Statement}
 		statement = s.convert()
 		statement.Negation = true
 	}
 	return statement
 }
 
-func fillStatement(statement *cloudprovider.SWafStatement, field *wafv2.FieldToMatch) {
+func fillStatement(statement *cloudprovider.SWafStatement, field *sWafFieldToMatch) {
+	if field == nil {
+		return
+	}
 	if field.AllQueryArguments != nil {
 		statement.MatchField = cloudprovider.WafMatchFieldQuery
 		statement.MatchFieldKey = "AllArguments"
@@ -227,7 +223,7 @@ func fillStatement(statement *cloudprovider.SWafStatement, field *wafv2.FieldToM
 		statement.MatchField = cloudprovider.WafMatchFieldQuery
 	} else if field.SingleHeader != nil {
 		statement.MatchField = cloudprovider.WafMatchFiledHeader
-		statement.MatchFieldKey = *field.SingleHeader.Name
+		statement.MatchFieldKey = field.SingleHeader.Name
 	} else if field.SingleQueryArgument != nil {
 		statement.MatchField = cloudprovider.WafMatchFieldQuery
 		statement.MatchFieldKey = "SingleArgument"
@@ -236,57 +232,63 @@ func fillStatement(statement *cloudprovider.SWafStatement, field *wafv2.FieldToM
 	}
 }
 
-func fillTransformations(statement *cloudprovider.SWafStatement, trans []*wafv2.TextTransformation) {
+func fillTransformations(statement *cloudprovider.SWafStatement, trans []sWafTextTransformation) {
 	values := cloudprovider.TextTransformations{}
 	for _, tran := range trans {
-		switch *tran.Type {
-		case wafv2.TextTransformationTypeNone:
+		if len(tran.Type) == 0 {
+			continue
+		}
+		switch tran.Type {
+		case wafTextTransformationTypeNone:
 			values = append(values, cloudprovider.WafTextTransformationNone)
-		case wafv2.TextTransformationTypeLowercase:
+		case wafTextTransformationTypeLowercase:
 			values = append(values, cloudprovider.WafTextTransformationLowercase)
-		case wafv2.TextTransformationTypeCmdLine:
+		case wafTextTransformationTypeCmdLine:
 			values = append(values, cloudprovider.WafTextTransformationCmdLine)
-		case wafv2.TextTransformationTypeUrlDecode:
+		case wafTextTransformationTypeUrlDecode:
 			values = append(values, cloudprovider.WafTextTransformationUrlDecode)
-		case wafv2.TextTransformationTypeHtmlEntityDecode:
+		case wafTextTransformationTypeHtmlEntityDecode:
 			values = append(values, cloudprovider.WafTextTransformationHtmlEntityDecode)
-		case wafv2.TextTransformationTypeCompressWhiteSpace:
+		case wafTextTransformationTypeCompressWhiteSpace:
 			values = append(values, cloudprovider.WafTextTransformationCompressWithSpace)
 		default:
-			values = append(values, cloudprovider.TWafTextTransformation(*tran.Type))
+			values = append(values, cloudprovider.TWafTextTransformation(tran.Type))
 		}
 	}
 	statement.Transformations = &values
 }
 
-func fillExcludeRules(statement *cloudprovider.SWafStatement, rules []*wafv2.ExcludedRule) {
+func fillExcludeRules(statement *cloudprovider.SWafStatement, rules []sWafExcludedRule) {
 	values := cloudprovider.SExcludeRules{}
 	for _, rule := range rules {
-		values = append(values, cloudprovider.SExcludeRule{Name: *rule.Name})
+		if len(rule.Name) == 0 {
+			continue
+		}
+		values = append(values, cloudprovider.SExcludeRule{Name: rule.Name})
 	}
 	statement.ExcludeRules = &values
 }
 
 func (self *sWafRule) GetStatements() ([]cloudprovider.SWafStatement, error) {
-	if self.Rule.Statement == nil {
+	if self.SWafRuleItem.Statement == nil {
 		return []cloudprovider.SWafStatement{}, nil
 	}
 	ret := []cloudprovider.SWafStatement{}
-	if self.Rule.Statement.AndStatement != nil {
-		for i := range self.Rule.Statement.AndStatement.Statements {
-			statement := sWafStatement{self.Rule.Statement.AndStatement.Statements[i]}
+	if self.SWafRuleItem.Statement.AndStatement != nil {
+		for i := range self.SWafRuleItem.Statement.AndStatement.Statements {
+			statement := sWafStatementView{sWafStatement: &self.SWafRuleItem.Statement.AndStatement.Statements[i]}
 			ret = append(ret, statement.convert())
 		}
-	} else if self.Rule.Statement.OrStatement != nil {
-		for i := range self.Rule.Statement.OrStatement.Statements {
-			statement := sWafStatement{self.Rule.Statement.OrStatement.Statements[i]}
+	} else if self.SWafRuleItem.Statement.OrStatement != nil {
+		for i := range self.SWafRuleItem.Statement.OrStatement.Statements {
+			statement := sWafStatementView{sWafStatement: &self.SWafRuleItem.Statement.OrStatement.Statements[i]}
 			ret = append(ret, statement.convert())
 		}
-	} else if self.Rule.Statement.NotStatement != nil {
-		statement := sWafStatement{self.Rule.Statement.NotStatement.Statement}
+	} else if self.SWafRuleItem.Statement.NotStatement != nil {
+		statement := sWafStatementView{sWafStatement: self.SWafRuleItem.Statement.NotStatement.Statement}
 		ret = append(ret, statement.convert())
 	} else {
-		statement := sWafStatement{self.Rule.Statement}
+		statement := sWafStatementView{sWafStatement: self.SWafRuleItem.Statement}
 		ret = append(ret, statement.convert())
 	}
 	return ret, nil
@@ -302,8 +304,8 @@ func (self *SWebAcl) GetRules() ([]cloudprovider.ICloudWafRule, error) {
 	}
 	for i := range self.Rules {
 		ret = append(ret, &sWafRule{
-			waf:  self,
-			Rule: self.Rules[i],
+			waf:          self,
+			SWafRuleItem: &self.Rules[i],
 		})
 	}
 	return ret, nil
