@@ -17,13 +17,13 @@ package adapters
 import (
 	"context"
 
-	"yunion.io/x/log"
-
+	"github.com/golang-plus/errors"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcp-server/options"
+	"yunion.io/x/pkg/gotypes"
 )
 
 // CloudpodsAdapter 负责 Cloudpods 认证并创建 mcclient.ClientSession，供 climc 工具执行使用。
@@ -56,12 +56,10 @@ func (a *CloudpodsAdapter) GetSession(ctx context.Context, ak string, sk string)
 	var userCred mcclient.TokenCredential
 	if auth.IsAuthed() {
 		userCred = policy.FetchUserCredential(ctx)
-		if userCred != nil {
-			log.Debugf("GetSession with userCred from context")
-		} else {
+		if gotypes.IsNil(userCred) {
 			token, err := a.authenticate(ak, sk)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "authenticate")
 			}
 			userCred = token
 		}
@@ -69,7 +67,7 @@ func (a *CloudpodsAdapter) GetSession(ctx context.Context, ak string, sk string)
 	}
 	token, err := a.authenticate(ak, sk)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "authenticate")
 	}
 	return a.client.NewSession(
 		context.Background(),

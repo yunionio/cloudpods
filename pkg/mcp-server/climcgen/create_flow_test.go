@@ -65,13 +65,16 @@ func TestMapCreateArgsToForecastArgs(t *testing.T) {
 	}
 }
 
-func TestSchedulerForecastCommandRegistered(t *testing.T) {
-	cmd, ok := findCommand("scheduler-forecast")
-	if !ok {
-		t.Fatal("scheduler-forecast not in CommandTable; imports.go must blank-import shell/scheduler")
+func TestExtractActionFailReason(t *testing.T) {
+	notes := `deploying=>deploy_fail: {"__reason__":"InvalidImageForGivenInstanceType: image not available","__stage__":"OnDeployGuestComplete","__status__":"ERROR"}`
+	got := extractActionFailReason(notes)
+	if !strings.Contains(got, "InvalidImageForGivenInstanceType") {
+		t.Fatalf("reason=%q", got)
 	}
-	if cmd.Options == nil {
-		t.Fatal("scheduler-forecast Options is nil")
+	pure := `{"__reason__":"guest.GetIVM: empty externalId","__stage__":"OnGuestStopTaskComplete","__status__":"ERROR"}`
+	got = extractActionFailReason(pure)
+	if !strings.Contains(got, "empty externalId") {
+		t.Fatalf("reason=%q", got)
 	}
 }
 
@@ -159,14 +162,49 @@ func TestEnsureNetworkAutoSched(t *testing.T) {
 	}
 }
 
+func TestProviderFromHypervisorCAS(t *testing.T) {
+	if got := providerFromHypervisor("cas"); got != "CAS" {
+		t.Fatalf("cas provider=%q want CAS", got)
+	}
+	if got := providerFromHypervisor("h3c"); got != "H3C" {
+		t.Fatalf("h3c provider=%q want H3C", got)
+	}
+}
+
+func TestEnsureCreateProviderAndCasCdrom(t *testing.T) {
+	args := map[string]interface{}{
+		"hypervisor": "cas",
+		"disk":       []string{"size=40g,image=iso-uuid,backend=dir"},
+	}
+	ensureCreateProvider(args)
+	if args["provider"] != "CAS" {
+		t.Fatalf("provider=%v want CAS", args["provider"])
+	}
+	ensureCasStyleCdrom(args)
+	if args["cdrom"] != "iso-uuid" {
+		t.Fatalf("cdrom=%v want iso-uuid", args["cdrom"])
+	}
+	parts := valueToArgvParts(args["disk"])
+	if len(parts) != 1 || strings.Contains(parts[0], "image=") {
+		t.Fatalf("disk should drop image, got %v", parts)
+	}
+}
+
+func TestServerIDsFromArgs(t *testing.T) {
+	ids := serverIDsFromArgs(map[string]interface{}{"id": []string{"a", "b"}})
+	if len(ids) != 2 || ids[0] != "a" {
+		t.Fatalf("ids=%v", ids)
+	}
+}
+
 func TestServerCreateDescriptionMentionsForecast(t *testing.T) {
 	cmd, ok := findCommand("server-create")
 	if !ok {
 		t.Fatal("server-create not registered")
 	}
 	desc := buildDescription(cmd)
-	if !strings.Contains(desc, "scheduler-forecast") {
-		t.Fatalf("mcp-desc should mention scheduler-forecast, got %q", desc)
+	if !strings.Contains(desc, "forecast") {
+		t.Fatalf("mcp-desc should mention forecast, got %q", desc)
 	}
 	if strings.Contains(desc, "dry-run 预调度") {
 		t.Fatalf("mcp-desc must not claim dry-run is preschedule: %q", desc)

@@ -53,6 +53,30 @@ func TestDiscoverMcpDescCommands_UsesTagNotHardcodedList(t *testing.T) {
 	}
 }
 
+func TestBuildDescription_PrefersMcpDesc(t *testing.T) {
+	type withDesc struct {
+		_ struct{} `mcp-desc:"中文说明"`
+	}
+	got := buildDescription(shell.CMD{
+		Command: "server-list",
+		Desc:    "List servers",
+		Options: &withDesc{},
+	})
+	want := "[climc server-list] 中文说明"
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+	got = buildDescription(shell.CMD{
+		Command: "demo",
+		Desc:    "English only",
+		Options: &struct{ Name string }{},
+	})
+	want = "[climc demo] English only"
+	if got != want {
+		t.Fatalf("fallback got %q want %q", got, want)
+	}
+}
+
 func TestCollectMcpDesc_DoesNotInheritFromEmbed(t *testing.T) {
 	type base struct {
 		_ struct{} `mcp-desc:"should not inherit"`

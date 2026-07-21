@@ -32,6 +32,7 @@ import (
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	loggermodules "yunion.io/x/onecloud/pkg/mcclient/modules/logger"
 	schedmodules "yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	computeoptions "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 	"yunion.io/x/onecloud/pkg/mcp-server/options"
@@ -94,6 +95,7 @@ func mapCreateArgsToForecastArgs(args map[string]interface{}) map[string]interfa
 		{[]string{"host", "prefer-host"}, "host"},
 		{[]string{"manager", "prefer-manager"}, "manager"},
 		{[]string{"hypervisor"}, "hypervisor"},
+		{[]string{"provider"}, "provider"},
 		{[]string{"project", "tenant"}, "project"},
 		{[]string{"count"}, "count"},
 		{[]string{"schedtag"}, "schedtag"},
@@ -216,6 +218,20 @@ func providerFromHypervisor(hv string) string {
 		return compute.CLOUD_PROVIDER_GOOGLE
 	case compute.HYPERVISOR_OPENSTACK:
 		return compute.CLOUD_PROVIDER_OPENSTACK
+	case compute.HYPERVISOR_CAS:
+		return compute.CLOUD_PROVIDER_CAS
+	case compute.HYPERVISOR_H3C:
+		return compute.CLOUD_PROVIDER_H3C
+	case compute.HYPERVISOR_CNWARE:
+		return compute.CLOUD_PROVIDER_CNWARE
+	case compute.HYPERVISOR_PROXMOX:
+		return compute.CLOUD_PROVIDER_PROXMOX
+	case compute.HYPERVISOR_SANGFOR:
+		return compute.CLOUD_PROVIDER_SANGFOR
+	case compute.HYPERVISOR_UIS:
+		return compute.CLOUD_PROVIDER_UIS
+	case compute.HYPERVISOR_ZETTAKIT:
+		return compute.CLOUD_PROVIDER_ZETTAKIT
 	default:
 		// 多数公有云 hypervisor 与 provider 仅大小写不同
 		if hv == "" {
@@ -223,6 +239,96 @@ func providerFromHypervisor(hv string) string {
 		}
 		return strings.ToUpper(hv[:1]) + hv[1:]
 	}
+}
+
+// ensureCreateProvider：私有云/公有云创建时注入 provider（与 dashboard GenCreateData 一致），
+// 避免 forecast 把 CAS 等当成 OneCloud/KVM 调度。
+func ensureCreateProvider(args map[string]interface{}) {
+	var hv string
+	if v, ok := argLookup(args, "hypervisor"); ok {
+		hv = strings.ToLower(firstString(v))
+	}
+	if !isManagedHypervisor(hv) {
+		return
+	}
+	prov := providerFromHypervisor(hv)
+	if prov == "" {
+		return
+	}
+	if v, ok := argLookup(args, "provider"); ok {
+		cur := firstString(v)
+		if cur != "" && !strings.EqualFold(cur, compute.CLOUD_PROVIDER_ONECLOUD) {
+			return
+		}
+	}
+	args["provider"] = prov
+	log.Infof("auto-filled provider=%s from hypervisor=%s", prov, hv)
+}
+
+// isoOnlyPrivateHypervisor：dashboard 中 CAS/UIS/SangFor 仅支持 private_iso，系统盘不挂 image_id。
+func isoOnlyPrivateHypervisor(hv string) bool {
+	switch strings.ToLower(hv) {
+	case compute.HYPERVISOR_CAS, compute.HYPERVISOR_UIS, compute.HYPERVISOR_SANGFOR:
+		return true
+	default:
+		return false
+	}
+}
+
+// ensureCasStyleCdrom：CAS 类 hypervisor 若 disk 带 image= 且未设 cdrom，则挪到 cdrom 并从 disk 去掉 image，
+// 对齐前端「ISO → cdrom、系统盘仅 size+backend」。
+func ensureCasStyleCdrom(args map[string]interface{}) {
+	var hv string
+	if v, ok := argLookup(args, "hypervisor"); ok {
+		hv = firstString(v)
+	}
+	if !isoOnlyPrivateHypervisor(hv) {
+		return
+	}
+	if v, ok := argLookup(args, "cdrom", "iso"); ok && firstString(v) != "" {
+		return
+	}
+	rawDisk, ok := argLookup(args, "disk")
+	if !ok {
+		return
+	}
+	disks := valueToArgvParts(rawDisk)
+	if len(disks) == 0 {
+		return
+	}
+	imgID := diskImageID(disks[0])
+	if imgID == "" {
+		return
+	}
+	args["cdrom"] = imgID
+	disks[0] = stripDiskImage(disks[0])
+	args["disk"] = disks
+	log.Infof("CAS-style create: moved disk image=%s to cdrom", imgID)
+}
+
+func diskImageID(disk string) string {
+	for _, part := range strings.Split(disk, ",") {
+		kv := strings.SplitN(strings.TrimSpace(part), "=", 2)
+		if len(kv) == 2 && (kv[0] == "image" || kv[0] == "image_id") {
+			return strings.TrimSpace(kv[1])
+		}
+	}
+	return ""
+}
+
+func stripDiskImage(disk string) string {
+	parts := strings.Split(disk, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		kv := strings.SplitN(strings.TrimSpace(part), "=", 2)
+		if len(kv) >= 1 && (kv[0] == "image" || kv[0] == "image_id") {
+			continue
+		}
+		if strings.TrimSpace(part) != "" {
+			out = append(out, strings.TrimSpace(part))
+		}
+	}
+	return strings.Join(out, ",")
 }
 
 // readyForecastCandidates 返回 forecast 中 error 为空的候选（与调度历史 Result.candidates 成功语义一致）。
@@ -351,6 +457,131 @@ func waitServerRunningOrReady(ctx context.Context, session *mcclient.ClientSessi
 		}
 	}
 	return lastStatus, fmt.Errorf("timeout waiting server %s to become running/ready, last status=%q", id, lastStatus)
+}
+
+// collectCreateFailDiagnostics 创建失败时拉取操作日志与关键失败字段，便于 agent 直接复述原因。
+func collectCreateFailDiagnostics(session *mcclient.ClientSession, serverID string) map[string]interface{} {
+	diag := map[string]interface{}{}
+	if session == nil || strings.TrimSpace(serverID) == "" {
+		return diag
+	}
+
+	params := jsonutils.NewDict()
+	params.Set("show_fail_reason", jsonutils.JSONTrue)
+	if obj, err := modules.Servers.Get(session, serverID, params); err == nil {
+		for _, key := range []string{
+			"status", "progress", "progress_desc", "host", "zone", "region",
+			"instance_type", "hypervisor", "external_id",
+		} {
+			if v, _ := obj.GetString(key); v != "" {
+				diag[key] = v
+			}
+		}
+	} else {
+		log.Warningf("collect fail diagnostics: server-show %s: %s", serverID, err)
+	}
+
+	logs, reason := listServerActionFailNotes(session, serverID, 15)
+	if len(logs) > 0 {
+		diag["action_logs"] = logs
+	}
+	if reason != "" {
+		diag["fail_reason"] = reason
+	}
+	return diag
+}
+
+func listServerActionFailNotes(session *mcclient.ClientSession, serverID string, limit int64) ([]map[string]interface{}, string) {
+	if limit <= 0 {
+		limit = 15
+	}
+	params := jsonutils.NewDict()
+	params.Set("obj_id", jsonutils.NewString(serverID))
+	params.Set("obj_type", jsonutils.NewStringArray([]string{"server"}))
+	params.Set("limit", jsonutils.NewInt(limit))
+	params.Set("scope", jsonutils.NewString("system"))
+	params.Set("order", jsonutils.NewString("desc"))
+
+	list, err := loggermodules.Actions.List(session, params)
+	if err != nil {
+		log.Warningf("collect fail diagnostics: action-list %s: %s", serverID, err)
+		return nil, ""
+	}
+
+	out := make([]map[string]interface{}, 0)
+	var primaryReason string
+	for _, raw := range list.Data {
+		action, _ := raw.GetString("action")
+		success, _ := raw.Bool("success")
+		notes, _ := raw.GetString("notes")
+		opsTime, _ := raw.GetString("ops_time")
+		if success && !looksLikeFailNote(notes) && !strings.Contains(action, "fail") {
+			// 成功日志里偶尔带失败痕迹（如 update_status 到 deploy_fail），仍保留含 fail 的
+			if !strings.Contains(strings.ToLower(notes), "fail") && !strings.Contains(notes, "__reason__") {
+				continue
+			}
+		}
+		entry := map[string]interface{}{
+			"action":   action,
+			"success":  success,
+			"ops_time": opsTime,
+		}
+		if notes != "" {
+			entry["notes"] = truncateRunes(notes, 800)
+			if r := extractActionFailReason(notes); r != "" && primaryReason == "" {
+				primaryReason = r
+				entry["reason"] = r
+			}
+		}
+		out = append(out, entry)
+		if len(out) >= 8 {
+			break
+		}
+	}
+	return out, primaryReason
+}
+
+func looksLikeFailNote(notes string) bool {
+	n := strings.ToLower(notes)
+	return strings.Contains(n, "__reason__") || strings.Contains(n, "error") || strings.Contains(n, "fail")
+}
+
+func extractActionFailReason(notes string) string {
+	notes = strings.TrimSpace(notes)
+	if notes == "" {
+		return ""
+	}
+	// notes 可能是纯 JSON，或 "statusA=>statusB: {json}"
+	jsonPart := notes
+	if i := strings.Index(notes, "{"); i >= 0 {
+		jsonPart = notes[i:]
+	}
+	if obj, err := jsonutils.ParseString(jsonPart); err == nil {
+		if r, _ := obj.GetString("__reason__"); r != "" {
+			return r
+		}
+		if r, _ := obj.GetString("reason"); r != "" {
+			return r
+		}
+		if r, _ := obj.GetString("message"); r != "" {
+			return r
+		}
+	}
+	if looksLikeFailNote(notes) {
+		return truncateRunes(notes, 400)
+	}
+	return ""
+}
+
+func truncateRunes(s string, max int) string {
+	if max <= 0 || len(s) <= max {
+		return s
+	}
+	rs := []rune(s)
+	if len(rs) <= max {
+		return s
+	}
+	return string(rs[:max]) + "…"
 }
 
 func diskHasBackend(disk string) bool {
@@ -510,6 +741,8 @@ func ensureGenerateName(args map[string]interface{}) {
 // handleServerCreate：创建前 scheduler-forecast 预调度，创建后等待 running 或 ready（关机）。
 // dry-run 仅做参数校验，不是预调度。等待超时不视为失败：返回 server_id 供 agent 继续查询。
 func (t *ClimcTool) handleServerCreate(ctx context.Context, session *mcclient.ClientSession, args map[string]interface{}) (string, error) {
+	ensureCreateProvider(args)
+	ensureCasStyleCdrom(args)
 	ensureDiskBackend(session, args)
 	ensureNetworkAutoSched(args)
 	ensureGenerateName(args)
@@ -522,7 +755,7 @@ func (t *ClimcTool) handleServerCreate(ctx context.Context, session *mcclient.Cl
 	if err := forecastSucceeded(forecast); err != nil {
 		return "", err
 	}
-	forecastRaw := json.RawMessage(forecast.String())
+	forecastSummary := summarizeForecast(forecast)
 
 	// 2) 真实创建（去掉 dry-run，避免走 suggestion 旁路）
 	createArgs := cloneArgs(args)
@@ -531,13 +764,13 @@ func (t *ClimcTool) handleServerCreate(ctx context.Context, session *mcclient.Cl
 	delete(createArgs, "DryRun")
 	createOut, err := invokeCommand(t.cmd, session, createArgs)
 	if err != nil {
-		return "", fmt.Errorf("create failed after scheduler-forecast ok: %w\nforecast:\n%s\noutput:\n%s", err, forecast.String(), createOut)
+		return "", fmt.Errorf("create failed after scheduler-forecast ok: %w\nforecast:\n%s\noutput:\n%s", err, forecastSummary, createOut)
 	}
 
 	serverID := extractServerID(createOut)
 	result := map[string]interface{}{
-		"preschedule": forecastRaw,
-		"server":      json.RawMessage(extractJSONObject(createOut)),
+		"preschedule": json.RawMessage(forecastSummary),
+		"server":      summarizeServerJSON(string(extractJSONObject(createOut))),
 	}
 	if serverID == "" {
 		result["wait_error"] = "create succeeded but server id missing; skip wait"
@@ -552,7 +785,7 @@ func (t *ClimcTool) handleServerCreate(ctx context.Context, session *mcclient.Cl
 	if waitErr != nil {
 		result["wait_error"] = waitErr.Error()
 		if obj, gerr := modules.Servers.Get(session, serverID, nil); gerr == nil {
-			result["server"] = json.RawMessage(obj.String())
+			result["server"] = summarizeServerObject(obj)
 			if status == compute.VM_SCHEDULE_FAILED || status == "sched_fail" {
 				if progress, _ := obj.GetString("progress"); progress != "" {
 					result["schedule_hint"] = progress
@@ -560,7 +793,18 @@ func (t *ClimcTool) handleServerCreate(ctx context.Context, session *mcclient.Cl
 				result["hint"] = "调度失败(sched_fail)。若未指定网络，应使用自动调度 net=[\"random\"]（等价 nets:[{exit:false}]）；也可检查 prefer-region、instance-type、disk.backend 是否与区域能力匹配后重试。"
 			}
 		}
-		// 超时/取消：创建已成功，返回 server_id 让 agent 用 climc_server_show 继续查，不把整次 tool 判失败
+		if isTerminalFailStatus(status) {
+			if diag := collectCreateFailDiagnostics(session, serverID); len(diag) > 0 {
+				result["fail_diagnostics"] = diag
+				if reason, _ := diag["fail_reason"].(string); reason != "" {
+					result["fail_reason"] = reason
+					if result["hint"] == nil {
+						result["hint"] = "创建失败。fail_reason / fail_diagnostics.action_logs 含平台操作日志原因；可再调 climc_action_show（type=server, id=<server_id>, fail=true）核对。"
+					}
+				}
+			}
+		}
+		// 超时/取消：创建已提交，返回 server_id 让 agent 用 climc_server_show 继续查，不把整次 tool 判失败
 		if isWaitTimeoutOrCanceled(waitErr) {
 			result["wait_pending"] = true
 			if result["hint"] == nil {
@@ -574,13 +818,108 @@ func (t *ClimcTool) handleServerCreate(ctx context.Context, session *mcclient.Cl
 	}
 
 	if obj, gerr := modules.Servers.Get(session, serverID, nil); gerr == nil {
-		result["server"] = json.RawMessage(obj.String())
+		result["server"] = summarizeServerObject(obj)
 	}
 	b, err := json.Marshal(result)
 	if err != nil {
 		return createOut, nil
 	}
 	return string(b), nil
+}
+
+// summarizeForecast 压缩预调度结果，避免 SSE 大包被截断。
+func summarizeForecast(forecast jsonutils.JSONObject) string {
+	if forecast == nil {
+		return "{}"
+	}
+	out := jsonutils.NewDict()
+	for _, key := range []string{"allow_count", "req_count", "can_create"} {
+		if forecast.Contains(key) {
+			if v, err := forecast.Get(key); err == nil {
+				out.Set(key, v)
+			}
+		}
+	}
+	if cands, err := forecast.GetArray("candidates"); err == nil {
+		out.Set("candidate_count", jsonutils.NewInt(int64(len(cands))))
+		brief := make([]jsonutils.JSONObject, 0, 3)
+		for i, c := range cands {
+			if i >= 3 {
+				break
+			}
+			item := jsonutils.NewDict()
+			for _, k := range []string{"id", "name", "host_id", "host_name", "zone_id"} {
+				if c.Contains(k) {
+					if v, err := c.Get(k); err == nil {
+						item.Set(k, v)
+					}
+				}
+			}
+			brief = append(brief, item)
+		}
+		if len(brief) > 0 {
+			out.Set("candidates_brief", jsonutils.NewArray(brief...))
+		}
+	}
+	if filtered, err := forecast.GetArray("filtered_candidates"); err == nil && len(filtered) > 0 {
+		out.Set("filtered_count", jsonutils.NewInt(int64(len(filtered))))
+		reasons := make([]string, 0, 5)
+		seen := map[string]struct{}{}
+		for _, f := range filtered {
+			r, _ := f.GetString("filter_name")
+			if r == "" {
+				r, _ = f.GetString("reason")
+			}
+			if r == "" {
+				continue
+			}
+			if _, ok := seen[r]; ok {
+				continue
+			}
+			seen[r] = struct{}{}
+			reasons = append(reasons, r)
+			if len(reasons) >= 5 {
+				break
+			}
+		}
+		if len(reasons) > 0 {
+			out.Set("filter_reasons", jsonutils.NewStringArray(reasons))
+		}
+	}
+	return out.String()
+}
+
+func summarizeServerJSON(raw string) map[string]interface{} {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return map[string]interface{}{}
+	}
+	obj, err := jsonutils.ParseString(raw)
+	if err != nil {
+		return map[string]interface{}{"raw": truncateRunes(raw, 200)}
+	}
+	return summarizeServerObject(obj)
+}
+
+func summarizeServerObject(obj jsonutils.JSONObject) map[string]interface{} {
+	out := map[string]interface{}{}
+	if obj == nil {
+		return out
+	}
+	for _, key := range []string{
+		"id", "name", "status", "hypervisor", "host", "zone", "region",
+		"ips", "eip", "instance_type", "vcpu_count", "vmem_size",
+		"billing_type", "external_id", "os_type", "progress",
+	} {
+		if v, err := obj.GetString(key); err == nil && v != "" {
+			out[key] = v
+			continue
+		}
+		if n, err := obj.Int(key); err == nil {
+			out[key] = n
+		}
+	}
+	return out
 }
 
 func isWaitTimeoutOrCanceled(err error) bool {

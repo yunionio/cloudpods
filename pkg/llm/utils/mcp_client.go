@@ -139,8 +139,9 @@ func (c *MCPClient) connectSSE(ctx context.Context) error {
 
 	// 读取 endpoint 事件获取 session URL
 	go func() {
-		reader := bufio.NewReader(c.sseBody)
+		reader := bufio.NewReaderSize(c.sseBody, 1024*1024)
 		foundSession := false
+		var dataLines []string
 		defer func() {
 			if !foundSession {
 				select {
@@ -151,60 +152,83 @@ func (c *MCPClient) connectSSE(ctx context.Context) error {
 			}
 		}()
 
+		flushData := func() {
+			if len(dataLines) == 0 {
+				return
+			}
+			data := strings.Join(dataLines, "\n")
+			dataLines = dataLines[:0]
+			if !foundSession {
+				if strings.Contains(data, "/message") {
+					c.sessionURL = c.serverURL + data
+					log.Infof("MCP Client initialized with session URL: %s", c.sessionURL)
+					foundSession = true
+					close(done)
+				}
+				return
+			}
+			// 忽略服务端发起的请求/通知（如 keepalive ping），避免 ID 与 pending tools/call 冲突
+			var probe struct {
+				JSONRPC string          `json:"jsonrpc"`
+				Method  string          `json:"method"`
+				Result  json.RawMessage `json:"result"`
+				Error   *mcpError       `json:"error"`
+			}
+			if err := json.Unmarshal([]byte(data), &probe); err != nil || probe.JSONRPC != mcp.JSONRPC_VERSION {
+				return
+			}
+			if probe.Method != "" && len(probe.Result) == 0 && probe.Error == nil {
+				return
+			}
+			if len(probe.Result) == 0 && probe.Error == nil {
+				return
+			}
+
+			var resp rawMCPResponse
+			if err := json.Unmarshal([]byte(data), &resp); err != nil {
+				return
+			}
+			var reqID int64
+			if idVal, ok := resp.ID.Value().(int64); ok {
+				reqID = idVal
+			} else if idVal, ok := resp.ID.Value().(float64); ok {
+				reqID = int64(idVal)
+			} else {
+				return
+			}
+			c.reqMu.Lock()
+			ch, ok := c.pendingReqs[reqID]
+			if ok {
+				delete(c.pendingReqs, reqID)
+			}
+			c.reqMu.Unlock()
+			if ok {
+				select {
+				case ch <- &resp:
+				default:
+					log.Warningf("response channel blocked for request %d", reqID)
+				}
+			}
+		}
+
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
 				if !foundSession {
 					initErr = err
 				} else if !isExpectedSSEClose(err) && !c.closed.Load() {
-					// 主动 Close / 对端正常结束时不刷告警
 					log.Warningf("SSE connection closed: %v", err)
 				}
 				return
 			}
 
-			line = strings.TrimSpace(line)
+			line = strings.TrimRight(line, "\r\n")
+			if line == "" {
+				flushData()
+				continue
+			}
 			if strings.HasPrefix(line, "data:") {
-				data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-				if !foundSession {
-					if strings.Contains(data, "/message") {
-						// 解析 session URL
-						c.sessionURL = c.serverURL + data
-						log.Infof("MCP Client initialized with session URL: %s", c.sessionURL)
-						foundSession = true
-						close(done)
-					}
-				} else {
-					// 尝试解析为 JSON-RPC 响应
-					var resp rawMCPResponse
-					if err := json.Unmarshal([]byte(data), &resp); err == nil && resp.JSONRPC == mcp.JSONRPC_VERSION {
-						// 提取 ID
-						var reqID int64
-						if idVal, ok := resp.ID.Value().(int64); ok {
-							reqID = idVal
-						} else if idVal, ok := resp.ID.Value().(float64); ok {
-							reqID = int64(idVal)
-						} else {
-							// 可能是通知或 ID 类型不匹配，忽略
-							continue
-						}
-
-						c.reqMu.Lock()
-						ch, ok := c.pendingReqs[reqID]
-						if ok {
-							delete(c.pendingReqs, reqID)
-						}
-						c.reqMu.Unlock()
-
-						if ok {
-							select {
-							case ch <- &resp:
-							default:
-								log.Warningf("response channel blocked for request %d", reqID)
-							}
-						}
-					}
-				}
+				dataLines = append(dataLines, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
 			}
 		}
 	}()
@@ -439,10 +463,16 @@ func (c *MCPClient) CallTool(ctx context.Context, toolName string, arguments map
 	if resp == nil {
 		return nil, errors.Error("empty response for tools/call")
 	}
+	if len(resp.Result) == 0 {
+		if resp.Error != nil {
+			return nil, errors.Errorf("MCP error %d: %s", resp.Error.Code, resp.Error.Message)
+		}
+		return nil, errors.Errorf("empty result for tools/call (id=%v); possible SSE keepalive/ping ID collision", resp.ID)
+	}
 
 	var result mcp.CallToolResult
 	if err := json.Unmarshal(resp.Result, &result); err != nil {
-		return nil, errors.Wrap(err, "decode tool call result")
+		return nil, errors.Wrapf(err, "decode tool call result (len=%d)", len(resp.Result))
 	}
 
 	return &result, nil

@@ -32,8 +32,8 @@ type MCPServerOptions struct {
 
 	// 连接超时配置
 	Timeout int `help:"SDK connection timeout to platform API (seconds)" default:"30"`
-	// ServerCreateWaitSeconds 创建后等待 running/ready 的最长时间；超时仍返回 server_id，便于 agent 用 server-show 继续轮询（宜小于 LLM MCPAgentTimeout）
-	ServerCreateWaitSeconds int `help:"max seconds to wait for server running/ready after create; on timeout still return server_id" default:"90"`
+	// ServerCreateWaitSeconds 创建后等待 running/ready 的最长时间；超时仍返回 server_id，便于 agent 用 server-show 继续轮询（须小于 LLM MCPAgentTimeout）
+	ServerCreateWaitSeconds int `help:"max seconds to wait for server running/ready after create; on timeout still return server_id" default:"180"`
 }
 
 var (
@@ -53,7 +53,7 @@ func ResolvedPlatformName() string {
 func ServerCreateWaitDuration() time.Duration {
 	sec := Options.ServerCreateWaitSeconds
 	if sec <= 0 {
-		sec = 90
+		sec = 180
 	}
 	return time.Duration(sec) * time.Second
 }
