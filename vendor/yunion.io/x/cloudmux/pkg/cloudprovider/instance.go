@@ -151,6 +151,11 @@ type SManagedVMCreateConfig struct {
 	ExternalNetworkId   string
 	ExternalVpcId       string
 	IpAddr              string
+	MacAddr             string
+	Bridge              string
+	Gateway             string
+	Masklen             int8
+	Dns                 string
 	Description         string
 	SysDisk             SDiskInfo
 	DataDisks           []SDiskInfo
