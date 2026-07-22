@@ -320,6 +320,10 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 			if strings.HasSuffix(disks[i].DiskId, ".iso") {
 				continue
 			}
+			// skip cloud-init drive
+			if strings.HasSuffix(disks[i].DiskId, ":cloudinit") || strings.Contains(disks[i].DiskId, "cloudinit") {
+				continue
+			}
 			diskIds = append(diskIds, disks[i].DiskId)
 		}
 		disks, err := self.host.cli.GetDisks(self.host.Node, storageName)
@@ -767,6 +771,11 @@ func (self *SProxmoxClient) GetQemuConfig(node string, VmId int) (*SInstance, er
 		diskConfMap := ParsePMConf(diskConfStr, "volume")
 
 		if diskConfMap["volume"].(string) == "none" {
+			continue
+		}
+		// skip cloud-init drive, e.g. local-lvm:cloudinit
+		volume := diskConfMap["volume"].(string)
+		if strings.HasSuffix(volume, ":cloudinit") || strings.Contains(volume, "cloudinit") {
 			continue
 		}
 

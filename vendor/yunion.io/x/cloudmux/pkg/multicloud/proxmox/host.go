@@ -212,10 +212,18 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		return nil, errors.Wrapf(err, "GetStorage")
 	}
 
+	bridge := opts.Bridge
+	if len(bridge) == 0 {
+		bridge = "vmbr0"
+	}
+	net0 := fmt.Sprintf("virtio,bridge=%s,firewall=1", bridge)
+	if len(opts.MacAddr) > 0 {
+		net0 = fmt.Sprintf("virtio=%s,bridge=%s,firewall=1", strings.ToUpper(opts.MacAddr), bridge)
+	}
+
 	body := map[string]interface{}{
-		"vmid": vmId,
-		"name": opts.Name,
-		//"ide2":        fmt.Sprintf("%s,media=cdrom", opts.ExternalImageId),
+		"vmid":        vmId,
+		"name":        opts.Name,
 		"ostype":      "other",
 		"sockets":     1,
 		"cores":       opts.Cpu,
@@ -225,7 +233,8 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		"memory":      opts.MemoryMB,
 		"description": opts.OsDistribution,
 		"scsihw":      "virtio-scsi-pci",
-		"net0":        "virtio,bridge=vmbr0,firewall=1",
+		"net0":        net0,
+		"agent":       "1",
 	}
 	sysIndex := 0
 	if strings.HasSuffix(opts.ExternalImageId, ".iso") { // iso image
@@ -236,6 +245,8 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		//body["ide2"] = fmt.Sprintf("%s,media=disk", opts.ExternalImageId)
 	} else {
 		body["scsi0"] = fmt.Sprintf("%s:0,import-from=%s,iothread=on", storage.Storage, opts.ExternalImageId)
+		// cloud-init drive for network/user injection on non-ISO images
+		body["ide2"] = fmt.Sprintf("%s:cloudinit", storage.Storage)
 	}
 	for i, disk := range opts.DataDisks {
 		storage, err := self.cli.GetStorage(disk.StorageExternalId)
@@ -243,6 +254,21 @@ func (self *SHost) CreateVM(opts *cloudprovider.SManagedVMCreateConfig) (cloudpr
 			return nil, err
 		}
 		body[fmt.Sprintf("scsi%d", i+sysIndex)] = fmt.Sprintf("%s:%d", storage.Storage, opts.SysDisk.SizeGB)
+	}
+
+	if len(opts.IpAddr) > 0 && !strings.HasSuffix(opts.ExternalImageId, ".iso") {
+		masklen := opts.Masklen
+		if masklen <= 0 {
+			masklen = 24
+		}
+		ipconfig := fmt.Sprintf("ip=%s/%d", opts.IpAddr, masklen)
+		if len(opts.Gateway) > 0 {
+			ipconfig = fmt.Sprintf("%s,gw=%s", ipconfig, opts.Gateway)
+		}
+		body["ipconfig0"] = ipconfig
+		if len(opts.Dns) > 0 {
+			body["nameserver"] = opts.Dns
+		}
 	}
 
 	log.Debugf("opts: %s params: %s", jsonutils.Marshal(opts), jsonutils.Marshal(body))
