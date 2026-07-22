@@ -89,7 +89,7 @@ func (task *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) 
 		input.SkipCpuCheck = skipCpuCheck
 		input.SkipKernelCheck = skipKernelCheck
 	}
-	res := guest.GetSchedMigrateParams(task.GetUserCred(), input)
+	res := guest.GetSchedMigrateParams(context.Background(), task.GetUserCred(), input)
 
 	if devs, _ := guest.GetIsolatedDevices(); len(devs) > 0 {
 		preferNumaNodesSet := cpuset.NewBuilder()

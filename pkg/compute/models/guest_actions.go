@@ -542,7 +542,7 @@ func (self *SGuest) PerformMigrateForecast(ctx context.Context, userCred mcclien
 		}
 	}
 
-	schedParams := self.GetSchedMigrateParams(userCred, input)
+	schedParams := self.GetSchedMigrateParams(ctx, userCred, input)
 	if input.ConvertToKvm {
 		schedParams.Hypervisor = api.HYPERVISOR_KVM
 	}
@@ -557,12 +557,19 @@ func (self *SGuest) PerformMigrateForecast(ctx context.Context, userCred mcclien
 }
 
 func (self *SGuest) GetSchedMigrateParams(
-	userCred mcclient.TokenCredential,
+	ctx context.Context, userCred mcclient.TokenCredential,
 	input *api.ServerMigrateForecastInput,
 ) *schedapi.ScheduleInput {
 	schedDesc := self.ToSchedDesc()
 	if input.PreferHostId != "" {
 		schedDesc.ServerConfig.PreferHost = input.PreferHostId
+	} else {
+		createParams, err := self.GetCreateParams(ctx, userCred)
+		if err != nil {
+			log.Errorf("GetSchedMigrateParams failed get create params: %s", err)
+		} else {
+			schedDesc.Schedtags = createParams.Schedtags
+		}
 	}
 
 	schedDesc.ResetCpuNumaPin = input.ResetCpuNumaPin
