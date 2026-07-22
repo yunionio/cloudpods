@@ -405,7 +405,7 @@ func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, string, error) {
 				return false, "", fmt.Errorf("bridge %s (%s) should have no ipv4 address", d.bridge, d.bridge.Addr)
 			}
 			if !d.bridge.IsSecretInterface() {
-				return false, "", fmt.Errorf("%s should have address in 169.254.0.0/16", d.bridge)
+				return false, fmt.Sprintf("bridge %s no ip and should have address in 169.254.0.0/16", d.bridge), nil
 			}
 		}
 		if len(d.ip6) > 0 {
