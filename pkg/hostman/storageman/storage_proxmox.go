@@ -238,7 +238,13 @@ func (ps *SProxmoxStorage) agentCreateGuest(ctx context.Context, data jsonutils.
 		PublicKey:       desc.Pubkey,
 	}
 	if len(desc.Nics) > 0 {
-		createParam.IpAddr = desc.Nics[0].Ip
+		nic := desc.Nics[0]
+		createParam.IpAddr = nic.Ip
+		createParam.MacAddr = nic.Mac
+		createParam.Bridge = nic.Bridge
+		createParam.Gateway = nic.Gateway
+		createParam.Masklen = nic.Masklen
+		createParam.Dns = nic.Dns
 	}
 	for i := range desc.Disks {
 		if i == 0 {
