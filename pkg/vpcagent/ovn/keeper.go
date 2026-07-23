@@ -516,6 +516,20 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 	}
 	{
 		routes := []string{}
+		if len(network.Routes) > 0 {
+			for i := range network.Routes {
+				if len(network.Routes[i]) > 0 {
+					if network.Routes[i][0] == "0.0.0.0/0" || network.Routes[i][0] == mdIp {
+						continue
+					}
+					if len(network.Routes[i]) == 2 {
+						routes = append(routes, network.Routes[i][0], network.Routes[i][1])
+					} else if len(network.Routes[i]) == 1 {
+						routes = append(routes, network.Routes[i][0], "0.0.0.0")
+					}
+				}
+			}
+		}
 		if guestnetwork.IsDefault {
 			dhcpopts.Options["router"] = network.GuestGateway
 			routes = append(routes,
