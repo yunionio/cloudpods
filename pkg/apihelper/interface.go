@@ -46,6 +46,7 @@ type IModelSet interface {
 	NewModel() db.IModel
 	AddModel(db.IModel)
 	Copy() IModelSet
+	IncludeDetails() bool
 }
 
 type IDBModelSet interface {
@@ -107,7 +108,7 @@ func syncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (
 			ModelSet:      msNew,
 			BatchListSize: opt.ListBatchSize,
 
-			IncludeDetails:       opt.IncludeDetails,
+			IncludeDetails:       msNew.IncludeDetails(),
 			IncludeEmulated:      includeEmulated,
 			InCludeOtherCloudEnv: opt.IncludeOtherCloudEnv,
 		})
@@ -134,7 +135,7 @@ func SyncDBModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options)
 			ModelSet:      msNew,
 			BatchListSize: opt.ListBatchSize,
 
-			IncludeDetails:       opt.IncludeDetails,
+			IncludeDetails:       msNew.IncludeDetails(),
 			IncludeEmulated:      includeEmulated,
 			InCludeOtherCloudEnv: opt.IncludeOtherCloudEnv,
 		}
