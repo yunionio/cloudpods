@@ -198,36 +198,14 @@ func buildVLLMServeFlags(modelPath string, tensorParallelSize int, backendParame
 	)
 }
 
-func buildVLLMEntrypointScript(hasMountedModels bool, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecVllm) string {
-	modelsPath := shellQuoteSingle(api.LLM_VLLM_MODELS_PATH)
-	if !hasMountedModels {
-		return fmt.Sprintf("mkdir -p %s && exec sleep infinity", modelsPath)
+func buildVLLMEntrypointScript(modelPath string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecVllm) string {
+	modelPath = strings.TrimSpace(modelPath)
+	if modelPath == "" {
+		return "exec sleep infinity"
 	}
-
-	preferredPath := ""
-	if effSpec != nil && strings.TrimSpace(effSpec.PreferredModel) != "" {
-		preferredPath = path.Join(api.LLM_VLLM_MODELS_PATH, strings.TrimSpace(effSpec.PreferredModel))
-	}
-	serveCmd := strings.Join(buildVLLMServeFlagsWithModelExpr(
-		`"$model"`,
-		`"$(basename "$model")"`,
-		tensorParallelSize,
-		backendParameters,
-		effSpec,
-	), " ")
+	serveCmd := strings.Join(buildVLLMServeFlags(modelPath, tensorParallelSize, backendParameters, effSpec), " ")
 	return strings.Join([]string{
 		"set -e",
-		fmt.Sprintf("mkdir -p %s", modelsPath),
-		fmt.Sprintf("preferred=%s", shellQuoteSingle(preferredPath)),
-		`if [ -n "$preferred" ] && [ -d "$preferred" ]; then`,
-		`  model="$preferred"`,
-		"else",
-		fmt.Sprintf(`  model="$(find %s -mindepth 1 -maxdepth 1 -type d | sort | head -n 1)"`, modelsPath),
-		"fi",
-		`if [ -z "$model" ]; then`,
-		`  echo "no mounted vLLM model found" >&2`,
-		"  exit 1",
-		"fi",
 		fmt.Sprintf("exec %s %s", api.LLM_VLLM_EXEC_PATH, serveCmd),
 	}, "\n")
 }
@@ -430,8 +408,13 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	if sku != nil {
 		backendParameters = sku.BackendParameters
 	}
-	hasMountedModels := len(postOverlays) > 0 || models.SkuHasLocalHostPathModel(sku)
-	startScript := buildVLLMEntrypointScript(hasMountedModels, tensorParallelSize, backendParameters, effSpec)
+	preferred := ""
+	if effSpec != nil {
+		preferred = effSpec.PreferredModel
+	}
+	modelPath := models.PickContainerModelMountPath(models.CollectContainerModelMountPaths(llm, sku), preferred)
+	hasMountedModels := modelPath != "" || len(postOverlays) > 0 || models.SkuHasLocalHostPathModel(sku)
+	startScript := buildVLLMEntrypointScript(modelPath, tensorParallelSize, backendParameters, effSpec)
 	envs := []*commonapi.ContainerKeyValue{
 		{
 			Key:   "HUGGING_FACE_HUB_CACHE",
@@ -468,27 +451,7 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	}
 
 	// GPU Devices
-	effDevs := models.GetEffectiveDevices(llm, sku)
-	if len(devices) == 0 && effDevs != nil && len(*effDevs) > 0 {
-		for i := range *effDevs {
-			index := i
-			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
-				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
-				IsolatedDevice: &computeapi.ContainerIsolatedDevice{
-					Index: &index,
-				},
-			})
-		}
-	} else if len(devices) > 0 {
-		for i := range devices {
-			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
-				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
-				IsolatedDevice: &computeapi.ContainerIsolatedDevice{
-					Id: devices[i].Id,
-				},
-			})
-		}
-	}
+	appendContainerIsolatedDevices(&spec, llm, sku, devices)
 
 	// Volume Mounts
 	diskIndex := 0

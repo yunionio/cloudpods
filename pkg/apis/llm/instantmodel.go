@@ -17,6 +17,7 @@ type InstantModelListInput struct {
 	ModelTag  string `json:"model_tag"`
 	ModelId   string `json:"model_id"`
 	LlmType   string `json:"llm_type"`
+	Source    string `json:"source"`
 	Image     string `json:"image"`
 
 	Mounts string `json:"mounts"`

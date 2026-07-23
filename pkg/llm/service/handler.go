@@ -336,7 +336,10 @@ func handleLLMRouterAgentRoute(ctx context.Context, w http.ResponseWriter, r *ht
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	appsrv.SendStruct(w, out)
+	// Wrap with keyword so mcclient/apigateway PerformAction can parse the response.
+	wrapped := jsonutils.NewDict()
+	wrapped.Set(models.GetLLMRouterAgentManager().Keyword(), jsonutils.Marshal(out))
+	appsrv.SendJSON(w, wrapped)
 }
 
 func InitHandlers(app *appsrv.Application, isSlave bool) {
