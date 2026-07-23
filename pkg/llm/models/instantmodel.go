@@ -71,6 +71,7 @@ type SInstantModel struct {
 	ModelId   string `width:"128" charset:"ascii" list:"user" create:"optional"`
 	ModelName string `width:"128" charset:"ascii" list:"user" create:"required"`
 	ModelTag  string `width:"64" charset:"ascii" list:"user" create:"required"`
+	Source    string `width:"32" charset:"ascii" nullable:"false" default:"huggingface" list:"user" create:"optional"`
 
 	ImageId string `width:"128" charset:"ascii" list:"user" create:"optional" update:"user"`
 
@@ -118,6 +119,9 @@ func (man *SInstantModelManager) ListItemFilter(
 	}
 	if len(input.LlmType) > 0 {
 		q = q.Equals("llm_type", input.LlmType)
+	}
+	if len(input.Source) > 0 {
+		q = q.Equals("source", input.Source)
 	}
 
 	if len(input.Image) > 0 {
@@ -547,18 +551,23 @@ func (man *SInstantModelManager) findInstantModelByImageId(imageId string) (*SIn
 }
 
 // FindReadyInstantModel looks up an existing, ready-to-mount InstantModel for
-// the given (llm_type, model_name, model_tag) triple. Returns (nil, nil) if
-// none exists. Used by the deployment create flow to dedup catalog imports —
+// the given (llm_type, model_name, model_tag, source) tuple. Returns (nil, nil)
+// if none exists. Used by the deployment create flow to dedup catalog imports —
 // if a previous deployment already brought in Qwen3-8B / vllm / main, we
 // reuse that row instead of starting another download.
 //
-// Only enabled rows match (Enabled=true means import succeeded).
-func (man *SInstantModelManager) FindReadyInstantModel(llmType, modelName, modelTag string) (*SInstantModel, error) {
+// Only enabled + active rows match (Enabled=true means import succeeded;
+// status=active means the glance image is still mountable).
+func (man *SInstantModelManager) FindReadyInstantModel(llmType, modelName, modelTag, source string) (*SInstantModel, error) {
+	source = defaultInstantModelSource(source)
 	q := man.Query().
 		Equals("llm_type", llmType).
 		Equals("model_name", modelName).
 		Equals("model_tag", modelTag).
-		IsTrue("enabled")
+		Equals("source", source).
+		Equals("status", imageapi.IMAGE_STATUS_ACTIVE).
+		IsTrue("enabled").
+		Desc("created_at")
 	mdls := make([]SInstantModel, 0)
 	if err := db.FetchModelObjects(man, q, &mdls); err != nil {
 		return nil, errors.Wrap(err, "FetchModelObjects")
@@ -1091,6 +1100,7 @@ func (man *SInstantModelManager) DoImportWithParent(
 	tempModel.ModelName = input.ModelName
 	tempModel.ModelTag = input.ModelTag
 	tempModel.LlmType = string(input.LlmType)
+	tempModel.Source = defaultInstantModelSource(input.Source)
 	tempModel.ProjectId = userCred.GetProjectId()
 
 	if err := man.TableSpec().Insert(ctx, tempModel); err != nil {
@@ -1273,6 +1283,7 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 			"model_name": input.ModelName,
 			"model_tag":  input.ModelTag,
 			"model_id":   modelId,
+			"source":     defaultInstantModelSource(input.Source),
 		}
 
 		// upload the image
@@ -1301,6 +1312,7 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 		model.ModelId = modelId
 		model.ImageId = imageId
 		model.Mounts = mounts
+		model.Source = defaultInstantModelSource(input.Source)
 		if shouldAutoRenameInstantModelImportName(model.Name, model.LlmType, input.ModelName, input.ModelTag) {
 			suffix := extractInstantModelImportNameSuffix(model.Name)
 			model.Name = buildInstantModelFinalName(model.LlmType, modelId, input.ModelTag, suffix)
@@ -1451,9 +1463,9 @@ func (model *SInstantModel) GetEstimatedVramSizeMb() int64 {
 
 // GetDetailsVramRequirement is the per-row endpoint
 // `GET /instant-models/{id}/vram-requirement`. It returns the heuristic VRAM
-// requirement computed by the GPUStack-equivalent formula
-// (weight_size * 1.2 + framework_overhead). When `weight_size_bytes` is 0
-// (not yet backfilled / unknown source), `vram_required_mb` is also 0.
+// requirement: weight_size * 1.2 + framework_overhead + KV reserve for the
+// default max_model_len. When `weight_size_bytes` is 0 (not yet backfilled /
+// unknown source), `vram_required_mb` is also 0.
 func (model *SInstantModel) GetDetailsVramRequirement(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -1462,7 +1474,7 @@ func (model *SInstantModel) GetDetailsVramRequirement(
 	return &apis.InstantModelVramRequirement{
 		LlmType:         model.LlmType,
 		WeightSizeBytes: model.WeightSizeBytes,
-		VramRequiredMb:  vram.EstimateClaimMb(model.WeightSizeBytes, model.LlmType),
+		VramRequiredMb:  vram.EstimateClaimMbWithContext(model.WeightSizeBytes, model.LlmType, apis.LLM_DEFAULT_CONTEXT_TOKENS),
 	}, nil
 }
 

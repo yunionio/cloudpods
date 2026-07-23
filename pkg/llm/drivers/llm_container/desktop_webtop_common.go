@@ -128,7 +128,8 @@ func appendContainerIsolatedDevices(spec *computeapi.ContainerSpec, llm *models.
 			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
 				Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
 				IsolatedDevice: &computeapi.ContainerIsolatedDevice{
-					Index: &index,
+					Index:                    &index,
+					GuestIsolatedDeviceIndex: index,
 				},
 			})
 		}
@@ -138,7 +139,8 @@ func appendContainerIsolatedDevices(spec *computeapi.ContainerSpec, llm *models.
 		spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
 			Type: commonapi.CONTAINER_DEVICE_TYPE_ISOLATED_DEVICE,
 			IsolatedDevice: &computeapi.ContainerIsolatedDevice{
-				Id: devices[i].Id,
+				Id:                       devices[i].Id,
+				GuestIsolatedDeviceIndex: i,
 			},
 		})
 	}

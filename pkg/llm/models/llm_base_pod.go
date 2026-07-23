@@ -5,10 +5,12 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -26,6 +28,7 @@ func GetLLMBasePodCreateInput(
 	input *api.LLMBaseCreateInput,
 	llmBase *SLLMBase,
 	skuBase *SLLMSkuBase,
+	vramClaimMb int,
 	eip string,
 ) (*computeapi.ServerCreateInput, error) {
 	data := computeapi.ServerCreateInput{}
@@ -65,21 +68,42 @@ func GetLLMBasePodCreateInput(
 	effectiveDevices := getEffectiveDevices(llmBase, skuBase)
 	if effectiveDevices != nil && !effectiveDevices.IsZero() {
 		data.IsolatedDevices = make([]*computeapi.IsolatedDeviceConfig, 0)
-		devices := *effectiveDevices
-		// Evenly split the SKU's vram_claim_mb across requested devices and
-		// stamp it onto each request entry. Ceiling division so the sum is
-		// never less than the claim (1 device → claim itself; 2 devices and
-		// 40 GiB claim → 20 GiB each).
-		perDevMinMemMb := 0
-		if skuBase.VramClaimMb > 0 && len(devices) > 0 {
-			perDevMinMemMb = (skuBase.VramClaimMb + len(devices) - 1) / len(devices)
+		devices := make(api.Devices, len(*effectiveDevices))
+		copy(devices, *effectiveDevices)
+		for i := range devices {
+			normalizeLLMSkuDevice(&devices[i])
+		}
+		hasHAMINeedingClaim := false
+		for i := range devices {
+			if devices[i].SharingMode == computeapi.DEVICE_SHARING_MODE_HAMI && devices[i].MemoryMb <= 0 {
+				hasHAMINeedingClaim = true
+				break
+			}
+		}
+		if hasHAMINeedingClaim && vramClaimMb <= 0 {
+			return nil, errors.Wrap(httperrors.ErrInputParameter,
+				"vram claim is 0 for HAMI devices: set devices[].memory_mb, mount InstantModel with weight_size_bytes, or use a non-HAMI sharing_mode")
+		}
+		// Evenly split estimated vram claim across requested devices when a
+		// device does not set memory_mb. Ceiling division so the sum is never
+		// less than the claim.
+		perDevFromClaim := 0
+		if vramClaimMb > 0 && len(devices) > 0 {
+			perDevFromClaim = (vramClaimMb + len(devices) - 1) / len(devices)
 		}
 		for i := 0; i < len(devices); i++ {
+			memMb := devices[i].MemoryMb
+			if memMb <= 0 {
+				memMb = perDevFromClaim
+			}
 			isolatedDevice := &computeapi.IsolatedDeviceConfig{
-				DevType:    devices[i].DevType,
-				Model:      devices[i].Model,
-				DevicePath: devices[i].DevicePath,
-				MemoryMb:   perDevMinMemMb,
+				DevType:       devices[i].DevType,
+				SharingMode:   devices[i].SharingMode,
+				Model:         devices[i].Model,
+				DevicePath:    devices[i].DevicePath,
+				MemoryMb:      memMb,
+				MemoryRequest: memMb,
+				SmUtilLimit:   devices[i].SmUtilLimit,
 			}
 			data.IsolatedDevices = append(data.IsolatedDevices, isolatedDevice)
 		}

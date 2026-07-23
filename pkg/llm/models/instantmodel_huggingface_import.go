@@ -23,6 +23,20 @@ func normalizeInstantModelSource(source string, repoID string) string {
 	return source
 }
 
+// defaultInstantModelSource returns a stored InstantModel.source value.
+// Empty input defaults to huggingface.
+func defaultInstantModelSource(source string) string {
+	source = strings.ToLower(strings.TrimSpace(source))
+	switch source {
+	case apis.InstantModelSourceModelScope:
+		return apis.InstantModelSourceModelScope
+	case apis.InstantModelSourceHuggingFace, "":
+		return apis.InstantModelSourceHuggingFace
+	default:
+		return source
+	}
+}
+
 func resolveImportRepoAndRevision(input apis.InstantModelImportInput) (string, string, string) {
 	repoID := strings.TrimSpace(input.RepoId)
 	source := normalizeInstantModelSource(input.Source, repoID)
@@ -66,7 +80,7 @@ func buildInstantModelImportInputFromCreate(input apis.InstantModelCreateInput) 
 
 func normalizeInstantModelCreateInput(input apis.InstantModelCreateInput) apis.InstantModelCreateInput {
 	importInput := buildInstantModelImportInputFromCreate(input)
-	input.Source = importInput.Source
+	input.Source = defaultInstantModelSource(importInput.Source)
 	input.RepoId = importInput.RepoId
 	input.Revision = importInput.Revision
 	input.ModelName = importInput.ModelName
