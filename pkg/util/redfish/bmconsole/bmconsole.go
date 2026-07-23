@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
@@ -36,7 +37,7 @@ type SBMCConsole struct {
 }
 
 func NewBMCConsole(host, username, password string, isDebug bool) *SBMCConsole {
-	client := httputils.GetDefaultClient()
+	client := httputils.GetLegacyTLSClient(30 * time.Second)
 	return &SBMCConsole{
 		client:   client,
 		host:     host,
