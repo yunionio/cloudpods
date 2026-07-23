@@ -128,6 +128,7 @@ func probeNvidiaGpus(sharingMode string, manager isolated_device.IContainerDevic
 			}
 			dev := nvidiaGpuUsages[pciAddr].nvidiaGPU
 			dev.manager = manager
+			dev.SetSharingMode(sharingMode)
 			res = append(res, nvidiaGpuUsages[pciAddr].nvidiaGPU)
 		}
 		nvidiaGpuUsages = nil

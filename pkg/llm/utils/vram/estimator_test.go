@@ -81,3 +81,34 @@ func TestEstimateClaimMb(t *testing.T) {
 		})
 	}
 }
+
+func TestEstimateKvCacheReserveMb(t *testing.T) {
+	if got := EstimateKvCacheReserveMb(8192); got != 2048 {
+		t.Fatalf("8192 → %d, want 2048", got)
+	}
+	if got := EstimateKvCacheReserveMb(0); got != api.LLM_DEFAULT_CONTEXT_TOKENS/4 {
+		t.Fatalf("0 → %d, want default/4=%d", got, api.LLM_DEFAULT_CONTEXT_TOKENS/4)
+	}
+	if got := EstimateKvCacheReserveMb(4096); got != 1024 {
+		t.Fatalf("4096 → %d, want 1024", got)
+	}
+}
+
+func TestEstimateClaimMbWithContext(t *testing.T) {
+	weightBytes := int64(1024 * 1024 * 1000) // 1000 MiB
+	base := EstimateClaimMb(weightBytes, string(api.LLM_CONTAINER_VLLM))
+	got := EstimateClaimMbWithContext(weightBytes, string(api.LLM_CONTAINER_VLLM), 8192)
+	if got != base+2048 {
+		t.Fatalf("with context = %d, want base+2048=%d (base=%d)", got, base+2048, base)
+	}
+	// ComfyUI: no KV reserve
+	imgWeight := int64(2 * 1024 * 1024 * 1024)
+	imgBase := EstimateClaimMb(imgWeight, string(api.LLM_CONTAINER_COMFYUI))
+	imgGot := EstimateClaimMbWithContext(imgWeight, string(api.LLM_CONTAINER_COMFYUI), 8192)
+	if imgGot != imgBase {
+		t.Fatalf("comfyui should ignore context, got %d base %d", imgGot, imgBase)
+	}
+	if EstimateClaimMbWithContext(0, string(api.LLM_CONTAINER_VLLM), 8192) != 0 {
+		t.Fatal("zero weight should stay 0")
+	}
+}

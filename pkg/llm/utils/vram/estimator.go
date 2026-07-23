@@ -20,6 +20,10 @@ import api "yunion.io/x/onecloud/pkg/apis/llm"
 //	3B    →  ~8.9 GiB
 //	7B    →  ~19.0 GiB
 //	72B   →  ~164.5 GiB
+//
+// EstimateClaimMbWithContext additionally reserves KV headroom for
+// max_model_len (≈ 256 KiB/token → len/4 MiB) so HAMI slices can satisfy
+// vLLM's KV check at the configured context length.
 const (
 	activationOverheadFactor  = 1.2
 	llmFrameworkOverheadMB    = 2048 // 2 GiB
@@ -45,6 +49,26 @@ func EstimateClaimMb(weightSizeBytes int64, llmType string) int {
 		overhead = nonLlmFrameworkOverheadMB
 	}
 	return int(float64(weightMb)*activationOverheadFactor) + overhead
+}
+
+// EstimateKvCacheReserveMb returns a conservative KV-cache headroom in MiB
+// for the given max_model_len. Uses ~256 KiB/token (len/4 MiB). When
+// maxModelLen <= 0, defaults to api.LLM_DEFAULT_CONTEXT_TOKENS.
+func EstimateKvCacheReserveMb(maxModelLen int) int {
+	if maxModelLen <= 0 {
+		maxModelLen = api.LLM_DEFAULT_CONTEXT_TOKENS
+	}
+	return maxModelLen / 4
+}
+
+// EstimateClaimMbWithContext is EstimateClaimMb plus KV reserve for LLM
+// backends. Non-LLM / image types ignore maxModelLen (same as EstimateClaimMb).
+func EstimateClaimMbWithContext(weightSizeBytes int64, llmType string, maxModelLen int) int {
+	base := EstimateClaimMb(weightSizeBytes, llmType)
+	if base <= 0 || !isLLMType(llmType) {
+		return base
+	}
+	return base + EstimateKvCacheReserveMb(maxModelLen)
 }
 
 // isLLMType reports whether the backend serves text-generation LLMs that get

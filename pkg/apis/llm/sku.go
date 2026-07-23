@@ -78,9 +78,14 @@ func (s PortMappings) IsZero() bool {
 }
 
 type Device struct {
-	DevType    string `json:"dev_type"`
-	Model      string `json:"model"`
-	DevicePath string `json:"device_path"`
+	DevType     string `json:"dev_type"`
+	SharingMode string `json:"sharing_mode,omitempty"`
+	Model       string `json:"model"`
+	DevicePath  string `json:"device_path"`
+	// MemoryMb is optional per-device VRAM (MiB) for HAMI. When > 0 it is used
+	// as MemoryMb/MemoryRequest on pod create; otherwise claim is split evenly.
+	MemoryMb    int `json:"memory_mb,omitempty"`
+	SmUtilLimit int `json:"sm_util_limit,omitempty"`
 }
 
 type Devices []Device
@@ -139,6 +144,10 @@ type LLMSkuDetails struct {
 	// Inference backend version and parameters
 	BackendVersion    string   `json:"backend_version"`
 	BackendParameters []string `json:"backend_parameters,omitempty"`
+
+	// VramClaimMb is computed from mounted InstantModel weight_size_bytes
+	// (EstimateClaimMb). Not persisted on the SKU row.
+	VramClaimMb int `json:"vram_claim_mb"`
 }
 
 type MountedAppResourceDetails struct {
@@ -151,10 +160,6 @@ type LLMSKuBaseCreateInput struct {
 	Cpu       int `json:"cpu"`
 	Memory    int `json:"memory"`
 	Bandwidth int `json:"bandwidth"`
-	// VramClaimMb is the estimated VRAM (MiB) the inference instance will
-	// require. Optional — if 0, the deployment create task will auto-fill it
-	// from the mounted InstantModel's weight_size_bytes.
-	VramClaimMb int `json:"vram_claim_mb,omitempty"`
 
 	Volumes      *Volumes          `json:"volumes"`
 	HostPaths    *HostPaths        `json:"host_paths"`
