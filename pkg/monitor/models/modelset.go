@@ -129,6 +129,10 @@ func (s Servers) Copy() apihelper.IModelSet {
 	return s
 }
 
+func (set Servers) IncludeDetails() bool {
+	return false
+}
+
 func (s Servers) GetResType() string {
 	return monitor.METRIC_RES_TYPE_GUEST
 }
@@ -148,6 +152,10 @@ func (h Hosts) AddModel(i db.IModel) {
 
 func (h Hosts) Copy() apihelper.IModelSet {
 	return h
+}
+
+func (set Hosts) IncludeDetails() bool {
+	return false
 }
 
 func (h Hosts) ModelManager() modulebase.IBaseManager {
@@ -189,6 +197,10 @@ func (r Rds) Copy() apihelper.IModelSet {
 	return r
 }
 
+func (set Rds) IncludeDetails() bool {
+	return false
+}
+
 func (r Rds) GetResType() string {
 	return monitor.METRIC_RES_TYPE_RDS
 }
@@ -214,6 +226,10 @@ func (r Redis) Copy() apihelper.IModelSet {
 	return r
 }
 
+func (set Redis) IncludeDetails() bool {
+	return false
+}
+
 func (r Redis) GetResType() string {
 	return monitor.METRIC_RES_TYPE_REDIS
 }
@@ -237,6 +253,10 @@ func (o Oss) AddModel(i db.IModel) {
 
 func (o Oss) Copy() apihelper.IModelSet {
 	return o
+}
+
+func (set Oss) IncludeDetails() bool {
+	return false
 }
 
 func (o Oss) GetResType() string {
@@ -265,6 +285,10 @@ func (a Accounts) Copy() apihelper.IModelSet {
 	return a
 }
 
+func (set Accounts) IncludeDetails() bool {
+	return false
+}
+
 func (a Accounts) GetResType() string {
 	return monitor.METRIC_RES_TYPE_CLOUDACCOUNT
 }
@@ -288,6 +312,10 @@ func (s Storages) AddModel(i db.IModel) {
 
 func (s Storages) Copy() apihelper.IModelSet {
 	return s
+}
+
+func (set Storages) IncludeDetails() bool {
+	return false
 }
 
 func (s Storages) GetResType() string {
@@ -321,6 +349,10 @@ func (d Domains) Copy() apihelper.IModelSet {
 	return d
 }
 
+func (set Domains) IncludeDetails() bool {
+	return false
+}
+
 func (d Domains) GetResType() string {
 	return monitor.METRIC_RES_TYPE_DOMAIN
 }
@@ -344,6 +376,10 @@ func (p Projects) AddModel(i db.IModel) {
 
 func (p Projects) Copy() apihelper.IModelSet {
 	return p
+}
+
+func (set Projects) IncludeDetails() bool {
+	return false
 }
 
 func (p Projects) GetResType() string {
