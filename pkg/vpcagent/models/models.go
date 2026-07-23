@@ -66,6 +66,8 @@ func (el *Wire) Copy() *Wire {
 type Network struct {
 	compute_models.SNetwork
 
+	Routes [][]string `json:"routes"`
+
 	Vpc                  *Vpc                 `json:"-"`
 	Wire                 *Wire                `json:"-"`
 	Guestnetworks        Guestnetworks        `json:"-"`
@@ -77,6 +79,7 @@ type Network struct {
 func (el *Network) Copy() *Network {
 	return &Network{
 		SNetwork: el.SNetwork,
+		Routes:   el.Routes,
 	}
 }
 

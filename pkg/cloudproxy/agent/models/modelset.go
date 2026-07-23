@@ -49,6 +49,10 @@ func (set ProxyEndpoints) Copy() apihelper.IModelSet {
 	return setCopy
 }
 
+func (set ProxyEndpoints) IncludeDetails() bool {
+	return false
+}
+
 func (ms ProxyEndpoints) joinForwards(subEntries Forwards) bool {
 	correct := true
 	for _, subEntry := range subEntries {
@@ -87,4 +91,8 @@ func (set Forwards) Copy() apihelper.IModelSet {
 		setCopy[id] = el.Copy()
 	}
 	return setCopy
+}
+
+func (set Forwards) IncludeDetails() bool {
+	return false
 }
