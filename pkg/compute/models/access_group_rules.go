@@ -61,7 +61,7 @@ type SAccessGroupRule struct {
 	// 云上Id, 对应云上资源自身Id
 	ExternalId string `width:"256" charset:"utf8" index:"true" list:"user" create:"domain_optional" update:"admin" json:"external_id"`
 
-	Priority       int    `default:"1" list:"user" update:"user" list:"user"`
+	Priority       int    `default:"1" list:"user" update:"user"`
 	Source         string `width:"16" charset:"ascii" list:"user" update:"user" create:"required"`
 	RWAccessType   string `width:"16" charset:"ascii" list:"user" update:"user" create:"required"`
 	UserAccessType string `width:"16" charset:"ascii" list:"user" update:"user" create:"required"`

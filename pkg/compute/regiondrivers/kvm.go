@@ -83,6 +83,25 @@ func (self *SKVMRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Conte
 	return input, nil
 }
 
+func (self *SKVMRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	err := input.Check()
+	if err != nil {
+		return input, httperrors.NewInputParameterError("rule is invalid: %s", err)
+	}
+	switch input.TargetType {
+	case api.SecurityGroupRuleTargetTypeCidr:
+	case api.SecurityGroupRuleTargetTypeIpSet:
+		ipSet, err := validateIpSetId(ctx, userCred, input.CIDR)
+		if err != nil {
+			return nil, err
+		}
+		input.CIDR = ipSet.Id
+	default:
+		return nil, errors.Wrapf(errors.ErrNotSupported, "unsupported target type %s", input.TargetType)
+	}
+	return input, nil
+}
+
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LoadbalancerCreateInput) (*api.LoadbalancerCreateInput, error) {
 	// find available networks
 	var network *models.SNetwork = nil
@@ -1571,6 +1590,21 @@ func (self *SKVMRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(q *
 	}, nil
 }
 
+func validateIpSetId(ctx context.Context, userCred mcclient.TokenCredential, ipSetId string) (*models.SIpSet, error) {
+	ipSetObj, err := models.IpSetManager.FetchByIdOrName(ctx, userCred, ipSetId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, errors.Wrapf(errors.ErrNotFound, "ip set %s", ipSetId)
+		}
+		return nil, errors.Wrapf(err, "FetchByIdOrName")
+	}
+	ipSet := ipSetObj.(*models.SIpSet)
+	if !ipSet.IsSharable(userCred) {
+		return nil, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "ip set %s", ipSetId)
+	}
+	return ipSet, nil
+}
+
 func (self *SKVMRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
 	if input.Priority != nil {
 		if *input.Priority < 1 || *input.Priority > 100 {
@@ -1601,8 +1635,24 @@ func (self *SKVMRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.C
 		}
 	}
 
-	if input.CIDR != nil && len(*input.CIDR) > 0 && !api.IsValidSecgroupRuleCIDR(*input.CIDR) {
-		return nil, httperrors.NewInputParameterError("invalid cidr %s", *input.CIDR)
+	if len(input.TargetType) == 0 {
+		input.TargetType = api.SecurityGroupRuleTargetTypeCidr
+	}
+	switch input.TargetType {
+	case api.SecurityGroupRuleTargetTypeCidr:
+		if input.CIDR != nil && len(*input.CIDR) > 0 && !api.IsValidSecgroupRuleCIDR(*input.CIDR) {
+			return nil, httperrors.NewInputParameterError("invalid cidr %s", *input.CIDR)
+		}
+	case api.SecurityGroupRuleTargetTypeIpSet:
+		if input.CIDR != nil && len(*input.CIDR) > 0 {
+			ipSet, err := validateIpSetId(ctx, userCred, *input.CIDR)
+			if err != nil {
+				return nil, err
+			}
+			input.CIDR = &ipSet.Id
+		}
+	default:
+		return nil, errors.Wrapf(errors.ErrNotSupported, "unsupported target type %s", input.TargetType)
 	}
 
 	return input, nil

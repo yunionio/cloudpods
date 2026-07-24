@@ -16,6 +16,15 @@ package compute
 
 import "yunion.io/x/onecloud/pkg/apis"
 
+type TSecgroupTargetType string
+
+const (
+	SecurityGroupRuleTargetTypeIpSet         TSecgroupTargetType = "ip_set"
+	SecurityGroupRuleTargetTypeIpSetGroup    TSecgroupTargetType = "ip_set_group"
+	SecurityGroupRuleTargetTypeSecurityGroup TSecgroupTargetType = "security_group"
+	SecurityGroupRuleTargetTypeCidr          TSecgroupTargetType = "cidr"
+)
+
 type SecgroupRuleDetails struct {
 	apis.ResourceBaseDetails
 	apis.ProjectizedResourceInfo
@@ -23,4 +32,7 @@ type SecgroupRuleDetails struct {
 	SecurityGroupResourceInfo
 
 	ProjectId string `json:"tenant_id"`
+
+	TargetIpSet         string `json:"target_ip_set"`
+	TargetSecurityGroup string `json:"target_security_group"`
 }
