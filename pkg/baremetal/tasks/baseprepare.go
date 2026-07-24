@@ -52,6 +52,30 @@ type sBaremetalPrepareTask struct {
 	userCred  mcclient.TokenCredential
 }
 
+func hasIPMIAddress(nic *types.SNic) bool {
+	return nic != nil && nic.IpAddr != ""
+}
+
+func sameIPMIAddress(left, right string) bool {
+	leftIP := net.ParseIP(left)
+	rightIP := net.ParseIP(right)
+	return leftIP != nil && rightIP != nil && leftIP.Equal(rightIP)
+}
+
+func waitIPMIAddress(fetch func() *types.SNic, maxTries int, interval time.Duration) *types.SNic {
+	var nic *types.SNic
+	for tried := 0; tried < maxTries; tried++ {
+		nic = fetch()
+		if hasIPMIAddress(nic) {
+			return nic
+		}
+		if tried+1 < maxTries {
+			time.Sleep(interval)
+		}
+	}
+	return nic
+}
+
 func newBaremetalPrepareTask(baremetal IBaremetal, userCred mcclient.TokenCredential) *sBaremetalPrepareTask {
 	return &sBaremetalPrepareTask{
 		baremetal: baremetal,
@@ -195,130 +219,123 @@ func (task *sBaremetalPrepareTask) configIPMISetting(ctx context.Context, cli *s
 	ipmiInfo.Username = ipmiUser
 	ipmiInfo.Password = ipmiPasswd
 
-	var ipmiLanChannel uint8 = 0
-	for _, lanChannel := range profile.LanChannels {
-		log.Infof("Try lan channel %d ...", lanChannel)
-		conf, err := ipmitool.GetLanConfig(sshIPMI, lanChannel)
-		if err != nil {
-			log.Errorf("Get lan channel %d config error: %v", lanChannel, err)
-			continue
-		}
-		if conf.Mac == nil {
-			log.Errorf("Lan channel %d MAC address is empty", lanChannel)
-			continue
-		}
+	discovery, err := ipmitool.DiscoverLanConfig(sshIPMI, profile.LanChannels, ipmitool.LanConfigSelectionOptions{
+		ConnectedIP:         ipmiIpAddr,
+		PersistedChannel:    ipmiInfo.LanChannel,
+		RequireConfiguredIP: false,
+		AllowFallback:       false,
+	})
+	if err != nil {
+		return errors.Wrap(err, "DiscoverLanConfig")
+	}
+	if discovery == nil || discovery.Selected == nil || discovery.Selected.Config == nil {
+		return errors.Error("no IPMI LAN configuration selected")
+	}
+	lanChannel := discovery.Selected.Channel
+	conf := discovery.Selected.Config
+	log.Infof("Use lan channel %d ...", lanChannel)
 
-		ipmiNic := &types.SNicDevInfo{
-			Mac:   conf.Mac,
-			Speed: 100,
-			Mtu:   1500,
-		}
-		if err := task.sendNicInfo(ctx, ipmiNic, -1, api.NIC_TYPE_IPMI, true, "", false); err != nil {
-			// ignore the error
-			log.Errorf("Send IPMI nic %#v info: %v", ipmiNic, err)
-		}
-		rootId := profile.RootId
-		err = ipmitool.CreateOrSetAdminUser(sshIPMI, lanChannel, rootId, ipmiUser, ipmiPasswd)
-		if err != nil {
-			// ignore the error
-			log.Errorf("Lan channel %d set user password error: %v", lanChannel, err)
-		}
-		err = ipmitool.EnableLanAccess(sshIPMI, lanChannel)
-		if err != nil {
-			// ignore the error
-			log.Errorf("Lan channel %d enable lan access error: %v", lanChannel, err)
-		}
+	ipmiNic := &types.SNicDevInfo{
+		Mac:   conf.Mac,
+		Speed: 100,
+		Mtu:   1500,
+	}
+	if err := task.sendNicInfo(ctx, ipmiNic, -1, api.NIC_TYPE_IPMI, true, "", false); err != nil {
+		return errors.Wrapf(err, "send IPMI NIC %s on LAN channel %d", conf.Mac, lanChannel)
+	}
+	rootId := profile.RootId
+	err = ipmitool.CreateOrSetAdminUser(sshIPMI, lanChannel, rootId, ipmiUser, ipmiPasswd)
+	if err != nil {
+		// ignore the error
+		log.Errorf("Lan channel %d set user password error: %v", lanChannel, err)
+	}
+	err = ipmitool.EnableLanAccess(sshIPMI, lanChannel)
+	if err != nil {
+		// ignore the error
+		log.Errorf("Lan channel %d enable lan access error: %v", lanChannel, err)
+	}
 
-		tryAddrs := make([]string, 0)
-		if ipmiIpAddr != "" {
-			tryAddrs = append(tryAddrs, ipmiIpAddr)
-		}
-		if conf.IPAddr != "" && conf.IPAddr != ipmiIpAddr {
-			tryAddrs = append(tryAddrs, conf.IPAddr)
-		}
-		if len(tryAddrs) > 0 && !o.Options.ForceDhcpProbeIpmi {
-			for _, tryAddr := range tryAddrs {
-				tryResult := task.tryLocalIpmiAddr(ctx, sshIPMI, ipmiNic, lanChannel,
-					ipmiUser, ipmiPasswd, tryAddr)
-				if tryResult {
-					ipmiInfo.IpAddr = tryAddr
-					ipmiLanChannel = lanChannel
-					break
-				}
-			}
-			if ipmiLanChannel > 0 {
-				// found and set config on lanChannel
-				break
+	tryAddrs := make([]string, 0)
+	configuredIP := net.ParseIP(ipmiIpAddr)
+	if configuredIP != nil && !configuredIP.IsUnspecified() {
+		tryAddrs = append(tryAddrs, ipmiIpAddr)
+	}
+	confIP := net.ParseIP(conf.IPAddr)
+	if confIP != nil && !confIP.IsUnspecified() && (configuredIP == nil || !confIP.Equal(configuredIP)) {
+		tryAddrs = append(tryAddrs, conf.IPAddr)
+	}
+	if len(tryAddrs) > 0 && !o.Options.ForceDhcpProbeIpmi {
+		for _, tryAddr := range tryAddrs {
+			if task.tryLocalIpmiAddr(ctx, sshIPMI, ipmiNic, lanChannel, ipmiUser, ipmiPasswd, tryAddr) {
+				ipmiInfo.IpAddr = tryAddr
+				ipmiInfo.LanChannel = lanChannel
+				ipmiInfo.Verified = true
+				return nil
 			}
 		}
+	}
 
-		if len(tryAddrs) > 0 {
-			task.baremetal.SetExistingIPMIIPAddr(tryAddrs[0])
-		}
+	if len(tryAddrs) > 0 {
+		task.baremetal.SetExistingIPMIIPAddr(tryAddrs[0])
+	}
 
-		err = ipmitool.SetLanDHCP(sshIPMI, lanChannel)
+	err = ipmitool.SetLanDHCP(sshIPMI, lanChannel)
+	if err != nil {
+		// ignore error
+		log.Errorf("Set lan channel %d dhcp error: %v", lanChannel, err)
+	}
+	time.Sleep(2 * time.Second)
+	maxTries := 180 // wait 3 minutes
+	fetchIPMINic := func() *types.SNic { return task.baremetal.GetIPMINic(conf.Mac) }
+	nic := waitIPMIAddress(fetchIPMINic, maxTries, time.Second)
+	if !hasIPMIAddress(nic) {
+		err = ipmitool.DoBMCReset(sshIPMI) // do BMC reset to force DHCP request
 		if err != nil {
-			// ignore error
-			log.Errorf("Set lan channel %d dhcp error: %v", lanChannel, err)
+			log.Errorf("Do BMC reset error: %v", err)
 		}
+		time.Sleep(1 * time.Second)
+	}
+	if !hasIPMIAddress(nic) {
+		nic = waitIPMIAddress(fetchIPMINic, maxTries, time.Second)
+	}
+	if nic == nil {
+		return fmt.Errorf("no registered IPMI NIC found for MAC %s after DHCP", conf.Mac)
+	}
+	if nic.IpAddr == "" {
+		return fmt.Errorf("IPMI NIC %s did not receive an address from DHCP", conf.Mac)
+	}
+	ipmiAddr := nic.IpAddr
+	log.Infof("DHCP get IPMI address succ, wait 2 seconds ...")
+	var tried int = 0
+	for tried < maxTries {
 		time.Sleep(2 * time.Second)
-		nic := task.baremetal.GetIPMINic(conf.Mac)
-		maxTries := 180 // wait 3 minutes
-		for tried := 0; nic != nil && nic.IpAddr == "" && tried < maxTries; tried++ {
-			nic = task.baremetal.GetIPMINic(conf.Mac)
-		}
-		if len(nic.IpAddr) == 0 {
-			err = ipmitool.DoBMCReset(sshIPMI) // do BMC reset to force DHCP request
-			if err != nil {
-				log.Errorf("Do BMC reset error: %v", err)
-			}
-			time.Sleep(1 * time.Second)
-		}
-		for tried := 0; nic != nil && nic.IpAddr == "" && tried < maxTries; tried++ {
-			nic = task.baremetal.GetIPMINic(conf.Mac)
-			time.Sleep(1 * time.Second)
-		}
-		if nic != nil && len(nic.IpAddr) == 0 {
-			log.Errorf("DHCP wait IPMI address fail, retry ...")
-			continue
-		}
-		log.Infof("DHCP get IPMI address succ, wait 2 seconds ...")
-		var tried int = 0
-		for tried < maxTries {
-			time.Sleep(2 * time.Second)
-			lanConf, err := ipmitool.GetLanConfig(sshIPMI, lanChannel)
-			if err != nil {
-				log.Errorf("Get lan config at channel %d error: %v", lanChannel, err)
-				tried += 2
-				continue
-			}
-			if lanConf.IPAddr == nic.IpAddr {
-				break
-			}
-			log.Infof("waiting IPMI DHCP address old:%s expect:%s", lanConf.IPAddr, nic.IpAddr)
-			tried += 2
-		}
-		if tried >= maxTries {
-			continue
-		}
-		err = ipmitool.SetLanStatic(
-			sshIPMI,
-			lanChannel,
-			nic.IpAddr,
-			nic.GetNetMask(),
-			nic.Gateway,
-		)
+		lanConf, err := ipmitool.GetLanConfig(sshIPMI, lanChannel)
 		if err != nil {
-			log.Errorf("Set lanChannel %d static net %#v error: %v", lanChannel, nic, err)
+			log.Errorf("Get lan config at channel %d error: %v", lanChannel, err)
+			tried += 2
 			continue
 		}
-		ipmiInfo.IpAddr = nic.IpAddr
-		ipmiLanChannel = lanChannel
+		if sameIPMIAddress(lanConf.IPAddr, ipmiAddr) {
+			break
+		}
+		log.Infof("waiting IPMI DHCP address old:%s expect:%s", lanConf.IPAddr, ipmiAddr)
+		tried += 2
 	}
-	if ipmiLanChannel == 0 {
-		return fmt.Errorf("Fail to get IPMI address from DHCP")
+	if tried >= maxTries {
+		return fmt.Errorf("Fail to observe IPMI DHCP address %s on channel %d", ipmiAddr, lanChannel)
 	}
-	ipmiInfo.LanChannel = ipmiLanChannel
+	err = ipmitool.SetLanStatic(
+		sshIPMI,
+		lanChannel,
+		ipmiAddr,
+		nic.GetNetMask(),
+		nic.Gateway,
+	)
+	if err != nil {
+		return errors.Wrapf(err, "Set lanChannel %d static net %#v", lanChannel, nic)
+	}
+	ipmiInfo.IpAddr = ipmiAddr
+	ipmiInfo.LanChannel = lanChannel
 	ipmiInfo.Verified = true
 	return nil
 }
@@ -527,7 +544,7 @@ func (task *sBaremetalPrepareTask) tryLocalIpmiAddr(ctx context.Context, sshIPMI
 			continue
 		}
 		log.Infof("Get lan config %#v", *conf)
-		if conf.IPAddr == "" || conf.IPAddr != tryAddr {
+		if !sameIPMIAddress(conf.IPAddr, tryAddr) {
 			log.Errorf("Failed to set ipmi lan channel %d static ipaddr", lanChannel)
 			continue
 		}
@@ -550,7 +567,7 @@ func (task *sBaremetalPrepareTask) tryLocalIpmiAddr(ctx context.Context, sshIPMI
 		}
 		if len(conf2.Mac) != 0 &&
 			conf2.Mac.String() == conf.Mac.String() &&
-			conf2.IPAddr != "" && conf2.IPAddr == tryAddr {
+			sameIPMIAddress(conf2.IPAddr, tryAddr) {
 			break
 		} else {
 			log.Errorf("fail to rmcp get IPMI ip config %v", conf2)
