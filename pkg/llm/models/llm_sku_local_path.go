@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -85,4 +86,26 @@ func SkuHasLocalHostPathModel(sku *SLLMSku) bool {
 		return false
 	}
 	return hostPathsHasContainerMount(*sku.HostPaths, 0)
+}
+
+// ValidateLocalPathHamiDevicesRequireMemoryMb requires every HAMi device to set
+// memory_mb for local_path SKUs (no InstantModel VRAM estimate available).
+// Devices are normalized first so empty SharingMode (default HAMi) is treated
+// the same as pod create.
+func ValidateLocalPathHamiDevicesRequireMemoryMb(devices *api.Devices) error {
+	if devices == nil || len(*devices) == 0 {
+		return nil
+	}
+	for i := range *devices {
+		dev := (*devices)[i]
+		normalizeLLMSkuDevice(&dev)
+		if strings.TrimSpace(dev.SharingMode) != computeapi.DEVICE_SHARING_MODE_HAMI {
+			continue
+		}
+		if dev.MemoryMb <= 0 {
+			return httperrors.NewInputParameterError(
+				"local_path SKU with HAMi requires per-GPU VRAM: set devices[].memory_mb on the LLM SKU")
+		}
+	}
+	return nil
 }
