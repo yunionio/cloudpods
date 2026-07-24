@@ -1609,6 +1609,7 @@ var messageKeyToIndex = map[string]int{
 	"loadbalancer is already associated with eip":                                    780,
 	"loadbalancer is locked, cannot delete":                                          1366,
 	"local host storage is not empty":                                                1177,
+	"local_path SKU with HAMi requires per-GPU VRAM: set devices[].memory_mb on the LLM SKU": 2131,
 	"locally stored disks do not support detaching":                                  394,
 	"locally stored system disks do not support changing configuration":              391,
 	"login_account exceeds 32 characters":                                            820,
@@ -2172,7 +2173,7 @@ var messageKeyToIndex = map[string]int{
 	"zone_ids must be in the same cloudregion":                                         1582,
 }
 
-var en_USIndex = []uint32{ // 2132 elements
+var en_USIndex = []uint32{ // 2133 elements
 	// Entry 0 - 1F
 	0x00000000, 0x0000001b, 0x00000034, 0x00000049,
 	0x00000067, 0x0000007a, 0x00000099, 0x000000d4,
@@ -2773,9 +2774,10 @@ var en_USIndex = []uint32{ // 2132 elements
 	0x00011c60, 0x00011c78, 0x00011c8e, 0x00011c99,
 	0x00011ca7, 0x00011cba, 0x00011ccf, 0x00011ce4,
 	0x00011cf3, 0x00011d12, 0x00011d2c, 0x00011d41,
-} // Size: 8552 bytes
+	0x00011d98,
+} // Size: 8532 bytes
 
-const en_USData string = "" + // Size: 73025 bytes
+const en_USData string = "" + // Size: 73112 bytes
 	"\x02not found tenantId in body\x02failed to change project\x02get passwo" +
 	"rd in body\x02username or password is empty\x02missing credential\x02inc" +
 	"orrect username or password\x02The user has been locked, please contact " +
@@ -3881,9 +3883,10 @@ const en_USData string = "" + // Size: 73025 bytes
 	"vn controller configuration\x02unmarshal input fail %s\x02invalid charac" +
 	"ters %s\x02bad config\x02network error\x02ssh protocol error\x02invalid " +
 	"vpc provider\x02invalid ovn database\x02user not found\x02check name dup" +
-	"lication fail %s\x02getReferenceCount fail %s\x02policy is referenced"
+	"lication fail %s\x02getReferenceCount fail %s\x02policy is referenced" +
+	"\x02local_path SKU with HAMi requires per-GPU VRAM: set devices[].memory_mb on the LLM SKU"
 
-var zh_CNIndex = []uint32{ // 2132 elements
+var zh_CNIndex = []uint32{ // 2133 elements
 	// Entry 0 - 1F
 	0x00000000, 0x0000001b, 0x0000002e, 0x00000049,
 	0x00000062, 0x00000075, 0x00000094, 0x000000bf,
@@ -4484,9 +4487,10 @@ var zh_CNIndex = []uint32{ // 2132 elements
 	0x00010c9c, 0x00010cb1, 0x00010cc7, 0x00010cd7,
 	0x00010ce4, 0x00010cf4, 0x00010d0a, 0x00010d20,
 	0x00010d30, 0x00010d4e, 0x00010d71, 0x00010d8a,
-} // Size: 8552 bytes
+	0x00010e12,
+} // Size: 8532 bytes
 
-const zh_CNData string = "" + // Size: 69002 bytes
+const zh_CNData string = "" + // Size: 69138 bytes
 	"\x02获取tenantId参数失败\x02切换项目失败\x02获取password参数失败\x02用户名或密码为空\x02缺少认证信息\x02" +
 	"用户名或者密码不正确\x02用户已经被锁定，请联系管理员\x02用户已经被禁用，请联系管理员\x02用户已经被禁用或处于不可用状态\x02无" +
 	"效的认证信息\x02获取请求的JSON内容失败：%v\x02此用户禁止从Web控制台登录\x02请求内容为空\x02缺少id参数\x02fe" +
@@ -5070,6 +5074,7 @@ const zh_CNData string = "" + // Size: 69002 bytes
 	"告警条件类型: %s\x02解析URL %q出错：%v\x02无效的IP\x02停止dap搜索\x02ovn controller\x02o" +
 	"vn controller配置\x02解析input失败 %s\x02不支持的字符 %s\x02无效的配置\x02网络错误\x02ssh协议错误" +
 	"\x02无效的vpc provider\x02无效的ovn database\x02找不到用户\x02检查重复名称失败：%s\x02getRef" +
-	"erenceCount调用出错：%s\x02权限定义正被使用"
+	"erenceCount调用出错：%s\x02权限定义正被使用" +
+	"\x02主机本地模型（local_path）推理模板使用 HAMi 时必须设置每卡显存：请到推理模板中填写 GPU 显存（MiB）"
 
 	// Total table size 159131 bytes (155KiB); checksum: A1EC1008
