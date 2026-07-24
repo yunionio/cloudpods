@@ -67,6 +67,17 @@ func (self *SVolcengineRegionDriver) ValidateCreateSecurityGroupInput(ctx contex
 	return input, nil
 }
 
+func (self *SVolcengineRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	if input.Priority == nil {
+		return nil, httperrors.NewMissingParameterError("priority")
+	}
+	if *input.Priority < 1 || *input.Priority > 100 {
+		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Priority)
+	}
+
+	return input, nil
+}
+
 func (self *SVolcengineRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
 	return nil, httperrors.NewNotSupportedError("updating security group rules is not supported")
 }

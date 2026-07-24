@@ -70,6 +70,16 @@ func (self *SCtyunRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Con
 	return input, nil
 }
 
+func (self *SCtyunRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	if input.Priority == nil {
+		return nil, httperrors.NewMissingParameterError("priority")
+	}
+	if *input.Priority < 1 || *input.Priority > 100 {
+		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Priority)
+	}
+	return input, nil
+}
+
 func (self *SCtyunRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
 	if input.Priority != nil && (*input.Priority < 1 || *input.Priority > 100) {
 		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Priority)

@@ -3453,6 +3453,34 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateSecurityGroupInput
 	return input, nil
 }
 
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	rule := input
+	if !utils.IsInStringArray(rule.Action, []string{string(secrules.SecurityRuleAllow), string(secrules.SecurityRuleDeny)}) {
+		return nil, httperrors.NewInputParameterError("invalid action %s", rule.Action)
+	}
+	if !utils.IsInStringArray(rule.Protocol, []string{
+		secrules.PROTO_ANY,
+		secrules.PROTO_UDP,
+		secrules.PROTO_TCP,
+		secrules.PROTO_ICMP,
+	}) {
+		return nil, httperrors.NewInputParameterError("invalid protocol %s", rule.Protocol)
+	}
+
+	if len(rule.Ports) > 0 {
+		r := secrules.SecurityRule{}
+		err := r.ParsePorts(rule.Ports)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid ports %s", rule.Ports)
+		}
+	}
+
+	if len(rule.CIDR) > 0 && !regutils.MatchCIDR(rule.CIDR) && !regutils.MatchCIDR6(rule.CIDR) && !regutils.MatchIP4Addr(rule.CIDR) && !regutils.MatchIP6Addr(rule.CIDR) {
+		return nil, httperrors.NewInputParameterError("invalid cidr %s", rule.CIDR)
+	}
+	return input, nil
+}
+
 func (self *SManagedVirtualizationRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
 	if input.Action != nil {
 		if !utils.IsInStringArray(*input.Action, []string{string(secrules.SecurityRuleAllow), string(secrules.SecurityRuleDeny)}) {
