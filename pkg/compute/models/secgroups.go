@@ -212,6 +212,22 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		q = q.IsNullOrEmpty("manager_id")
 	}
 
+	if len(input.IpSetId) > 0 {
+		for i := range input.IpSetId {
+			ipSetObj, err := IpSetManager.FetchByIdOrName(ctx, userCred, input.IpSetId[i])
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2("ip set %s not found", input.IpSetId[i])
+				} else {
+					return nil, errors.Wrap(err, "IpSetManager.FetchByIdOrName")
+				}
+			}
+			input.IpSetId[i] = ipSetObj.GetId()
+		}
+		sq := SecurityGroupRuleManager.Query("secgroup_id").Equals("target_type", api.SecurityGroupRuleTargetTypeIpSet).In("cidr", input.IpSetId).Distinct().SubQuery()
+		q = q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("secgroup_id")))
+	}
+
 	return q, nil
 }
 
@@ -1185,6 +1201,7 @@ func (self *SSecurityGroup) PerformImportRules(ctx context.Context, userCred mcc
 			CIDR:        r.CIDR,
 			Action:      r.Action,
 			Description: r.Description,
+			TargetType:  r.TargetType,
 		}
 		rule.SecgroupId = self.Id
 

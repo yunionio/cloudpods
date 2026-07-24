@@ -246,6 +246,22 @@ func (self *SGoogleRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Co
 	return input, nil
 }
 
+func (self *SGoogleRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	rule := input
+	if rule.Priority == nil {
+		return nil, httperrors.NewMissingParameterError("priority")
+	}
+	if *rule.Priority < 0 || *rule.Priority > 65535 {
+		return nil, httperrors.NewInputParameterError("invalid priority %d, range 0-65535", *rule.Priority)
+	}
+
+	if len(rule.Ports) > 0 && strings.Contains(rule.Ports, ",") {
+		return nil, httperrors.NewInputParameterError("invalid ports %s", rule.Ports)
+	}
+
+	return input, nil
+}
+
 func (self *SGoogleRegionDriver) RequestCreateSecurityGroup(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
