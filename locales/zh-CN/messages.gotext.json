@@ -9952,6 +9952,11 @@
             "translation": "开启 auto_gpu_memory_utilization 需要先在推理模板中配置 GPU 设备"
         },
         {
+            "id": "local_path SKU with HAMi requires per-GPU VRAM: set devices[].memory_mb on the LLM SKU",
+            "message": "local_path SKU with HAMi requires per-GPU VRAM: set devices[].memory_mb on the LLM SKU",
+            "translation": "主机本地模型（local_path）推理模板使用 HAMi 时必须设置每卡显存：请到推理模板中填写 GPU 显存（MiB）"
+        },
+        {
             "id": "LLM is not running",
             "message": "LLM is not running",
             "translation": "LLM 未运行"
