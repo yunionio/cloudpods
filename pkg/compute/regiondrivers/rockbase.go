@@ -73,6 +73,20 @@ func (self *SRockbaseRegionDriver) ValidateCreateSecurityGroupInput(ctx context.
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
 }
 
+func (self *SRockbaseRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	if input.Protocol == secrules.PROTO_ANY {
+		return nil, httperrors.NewNotSupportedError("protocol %s", input.Protocol)
+	}
+	if input.Priority == nil {
+		return nil, httperrors.NewMissingParameterError("priority")
+	}
+	if *input.Priority < 1 || *input.Priority > 3 {
+		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-3", *input.Priority)
+	}
+
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupRuleInput(ctx, userCred, input)
+}
+
 func (self *SRockbaseRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
 	if input.Priority != nil && (*input.Priority < 1 || *input.Priority > 3) {
 		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-3", *input.Priority)

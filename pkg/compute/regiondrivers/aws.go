@@ -413,6 +413,18 @@ func (self *SAwsRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Conte
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
 }
 
+func (self *SAwsRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	if input.Action != string(secrules.SecurityRuleAllow) {
+		return nil, httperrors.NewInputParameterError("invalid action %s, only support allow", input.Action)
+	}
+
+	if len(input.Ports) > 0 && strings.Contains(input.Ports, ",") {
+		return nil, httperrors.NewInputParameterError("invalid ports %s", input.Ports)
+	}
+
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupRuleInput(ctx, userCred, input)
+}
+
 func (self *SAwsRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
 	if input.Action != nil && *input.Action != string(secrules.SecurityRuleAllow) {
 		return nil, httperrors.NewInputParameterError("invalid action %s", *input.Action)
