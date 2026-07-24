@@ -585,6 +585,19 @@ func (self *SQcloudRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Co
 	return input, nil
 }
 
+func (self *SQcloudRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	rule := input
+	if rule.Priority == nil {
+		return nil, httperrors.NewMissingParameterError("priority")
+	}
+
+	if *rule.Priority < 0 || *rule.Priority > 99 {
+		return nil, httperrors.NewInputParameterError("invalid priority %d, range 0-99", *rule.Priority)
+	}
+
+	return input, nil
+}
+
 func (self *SQcloudRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
 	if input.Priority != nil && (*input.Priority < 0 || *input.Priority > 99) {
 		return nil, httperrors.NewInputParameterError("invalid priority %d, range 0-99", *input.Priority)

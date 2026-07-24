@@ -214,6 +214,10 @@ func (self *SBaseRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Cont
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateSecurityGroupInput")
 }
 
+func (self *SBaseRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "ValidateCreateSecurityGroupRuleInput")
+}
+
 func (self *SBaseRegionDriver) GetDefaultSecurityGroupNamePrefix() string {
 	return "default-auto"
 }

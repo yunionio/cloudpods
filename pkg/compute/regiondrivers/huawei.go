@@ -601,7 +601,6 @@ func (self *SHuaWeiRegionDriver) IsSupportedNas() bool {
 
 func (self *SHuaWeiRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
 	for i := range input.Rules {
-		rule := input.Rules[i]
 		if input.Rules[i].Priority == nil {
 			return nil, httperrors.NewMissingParameterError("priority")
 		}
@@ -609,10 +608,22 @@ func (self *SHuaWeiRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Co
 			return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Rules[i].Priority)
 		}
 
-		if len(rule.Ports) > 0 && strings.Contains(input.Rules[i].Ports, ",") {
+		if len(input.Rules[i].Ports) > 0 && strings.Contains(input.Rules[i].Ports, ",") {
 			return nil, httperrors.NewInputParameterError("invalid ports %s", input.Rules[i].Ports)
 		}
+	}
+	return input, nil
+}
 
+func (self *SHuaWeiRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	if input.Priority == nil {
+		return nil, httperrors.NewMissingParameterError("priority")
+	}
+	if *input.Priority < 1 || *input.Priority > 100 {
+		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Priority)
+	}
+	if len(input.Ports) > 0 && strings.Contains(input.Ports, ",") {
+		return nil, httperrors.NewInputParameterError("invalid ports %s", input.Ports)
 	}
 	return input, nil
 }

@@ -90,6 +90,19 @@ func (self *SAzureRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Con
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
 }
 
+func (self *SAzureRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	rule := input
+	if rule.Priority == nil {
+		return nil, httperrors.NewMissingParameterError("priority")
+	}
+
+	if *rule.Priority < 100 || *rule.Priority > 4096 {
+		return nil, httperrors.NewInputParameterError("invalid priority %d, range 100-4096", *rule.Priority)
+	}
+
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupRuleInput(ctx, userCred, input)
+}
+
 func (self *SAzureRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
 	if input.Priority != nil && (*input.Priority < 100 || *input.Priority > 4096) {
 		return nil, httperrors.NewInputParameterError("invalid priority %d, range 100-4096", *input.Priority)

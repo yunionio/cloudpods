@@ -147,6 +147,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		models.IsolatedDeviceModelManager,
 		models.SecurityGroupManager,
 		models.SecurityGroupRuleManager,
+		models.IpSetManager,
 		models.ElasticipManager,
 		models.NatGatewayManager,
 		models.NatDEntryManager,

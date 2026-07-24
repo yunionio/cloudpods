@@ -696,6 +696,22 @@ func (self *SAliyunRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Co
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
 }
 
+func (self *SAliyunRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	rule := input
+	if rule.Priority == nil {
+		return nil, httperrors.NewMissingParameterError("priority")
+	}
+
+	if *rule.Priority < 1 || *rule.Priority > 100 {
+		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *rule.Priority)
+	}
+
+	if len(rule.Ports) > 0 && strings.Contains(input.Ports, ",") {
+		return nil, httperrors.NewInputParameterError("invalid ports %s", input.Ports)
+	}
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupRuleInput(ctx, userCred, input)
+}
+
 func (self *SAliyunRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
 	if input.Priority != nil && (*input.Priority < 1 || *input.Priority > 100) {
 		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Priority)
