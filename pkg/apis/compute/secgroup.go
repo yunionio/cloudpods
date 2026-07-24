@@ -15,7 +15,6 @@
 package compute
 
 import (
-	"fmt"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
@@ -70,6 +69,11 @@ type SSecgroupRuleResource struct {
 	// ip或cidr地址, 若指定peer_secgroup_id此参数不生效
 	// example: 192.168.222.121
 	CIDR string `json:"cidr"`
+
+	// 目标类型
+	// enum: ["cidr", "ip_set", "security_group"]
+	// required: true
+	TargetType TSecgroupTargetType `json:"target_type"`
 
 	// 行为
 	// deny: 拒绝
@@ -135,6 +139,9 @@ type SSecgroupRuleUpdateInput struct {
 	// requried: false
 	// example: test to create rule
 	Description string `json:"description"`
+
+	// swagger:ignore
+	TargetType TSecgroupTargetType `json:"target_type"`
 }
 
 func IsValidSecgroupRuleCIDR(cidr string) bool {
@@ -177,13 +184,28 @@ func (input *SSecgroupRuleResource) Check() error {
 		}
 	}
 
-	if len(input.CIDR) > 0 {
-		if !IsValidSecgroupRuleCIDR(input.CIDR) {
-			return fmt.Errorf("invalid cidr: %s", input.CIDR)
+	switch input.TargetType {
+	case SecurityGroupRuleTargetTypeCidr:
+		if len(input.CIDR) > 0 {
+			if !IsValidSecgroupRuleCIDR(input.CIDR) {
+				return errors.Wrapf(errors.ErrInvalidFormat, "invalid cidr: %s", input.CIDR)
+			}
+		} else {
+			// empty CIDR means both IPv4 and IPv6
+			// input.CIDR = "0.0.0.0/0"
 		}
-	} else {
-		// empty CIDR means both IPv4 and IPv6
-		// input.CIDR = "0.0.0.0/0"
+	case SecurityGroupRuleTargetTypeIpSet:
+		if len(input.CIDR) > 0 {
+
+		} else {
+			return errors.Wrap(errors.ErrEmpty, "empty ip set id")
+		}
+	case SecurityGroupRuleTargetTypeIpSetGroup:
+		fallthrough
+	case SecurityGroupRuleTargetTypeSecurityGroup:
+		fallthrough
+	default:
+		return errors.Wrapf(errors.ErrNotSupported, "unsupported target type %s", input.TargetType)
 	}
 
 	return rule.ValidateRule()
@@ -239,6 +261,9 @@ type SecgroupListInput struct {
 	LoadbalancerId string `json:"loadbalancer_id"`
 	RegionalFilterListInput
 	ManagedResourceListInput
+
+	// 指定过滤规则中含有指定ip集的安全组
+	IpSetId []string `json:"ip_set_id"`
 }
 
 type SecurityGroupRuleListInput struct {
@@ -258,6 +283,8 @@ type SecurityGroupRuleListInput struct {
 	Ports string `json:"ports"`
 	// 根据ip模糊匹配安全组规则
 	Ip string `json:"ip"`
+	// 根据target_type字段过滤安全组规则
+	TargetType []string `json:"target_type"`
 }
 
 type SecgroupResourceInput struct {

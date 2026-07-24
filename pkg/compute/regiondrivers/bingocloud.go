@@ -53,6 +53,14 @@ func (self *SBingoCloudRegionDriver) ValidateCreateSecurityGroupInput(ctx contex
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
 }
 
+func (self *SBingoCloudRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	rule := input
+	if len(rule.Ports) > 0 && strings.Contains(rule.Ports, ",") {
+		return nil, httperrors.NewInputParameterError("invalid ports %s", rule.Ports)
+	}
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupRuleInput(ctx, userCred, input)
+}
+
 func (self *SBingoCloudRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
 	if input.Ports != nil && strings.Contains(*input.Ports, ",") {
 		return nil, httperrors.NewInputParameterError("invalid ports %s", *input.Ports)

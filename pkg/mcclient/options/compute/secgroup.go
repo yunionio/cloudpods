@@ -42,6 +42,8 @@ type SecgroupListOptions struct {
 	VpcId          string `mcp:"true"`
 	Cloudaccount   string `help:"Filter secgroups by account" mcp:"true"`
 	LoadbalancerId string `mcp:"true"`
+
+	IpSetId []string `help:"Filter secgroups by ip set" mcp:"true"`
 }
 
 func (opts *SecgroupListOptions) Params() (jsonutils.JSONObject, error) {

@@ -106,6 +106,7 @@ type ISecurityGroupDriver interface {
 	RequestPrepareSecurityGroups(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, secgroups []SSecurityGroup, vpc *SVpc, callback func(ids []string) error, task taskman.ITask) error
 	RequestDeleteSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup, task taskman.ITask) error
 	ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error)
+	ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error)
 	ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error)
 }
 

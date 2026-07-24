@@ -79,6 +79,15 @@ func (self *SZStackRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Co
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
 }
 
+func (self *SZStackRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
+	rule := input
+	if len(rule.Ports) > 0 && strings.Contains(input.Ports, ",") {
+		return nil, httperrors.NewInputParameterError("invalid ports %s", input.Ports)
+	}
+
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupRuleInput(ctx, userCred, input)
+}
+
 func (self *SZStackRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
 	if input.Ports != nil && strings.Contains(*input.Ports, ",") {
 		return nil, httperrors.NewInputParameterError("invalid ports %s", *input.Ports)
