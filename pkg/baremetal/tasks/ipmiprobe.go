@@ -199,29 +199,28 @@ func (self *SBaremetalIpmiProbeTask) doRawIpmiProbe(ctx context.Context, cli ipm
 		}
 	}
 	guid := ipmitool.GetSysGuid(cli)
-	var conf *types.SIPMILanConfig
-	var channel uint8
-	var errs []error
-	for _, lanChannel := range profile.LanChannels {
-		conf, err = ipmitool.GetLanConfig(cli, lanChannel)
-		if err != nil {
-			// ignore error
-			err := errors.Wrapf(err, "ipmitool.GetLanConfig for channel %d failed", lanChannel)
-			errs = append(errs, err)
-			log.Warningf("%s", err.Error())
-		} else if conf.IPAddr == "0.0.0.0" {
-			err := errors.Errorf("get 0.0.0.0 ip address of channel %d", lanChannel)
-			errs = append(errs, err)
-			log.Warningf("%s", err.Error())
-			continue
-		} else {
-			channel = lanChannel
-			break
-		}
+	var preferredChannels []uint8
+	if profile != nil {
+		preferredChannels = profile.LanChannels
 	}
-	if conf == nil {
-		return errors.Wrapf(httperrors.ErrNotFound, "no IPMI lan: %s", errors.NewAggregate(errs).Error())
+	ipmiInfo := self.Baremetal.GetRawIPMIConfig()
+	if ipmiInfo == nil {
+		ipmiInfo = &types.SIPMIInfo{}
 	}
+	discovery, err := ipmitool.DiscoverLanConfig(cli, preferredChannels, ipmitool.LanConfigSelectionOptions{
+		ConnectedIP:         ipmiInfo.IpAddr,
+		PersistedChannel:    ipmiInfo.LanChannel,
+		RequireConfiguredIP: true,
+		AllowFallback:       profile == nil,
+	})
+	if err != nil {
+		return errors.Wrapf(httperrors.ErrNotFound, "no IPMI lan: %s", err)
+	}
+	if discovery == nil || discovery.Selected == nil || discovery.Selected.Config == nil {
+		return errors.Wrap(httperrors.ErrNotFound, "no IPMI lan selected")
+	}
+	conf := discovery.Selected.Config
+	channel := discovery.Selected.Channel
 	err = self.sendIpmiNicInfo(ctx, conf)
 	if err != nil {
 		return errors.Wrap(err, "self.sendIpmiNicInfo")
@@ -244,10 +243,6 @@ func (self *SBaremetalIpmiProbeTask) doRawIpmiProbe(ctx context.Context, cli ipm
 		updateInfo["uuid"] = guid
 	}
 	updateInfo["is_baremetal"] = true
-	ipmiInfo := self.Baremetal.GetRawIPMIConfig()
-	if ipmiInfo == nil {
-		ipmiInfo = &types.SIPMIInfo{}
-	}
 	ipmiInfo.Present = true
 	ipmiInfo.Verified = true
 	ipmiInfo.RedfishApi = false

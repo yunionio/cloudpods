@@ -508,18 +508,18 @@ func (m *SBaremetalManager) checkIpmiInfo(ctx context.Context, username, passwor
 		return 0, nil, errors.Wrap(err, "GetProfile")
 	}
 
-	for _, lanChannel := range profile.LanChannels {
-		config, err := ipmitool.GetLanConfig(lanPlusTool, lanChannel)
-		if err != nil {
-			log.Errorf("GetLanConfig failed %s", err)
-			continue
-		}
-		if len(config.Mac) == 0 {
-			continue
-		}
-		return lanChannel, config.Mac, nil
+	discovery, err := ipmitool.DiscoverLanConfig(lanPlusTool, profile.LanChannels, ipmitool.LanConfigSelectionOptions{
+		ConnectedIP:         ipAddr,
+		RequireConfiguredIP: true,
+		AllowFallback:       false,
+	})
+	if err != nil {
+		return 0, nil, errors.Wrap(err, "DiscoverLanConfig")
 	}
-	return 0, nil, fmt.Errorf("Ipmi can't fetch lan config")
+	if discovery == nil || discovery.Selected == nil || discovery.Selected.Config == nil {
+		return 0, nil, fmt.Errorf("Ipmi can't select lan config")
+	}
+	return discovery.Selected.Channel, discovery.Selected.Config.Mac, nil
 }
 
 func (m *SBaremetalManager) Stop() {
