@@ -46,6 +46,7 @@ const (
 	ContainerDeviceTypeNvidiaGpuShare ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_GPU_SHARE
 	ContainerDeviceTypeNvidiaHAMI     ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_HAMI
 	ContainerDeviceTypeAscendNpu      ContainerDeviceType = api.CONTAINER_DEV_ASCEND_NPU
+	ContainerDeviceTypeAscendNpuHami  ContainerDeviceType = api.CONTAINER_DEV_ASCEND_NPU_HAMI
 	ContainerDeviceTypeVastaitechGpu  ContainerDeviceType = api.CONTAINER_DEV_VASTAITECH_GPU
 )
 
