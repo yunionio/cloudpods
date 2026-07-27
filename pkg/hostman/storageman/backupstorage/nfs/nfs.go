@@ -57,7 +57,10 @@ func (s *SNFSBackupStorage) getBackupDir() string {
 	return path.Join(s.Path, "backups")
 }
 
-func (s *SNFSBackupStorage) getBackupDiskPath(backupId string) string {
+func (s *SNFSBackupStorage) getBackupDiskPath(backupId string, backupFilePath string) string {
+	if len(backupFilePath) > 0 {
+		return backupFilePath
+	}
 	return path.Join(s.getBackupDir(), backupId)
 }
 
@@ -65,7 +68,7 @@ func (s *SNFSBackupStorage) getPackageDir() string {
 	return path.Join(s.Path, "backuppacks")
 }
 
-func (s *SNFSBackupStorage) getBackupInstancePath(backupInstanceId string) string {
+func (s *SNFSBackupStorage) getBackupInstancePath(backupInstanceId string, backupFilePath string) string {
 	return path.Join(s.getPackageDir(), backupInstanceId)
 }
 
@@ -124,22 +127,22 @@ func (s *SNFSBackupStorage) unMount() error {
 	return nil
 }
 
-func (s *SNFSBackupStorage) SaveBackupFrom(ctx context.Context, srcFile io.Reader, fileSize int64, backupId string) error {
-	return s.saveFile(ctx, srcFile, fileSize, backupId, s.getBackupDiskPath)
+func (s *SNFSBackupStorage) SaveBackupFrom(ctx context.Context, srcFile io.Reader, fileSize int64, backupId string, backupFilePath string) error {
+	return s.saveFile(ctx, srcFile, fileSize, backupId, backupFilePath, s.getBackupDiskPath)
 }
 
 func (s *SNFSBackupStorage) SaveBackupInstanceFrom(ctx context.Context, srcFile io.Reader, fileSize int64, backupId string) error {
-	return s.saveFile(ctx, srcFile, fileSize, backupId, s.getBackupDiskPath)
+	return s.saveFile(ctx, srcFile, fileSize, backupId, "", s.getBackupInstancePath)
 }
 
-func (s *SNFSBackupStorage) saveFile(ctx context.Context, srcFile io.Reader, fileSize int64, id string, getPathFunc func(string) string) error {
+func (s *SNFSBackupStorage) saveFile(ctx context.Context, srcFile io.Reader, fileSize int64, id string, backupFilePath string, getPathFunc func(string, string) string) error {
 	err := s.checkAndMount()
 	if err != nil {
 		return errors.Wrap(err, "unable to checkAndMount")
 	}
 	defer s.unMount()
 
-	targetFilename := getPathFunc(id)
+	targetFilename := getPathFunc(id, backupFilePath)
 
 	targetFile, err := os.Create(targetFilename)
 	if err != nil {
@@ -154,22 +157,22 @@ func (s *SNFSBackupStorage) saveFile(ctx context.Context, srcFile io.Reader, fil
 	return nil
 }
 
-func (s *SNFSBackupStorage) RestoreBackupTo(ctx context.Context, targetFilename string, backupId string) error {
-	return s.restoreFile(ctx, targetFilename, backupId, s.getBackupDiskPath)
+func (s *SNFSBackupStorage) RestoreBackupTo(ctx context.Context, targetFilename string, backupId string, backupFilePath string) error {
+	return s.restoreFile(ctx, targetFilename, backupId, backupFilePath, s.getBackupDiskPath)
 }
 
 func (s *SNFSBackupStorage) RestoreBackupInstanceTo(ctx context.Context, targetFilename string, backupId string) error {
-	return s.restoreFile(ctx, targetFilename, backupId, s.getBackupInstancePath)
+	return s.restoreFile(ctx, targetFilename, backupId, "", s.getBackupInstancePath)
 }
 
-func (s *SNFSBackupStorage) restoreFile(ctx context.Context, targetFilename string, id string, getPathFunc func(string) string) error {
+func (s *SNFSBackupStorage) restoreFile(ctx context.Context, targetFilename string, id string, backupFilePath string, getPathFunc func(string, string) string) error {
 	err := s.checkAndMount()
 	if err != nil {
 		return errors.Wrap(err, "unable to checkAndMount")
 	}
 	defer s.unMount()
 
-	srcFilename := getPathFunc(id)
+	srcFilename := getPathFunc(id, backupFilePath)
 	if output, err := procutils.NewCommand("cp", srcFilename, targetFilename).Output(); err != nil {
 		log.Errorf("unable to cp %s to %s: %s", srcFilename, targetFilename, output)
 		return errors.Wrapf(err, "cp %s to %s failed and output is %q", srcFilename, targetFilename, output)
@@ -177,22 +180,22 @@ func (s *SNFSBackupStorage) restoreFile(ctx context.Context, targetFilename stri
 	return nil
 }
 
-func (s *SNFSBackupStorage) RemoveBackup(ctx context.Context, backupId string) error {
-	return s.removeFile(ctx, backupId, s.getBackupDiskPath)
+func (s *SNFSBackupStorage) RemoveBackup(ctx context.Context, backupId string, backupFilePath string) error {
+	return s.removeFile(ctx, backupId, backupFilePath, s.getBackupDiskPath)
 }
 
 func (s *SNFSBackupStorage) RemoveBackupInstance(ctx context.Context, backupId string) error {
-	return s.removeFile(ctx, backupId, s.getBackupInstancePath)
+	return s.removeFile(ctx, backupId, "", s.getBackupInstancePath)
 }
 
-func (s *SNFSBackupStorage) removeFile(ctx context.Context, id string, getPathFunc func(id string) string) error {
+func (s *SNFSBackupStorage) removeFile(ctx context.Context, id string, backupFilePath string, getPathFunc func(string, string) string) error {
 	err := s.checkAndMount()
 	if err != nil {
 		return errors.Wrap(err, "unable to checkAndMount")
 	}
 	defer s.unMount()
 
-	filename := getPathFunc(id)
+	filename := getPathFunc(id, backupFilePath)
 	if !fileutils2.Exists(filename) {
 		return nil
 	}
@@ -203,26 +206,34 @@ func (s *SNFSBackupStorage) removeFile(ctx context.Context, id string, getPathFu
 	return nil
 }
 
-func (s *SNFSBackupStorage) IsBackupExists(backupId string) (bool, string, error) {
-	return s.isFileExists(backupId, s.getBackupDiskPath)
+func (s *SNFSBackupStorage) IsBackupExists(backupId string, backupFilePath string) (bool, int64, string, error) {
+	return s.isFileExists(backupId, s.getBackupDiskPath, backupFilePath)
 }
 
-func (s *SNFSBackupStorage) IsBackupInstanceExists(backupId string) (bool, string, error) {
-	return s.isFileExists(backupId, s.getBackupInstancePath)
+func (s *SNFSBackupStorage) IsBackupInstanceExists(backupId string) (bool, int64, string, error) {
+	return s.isFileExists(backupId, s.getBackupInstancePath, "")
 }
 
-func (s *SNFSBackupStorage) isFileExists(id string, getPathFunc func(id string) string) (bool, string, error) {
+func (s *SNFSBackupStorage) isFileExists(id string, getPathFunc func(string, string) string, backupFilePath string) (bool, int64, string, error) {
 	err := s.checkAndMount()
 	if err != nil {
 		if errors.Cause(err) == ErrorBackupStorageOffline {
-			return false, err.Error(), nil
+			return false, -1, err.Error(), nil
 		}
-		return false, "", errors.Wrap(err, "unable to checkAndMount")
+		return false, -1, "", errors.Wrap(err, "unable to checkAndMount")
 	}
 	defer s.unMount()
 
-	filename := getPathFunc(id)
-	return fileutils2.Exists(filename), "", nil
+	filename := getPathFunc(id, backupFilePath)
+	exists := fileutils2.Exists(filename)
+	if !exists {
+		return false, -1, "", nil
+	}
+	stat, err := os.Stat(filename)
+	if err != nil {
+		return false, -1, "", errors.Wrap(err, "os.Stat")
+	}
+	return true, stat.Size(), "", nil
 }
 
 func (s *SNFSBackupStorage) IsOnline() (bool, string, error) {
@@ -237,6 +248,6 @@ func (s *SNFSBackupStorage) IsOnline() (bool, string, error) {
 	return true, "", nil
 }
 
-func (s *SNFSBackupStorage) GetExternalAccessUrl(backupId string) (string, error) {
+func (s *SNFSBackupStorage) GetExternalAccessUrl(backupId string, backupFilePath string) (string, error) {
 	return "", errors.ErrNotSupported
 }

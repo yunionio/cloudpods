@@ -358,11 +358,12 @@ type DiskAllocateInput struct {
 }
 
 type DiskAllocateFromBackupInput struct {
-	BackupId                string                `json:"backup_id"`
-	BackupStorageId         string                `json:"backup_storage_id"`
-	BackupStorageAccessInfo *jsonutils.JSONDict   `json:"backup_storage_access_info"`
-	DiskConfig              *DiskConfig           `json:"disk_config"`
-	BackupAsTar             *DiskBackupAsTarInput `json:"backup_as_tar"`
+	BackupId                string                    `json:"backup_id"`
+	BackupStorageId         string                    `json:"backup_storage_id"`
+	BackupStorageAccessInfo *SBackupStorageAccessInfo `json:"backup_storage_access_info"`
+	DiskConfig              *DiskConfig               `json:"disk_config"`
+	BackupAsTar             *DiskBackupAsTarInput     `json:"backup_as_tar"`
+	BackupFilePath          string                    `json:"backup_file_path"`
 }
 
 type DiskDeleteInput struct {
