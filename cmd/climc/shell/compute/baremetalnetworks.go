@@ -58,7 +58,7 @@ func init() {
 
 	type HostNetworkDetailOptions struct {
 		HOST    string `help:"ID or Name of Host"`
-		NETWORK string `help:"ID or Name of Wire"`
+		NETWORK string `help:"ID or Name of Network"`
 	}
 	R(&HostNetworkDetailOptions{}, "host-network-show", "Show baremetal network details", func(s *mcclient.ClientSession, args *HostNetworkDetailOptions) error {
 		result, err := modules.Baremetalnetworks.Get(s, args.HOST, args.NETWORK, nil)
