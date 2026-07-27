@@ -75,8 +75,8 @@ type CloudproviderSyncOptions struct {
 	FullSync    bool     `help:"Synchronize everything"`
 	ProjectSync bool     `help:"Auto sync project info"`
 	Region      []string `help:"region to sync"`
-	Zone        []string `help:"region to sync"`
-	Host        []string `help:"region to sync"`
+	Zone        []string `help:"zone to sync"`
+	Host        []string `help:"host to sync"`
 }
 
 func (opts *CloudproviderSyncOptions) Params() (jsonutils.JSONObject, error) {

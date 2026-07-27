@@ -48,7 +48,7 @@ type ServerListOptions struct {
 	Gpu                *bool    `help:"Show gpu servers"`
 	Secgroup           string   `help:"Secgroup ID or Name"`
 	AdminSecgroup      string   `help:"AdminSecgroup ID or Name"`
-	Hypervisor         string   `help:"Show server of hypervisor" choices:"kvm|esxi|pod|baremetal|aliyun|azure|aws|huawei|ucloud|volcengine|zstack|openstack|google|ctyun|incloudsphere|nutanix|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox|ksyun|baidu|cucloud|qingcloud|sangfor|zettakit|uis|cas|cnware" mcp:"true"`
+	Hypervisor         string   `help:"Show server of hypervisor" choices:"kvm|esxi|pod|baremetal|aliyun|apsara|azure|aws|huawei|ucloud|volcengine|zstack|openstack|google|ctyun|incloudsphere|nutanix|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox|ksyun|baidu|cucloud|qingcloud|oracle|sangfor|zettakit|uis|cas|cnware|rockbase" mcp:"true"`
 	Region             string   `help:"Show servers in cloudregion" mcp:"true"`
 	WithEip            *bool    `help:"Show Servers with EIP"`
 	WithoutEip         *bool    `help:"Show Servers without EIP"`
@@ -58,8 +58,8 @@ type ServerListOptions struct {
 	WithoutUserMeta    *bool    `help:"Show Servers without user metadata"`
 	EipAssociable      *bool    `help:"Show Servers can associate with eip"`
 	HostSn             string   `help:"Host SN"`
-	IpAddr             string   `help:"Fileter by ip" mcp:"true"`
-	IpAddrs            []string `help:"Fileter by ips"`
+	IpAddr             string   `help:"Filter by ip" mcp:"true"`
+	IpAddrs            []string `help:"Filter by ips"`
 
 	OrderByDisk    string `help:"Order by disk size" choices:"asc|desc"`
 	OrderByOsDist  string `help:"Order by os distribution" choices:"asc|desc"`
@@ -122,7 +122,7 @@ type ServerSSHLoginOptions struct {
 type ServerConvertToKvmOptions struct {
 	ServerIdsOptions
 
-	PreferHost string `help:"Perfer host id or name" json:"prefer_host"`
+	PreferHost string `help:"Prefer host id or name" json:"prefer_host"`
 }
 
 func (o *ServerConvertToKvmOptions) Params() (jsonutils.JSONObject, error) {
@@ -265,7 +265,7 @@ func ParseServerDeployInfoList(list []string) ([]*computeapi.DeployConfig, error
 }
 
 type ServerCreateCommonConfig struct {
-	Manager string   `help:"Preferred cloudprovider where virtual server should bd created" json:"prefer_manager" mcp:"true"`
+	Manager string   `help:"Preferred cloudprovider where virtual server should be created" json:"prefer_manager" mcp:"true"`
 	Region  string   `help:"Preferred region where virtual server should be created" json:"prefer_region" mcp:"true"`
 	Zone    string   `help:"Preferred zone where virtual server should be created" json:"prefer_zone" mcp:"true"`
 	Zones   []string `help:"Preferred zones where virtual server should be created" json:"prefer_zones"`
@@ -278,7 +278,7 @@ type ServerCreateCommonConfig struct {
 	NetPortMapping []string `help:"Network port mapping, e.g. 'index=0,port=80,host_port=8080,protocol=<tcp|udp>,host_port_range=<int>-<int>,remote_ips=x.x.x.x|y.y.y.y'" short-token:"p"`
 	NetSchedtag    []string `help:"Network schedtag description, e.g. '0:<tag>:<strategy>'"`
 	IsolatedDevice []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
-	Project        string   `help:"'Owner project ID or Name" json:"tenant" mcp:"true"`
+	Project        string   `help:"Owner project ID or Name" json:"tenant" mcp:"true"`
 	User           string   `help:"Owner user ID or Name"`
 	Count          int      `help:"Create multiple simultaneously" default:"1" mcp:"true"`
 	Disk           []string `help:"
@@ -289,7 +289,7 @@ type ServerCreateCommonConfig struct {
 	fs_features: casefold
 	format: qcow2, raw, docker, iso, vmdk, vmdkflatver1, vmdkflatver2, vmdkflat, vmdksparse, vmdksparsever1, vmdksparsever2, vmdksesparse, vhd
 	driver: virtio, ide, scsi, sata, pvscsi
-	cache_mod: writeback, none, writethrough
+	cache_mode: writeback, none, writethrough
 	medium: rotate, ssd, hybrid
 	disk_type: sys, data
 	mountpoint: /, /opt
@@ -302,7 +302,7 @@ type ServerCreateCommonConfig struct {
 		--disk 'image_id=c2be02a4-7ff2-43e6-8a00-a489e04d2d6f,size=10G,driver=ide,storage_type=rbd,auto_delete=true'
 		--disk 'size=40g,image=<id>,backend=cloud_essd'
 		--disk 'size=500M'
-		--disk 'snpahost_id=1ceb8c6d-6571-451d-8957-4bd3a871af85'
+		--disk 'snapshot_id=1ceb8c6d-6571-451d-8957-4bd3a871af85'
 	" nargs:"+" mcp:"true"`
 	DiskSchedtag []string `help:"Disk schedtag description, e.g. '0:<tag>:<strategy>'"`
 }
@@ -388,9 +388,9 @@ func (o ServerCreateCommonConfig) Data() (*computeapi.ServerConfigs, error) {
 
 type ServerConfigs struct {
 	ServerCreateCommonConfig
-	Hypervisor                   string `help:"Hypervisor type" choices:"kvm|pod|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack|ucloud|volcengine|zstack|google|ctyun|incloudsphere|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox|sangfor|zettakit|uis|cas|cnware" mcp:"true"`
+	Hypervisor                   string `help:"Hypervisor type" choices:"kvm|pod|esxi|baremetal|container|aliyun|apsara|azure|qcloud|aws|huawei|openstack|ucloud|volcengine|zstack|google|ctyun|incloudsphere|bingocloud|cloudpods|ecloud|jdcloud|remotefile|h3c|hcs|hcso|hcsop|proxmox|ksyun|baidu|cucloud|qingcloud|oracle|sangfor|zettakit|uis|cas|cnware|rockbase" mcp:"true"`
 	Backup                       bool   `help:"Create server with backup server"`
-	BackupHost                   string `help:"Perfered host where virtual backup server should be created"`
+	BackupHost                   string `help:"Preferred host where virtual backup server should be created"`
 	AutoSwitchToBackupOnHostDown bool   `help:"Auto switch to backup server on host down"`
 	Daemon                       *bool  `help:"Set as a daemon server" json:"is_daemon"`
 
@@ -431,10 +431,10 @@ func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 
 type ServerCloneOptions struct {
 	SOURCE      string `help:"Source server id or name"  json:"-"`
-	TARGET_NAME string `help:"Name of newly server" json:"name"`
+	TARGET_NAME string `help:"Name of the new server" json:"name"`
 	AutoStart   bool   `help:"Auto start server after it is created"`
 
-	EipBw         int    `help:"allocate EIP with bandwidth in MB when server is created" json:"eip_bw,omitzero"`
+	EipBw         int    `help:"allocate EIP with bandwidth in Mbps when server is created" json:"eip_bw,omitzero"`
 	EipChargeType string `help:"newly allocated EIP charge type" choices:"traffic|bandwidth" json:"eip_charge_type,omitempty"`
 	Eip           string `help:"associate with an existing EIP when server is created" json:"eip,omitempty"`
 }
@@ -452,14 +452,14 @@ func (o *ServerCloneOptions) Description() string {
 }
 
 type ServerCreateFromInstanceSnapshot struct {
-	InstaceSnapshotId string `help:"Instace snapshot id or name"`
-	NAME              string `help:"Name of newly server" json:"name"`
+	InstaceSnapshotId string `help:"Instance snapshot id or name"`
+	NAME              string `help:"Name of the new server" json:"name"`
 	AutoStart         bool   `help:"Auto start server after it is created"`
-	AllowDelete       bool   `help:"Unlock server to allow deleting"`
+	AllowDelete       bool   `help:"Allow deleting the server (disable_delete=false)"`
 
-	EipBw         int    `help:"allocate EIP with bandwidth in MB when server is created" json:"eip_bw,omitzero"`
-	EipTxBw       int    `help:"allocate EIP with上行带宽 in MB when server is created" json:"eip_tx_bw,omitzero"`
-	EipRxBw       int    `help:"allocate EIP with下行带宽 in MB when server is created" json:"eip_rx_bw,omitzero"`
+	EipBw         int    `help:"allocate EIP with bandwidth in Mbps when server is created" json:"eip_bw,omitzero"`
+	EipTxBw       int    `help:"allocate EIP with outbound bandwidth in Mbps when server is created" json:"eip_tx_bw,omitzero"`
+	EipRxBw       int    `help:"allocate EIP with inbound bandwidth in Mbps when server is created" json:"eip_rx_bw,omitzero"`
 	EipChargeType string `help:"newly allocated EIP charge type" choices:"traffic|bandwidth" json:"eip_charge_type,omitempty"`
 	Eip           string `help:"associate with an existing EIP when server is created" json:"eip,omitempty"`
 }
@@ -489,14 +489,14 @@ type ServerCreateOptionalOptions struct {
 	ExtraCpuCount    int      `help:"Extra allocate cpu count" json:"extra_cpu_count"`
 	InstanceType     string   `help:"instance flavor" mcp:"true"`
 	Vga              string   `help:"VGA driver" choices:"std|vmware|cirrus|qxl|virtio"`
-	Vdi              string   `help:"VDI protocool" choices:"vnc|spice"`
+	Vdi              string   `help:"VDI protocol" choices:"vnc|spice"`
 	Bios             string   `help:"BIOS" choices:"BIOS|UEFI" mcp:"true"`
 	Machine          string   `help:"Machine type" choices:"pc|q35"`
 	Desc             string   `help:"Description" metavar:"<DESCRIPTION>" json:"description"`
 	Boot             string   `help:"Boot device" metavar:"<BOOT_DEVICE>" choices:"disk|cdrom" json:"-"`
 	EnableCloudInit  bool     `help:"Enable cloud-init service"`
 	NoAccountInit    *bool    `help:"Not reset account password"`
-	AllowDelete      *bool    `help:"Unlock server to allow deleting" json:"-"`
+	AllowDelete      *bool    `help:"Allow deleting the server (disable_delete=false)" json:"-"`
 	ShutdownBehavior string   `help:"Behavior after VM server shutdown" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate|stop_release_gpu"`
 	AutoStart        bool     `help:"Auto start server after it is created" mcp:"true"`
 	Deploy           []string `help:"Specify deploy files in virtual server file system" json:"-"`
@@ -508,7 +508,7 @@ type ServerCreateOptionalOptions struct {
 	DryRun           *bool    `help:"Dry run to validate create params (not preschedule)；MCP 创建会自动调 scheduler-forecast 预调度，一般无需手动传" json:"-" mcp:"true"`
 	UserDataFile     string   `help:"user_data file path" json:"-"`
 	InstanceSnapshot string   `help:"instance snapshot" json:"instance_snapshot"`
-	Secgroups        []string `help:"secgroups" json:"secgroups"`
+	Secgroups        []string `help:"Security group IDs or names" json:"secgroups"`
 	NetworkTags      []string `help:"GCP network tags, google only; when set, secgroups can be omitted" json:"network_tags"`
 
 	OsType string `help:"os type, e.g. Linux, Windows, etc." mcp:"true"`
@@ -528,14 +528,14 @@ type ServerCreateOptionalOptions struct {
 
 	GenerateName bool `help:"name is generated by pattern" json:"-" mcp:"true"`
 
-	EipBw         int    `help:"allocate EIP with bandwidth in MB when server is created" json:"eip_bw,omitzero"`
-	EipTxBw       int    `help:"allocate EIP with上行带宽 in MB when server is created" json:"eip_tx_bw,omitzero"`
-	EipRxBw       int    `help:"allocate EIP with下行带宽 in MB when server is created" json:"eip_rx_bw,omitzero"`
-	EipBgpType    string `help:"desired BGP type of newly alloated EIP" json:"eip_bgp_type,omitzero"`
+	EipBw         int    `help:"allocate EIP with bandwidth in Mbps when server is created" json:"eip_bw,omitzero"`
+	EipTxBw       int    `help:"allocate EIP with outbound bandwidth in Mbps when server is created" json:"eip_tx_bw,omitzero"`
+	EipRxBw       int    `help:"allocate EIP with inbound bandwidth in Mbps when server is created" json:"eip_rx_bw,omitzero"`
+	EipBgpType    string `help:"desired BGP type of newly allocated EIP" json:"eip_bgp_type,omitzero"`
 	EipChargeType string `help:"newly allocated EIP charge type" choices:"traffic|bandwidth" json:"eip_charge_type,omitempty"`
 	Eip           string `help:"associate with an existing EIP when server is created" json:"eip,omitempty"`
 
-	PublicIpBw         int    `help:"associate public ip with bandwidth in MB where server is created" json:"public_ip_bw,omitzero"`
+	PublicIpBw         int    `help:"associate public ip with bandwidth in Mbps when server is created" json:"public_ip_bw,omitzero"`
 	PublicIpChargeType string `help:"newly allocated public ip charge type" choices:"traffic|bandwidth" json:"public_ip_charge_type,omitempty"`
 
 	GuestImageID string `help:"create from guest image, need to specify the guest image id" mcp:"true"`
@@ -1161,7 +1161,7 @@ func (o *ServerSaveGuestImageOptions) Description() string {
 
 type ServerChangeOwnerOptions struct {
 	ID      string `help:"Server to change owner" json:"-"`
-	PROJECT string `help:"Project ID or change" json:"tenant"`
+	PROJECT string `help:"Target project ID or name" json:"tenant"`
 }
 
 func (o *ServerChangeOwnerOptions) GetId() string {
@@ -1379,7 +1379,7 @@ type ServerLiveMigrateOptions struct {
 	SkipKernelCheck *bool  `help:"Skip target kernel version check" json:"skip_kernel_check"`
 	EnableTLS       *bool  `help:"Enable tls migration" json:"enable_tls"`
 	QuicklyFinish   *bool  `help:"quickly finish, fix downtime after a few rounds of memory synchronization"`
-	MaxBandwidthMb  *int64 `help:"live migrate downtime, unit MB"`
+	MaxBandwidthMb  *int64 `help:"live migrate max bandwidth, unit MB"`
 
 	KeepDestGuestOnFailed *bool `help:"do not delete dest guest on migrate failed, for debug"`
 }
@@ -1394,7 +1394,7 @@ func (o *ServerLiveMigrateOptions) Params() (jsonutils.JSONObject, error) {
 
 type ServerSetLiveMigrateParamsOptions struct {
 	ID              string `help:"ID of server" json:"-"`
-	MaxBandwidthMB  *int64 `help:"live migrate downtime, unit MB"`
+	MaxBandwidthMB  *int64 `help:"live migrate max bandwidth, unit MB"`
 	DowntimeLimitMS *int64 `help:"live migrate downtime limit"`
 }
 

@@ -24,15 +24,15 @@ import (
 )
 
 type BaseActionListOptions struct {
-	Scope         string   `help:"scope" choices:"project|domain|system"`
+	Scope         string   `help:"RBAC scope" choices:"project|domain|system"`
 	Since         string   `help:"Show logs since specific date" metavar:"DATETIME"`
 	Until         string   `help:"Show logs until specific date" metavar:"DATETIME"`
 	Limit         int64    `help:"Limit number of logs" default:"20"`
-	Offset        int64    `help:"Offset"`
+	Offset        int64    `help:"Offset for pagination"`
 	Ascending     bool     `help:"Ascending order"`
 	Descending    bool     `help:"Descending order"`
-	Field         []string `help:"field options"`
-	Action        []string `help:"Log action"`
+	Field         []string `help:"Fields to return"`
+	Action        []string `help:"Filter by log action"`
 	Search        string   `help:"Filter action logs by obj_name, using 'like' syntax."`
 	Admin         bool     `help:"admin mode"`
 	Succ          bool     `help:"Show success action log only"`
@@ -57,7 +57,7 @@ type ActionListOptions struct {
 
 type TypeActionListOptions struct {
 	BaseActionListOptions
-	ID string `help:"" metavar:"OBJ_ID"`
+	ID string `help:"Object ID" metavar:"OBJ_ID"`
 }
 
 func doActionList(s *mcclient.ClientSession, args *ActionListOptions) error {

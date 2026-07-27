@@ -60,7 +60,7 @@ type LLMSkuBaseUpdateOptions struct {
 	ID string
 
 	Cpu         *int
-	Memory      *int `help:"memory size GB"`
+	Memory      *int `help:"memory size MB"`
 	DiskSize    *int `help:"disk size MB"`
 	StorageType string
 	TemplateId  string

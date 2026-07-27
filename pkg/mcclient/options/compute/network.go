@@ -70,7 +70,7 @@ type NetworkCreateOptions struct {
 	WIRE    string `help:"ID or Name of wire in which the network is created"`
 	NETWORK string `help:"Name of new network"`
 	StartIp string `help:"Start of IPv4 address range" positional:"true" json:"start_ip"`
-	EndIp   string `help:"End of IPv4 address rnage" positional:"true" json:"end_ip"`
+	EndIp   string `help:"End of IPv4 address range" positional:"true" json:"end_ip"`
 	NetMask int64  `help:"Length of network mask" positional:"true" json:"net_mask"`
 	Gateway string `help:"Default gateway"`
 
@@ -84,7 +84,7 @@ type NetworkCreateOptions struct {
 	AllocPolicy string `help:"Address allocation policy" choices:"none|stepdown|stepup|random"`
 	ServerType  string `help:"Server type" choices:"baremetal|container|eip|guest|ipmi|pxe|hostlocal"`
 	IsAutoAlloc *bool  `help:"Auto allocation IP pool"`
-	BgpType     string `help:"Internet service provider name" positional:"false"`
+	BgpType     string `help:"BGP/line type (e.g. BGP, ChinaTelecom)" positional:"false"`
 	Desc        string `help:"Description" metavar:"DESCRIPTION"`
 }
 
