@@ -40,7 +40,7 @@ type ServerSkusListOptions struct {
 	Name                   string `help:"Name of Sku" mcp:"true"`
 	PostpaidStatus         string `help:"Postpaid status；创建优先 available" choices:"soldout|available" mcp:"true"`
 	PrepaidStatus          string `help:"Prepaid status" choices:"soldout|available"`
-	CpuArch                string `help:"Cpu Arch" choices:"x86|arm" mcp:"true"`
+	CpuArch                string `help:"Cpu Arch" choices:"x86|aarch64" mcp:"true"`
 	Enabled                *bool  `help:"Filter enabled skus" mcp:"true"`
 	Distinct               bool   `help:"distinct sku by name"`
 	OrderByTotalGuestCount string

@@ -31,7 +31,7 @@ type SecGroupRulesListOptions struct {
 	Projects     []string `help:"Filter rules by project" mcp:"true"`
 	Direction    string   `help:"filter Direction of rule" choices:"in|out" mcp:"true"`
 	Protocol     string   `help:"filter Protocol of rule" choices:"any|tcp|udp|icmp" mcp:"true"`
-	Action       string   `help:"filter Actin of rule" choices:"allow|deny" mcp:"true"`
+	Action       string   `help:"filter Action of rule" choices:"allow|deny" mcp:"true"`
 	Ports        string   `help:"filter Ports of rule" mcp:"true"`
 	Ip           string   `help:"filter cidr of rule" mcp:"true"`
 }
@@ -86,7 +86,7 @@ type SecGroupRulesUpdateOptions struct {
 	Protocol string `help:"Protocol of rule" choices:"any|tcp|udp|icmp"`
 	Ports    string `help:"Ports of rule"`
 	Cidr     string `help:"Cidr of rule"`
-	Action   string `help:"filter Actin of rule" choices:"allow|deny"`
+	Action   string `help:"filter Action of rule" choices:"allow|deny"`
 	Desc     string `help:"Description" metavar:"Description"`
 }
 

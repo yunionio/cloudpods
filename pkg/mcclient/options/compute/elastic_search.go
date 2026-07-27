@@ -44,7 +44,7 @@ type ElasticSearchUpdateOptions struct {
 	ElasticSearchIdOption
 	Name        string
 	Description string
-	Delete      string `help:"Lock or not lock dbinstance" choices:"enable|disable"`
+	Delete      string `help:"Lock or unlock Elasticsearch deletion (disable=lock, enable=unlock)" choices:"enable|disable"`
 }
 
 func (opts *ElasticSearchUpdateOptions) Params() (jsonutils.JSONObject, error) {

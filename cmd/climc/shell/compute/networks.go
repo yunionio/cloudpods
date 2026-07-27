@@ -212,7 +212,7 @@ func init() {
 
 	type NetworkChangeOwnerOptions struct {
 		ID      string `help:"Network to change owner" json:"-"`
-		PROJECT string `help:"Project ID or change" json:"tenant"`
+		PROJECT string `help:"Project ID or name" json:"tenant"`
 	}
 	R(&NetworkChangeOwnerOptions{}, "network-change-owner", "Change owner project of a network", func(s *mcclient.ClientSession, args *NetworkChangeOwnerOptions) error {
 		params, err := options.StructToParams(args)

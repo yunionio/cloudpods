@@ -37,11 +37,11 @@ func init() {
 		RoleDomain    string   `help:"Domain for role"`
 		Limit         int64    `help:"maximal returned number of rows"`
 		Offset        int64    `help:"offset index of returned results"`
-		Users         []string `help:"fitler by user id or name"`
-		Groups        []string `help:"fitler by group id or name"`
-		Roles         []string `help:"fitler by role id or name"`
-		Projects      []string `help:"fitler by project id or name"`
-		Domains       []string `help:"fitler by domain id or name"`
+		Users         []string `help:"filter by user id or name"`
+		Groups        []string `help:"filter by group id or name"`
+		Roles         []string `help:"filter by role id or name"`
+		Projects      []string `help:"filter by project id or name"`
+		Domains       []string `help:"filter by domain id or name"`
 
 		ProjectDomainId string
 		ProjectDomains  []string `help:"filter by project's domain id or name"`

@@ -96,7 +96,7 @@ func init() {
 
 	type ServerNetworkUpdateOptions struct {
 		SERVER      string   `help:"ID or Name of Server"`
-		NETWORK     string   `help:"ID or Name of Wire"`
+		NETWORK     string   `help:"ID or Name of Network"`
 		Mac         string   `help:"Mac of NIC"`
 		Driver      string   `help:"Driver model of vNIC" choices:"virtio|e1000|vmxnet3|rtl8139"`
 		Index       int64    `help:"Index of NIC" default:"-1"`
@@ -205,7 +205,7 @@ func init() {
 		Reserve bool   `help:"Put the release IP address into reserved address pool"`
 		Force   bool   `help:"detach server network by force"`
 	}
-	R(&ServerDetachNetworkOptions{}, "server-detach-network", "Detach the virtual network fron a virtual server", func(s *mcclient.ClientSession, args *ServerDetachNetworkOptions) error {
+	R(&ServerDetachNetworkOptions{}, "server-detach-network", "Detach the virtual network from a virtual server", func(s *mcclient.ClientSession, args *ServerDetachNetworkOptions) error {
 		params := jsonutils.NewDict()
 		// params.Add(jsonutils.NewString(args.NETWORK), "net_id")
 		if args.Reserve {

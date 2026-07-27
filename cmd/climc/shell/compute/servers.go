@@ -294,7 +294,7 @@ func init() {
 
 	type ServerDiskSnapshotOptions struct {
 		SERVER       string `help:"server ID or Name"`
-		DISK         string `help:"create snapshot disk id"`
+		DISK         string `help:"Disk ID for snapshot creation"`
 		SNAPSHOTNAME string `help:"Snapshot name"`
 	}
 	R(&ServerDiskSnapshotOptions{}, "server-disk-create-snapshot", "Task server disk snapshot", func(s *mcclient.ClientSession, args *ServerDiskSnapshotOptions) error {
@@ -734,7 +734,7 @@ func init() {
 
 	type ServerSnapshotAndClone struct {
 		ID          string `help:"ID or name of VM" json:"-"`
-		NAME        string `help:"Newly instance name" json:"name"`
+		NAME        string `help:"New instance name" json:"name"`
 		AutoStart   bool   `help:"Auto start new guest"`
 		AllowDelete bool   `help:"Allow new guest delete" json:"-"`
 		Count       int    `help:"Guest count"`
@@ -773,7 +773,7 @@ func init() {
 		ID   string `help:"ID or name of server"`
 		Save string `help:"save xml into this file"`
 	}
-	R(&ServerJnlpOptions{}, "server-jnlp", "Get baremetal server jnlp file contentn", func(s *mcclient.ClientSession, args *ServerJnlpOptions) error {
+	R(&ServerJnlpOptions{}, "server-jnlp", "Get baremetal server jnlp file content", func(s *mcclient.ClientSession, args *ServerJnlpOptions) error {
 		spec, err := modules.Servers.GetSpecific(s, args.ID, "jnlp", nil)
 		if err != nil {
 			return err

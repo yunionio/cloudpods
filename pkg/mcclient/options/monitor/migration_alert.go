@@ -34,7 +34,7 @@ func (o *MigrationAlertListOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type MigrationAlertShowOptions struct {
-	ID string `help:"ID of alart " json:"-"`
+	ID string `help:"ID of alert" json:"-"`
 }
 
 func (o *MigrationAlertShowOptions) Params() (jsonutils.JSONObject, error) {

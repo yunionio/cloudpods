@@ -58,7 +58,7 @@ func (opts *CDNDomainCreateOptions) Params() (jsonutils.JSONObject, error) {
 type CDNDomainUpdateOptions struct {
 	options.BaseIdOptions
 	Description string
-	Delete      string `help:"Lock or not lock cdn domain" choices:"enable|disable"`
+	Delete      string `help:"Lock or unlock CDN domain deletion (disable=lock, enable=unlock)" choices:"enable|disable"`
 }
 
 func (opts *CDNDomainUpdateOptions) Params() (jsonutils.JSONObject, error) {

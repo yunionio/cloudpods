@@ -25,9 +25,9 @@ type ElasticipListOptions struct {
 
 	Region string `help:"List eips in cloudregion" mcp:"true"`
 
-	Usable                    *bool  `help:"List all zones that is usable" mcp:"true"`
-	UsableEipForAssociateType string `help:"With associate id filter which eip can associate" choices:"server|natgateway|loadbalancer" mcp:"true"`
-	UsableEipForAssociateId   string `help:"With associate type filter which eip can associate" mcp:"true"`
+	Usable                    *bool  `help:"List usable EIPs" mcp:"true"`
+	UsableEipForAssociateType string `help:"Filter usable EIPs for given associate type" choices:"server|natgateway|loadbalancer" mcp:"true"`
+	UsableEipForAssociateId   string `help:"Filter usable EIPs for given associate id" mcp:"true"`
 	OrderByIp                 string
 	AssociateId               []string `mcp:"true"`
 	AssociateType             []string `mcp:"true"`
@@ -67,7 +67,7 @@ func (opts *EipCreateOptions) Params() (jsonutils.JSONObject, error) {
 type EipUpdateOptions struct {
 	options.BaseUpdateOptions
 
-	AutoDellocate *string `help:"enable or disable automatically dellocate when dissociate from instance" choices:"true|false"`
+	AutoDellocate *string `help:"enable or disable automatically deallocate when dissociate from instance" choices:"true|false"`
 	IpAddr        string
 	AssociateId   string
 	AssociateType string
@@ -107,7 +107,7 @@ func (opts *EipChangeBandwidthOptions) Params() (jsonutils.JSONObject, error) {
 
 type EipChangeOwnerOptions struct {
 	options.BaseIdOptions
-	PROJECT string `help:"Project ID or change"`
+	PROJECT string `help:"Target project ID or name"`
 	//RawId   bool   `help:"User raw ID, instead of name"`
 }
 
