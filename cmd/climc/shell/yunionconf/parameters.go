@@ -32,10 +32,10 @@ import (
 
 func init() {
 	type ParametersListOptions struct {
-		Name        string `help:"List parameter of specificated name"`
-		NamespaceId string `help:"List parameter of specificated namespace id, ADMIN only"`
-		User        string `help:"List parameter of specificated user id, ADMIN only" token:"user-id"`
-		Service     string `help:"List parameter of specificated service id, ADMIN only"`
+		Name        string `help:"List parameter of specified name"`
+		NamespaceId string `help:"List parameter of specified namespace id, ADMIN only"`
+		User        string `help:"List parameter of specified user id, ADMIN only" token:"user-id"`
+		Service     string `help:"List parameter of specified service id, ADMIN only"`
 		options.BaseListOptions
 	}
 
@@ -72,9 +72,9 @@ func init() {
 	})
 
 	type ParametersShowOptions struct {
-		NamespaceId string `help:"Show parameter of specificated namespace id, ADMIN only"`
-		User        string `help:"Show parameter of specificated user id, ADMIN only"`
-		Service     string `help:"Show parameter of specificated service id, ADMIN only"`
+		NamespaceId string `help:"Show parameter of specified namespace id, ADMIN only"`
+		User        string `help:"Show parameter of specified user id, ADMIN only"`
+		Service     string `help:"Show parameter of specified service id, ADMIN only"`
 		NAME        string `help:"The name of parameter"`
 	}
 
@@ -109,8 +109,8 @@ func init() {
 	})
 
 	type ParametersCreateOptions struct {
-		User    string `help:"Create parameter for specificated user id, ADMIN only"`
-		Service string `help:"Create parameter for specificated service id, ADMIN only"`
+		User    string `help:"Create parameter for specified user id, ADMIN only"`
+		Service string `help:"Create parameter for specified service id, ADMIN only"`
 		NAME    string `help:"The name of parameter"`
 		VALUE   string `help:"The content of parameter"`
 	}
@@ -140,9 +140,9 @@ func init() {
 	})
 
 	type ParametersEditOptions struct {
-		NamespaceId string `help:"List parameter of specificated namespace id, ADMIN only"`
-		User        string `help:"Update parameter of specificated user id, ADMIN only"`
-		Service     string `help:"Update parameter of specificated service id, ADMIN only"`
+		NamespaceId string `help:"List parameter of specified namespace id, ADMIN only"`
+		User        string `help:"Update parameter of specified user id, ADMIN only"`
+		Service     string `help:"Update parameter of specified service id, ADMIN only"`
 		NAME        string `help:"The name of parameter"`
 	}
 
@@ -222,8 +222,8 @@ func init() {
 	})
 
 	type ParametersDeleteOptions struct {
-		User    string `help:"Delete parameter of specificated user id, ADMIN only"`
-		Service string `help:"Delete parameter of specificated service id, ADMIN only"`
+		User    string `help:"Delete parameter of specified user id, ADMIN only"`
+		Service string `help:"Delete parameter of specified service id, ADMIN only"`
 		NAME    string `help:"The name of parameter"`
 	}
 
@@ -248,8 +248,8 @@ func init() {
 	})
 
 	type ParameterCloneOptions struct {
-		User        string `help:"Clone parameter of specificated user id"`
-		Service     string `help:"Clone parameter of specificated service id"`
+		User        string `help:"Clone parameter of specified user id"`
+		Service     string `help:"Clone parameter of specified service id"`
 		NAME        string `help:"The name of parameter"`
 		DestUser    string `help:"destination user id of clone action"`
 		DestService string `help:"destination service id of clone action"`

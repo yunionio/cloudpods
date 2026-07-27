@@ -151,7 +151,7 @@ func init() {
 		Desc        string  `help:"Description" json:"description" token:"desc"`
 		Latitude    float32 `help:"region geographical location - latitude"`
 		Longitude   float32 `help:"region geographical location - longitude"`
-		City        string  `help:"region geograpical location - city, e.g. Beijing, Frankfurt"`
+		City        string  `help:"region geographical location - city, e.g. Beijing, Frankfurt"`
 		CountryCode string  `help:"region geographical location - ISO country code, e.g. CN"`
 	}
 	R(&CloudregionCreateOptions{}, "cloud-region-create", "Create a cloud region", func(s *mcclient.ClientSession, args *CloudregionCreateOptions) error {
@@ -194,7 +194,7 @@ func init() {
 		Desc        string  `help:"Description of the region" json:"description" token:"desc"`
 		Latitude    float32 `help:"region geographical location - latitude"`
 		Longitude   float32 `help:"region geographical location - longitude"`
-		City        string  `help:"region geograpical location - city, e.g. Beijing, Frankfurt"`
+		City        string  `help:"region geographical location - city, e.g. Beijing, Frankfurt"`
 		CountryCode string  `help:"region geographical location - ISO country code, e.g. CN"`
 	}
 	R(&CloudregionUpdateOptions{}, "cloud-region-update", "Update a cloud region", func(s *mcclient.ClientSession, args *CloudregionUpdateOptions) error {

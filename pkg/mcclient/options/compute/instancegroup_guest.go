@@ -24,7 +24,7 @@ type InstanceGroupGuestListOptions struct {
 	options.BaseListOptions
 
 	Group  string `help:"Group ID or Name"`
-	Server string `help:"Gest ID or Name"`
+	Server string `help:"Guest ID or Name"`
 }
 
 func (opts *InstanceGroupGuestListOptions) GetMasterOpt() string {
