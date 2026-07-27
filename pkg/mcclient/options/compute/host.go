@@ -30,10 +30,10 @@ type HostListOptions struct {
 	Storage         string   `help:"List hosts attached to storages" mcp:"true"`
 	Baremetal       string   `help:"List hosts that is managed by baremetal system" choices:"true|false" mcp:"true"`
 	Empty           bool     `help:"show empty host" json:"-"`
-	Occupied        bool     `help:"show occupid host" json:"-"`
+	Occupied        bool     `help:"show occupied host" json:"-"`
 	Enabled         bool     `help:"Show enabled host only" json:"-"`
 	Disabled        bool     `help:"Show disabled host only" json:"-"`
-	HostType        string   `help:"Host type filter" choices:"baremetal|hypervisor|esxi|container|hyperv|aliyun|azure|qcloud|aws|huawei|ucloud|google|ctyun" mcp:"true"`
+	HostType        string   `help:"Host type filter" choices:"baremetal|hypervisor|esxi|container|hyperv|aliyun|apsara|azure|qcloud|aws|huawei|ucloud|google|ctyun|dedicated|openstack|volcengine|zstack|ecloud|jdcloud|cloudpods|nutanix|bingocloud|incloudsphere|proxmox|remotefile|h3c|ksyun|baidu|cucloud|qingcloud|oracle|sangfor|zettakit|uis|cas|cnware|rockbase" mcp:"true"`
 	AnyMac          string   `help:"Mac matches one of the host's interface"`
 	AnyIp           []string `help:"IP matches one of the host's interface" mcp:"true"`
 	HostStorageType []string `help:"List host in host_storage_type"`
@@ -42,7 +42,7 @@ type HostListOptions struct {
 
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated" mcp:"true"`
 
-	Usable *bool `help:"List all zones that is usable" mcp:"true"`
+	Usable *bool `help:"List usable hosts" mcp:"true"`
 
 	Hypervisor string `help:"filter hosts by hypervisor" mcp:"true"`
 
@@ -56,9 +56,9 @@ type HostListOptions struct {
 
 	OrderByServerCount       string `help:"Order by server count" choices:"desc|asc"`
 	OrderByStorage           string `help:"Order by host storage" choices:"desc|asc"`
-	OrderByStorageCommitRate string `help:"Order by host storage commite rate" choices:"desc|asc"`
+	OrderByStorageCommitRate string `help:"Order by host storage commit rate" choices:"desc|asc"`
 	OrderByCpuCommitRate     string `help:"Order by host cpu commit rate" choices:"desc|asc"`
-	OrderByMemCommitRate     string `help:"Order by host meme commit rate" choices:"desc|asc"`
+	OrderByMemCommitRate     string `help:"Order by host mem commit rate" choices:"desc|asc"`
 
 	OrderByStorageUsed string `help:"Order by storage used" choices:"desc|asc"`
 	OrderByCpuCommit   string `help:"Order by cpu commit" choices:"desc|asc"`

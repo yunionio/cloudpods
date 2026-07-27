@@ -56,10 +56,10 @@ type ImageOptionalOptions struct {
 	OsCodename         string   `help:"Codename of OS"`
 	OsArch             string   `help:"Os hardware architecture" choices:"x86|x86_64|aarch32|aarch64|riscv32|riscv64"`
 	OsLang             string   `help:"OS Language" choices:"zh_CN|en_US"`
-	Preference         int64    `help:"Disk preferences"`
+	Preference         int64    `help:"Image disk preference weight"`
 	Notes              string   `help:"Notes about the image"`
 	Hypervisor         []string `help:"Prefer hypervisor type" choices:"kvm|esxi|baremetal|container|openstack|ctyun"`
-	DiskDriver         string   `help:"Perfer disk driver" choices:"virtio|scsi|pvscsi|ide|sata"`
+	DiskDriver         string   `help:"Prefer disk driver" choices:"virtio|scsi|pvscsi|ide|sata"`
 	NetDriver          string   `help:"Preferred network driver" choices:"virtio|e1000|vmxnet3"`
 	DisableUsbKbd      bool     `help:"Disable usb keyboard on this image(for hypervisor kvm)"`
 	BootMode           string   `help:"UEFI support" choices:"UEFI|BIOS"`

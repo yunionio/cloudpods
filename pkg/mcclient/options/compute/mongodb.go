@@ -41,7 +41,7 @@ type MongoDBUpdateOptions struct {
 	options.BaseIdOptions
 	Name        string
 	Description string
-	Delete      string `help:"Lock or not lock dbinstance" choices:"enable|disable"`
+	Delete      string `help:"Lock or unlock MongoDB deletion (disable=lock, enable=unlock)" choices:"enable|disable"`
 }
 
 func (opts *MongoDBUpdateOptions) Params() (jsonutils.JSONObject, error) {

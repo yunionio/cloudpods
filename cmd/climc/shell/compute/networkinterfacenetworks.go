@@ -25,7 +25,7 @@ import (
 func init() {
 
 	type NetworkinterfaceNetworkListOptions struct {
-		Networkinterface string `help:"ID or Name of Server"`
+		Networkinterface string `help:"ID or Name of Networkinterface"`
 		Network          string `help:"Network ID or name"`
 	}
 	R(&NetworkinterfaceNetworkListOptions{}, "networkinterface-network-list", "List server network pairs", func(s *mcclient.ClientSession, args *NetworkinterfaceNetworkListOptions) error {
