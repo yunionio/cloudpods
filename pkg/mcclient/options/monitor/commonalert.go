@@ -42,7 +42,7 @@ func (o *CommonAlertListOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type CommonAlertShowOptions struct {
-	ID string `help:"ID of alart " json:"-"`
+	ID string `help:"ID of alert" json:"-"`
 }
 
 func (o *CommonAlertShowOptions) Params() (jsonutils.JSONObject, error) {
@@ -54,7 +54,7 @@ func (o *CommonAlertShowOptions) GetId() string {
 }
 
 type CommonAlertUpdateOptions struct {
-	ID         string `help:"ID of alart " json:"-"`
+	ID         string `help:"ID of alert" json:"-"`
 	Period     string `help:"exec period of alert" json:"period"`
 	Comparator string `help:"Alarm policy threshold comparison method" json:"comparator" `
 	Threshold  string `help:"Alarm policy threshold" json:"threshold"`
@@ -72,7 +72,7 @@ func (o *CommonAlertUpdateOptions) GetId() string {
 }
 
 type CommonAlertDeleteOptions struct {
-	ID    []string `help:"ID of alart"`
+	ID    []string `help:"ID of alert"`
 	Force bool     `help:"force to delete alert"`
 }
 

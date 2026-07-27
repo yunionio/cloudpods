@@ -126,7 +126,7 @@ func printQuotaList(result jsonutils.JSONObject) {
 
 func init() {
 	type QuotaOptions struct {
-		Scope   string `help:"scope" choices:"domain|project"`
+		Scope   string `help:"RBAC scope" choices:"domain|project"`
 		Project string `help:"Tenant name or ID" json:"tenant"`
 		Domain  string `help:"Domain name or ID" json:"domain"`
 		Refresh bool   `help:"refresh" json:"refresh,omitfalse"`
@@ -413,7 +413,7 @@ func init() {
 	})
 
 	type CleanPendingUsageOptions struct {
-		Scope   string `help:"scope" choices:"domain|project"`
+		Scope   string `help:"RBAC scope" choices:"domain|project"`
 		Project string `help:"Tenant name or ID" json:"tenant"`
 		Domain  string `help:"Domain name or ID" json:"domain"`
 	}

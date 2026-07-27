@@ -119,7 +119,7 @@ func (o SchedtagCreateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type SchedtagUpdateOptions struct {
-	ID            string `help:"ID or Name of schetag"`
+	ID            string `help:"ID or Name of schedtag"`
 	Name          string `help:"New name of schedtag"`
 	Strategy      string `help:"Policy" choices:"require|exclude|prefer|avoid"`
 	Desc          string `help:"Description"`
@@ -152,7 +152,7 @@ func (o SchedtagUpdateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type SchedtagSetScopeOptions struct {
-	ID      []string `help:"ID or Name of schetag"`
+	ID      []string `help:"ID or Name of schedtag"`
 	Project string   `help:"ID or Name of project"`
 	Domain  string   `help:"ID or Name of domain"`
 	System  bool     `help:"Set to system scope"`
@@ -176,7 +176,7 @@ func (o SchedtagSetScopeOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type SchedtagSetResource struct {
-	ID        string   `help:"ID or Name of schetag"`
+	ID        string   `help:"ID or Name of schedtag"`
 	Resource  []string `help:"Resource id or name"`
 	UnbindAll bool     `help:"Unbind all attached resources"`
 }

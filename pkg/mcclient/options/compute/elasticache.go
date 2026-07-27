@@ -65,7 +65,7 @@ type ElasticCacheCreateOptions struct {
 	SecgroupIds   []string `help:"elastic cache security group. required by qcloud."`
 	Engine        string   `choices:"redis"`
 	EngineVersion string   `choices:"2.8|3.0|3.2|4.0|5.0"`
-	PrivateIP     string   `help:"private ip address in specificated network"`
+	PrivateIP     string   `help:"private ip address in specified network"`
 	Password      string   `help:"set auth password"`
 	InstanceType  string
 	CapacityMB    string   `help:"elastic cache capacity. required by huawei."`

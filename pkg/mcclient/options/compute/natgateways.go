@@ -24,7 +24,7 @@ import (
 type NatGatewayListOptions struct {
 	options.BaseListOptions
 	Vpc         string `help:"vpc id or name"`
-	Cloudregion string `help:"cloudreigon id or name"`
+	Cloudregion string `help:"cloudregion id or name"`
 }
 
 func (opts *NatGatewayListOptions) Params() (jsonutils.JSONObject, error) {

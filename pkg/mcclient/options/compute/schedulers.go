@@ -63,8 +63,8 @@ func (o SchedulerTestBaseOptions) options() *scheduler.ScheduleBaseConfig {
 
 type SchedulerTestOptions struct {
 	SchedulerTestBaseOptions
-	SuggestionLimit int64 `help:"Number of schedule candidate informations" default:"50"`
-	SuggestionAll   bool  `help:"Show all schedule candidate informations"`
+	SuggestionLimit int64 `help:"Number of schedule candidate information" default:"50"`
+	SuggestionAll   bool  `help:"Show all schedule candidate information"`
 	Details         bool  `help:"Show suggestion details"`
 }
 
