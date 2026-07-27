@@ -16,6 +16,7 @@ package models
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -24,6 +25,8 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
+
+const maxAiKeySkipReasonsInError = 8
 
 func effectiveAiKeyRoutingWeight(r *api.SAiKeyRouting) int {
 	if r == nil || r.Weight <= 0 {
@@ -82,6 +85,58 @@ func aiKeyRoutingAcceptsModel(r *api.SAiKeyRouting, reqModel string) bool {
 		}
 	}
 	return true
+}
+
+func aiKeyLabel(k *SAiKey) string {
+	if k == nil {
+		return "?"
+	}
+	if n := strings.TrimSpace(k.Name); n != "" {
+		return n
+	}
+	if id := strings.TrimSpace(k.Id); id != "" {
+		return id
+	}
+	return "?"
+}
+
+// aiKeySkipReason returns why an ai_key cannot be used for modelKey, or "" if usable.
+func aiKeySkipReason(k *SAiKey, modelKey string, exclude map[string]bool) string {
+	if k == nil {
+		return "?: nil ai_key"
+	}
+	label := aiKeyLabel(k)
+	if strings.TrimSpace(k.Secret) == "" {
+		return label + ": empty secret"
+	}
+	if exclude != nil && exclude[k.Id] {
+		return label + ": already tried"
+	}
+	if baseAiKeyWeight(k) <= 0 {
+		return label + ": weight=0"
+	}
+	if effectiveAiKeyWeight(k) <= 0 {
+		info := aiKeyHealthInfo(k.Id)
+		if info.inCooldown {
+			return fmt.Sprintf("%s: cooldown %ds remaining (health_score=%d)", label, info.remainingSec, info.score)
+		}
+		return fmt.Sprintf("%s: health_score=%d", label, info.score)
+	}
+	if !aiKeyRoutingAcceptsModel(k.Routing, modelKey) {
+		return label + ": model not allowed by routing (allowed_model_keys/blocked_model_keys)"
+	}
+	return ""
+}
+
+func formatAiKeySkipReasons(reasons []string) string {
+	if len(reasons) == 0 {
+		return ""
+	}
+	if len(reasons) <= maxAiKeySkipReasonsInError {
+		return strings.Join(reasons, "; ")
+	}
+	shown := strings.Join(reasons[:maxAiKeySkipReasonsInError], "; ")
+	return fmt.Sprintf("%s; and %d more", shown, len(reasons)-maxAiKeySkipReasonsInError)
 }
 
 func pickWeightedAiKey(candidates []*SAiKey) *SAiKey {
@@ -145,21 +200,18 @@ func resolveUpstreamAPIKeyExcluding(prov *SAiProvider, modelKey string, exclude 
 
 	candidates := make([]*SAiKey, 0, len(keys))
 	hasSecretKey := false
+	skipReasons := make([]string, 0, len(keys))
 	for i := range keys {
 		k := &keys[i]
 		if strings.TrimSpace(k.Secret) == "" {
 			continue
 		}
 		hasSecretKey = true
-		if exclude != nil && exclude[k.Id] {
+		if reason := aiKeySkipReason(k, modelKey, exclude); reason != "" {
+			skipReasons = append(skipReasons, reason)
 			continue
 		}
-		if effectiveAiKeyWeight(k) <= 0 {
-			continue
-		}
-		if aiKeyRoutingAcceptsModel(k.Routing, modelKey) {
-			candidates = append(candidates, k)
-		}
+		candidates = append(candidates, k)
 	}
 	if len(candidates) > 0 {
 		chosen := pickWeightedAiKey(candidates)
@@ -173,7 +225,11 @@ func resolveUpstreamAPIKeyExcluding(prov *SAiProvider, modelKey string, exclude 
 		}, nil
 	}
 	if hasSecretKey {
-		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "no available ai_key for catalog model %q (check weight, cooldown, allowed_model_keys)", modelKey)
+		detail := formatAiKeySkipReasons(skipReasons)
+		if detail != "" {
+			return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "no available ai_key for catalog model %q: %s", modelKey, detail)
+		}
+		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "no available ai_key for catalog model %q", modelKey)
 	}
 	return nil, errors.Wrap(httperrors.ErrInvalidStatus, "add an enabled ai_key with secret for this provider")
 }
