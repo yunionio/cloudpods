@@ -538,7 +538,14 @@ func (m *QmpMonitor) DeviceAdd(dev string, params map[string]string, callback St
 	}
 
 	for k, v := range params {
-		args[k] = v
+		var iv interface{}
+		iv = v
+		if v == "on" || v == "true" {
+			iv = true
+		} else if v == "off" || v == "false" {
+			iv = false
+		}
+		args[k] = iv
 	}
 
 	cmd := &Command{
