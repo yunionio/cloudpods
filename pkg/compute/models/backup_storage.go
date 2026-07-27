@@ -396,9 +396,22 @@ func (bs *SBackupStorage) GetIBackupStorage() (backupstorage.IBackupStorage, err
 		return nil, errors.Wrap(err, "GetAccessInfo")
 	}
 	log.Infof("GetIBackupStorage %s %s", bs.Id, accessInfo.String())
-	ibs, err := backupstorage.GetBackupStorage(bs.Id, jsonutils.Marshal(accessInfo).(*jsonutils.JSONDict))
+	ibs, err := backupstorage.GetBackupStorage(bs.Id, accessInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetBackupStorage")
 	}
 	return ibs, nil
+}
+
+func (manager *SBackupStorageManager) fetchItems(filterFunc func(q *sqlchemy.SQuery) *sqlchemy.SQuery) ([]SBackupStorage, error) {
+	q := manager.Query()
+	if filterFunc != nil {
+		q = filterFunc(q)
+	}
+	ret := make([]SBackupStorage, 0)
+	err := db.FetchModelObjects(manager, q, &ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return ret, nil
 }
