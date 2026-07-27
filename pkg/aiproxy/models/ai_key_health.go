@@ -33,6 +33,13 @@ type aiKeyHealthState struct {
 	cooldownUntil    time.Time
 }
 
+// aiKeyHealthSnapshot is a read-only view for error messages (not exported as API).
+type aiKeyHealthSnapshot struct {
+	score        int
+	inCooldown   bool
+	remainingSec int
+}
+
 var (
 	aiKeyHealthMu sync.RWMutex
 	aiKeyHealth   = map[string]*aiKeyHealthState{}
@@ -57,6 +64,27 @@ func getAiKeyHealth(keyId string) *aiKeyHealthState {
 	return st
 }
 
+// aiKeyHealthInfo returns a read-only snapshot for diagnostics / error text.
+func aiKeyHealthInfo(keyId string) aiKeyHealthSnapshot {
+	if keyId == "" {
+		return aiKeyHealthSnapshot{score: aiKeyHealthMaxScore}
+	}
+	st := getAiKeyHealth(keyId)
+	now := time.Now()
+	aiKeyHealthMu.RLock()
+	defer aiKeyHealthMu.RUnlock()
+	info := aiKeyHealthSnapshot{score: st.score}
+	if !st.cooldownUntil.IsZero() && now.Before(st.cooldownUntil) {
+		info.inCooldown = true
+		sec := int(st.cooldownUntil.Sub(now).Seconds())
+		if sec < 1 {
+			sec = 1
+		}
+		info.remainingSec = sec
+	}
+	return info
+}
+
 // dynamicAiKeyWeightMultiplier returns 0-100 applied to configured ai_key.weight (100 = full weight).
 func dynamicAiKeyWeightMultiplier(keyId string) int {
 	if keyId == "" {
@@ -75,7 +103,12 @@ func dynamicAiKeyWeightMultiplier(keyId string) int {
 			st.score = aiKeyHealthMaxScore / 2
 		}
 	}
+	// score<=0 without an active cooldown would permanently exclude the key;
+	// start a cooldown so it can recover via the path above after the period.
 	if st.score <= 0 {
+		if st.cooldownUntil.IsZero() {
+			st.cooldownUntil = now.Add(aiKeyHealthCooldownPeriod)
+		}
 		return 0
 	}
 	if st.score > aiKeyHealthMaxScore {
@@ -113,7 +146,8 @@ func RecordAiKeyFailure(keyId string, statusCode int) {
 	if st.score < 0 {
 		st.score = 0
 	}
-	if st.consecutiveFails >= aiKeyHealthCooldownAfter {
+	// Enter cooldown on streak or when score is exhausted (avoids permanent blacklist).
+	if st.consecutiveFails >= aiKeyHealthCooldownAfter || st.score <= 0 {
 		st.cooldownUntil = time.Now().Add(aiKeyHealthCooldownPeriod)
 		st.score = 0
 	}
