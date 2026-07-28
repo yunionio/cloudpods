@@ -267,14 +267,17 @@ func (man *isolatedDeviceManager) probeContainerNvidiaGPUs(enableCudaHAMI, enabl
 	}
 }
 
-func (man *isolatedDeviceManager) probeContainerAscendNPUs(enable bool) {
-	if !enable {
+func (man *isolatedDeviceManager) probeContainerAscendNPUs(enable, enableHami bool) {
+	devType := ContainerDeviceTypeAscendNpu
+	if enableHami {
+		devType = ContainerDeviceTypeAscendNpuHami
+	} else if !enable {
 		return
 	}
 
-	devman, err := GetContainerDeviceManager(ContainerDeviceTypeAscendNpu)
+	devman, err := GetContainerDeviceManager(devType)
 	if err != nil {
-		log.Errorf("no container device manager %s found", ContainerDeviceTypeAscendNpu)
+		log.Errorf("no container device manager %s found", devType)
 		return
 	}
 	devs, err := devman.ProbeDevices()
@@ -457,10 +460,11 @@ type SIsolatedDeviceProbeOptions struct {
 	SkipUSBs       bool
 	SkipCustomDevs bool
 
-	EnableCudaHAMI     bool
-	EnableCudaMps      bool
-	EnableContainerNPU bool
-	EnableWhitelist    bool
+	EnableCudaHAMI               bool
+	EnableCudaMps                bool
+	EnableContainerAscendNpu     bool
+	EnableContainerAscendNpuHAMI bool
+	EnableWhitelist              bool
 
 	SriovNics, OvsOffloadNics []HostNic
 
@@ -472,7 +476,7 @@ func (man *isolatedDeviceManager) ProbePCIDevices(opts *SIsolatedDeviceProbeOpti
 	if man.host.IsContainerHost() {
 		man.probeContainerDevices()
 		man.probeContainerNvidiaGPUs(opts.EnableCudaHAMI, opts.EnableCudaMps)
-		man.probeContainerAscendNPUs(opts.EnableContainerNPU)
+		man.probeContainerAscendNPUs(opts.EnableContainerAscendNpu, opts.EnableContainerAscendNpuHAMI)
 	} else {
 		devModels, err := man.getCustomIsolatedDeviceModels()
 		if err != nil {
