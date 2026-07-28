@@ -132,6 +132,7 @@ func (manager *SGuestIsolatedDeviceManager) FetchCustomizeColumns(
 		rows[i].SIsolatedDevice = isolatedDeviceRows[i].SIsolatedDevice
 		rows[i].HostResourceInfo = isolatedDeviceRows[i].HostResourceInfo
 		rows[i].SharableResourceBaseInfo = isolatedDeviceRows[i].SharableResourceBaseInfo
+		rows[i].Vendor = isolatedDeviceRows[i].Vendor
 	}
 
 	return rows
