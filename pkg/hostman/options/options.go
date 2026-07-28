@@ -279,6 +279,13 @@ type SHostOptions struct {
 	AscendNpuHamiShmPath         string `help:"ascend npu hami shm path" default:"/opt/cloud/hami-shared-region"`
 	AscendNpuHamiLibvnpuPath     string `help:"ascend npu hami libvnpu.so path" default:"/opt/cloud/hami/libvnpu.so"`
 
+	EnableContainerHygonDCU     bool   `help:"enable container hygon dcu" default:"true"`
+	EnableContainerHygonDCUHAMI bool   `help:"enable container hygon dcu hami" default:"false"`
+	HygonHyhalPath              string `help:"hygon hyhal driver path" default:"/opt/hyhal"`
+	HygonDtkPath                string `help:"hygon dtk toolkit path" default:"/opt/dtk"`
+	HygonHySmiPath              string `help:"hygon hy-smi path" default:"/opt/hyhal/bin/hy-smi"`
+	HygonVdevConfDir            string `help:"hygon vdcu config directory" default:"/etc/vdev"`
+
 	EnableDirtyRecoverySeconds int  `help:"Seconds to delay enable dirty guests recovery feature, default 15 minutes" default:"900"`
 	EnableContainerCniPortmap  bool `help:"Use container cni portmap plugin" default:"false"`
 	DisableReconcileContainer  bool `help:"disable reconcile container" default:"false"`

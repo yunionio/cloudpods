@@ -2325,6 +2325,15 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Infof("==== probeSyncIsolatedDevices: hostType=%s isContainerHost=%v isKvmSupport=%v",
+		options.HostOptions.HostType, h.IsContainerHost(), h.IsKvmSupport())
+	log.Infof("==== probeSyncIsolatedDevices hygon config: enableDCU=%v enableHAMI=%v hySmiPath=%s hyhalPath=%s dtkPath=%s",
+		options.HostOptions.EnableContainerHygonDCU,
+		options.HostOptions.EnableContainerHygonDCUHAMI,
+		options.HostOptions.HygonHySmiPath,
+		options.HostOptions.HygonHyhalPath,
+		options.HostOptions.HygonDtkPath,
+	)
 	probeOpts := &isolated_device.SIsolatedDeviceProbeOptions{
 		SkipGPUs:                     options.HostOptions.DisableGPU,
 		SkipUSBs:                     options.HostOptions.DisableUSB,
@@ -2333,6 +2342,8 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		EnableCudaMps:                options.HostOptions.EnableCudaMPS,
 		EnableContainerAscendNpu:     options.HostOptions.EnableContainerAscendNPU,
 		EnableContainerAscendNpuHAMI: options.HostOptions.EnableContainerAscendNPUHami,
+		EnableContainerHygonDCU:      options.HostOptions.EnableContainerHygonDCU,
+		EnableContainerHygonDCUHAMI:  options.HostOptions.EnableContainerHygonDCUHAMI,
 		EnableWhitelist:              options.HostOptions.EnableIsolatedDeviceWhitelist,
 		SriovNics:                    sriovNics,
 		OvsOffloadNics:               offloadNics,
@@ -2374,6 +2385,7 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 	mtx := sync.Mutex{}
 	updateDevs := jsonutils.NewArray()
 	devs := h.IsolatedDeviceMan.GetDevices()
+	log.Infof("==== probeSyncIsolatedDevices: local isolated devices count=%d, syncing to region", len(devs))
 	for i := range devs {
 		dev := devs[i]
 		eg.Go(func() error {

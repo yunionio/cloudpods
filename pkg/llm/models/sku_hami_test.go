@@ -51,6 +51,18 @@ func TestNormalizeLLMSkuDeviceLegacyTypes(t *testing.T) {
 			wantSharingMode: computeapi.DEVICE_SHARING_MODE_HAMI,
 		},
 		{
+			name:            "HYGON_DCU",
+			in:              api.Device{DevType: computeapi.CONTAINER_DEV_HYGON_DCU},
+			wantDevType:     computeapi.GPU_TYPE,
+			wantSharingMode: computeapi.DEVICE_SHARING_MODE_EXCLUSIVE,
+		},
+		{
+			name:            "HYGON_DCU_HAMI",
+			in:              api.Device{DevType: computeapi.CONTAINER_DEV_HYGON_DCU_HAMI},
+			wantDevType:     computeapi.GPU_TYPE,
+			wantSharingMode: computeapi.DEVICE_SHARING_MODE_HAMI,
+		},
+		{
 			name:            "explicit sharing_mode preserved",
 			in:              api.Device{DevType: computeapi.CONTAINER_DEV_NVIDIA_GPU_SHARE, SharingMode: computeapi.DEVICE_SHARING_MODE_MPS},
 			wantDevType:     computeapi.GPU_TYPE,
