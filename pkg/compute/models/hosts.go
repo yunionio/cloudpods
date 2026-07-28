@@ -7323,6 +7323,10 @@ func (host *SHost) RemoteHealthStatus(ctx context.Context) string {
 }
 
 func (host *SHost) GetHostnameByName() string {
+	if host.Hostname != "" {
+		return host.Hostname
+	}
+
 	hostname := host.Name
 	accessIp := strings.Replace(host.AccessIp, ".", "-", -1)
 	if strings.HasSuffix(host.Name, "-"+accessIp) {

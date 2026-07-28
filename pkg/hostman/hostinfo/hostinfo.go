@@ -1569,12 +1569,13 @@ func (h *SHostInfo) ProbeSyncIsolatedDevices(hostId string, body jsonutils.JSONO
 	return h.probeSyncIsolatedDevices()
 }
 
-func (h *SHostInfo) setHostname(name string) {
-	h.FullName = name
-	err := sysutils.SetHostname(name)
+func (h *SHostInfo) fetchOsHostname() string {
+	hn, err := os.Hostname()
 	if err != nil {
-		log.Errorf("Fail to set system hostname: %s", err)
+		log.Fatalf("fail to get hostname %s", err)
+		return ""
 	}
+	return hn
 }
 
 func (h *SHostInfo) fetchHostname() string {
@@ -1622,6 +1623,7 @@ func (h *SHostInfo) updateOrCreateHost(hostId string) (*api.HostDetails, error) 
 	if len(hostId) == 0 {
 		input.GenerateName = h.fetchHostname()
 	}
+	input.Hostname = h.fetchOsHostname()
 	input.AccessIp = masterIp
 	input.AccessMac = h.GetMasterMac()
 	var schema = "http"
