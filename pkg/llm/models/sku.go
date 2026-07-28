@@ -119,6 +119,16 @@ func normalizeLLMSkuDevice(dev *api.Device) {
 		if dev.SharingMode == "" {
 			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_HAMI
 		}
+	case computeapi.CONTAINER_DEV_HYGON_DCU:
+		dev.DevType = computeapi.GPU_TYPE
+		if dev.SharingMode == "" {
+			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_EXCLUSIVE
+		}
+	case computeapi.CONTAINER_DEV_HYGON_DCU_HAMI:
+		dev.DevType = computeapi.GPU_TYPE
+		if dev.SharingMode == "" {
+			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_HAMI
+		}
 	}
 	if dev.SharingMode == "" {
 		dev.SharingMode = computeapi.DEVICE_SHARING_MODE_HAMI

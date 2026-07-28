@@ -83,6 +83,7 @@ func (manager *SIsolatedDeviceResourceBaseManager) FetchCustomizeColumns(
 		rows[i].HostResourceInfo = devRows[i].HostResourceInfo
 		rows[i].Guest = devRows[i].Guest
 		rows[i].GuestStatus = devRows[i].GuestStatus
+		rows[i].Vendor = devRows[i].Vendor
 	}
 	return rows
 }
