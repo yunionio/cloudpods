@@ -2324,18 +2324,19 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		return nil, err
 	}
 	probeOpts := &isolated_device.SIsolatedDeviceProbeOptions{
-		SkipGPUs:           options.HostOptions.DisableGPU,
-		SkipUSBs:           options.HostOptions.DisableUSB,
-		SkipCustomDevs:     options.HostOptions.DisableCustomDevice,
-		EnableCudaHAMI:     options.HostOptions.EnableCudaHAMI,
-		EnableCudaMps:      options.HostOptions.EnableCudaMPS,
-		EnableContainerNPU: options.HostOptions.EnableContainerAscendNPU,
-		EnableWhitelist:    options.HostOptions.EnableIsolatedDeviceWhitelist,
-		SriovNics:          sriovNics,
-		OvsOffloadNics:     offloadNics,
-		NvmePciDisks:       options.HostOptions.PTNVMEConfigs,
-		AmdVgpuPFs:         options.HostOptions.AMDVgpuPFs,
-		NvidiaVgpuPFs:      options.HostOptions.NVIDIAVgpuPFs,
+		SkipGPUs:                     options.HostOptions.DisableGPU,
+		SkipUSBs:                     options.HostOptions.DisableUSB,
+		SkipCustomDevs:               options.HostOptions.DisableCustomDevice,
+		EnableCudaHAMI:               options.HostOptions.EnableCudaHAMI,
+		EnableCudaMps:                options.HostOptions.EnableCudaMPS,
+		EnableContainerAscendNpu:     options.HostOptions.EnableContainerAscendNPU,
+		EnableContainerAscendNpuHAMI: options.HostOptions.EnableContainerAscendNPUHami,
+		EnableWhitelist:              options.HostOptions.EnableIsolatedDeviceWhitelist,
+		SriovNics:                    sriovNics,
+		OvsOffloadNics:               offloadNics,
+		NvmePciDisks:                 options.HostOptions.PTNVMEConfigs,
+		AmdVgpuPFs:                   options.HostOptions.AMDVgpuPFs,
+		NvidiaVgpuPFs:                options.HostOptions.NVIDIAVgpuPFs,
 	}
 	h.IsolatedDeviceMan.ProbePCIDevices(probeOpts)
 
