@@ -205,7 +205,10 @@ func handleBaremetalValidateIPMI() appsrv.FilterHandler {
 			if redfishCli == nil {
 				resp.IsRedfishSupported = false
 				// use ipmitool to validate
-				tool := ipmitool.NewLanPlusIPMI(input.Ip, input.Username, input.Password)
+				tool, err := ipmitool.NewLanPlusIPMI(input.Ip, input.Username, input.Password)
+				if err != nil {
+					return nil, errors.Wrap(err, "NewLanPlusIPMI")
+				}
 				info, err := ipmitool.GetSysInfo(tool)
 				if err != nil {
 					return nil, errors.Wrap(err, "GetSysInfo by ipmitool")
