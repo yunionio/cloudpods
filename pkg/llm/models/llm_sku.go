@@ -249,6 +249,9 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 		if err := ValidateLocalPathSkuCreate(input); err != nil {
 			return input, err
 		}
+		if err := ValidateLocalPathHamiDevicesRequireMemoryMb(input.Devices); err != nil {
+			return input, err
+		}
 		resolved, err := resolvePreferHosts(ctx, userCred, input.PreferHosts)
 		if err != nil {
 			return input, err
@@ -435,6 +438,12 @@ func (sku *SLLMSku) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	input.LLMSkuBaseUpdateInput, err = sku.SLLMSkuBase.ValidateUpdateData(ctx, userCred, query, input.LLMSkuBaseUpdateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "validate LLMSkuBaseUpdateInput")
+	}
+
+	if SkuHasLocalHostPathModel(sku) && input.Devices != nil {
+		if err := ValidateLocalPathHamiDevicesRequireMemoryMb(input.Devices); err != nil {
+			return input, err
+		}
 	}
 
 	if sku.LLMSpec == nil {

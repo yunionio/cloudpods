@@ -153,6 +153,11 @@ func (man *SLLMDeploymentManager) ValidateCreateData(
 		if err := validateLocalPathDeploymentPreferHosts(ctx, userCred, input, lSku); err != nil {
 			return input, err
 		}
+		if SkuHasLocalHostPathModel(lSku) {
+			if err := ValidateLocalPathHamiDevicesRequireMemoryMb(lSku.Devices); err != nil {
+				return input, err
+			}
+		}
 		if err := ValidateDeploymentDevices(lSku.LLMType, lSku); err != nil {
 			return input, err
 		}
@@ -189,6 +194,11 @@ func (man *SLLMDeploymentManager) ValidateCreateData(
 		disableDeploymentAutoGpuMemoryUtilizationForLocalPath(input, skuInput)
 		if err := validateLocalPathDeploymentPreferHosts(ctx, userCred, input, skuInput); err != nil {
 			return input, err
+		}
+		if SkuHasLocalHostPathModel(skuInput) {
+			if err := ValidateLocalPathHamiDevicesRequireMemoryMb(skuInput.Devices); err != nil {
+				return input, err
+			}
 		}
 		if err := ValidateDeploymentDevices(input.SkuSpec.LLMType, skuInput); err != nil {
 			return input, err
