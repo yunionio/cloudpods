@@ -19,6 +19,15 @@ import (
 	"testing"
 )
 
+func TestRemotePathExists(t *testing.T) {
+	if !RemotePathExists("/") {
+		t.Errorf("RemotePathExists(\"/\") want true")
+	}
+	if RemotePathExists("/tmp/__0_1_2_3_a_b_c_d____") {
+		t.Errorf("RemotePathExists missing file want false")
+	}
+}
+
 func TestStat(t *testing.T) {
 	cases := []struct {
 		filename string

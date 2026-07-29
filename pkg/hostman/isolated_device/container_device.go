@@ -48,6 +48,8 @@ const (
 	ContainerDeviceTypeAscendNpu      ContainerDeviceType = api.CONTAINER_DEV_ASCEND_NPU
 	ContainerDeviceTypeAscendNpuHami  ContainerDeviceType = api.CONTAINER_DEV_ASCEND_NPU_HAMI
 	ContainerDeviceTypeVastaitechGpu  ContainerDeviceType = api.CONTAINER_DEV_VASTAITECH_GPU
+	ContainerDeviceTypeHygonDcu       ContainerDeviceType = api.CONTAINER_DEV_HYGON_DCU
+	ContainerDeviceTypeHygonDcuHami   ContainerDeviceType = api.CONTAINER_DEV_HYGON_DCU_HAMI
 )
 
 func GetContainerDeviceManager(devType ContainerDeviceType) (IContainerDeviceManager, error) {
