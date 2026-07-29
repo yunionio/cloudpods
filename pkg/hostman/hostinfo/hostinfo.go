@@ -109,6 +109,7 @@ type SHostInfo struct {
 	IsolatedDeviceMan isolated_device.IsolatedDeviceManager
 
 	MasterNic *netutils2.SNetInterface
+	FirstNic  *netutils2.SNetInterface
 	Nics      []*SNIC
 
 	HostId         string
@@ -413,6 +414,17 @@ func (h *SHostInfo) parseConfig() error {
 		h.Nics = append(h.Nics, nic)
 	}
 
+	{
+		// init first nic
+		h.FirstNic = nil
+		for _, n := range h.Nics {
+			if len(n.Ip) > 0 || len(n.Ip6) > 0 {
+				h.FirstNic = netutils2.NewNetInterface(n.Bridge)
+				break
+			}
+		}
+	}
+
 	if len(options.HostOptions.ListenInterface) > 0 {
 		h.MasterNic = netutils2.NewNetInterface(options.HostOptions.ListenInterface)
 		if len(h.MasterNic.Addr) == 0 && len(h.MasterNic.Addr6) == 0 {
@@ -420,12 +432,7 @@ func (h *SHostInfo) parseConfig() error {
 		}
 	} else {
 		// set MasterNic to the first NIC with IP
-		h.MasterNic = nil
-		for _, n := range h.Nics {
-			if len(n.Ip) > 0 || len(n.Ip6) > 0 {
-				h.MasterNic = netutils2.NewNetInterface(n.Bridge)
-			}
-		}
+		h.MasterNic = h.FirstNic
 		if h.MasterNic == nil {
 			return fmt.Errorf("No interface suitable to be master NIC")
 		}
@@ -1176,13 +1183,13 @@ func (h *SHostInfo) detectOvsKOVersion() error {
 	return errors.Errorf("kernel module openvswitch paramters version not found, is kernel version correct ??")
 }
 
-func (h *SHostInfo) GetMasterNicIpAndMask() (string, int) {
-	if h.MasterNic.Addr != "" {
-		mask, _ := h.MasterNic.Mask.Size()
-		return h.MasterNic.Addr, mask
+func (h *SHostInfo) getNicIpAndMask(nic *netutils2.SNetInterface) (string, int) {
+	if nic.Addr != "" {
+		mask, _ := nic.Mask.Size()
+		return nic.Addr, mask
 	}
-	mask, _ := h.MasterNic.Mask6.Size()
-	return h.MasterNic.Addr6, mask
+	mask, _ := nic.Mask6.Size()
+	return nic.Addr6, mask
 }
 
 func (h *SHostInfo) GetMasterIp() string {
@@ -1311,11 +1318,11 @@ func (h *SHostInfo) onFail(reason error) {
 }
 
 func (h *SHostInfo) initHostRecord() (*api.HostDetails, error) {
-	wireId, err := h.ensureMasterNetworks()
+	wireId, err := h.ensureAccessNicNetworks()
 	if err != nil {
 		return nil, errors.Wrap(err, "initHostRecord")
 	}
-	err = h.waitMasterNicIp()
+	err = h.waitFirstNicIp()
 	if err != nil {
 		return nil, errors.Wrap(err, "waitMasterNicIp")
 	}
@@ -1372,12 +1379,19 @@ func (h *SHostInfo) initHostRecord() (*api.HostDetails, error) {
 	return hostInfo, nil
 }
 
+func (h *SHostInfo) getAccessNic() *netutils2.SNetInterface {
+	if h.FirstNic != nil {
+		return h.FirstNic
+	}
+	return h.MasterNic
+}
+
 // try to create network on region.
 func (h *SHostInfo) tryCreateNetworkOnWire() (string, error) {
-	masterIp, mask := h.GetMasterNicIpAndMask()
-	log.Infof("Get master ip %s and mask %d", masterIp, mask)
+	masterIp, mask := h.getNicIpAndMask(h.getAccessNic())
+	log.Infof("Get access nic ip %s and mask %d", masterIp, mask)
 	if len(masterIp) == 0 || mask == 0 {
-		return "", errors.Wrapf(httperrors.ErrInvalidStatus, "master ip %s mask %d", masterIp, mask)
+		return "", errors.Wrapf(httperrors.ErrInvalidStatus, "access nic ip %s mask %d", masterIp, mask)
 	}
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(masterIp))
@@ -1399,12 +1413,13 @@ func (h *SHostInfo) tryCreateNetworkOnWire() (string, error) {
 	return wireId, nil
 }
 
-func (h *SHostInfo) ensureMasterNetworks() (string, error) {
-	masterIp := h.GetMasterIp()
-	if len(masterIp) == 0 {
-		return "", errors.Wrap(httperrors.ErrInvalidStatus, "master ip not found")
+func (h *SHostInfo) ensureAccessNicNetworks() (string, error) {
+	masterIp, mask := h.getNicIpAndMask(h.getAccessNic())
+	log.Infof("Get access nic ip %s and mask %d", masterIp, mask)
+	if len(masterIp) == 0 || mask == 0 {
+		return "", errors.Wrapf(httperrors.ErrInvalidStatus, "access nic ip %s mask %d", masterIp, mask)
 	}
-	log.Infof("Master ip %s to fetch wire", masterIp)
+	log.Infof("Access nic ip %s to fetch wire", masterIp)
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(masterIp))
 	params.Set("is_classic", jsonutils.JSONTrue)
@@ -1470,19 +1485,22 @@ func (h *SHostInfo) initZoneInfo(zoneId string) error {
 	return nil
 }
 
-func (h *SHostInfo) waitMasterNicIp() error {
+func (h *SHostInfo) waitFirstNicIp() error {
+	if h.FirstNic == nil {
+		return nil
+	}
 	const maxWaitSeconds = 900
 	waitSeconds := 0
-	for h.MasterNic.Addr == "" && h.MasterNic.Addr6 == "" && waitSeconds < maxWaitSeconds {
+	for h.FirstNic.Addr == "" && h.FirstNic.Addr6 == "" && waitSeconds < maxWaitSeconds {
 		time.Sleep(time.Second)
 		waitSeconds++
-		h.MasterNic.FetchConfig()
+		h.FirstNic.FetchConfig()
 	}
-	if h.MasterNic.Addr == "" && h.MasterNic.Addr6 == "" {
-		return errors.Wrap(httperrors.ErrInvalidStatus, "fail to fetch master nic IP address")
+	if h.FirstNic.Addr == "" && h.FirstNic.Addr6 == "" {
+		return errors.Wrap(httperrors.ErrInvalidStatus, "fail to fetch first nic IP address")
 	}
-	if h.MasterNic.GetMac() == "" {
-		return errors.Wrap(httperrors.ErrInvalidStatus, "fail to fetch master nic MAC address")
+	if h.FirstNic.GetMac() == "" {
+		return errors.Wrap(httperrors.ErrInvalidStatus, "fail to fetch first nic MAC address")
 	}
 
 	return nil
