@@ -85,7 +85,7 @@ func newAscendNPUManager() *ascendNPUManager {
 }
 
 func (m *ascendNPUManager) ProbeDevices() ([]isolated_device.IDevice, error) {
-	return getAscendNpus(m, computeapi.DEVICE_SHARING_MODE_UNLIMITED)
+	return getAscendNpus(m, computeapi.DEVICE_SHARING_MODE_EXCLUSIVE)
 }
 
 func (m *ascendNPUManager) NewDevices(dev *isolated_device.ContainerDevice) ([]isolated_device.IDevice, error) {
@@ -105,7 +105,7 @@ func (m *ascendNPUManager) GetDevType() string {
 }
 
 func (m *ascendNPUManager) GetSharingMode() string {
-	return computeapi.DEVICE_SHARING_MODE_UNLIMITED
+	return computeapi.DEVICE_SHARING_MODE_EXCLUSIVE
 }
 
 type ascnedNPU struct {
