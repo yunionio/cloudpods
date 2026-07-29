@@ -34,6 +34,9 @@ type IsolateDeviceDetails struct {
 
 	SIsolatedDevice
 
+	// 设备厂商，由 vendor_device_id 经 ID_VENDOR_MAP 翻译
+	Vendor string `json:"vendor"`
+
 	MemoryAllocated int
 	AllocatedCount  int
 
@@ -72,6 +75,9 @@ type IsolatedDeviceListInput struct {
 
 	// 设备VENDOE编号
 	VendorDeviceId []string `json:"vendor_device_id"`
+
+	// 设备厂商，如 HYGON / NVIDIA
+	Vendor []string `json:"vendor"`
 
 	// NUMA节点序号
 	NumaNode []uint8 `json:"numa_node"`
@@ -413,4 +419,7 @@ type GuestIsolatedDeviceDetails struct {
 	SIsolatedDevice
 	HostResourceInfo
 	apis.SharableResourceBaseInfo
+
+	// 设备厂商，由 vendor_device_id 经 ID_VENDOR_MAP 翻译
+	Vendor string `json:"vendor"`
 }
