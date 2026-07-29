@@ -119,6 +119,50 @@ func TestSkuHasLocalHostPathModel(t *testing.T) {
 	}
 }
 
+func TestValidateLocalPathHamiDevicesRequireMemoryMb(t *testing.T) {
+	t.Run("hami without memory_mb fails", func(t *testing.T) {
+		devs := llm.Devices{{Model: "A100", SharingMode: "HAMI"}}
+		if err := ValidateLocalPathHamiDevicesRequireMemoryMb(&devs); err == nil {
+			t.Fatal("expected error when HAMi memory_mb is missing")
+		}
+	})
+	t.Run("empty sharing_mode defaults to hami and requires memory_mb", func(t *testing.T) {
+		devs := llm.Devices{{Model: "A100"}}
+		if err := ValidateLocalPathHamiDevicesRequireMemoryMb(&devs); err == nil {
+			t.Fatal("expected error when default HAMi memory_mb is missing")
+		}
+	})
+	t.Run("legacy NVIDIA_HAMI without memory_mb fails", func(t *testing.T) {
+		devs := llm.Devices{{Model: "A100", DevType: "NVIDIA_HAMI"}}
+		if err := ValidateLocalPathHamiDevicesRequireMemoryMb(&devs); err == nil {
+			t.Fatal("expected error when legacy NVIDIA_HAMI memory_mb is missing")
+		}
+	})
+	t.Run("hami with memory_mb passes", func(t *testing.T) {
+		devs := llm.Devices{{Model: "A100", SharingMode: "HAMI", MemoryMb: 8192}}
+		if err := ValidateLocalPathHamiDevicesRequireMemoryMb(&devs); err != nil {
+			t.Fatalf("expected valid HAMi devices, got %v", err)
+		}
+	})
+	t.Run("empty sharing_mode with memory_mb passes", func(t *testing.T) {
+		devs := llm.Devices{{Model: "A100", MemoryMb: 8192}}
+		if err := ValidateLocalPathHamiDevicesRequireMemoryMb(&devs); err != nil {
+			t.Fatalf("expected default HAMi with memory_mb to pass, got %v", err)
+		}
+	})
+	t.Run("exclusive without memory_mb passes", func(t *testing.T) {
+		devs := llm.Devices{{Model: "A100", SharingMode: "EXCLUSIVE"}}
+		if err := ValidateLocalPathHamiDevicesRequireMemoryMb(&devs); err != nil {
+			t.Fatalf("expected non-HAMi devices without memory_mb to pass, got %v", err)
+		}
+	})
+	t.Run("nil devices passes", func(t *testing.T) {
+		if err := ValidateLocalPathHamiDevicesRequireMemoryMb(nil); err != nil {
+			t.Fatalf("expected nil devices to pass, got %v", err)
+		}
+	})
+}
+
 func TestValidateRequireMountedModelsSkipsLocalPathSku(t *testing.T) {
 	hostPaths := llm.HostPaths{
 		{
