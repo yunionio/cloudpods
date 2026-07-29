@@ -2744,6 +2744,7 @@ func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.
 	}
 	if dev.SharingMode == api.DEVICE_SHARING_MODE_HAMI && memoryRequest != nil {
 		guestIsolatedDevice.DeviceMemorySize = *memoryRequest
+		guestIsolatedDevice.SmUtilLimit = int((float64(*memoryRequest) / float64(dev.MemorySize)) * 100.0)
 	}
 	if utils.IsInStringArray(gpuType, []string{api.GPU_HPC, api.GPU_VGA}) {
 		guestIsolatedDevice.GpuType = gpuType
