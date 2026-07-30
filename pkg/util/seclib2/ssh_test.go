@@ -15,6 +15,8 @@
 package seclib2
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -175,5 +177,54 @@ func TestDsaDecryptEncrypt(t *testing.T) {
 	if secret != secret2 {
 		t.Errorf("rsa decrypt/encrypt error! %s != %s", secret2, secret)
 		return
+	}
+}
+
+func TestEd25519DecryptEncrypt(t *testing.T) {
+	privateKey, publicKey, err := GenerateED25519SSHKeypair()
+	if err != nil {
+		t.Fatalf("fail to generate keypair %s", err)
+	}
+
+	secret := "this is a secret string!!!"
+	code, err := EncryptBase64(publicKey, secret)
+	if err != nil {
+		t.Fatalf("ed25519 encrypt error %s", err)
+	}
+	decrypted, err := DecryptBase64(privateKey, code)
+	if err != nil {
+		t.Fatalf("ed25519 decrypt error %s", err)
+	}
+	if secret != decrypted {
+		t.Fatalf("ed25519 decrypt/encrypt error! %s != %s", decrypted, secret)
+	}
+}
+
+func TestEd25519PKCS8DecryptEncrypt(t *testing.T) {
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("fail to generate keypair %s", err)
+	}
+	privateKeyBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		t.Fatalf("fail to marshal private key %s", err)
+	}
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privateKeyBytes})
+	publicKeySSH, err := exportSshPublicKey(publicKey)
+	if err != nil {
+		t.Fatalf("fail to export public key %s", err)
+	}
+
+	secret := "this is a secret string!!!"
+	code, err := EncryptBase64(string(publicKeySSH), secret)
+	if err != nil {
+		t.Fatalf("ed25519 encrypt error %s", err)
+	}
+	decrypted, err := DecryptBase64(string(privateKeyPEM), code)
+	if err != nil {
+		t.Fatalf("ed25519 decrypt error %s", err)
+	}
+	if secret != decrypted {
+		t.Fatalf("ed25519 decrypt/encrypt error! %s != %s", decrypted, secret)
 	}
 }
