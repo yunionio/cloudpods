@@ -18,6 +18,7 @@ import (
 	"crypto"
 	"crypto/dsa"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
@@ -72,6 +73,8 @@ func Encrypt(publicKey, origData []byte) ([]byte, error) {
 			pubInf = ssh2dsaPublicKey(pub)
 		case ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521:
 			pubInf = ssh2ecdsaPublicKey(pub)
+		case ssh.KeyAlgoED25519:
+			pubInf = ssh2CryptoPublicKey(pub)
 		default:
 			return nil, fmt.Errorf("unsupported key type %s", pub.Type())
 		}
@@ -106,6 +109,12 @@ func Decrypt(privateKey, secret []byte) ([]byte, error) {
 			return nil, err
 		}
 		return decryptAES(ecdsaPub, secret)
+	case ed25519.PrivateKey, *ed25519.PrivateKey:
+		ed25519Pub, err := exportSshPublicKey(priv.(crypto.Signer).Public())
+		if err != nil {
+			return nil, err
+		}
+		return decryptAES(ed25519Pub, secret)
 	}
 	return nil, fmt.Errorf("unsupported")
 }
