@@ -2690,9 +2690,14 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 	// group dev
 	hasNetint := false
 	hasVasmi := false
+	hasHygon := false
 	hasNvidiasmi := false
 	hasNpusmi := false
 	for _, dev := range devs {
+		vendorId := strings.Split(dev.GetVendorDeviceId(), ":")[0]
+		if vendorId == api.HYGON_VENDOR_ID {
+			hasHygon = true
+		}
 		if !utils.IsInStringArray(dev.GetSharingMode(), api.VIRTUAL_SHARING_MODES) {
 			continue
 		}
@@ -2701,7 +2706,6 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 			continue
 		}
 
-		vendorId := strings.Split(dev.GetVendorDeviceId(), ":")[0]
 		switch vendorId {
 		case api.AMD_VENDOR_ID:
 			confMap, ok := conf[system_service.TELEGRAF_INPUT_RADEONTOP].(map[string]interface{})
@@ -2733,6 +2737,11 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 	if hasVasmi {
 		conf[system_service.TELEGRAF_INPUT_VASMI] = map[string]interface{}{
 			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: "/usr/bin/vasmi",
+		}
+	}
+	if hasHygon {
+		conf[system_service.TELEGRAF_INPUT_HYSMI] = map[string]interface{}{
+			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: options.HostOptions.HygonHySmiPath,
 		}
 	}
 	if hasNvidiasmi {

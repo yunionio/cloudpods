@@ -99,6 +99,7 @@ func GetLLMBasePodCreateInput(
 			isolatedDevice := &computeapi.IsolatedDeviceConfig{
 				DevType:       devices[i].DevType,
 				SharingMode:   devices[i].SharingMode,
+				Vendor:        devices[i].Vendor,
 				Model:         devices[i].Model,
 				DevicePath:    devices[i].DevicePath,
 				MemoryMb:      memMb,

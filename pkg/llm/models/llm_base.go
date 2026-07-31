@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -95,6 +96,24 @@ func getEffectiveDevices(llmBase *SLLMBase, skuBase *SLLMSkuBase) *api.Devices {
 		return skuBase.Devices
 	}
 	return nil
+}
+
+// HasHygonDevices reports whether effective devices include Hygon DCU (exclusive or HAMI).
+func HasHygonDevices(llm *SLLM, sku *SLLMSku) bool {
+	devs := GetEffectiveDevices(llm, sku)
+	if devs == nil {
+		return false
+	}
+	for _, d := range *devs {
+		if strings.EqualFold(d.Vendor, "HYGON") {
+			return true
+		}
+		switch d.DevType {
+		case computeapi.CONTAINER_DEV_HYGON_DCU, computeapi.CONTAINER_DEV_HYGON_DCU_HAMI:
+			return true
+		}
+	}
+	return false
 }
 
 // GetEffectiveHostPaths returns the host_paths to apply with llm's override taking priority over sku.

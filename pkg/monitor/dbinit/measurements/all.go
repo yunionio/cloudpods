@@ -31,6 +31,7 @@ var All = []SMeasurement{
 	system,
 	vasmi,
 	npuSmi,
+	hysmi,
 
 	worker,
 	serviceHttpCode,
