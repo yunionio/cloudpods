@@ -422,4 +422,7 @@ type GuestIsolatedDeviceDetails struct {
 
 	// 设备厂商，由 vendor_device_id 经 ID_VENDOR_MAP 翻译
 	Vendor string `json:"vendor"`
+
+	MemoryAllocated int
+	AllocatedCount  int
 }
