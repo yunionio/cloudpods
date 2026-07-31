@@ -198,16 +198,31 @@ func buildVLLMServeFlags(modelPath string, tensorParallelSize int, backendParame
 	)
 }
 
-func buildVLLMEntrypointScript(modelPath string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecVllm) string {
+func buildHygonVLLMEnvSourceLines() []string {
+	return []string{
+		"if [ -f /opt/dtk/env.sh ]; then",
+		"  . /opt/dtk/env.sh",
+		"else",
+		"  _dtk_env=$(ls /opt/dtk-*/env.sh 2>/dev/null | head -1)",
+		"  if [ -n \"$_dtk_env\" ] && [ -f \"$_dtk_env\" ]; then",
+		"    . \"$_dtk_env\"",
+		"  fi",
+		"fi",
+	}
+}
+
+func buildVLLMEntrypointScript(modelPath string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecVllm, hygon bool) string {
 	modelPath = strings.TrimSpace(modelPath)
 	if modelPath == "" {
 		return "exec sleep infinity"
 	}
 	serveCmd := strings.Join(buildVLLMServeFlags(modelPath, tensorParallelSize, backendParameters, effSpec), " ")
-	return strings.Join([]string{
-		"set -e",
-		fmt.Sprintf("exec %s %s", api.LLM_VLLM_EXEC_PATH, serveCmd),
-	}, "\n")
+	lines := []string{"set -e"}
+	if hygon {
+		lines = append(lines, buildHygonVLLMEnvSourceLines()...)
+	}
+	lines = append(lines, fmt.Sprintf("exec %s %s", api.LLM_VLLM_EXEC_PATH, serveCmd))
+	return strings.Join(lines, "\n")
 }
 
 func (v *vllm) GetSpec(sku *models.SLLMSku) interface{} {
@@ -414,7 +429,8 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	}
 	modelPath := models.PickContainerModelMountPath(models.CollectContainerModelMountPaths(llm, sku), preferred)
 	hasMountedModels := modelPath != "" || len(postOverlays) > 0 || models.SkuHasLocalHostPathModel(sku)
-	startScript := buildVLLMEntrypointScript(modelPath, tensorParallelSize, backendParameters, effSpec)
+	hygon := models.HasHygonDevices(llm, sku)
+	startScript := buildVLLMEntrypointScript(modelPath, tensorParallelSize, backendParameters, effSpec, hygon)
 	envs := []*commonapi.ContainerKeyValue{
 		{
 			Key:   "HUGGING_FACE_HUB_CACHE",
@@ -446,12 +462,24 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 			Envs:              envs,
 		},
 	}
+	if hygon {
+		spec.Command = []string{"/bin/bash", "-c"}
+	}
 	if hasMountedModels {
 		spec.StartupProbe = newLLMHTTPStartupProbe(api.LLM_VLLM_DEFAULT_PORT, "/v1/models")
 	}
 
 	// GPU Devices
 	appendContainerIsolatedDevices(&spec, llm, sku, devices)
+
+	if hygon {
+		spec.Capabilities = &commonapi.ContainerCapability{
+			Add: []string{"SYS_PTRACE"},
+		}
+		spec.SecurityContext = &commonapi.ContainerSecurityContext{
+			SupplementalGroupNames: []string{"video"},
+		}
+	}
 
 	// Volume Mounts
 	diskIndex := 0
