@@ -384,7 +384,7 @@ func (d *SLocalDisk) GetDiskSetupScripts(diskIndex int) string {
 	return cmd
 }
 
-func (d *SLocalDisk) PostCreateFromRemoteHostImage(diskUrl string) {
+func (d *SLocalDisk) PostCreateFromRemoteHostImage(diskUrl string, snapshotId string) {
 	if diskUrl != "" {
 		if err := d.RequestCloseNbdImage(context.Background(), diskUrl); err != nil {
 			log.Errorf("failed request close nbd image %s: %s", diskUrl, err)

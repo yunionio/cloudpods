@@ -228,10 +228,6 @@ func (d *SSLVMDisk) CreateSnapshot(snapshotId string, encryptKey string, encForm
 	return nil
 }
 
-func (d *SSLVMDisk) PostCreateFromRemoteHostImage(string) {
-	log.Infof("slvm post create from fuse do nothing")
-}
-
 func (d *SSLVMDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	err := lvmutils.LVActive(d.GetPath(), false, d.Storage.Lvmlockd())
 	if err != nil {
@@ -305,6 +301,43 @@ func (d *SSLVMDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLoca
 		return nil, errors.Wrap(err, "LVDeactivate")
 	}
 	return ret, nil
+}
+
+func (d *SSLVMDisk) PostCreateFromRemoteHostImage(diskUrl string, snapshotId string) {
+	if len(snapshotId) == 0 {
+		return
+	}
+	snapshotPath := d.GetSnapshotPath(snapshotId)
+
+	curPath := snapshotPath
+	for {
+		if !fileutils2.Exists(curPath) {
+			break
+		}
+		if inUse, err := lvmutils.IsDeviceInUse(curPath); inUse {
+			log.Errorf("slvm PostCreateFromRemoteHostImage %s inuse", curPath)
+			break
+		} else if err != nil {
+			log.Errorf("slvm PostCreateFromRemoteHostImage failed check device %s is inuse: %s", curPath, err)
+			break
+		}
+
+		img, err := qemuimg.NewQemuImage(curPath)
+		if err != nil {
+			log.Errorf("failed open qemu image %s: %s", curPath, err)
+			break
+		}
+		backPath := img.BackFilePath
+		if err := lvmutils.LVDeactivate(curPath); err != nil {
+			log.Errorf("failed deactivate lv %s: %s", curPath, err)
+			break
+		}
+		if len(backPath) == 0 || strings.HasPrefix(path.Base(backPath), IMAGECACHE_PREFIX) {
+			break
+		} else {
+			curPath = backPath
+		}
+	}
 }
 
 func (d *SSLVMDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error {
