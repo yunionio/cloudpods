@@ -662,6 +662,7 @@ func buildIsolatedDeviceMemoryParams(device api.Device) *jsonutils.JSONDict {
 	params.Set("show_baremetal_isolated_devices", jsonutils.JSONTrue)
 	setStringArrayParam(params, "dev_type", dev.DevType)
 	setStringArrayParam(params, "sharing_mode", dev.SharingMode)
+	setStringArrayParam(params, "vendor", dev.Vendor)
 	setStringArrayParam(params, "model", dev.Model)
 	setStringArrayParam(params, "device_path", dev.DevicePath)
 	return params

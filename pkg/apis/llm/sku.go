@@ -80,6 +80,7 @@ func (s PortMappings) IsZero() bool {
 type Device struct {
 	DevType     string `json:"dev_type"`
 	SharingMode string `json:"sharing_mode,omitempty"`
+	Vendor      string `json:"vendor,omitempty"`
 	Model       string `json:"model"`
 	DevicePath  string `json:"device_path"`
 	// MemoryMb is optional per-device VRAM (MiB) for HAMI. When > 0 it is used

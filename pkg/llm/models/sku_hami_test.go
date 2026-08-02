@@ -25,48 +25,63 @@ func TestNormalizeLLMSkuDeviceLegacyTypes(t *testing.T) {
 		in              api.Device
 		wantDevType     string
 		wantSharingMode string
+		wantVendor      string
 	}{
 		{
 			name:            "NVIDIA_GPU_SHARE",
 			in:              api.Device{DevType: computeapi.CONTAINER_DEV_NVIDIA_GPU_SHARE},
 			wantDevType:     computeapi.GPU_TYPE,
 			wantSharingMode: computeapi.DEVICE_SHARING_MODE_UNLIMITED,
+			wantVendor:      "NVIDIA",
 		},
 		{
 			name:            "NVIDIA_MPS",
 			in:              api.Device{DevType: computeapi.CONTAINER_DEV_NVIDIA_MPS},
 			wantDevType:     computeapi.GPU_TYPE,
 			wantSharingMode: computeapi.DEVICE_SHARING_MODE_MPS,
+			wantVendor:      "NVIDIA",
 		},
 		{
 			name:            "NVIDIA_GPU",
 			in:              api.Device{DevType: computeapi.CONTAINER_DEV_NVIDIA_GPU},
 			wantDevType:     computeapi.GPU_TYPE,
 			wantSharingMode: computeapi.DEVICE_SHARING_MODE_EXCLUSIVE,
+			wantVendor:      "NVIDIA",
 		},
 		{
 			name:            "NVIDIA_HAMI",
 			in:              api.Device{DevType: computeapi.CONTAINER_DEV_NVIDIA_HAMI},
 			wantDevType:     computeapi.GPU_TYPE,
 			wantSharingMode: computeapi.DEVICE_SHARING_MODE_HAMI,
+			wantVendor:      "NVIDIA",
 		},
 		{
 			name:            "HYGON_DCU",
 			in:              api.Device{DevType: computeapi.CONTAINER_DEV_HYGON_DCU},
 			wantDevType:     computeapi.GPU_TYPE,
 			wantSharingMode: computeapi.DEVICE_SHARING_MODE_EXCLUSIVE,
+			wantVendor:      "HYGON",
 		},
 		{
 			name:            "HYGON_DCU_HAMI",
 			in:              api.Device{DevType: computeapi.CONTAINER_DEV_HYGON_DCU_HAMI},
 			wantDevType:     computeapi.GPU_TYPE,
 			wantSharingMode: computeapi.DEVICE_SHARING_MODE_HAMI,
+			wantVendor:      "HYGON",
 		},
 		{
 			name:            "explicit sharing_mode preserved",
 			in:              api.Device{DevType: computeapi.CONTAINER_DEV_NVIDIA_GPU_SHARE, SharingMode: computeapi.DEVICE_SHARING_MODE_MPS},
 			wantDevType:     computeapi.GPU_TYPE,
 			wantSharingMode: computeapi.DEVICE_SHARING_MODE_MPS,
+			wantVendor:      "NVIDIA",
+		},
+		{
+			name:            "explicit vendor preserved and canonicalized",
+			in:              api.Device{DevType: computeapi.GPU_TYPE, Vendor: "hygon", Model: "BW"},
+			wantDevType:     computeapi.GPU_TYPE,
+			wantSharingMode: computeapi.DEVICE_SHARING_MODE_HAMI,
+			wantVendor:      "HYGON",
 		},
 	}
 	for _, tc := range cases {
@@ -78,6 +93,9 @@ func TestNormalizeLLMSkuDeviceLegacyTypes(t *testing.T) {
 			}
 			if dev.SharingMode != tc.wantSharingMode {
 				t.Fatalf("SharingMode = %q, want %q", dev.SharingMode, tc.wantSharingMode)
+			}
+			if dev.Vendor != tc.wantVendor {
+				t.Fatalf("Vendor = %q, want %q", dev.Vendor, tc.wantVendor)
 			}
 		})
 	}
@@ -266,6 +284,7 @@ func TestLLMPodIsolatedDeviceConfigFromSKU(t *testing.T) {
 		out = append(out, &computeapi.IsolatedDeviceConfig{
 			DevType:       devs[i].DevType,
 			SharingMode:   devs[i].SharingMode,
+			Vendor:        devs[i].Vendor,
 			Model:         devs[i].Model,
 			DevicePath:    devs[i].DevicePath,
 			MemoryMb:      perDev,
@@ -278,6 +297,9 @@ func TestLLMPodIsolatedDeviceConfigFromSKU(t *testing.T) {
 	}
 	if out[1].DevType != computeapi.GPU_TYPE || out[1].SharingMode != computeapi.DEVICE_SHARING_MODE_UNLIMITED {
 		t.Fatalf("device1 = %#v", out[1])
+	}
+	if out[1].Vendor != "NVIDIA" {
+		t.Fatalf("device1 Vendor = %q, want NVIDIA", out[1].Vendor)
 	}
 	if out[0].MemoryRequest != perDev || out[1].MemoryRequest != perDev {
 		t.Fatalf("MemoryRequest = %d,%d want %d", out[0].MemoryRequest, out[1].MemoryRequest, perDev)
@@ -313,5 +335,21 @@ func TestBuildIsolatedDeviceMemoryParamsExclusiveUsesUnused(t *testing.T) {
 	})
 	if !params.Contains("unused") {
 		t.Fatal("exclusive params should set unused")
+	}
+}
+
+func TestBuildIsolatedDeviceMemoryParamsVendor(t *testing.T) {
+	params := buildIsolatedDeviceMemoryParams(api.Device{
+		DevType:     computeapi.GPU_TYPE,
+		SharingMode: computeapi.DEVICE_SHARING_MODE_EXCLUSIVE,
+		Model:       "BW",
+		Vendor:      "HYGON",
+	})
+	vendors, err := params.GetArray("vendor")
+	if err != nil || len(vendors) != 1 {
+		t.Fatalf("vendor = %v err=%v", params, err)
+	}
+	if s, _ := vendors[0].GetString(); s != "HYGON" {
+		t.Fatalf("vendor = %q", s)
 	}
 }

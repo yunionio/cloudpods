@@ -2139,6 +2139,13 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 				LocalhostRef: secInput.ApparmorProfile,
 			}
 		}
+		supplementalGroups, err := resolveSupplementalGroups(secInput.SupplementalGroups, secInput.SupplementalGroupNames)
+		if err != nil {
+			return "", errors.Wrap(err, "resolve supplemental groups")
+		}
+		if len(supplementalGroups) > 0 {
+			ctrCfg.Linux.SecurityContext.SupplementalGroups = supplementalGroups
+		}
 	}
 
 	if spec.EnableLxcfs {
