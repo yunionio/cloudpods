@@ -72,7 +72,7 @@ type IDisk interface {
 	CreateFromRbdSnapshot(ctx context.Context, snapshotId, srcDiskId, srcPool string) error
 	CreateFromRemoteHostImage(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error
 	CreateRaw(ctx context.Context, sizeMb int, diskFormat string, fsFormat string, fsFeatures *api.DiskFsFeatures, encryptInfo *apis.SEncryptInfo, diskId string, back string) (jsonutils.JSONObject, error)
-	PostCreateFromRemoteHostImage(diskUrl string)
+	PostCreateFromRemoteHostImage(diskUrl string, snapshotId string)
 	CreateSnapshot(snapshotId string, encryptKey string, encFormat qemuimg.TEncryptFormat, encAlg seclib2.TSymEncAlg) error
 	DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error
 	DeployGuestFs(diskInfo *deployapi.DiskInfo, guestDesc *desc.SGuestDesc,
@@ -179,7 +179,7 @@ func (d *SBaseDisk) RebuildSlaveDisk(diskUri string) error {
 	return nil
 }
 
-func (d *SBaseDisk) PostCreateFromRemoteHostImage(string) {
+func (d *SBaseDisk) PostCreateFromRemoteHostImage(string, string) {
 }
 
 func (d *SBaseDisk) GetZoneId() string {
