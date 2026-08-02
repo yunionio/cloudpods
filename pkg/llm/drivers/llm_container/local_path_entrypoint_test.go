@@ -9,16 +9,19 @@ import (
 )
 
 func TestBuildVLLMEntrypointScriptMountedModelsFlag(t *testing.T) {
-	sleepScript := buildVLLMEntrypointScript("", 1, nil, nil)
+	sleepScript := buildVLLMEntrypointScript("", 1, nil, nil, false)
 	if !strings.Contains(sleepScript, "sleep infinity") {
 		t.Fatalf("expected idle script without model path, got %q", sleepScript)
 	}
 	if strings.Contains(sleepScript, "find ") {
 		t.Fatalf("idle script should not find models, got %q", sleepScript)
 	}
+	if strings.Contains(sleepScript, "/opt/dtk/env.sh") {
+		t.Fatalf("idle script should not source dtk env, got %q", sleepScript)
+	}
 
 	nested := "/data/models/huggingface/Qwen3-8B"
-	serveScript := buildVLLMEntrypointScript(nested, 1, nil, &api.LLMSpecVllm{PreferredModel: "Qwen3-8B"})
+	serveScript := buildVLLMEntrypointScript(nested, 1, nil, &api.LLMSpecVllm{PreferredModel: "Qwen3-8B"}, false)
 	if strings.Contains(serveScript, "sleep infinity") {
 		t.Fatalf("expected serve script with model path, got %q", serveScript)
 	}
@@ -28,11 +31,33 @@ func TestBuildVLLMEntrypointScriptMountedModelsFlag(t *testing.T) {
 	if !strings.Contains(serveScript, nested) {
 		t.Fatalf("expected nested model path in serve script, got %q", serveScript)
 	}
+	if strings.Contains(serveScript, "/opt/dtk/env.sh") {
+		t.Fatalf("non-hygon serve script should not source dtk env, got %q", serveScript)
+	}
 	if strings.Contains(serveScript, "find ") {
 		t.Fatalf("serve script should not find under MODELS_PATH, got %q", serveScript)
 	}
 	if strings.Contains(serveScript, api.LLM_VLLM_MODELS_PATH+"'") || strings.Contains(serveScript, "mkdir -p '"+api.LLM_VLLM_MODELS_PATH) {
 		t.Fatalf("serve script should not select via MODELS_PATH root, got %q", serveScript)
+	}
+}
+
+func TestBuildVLLMEntrypointScriptHygonSourcesDTKEnv(t *testing.T) {
+	modelPath := "/data/models/huggingface/Qwen3-8B"
+	script := buildVLLMEntrypointScript(modelPath, 2, nil, nil, true)
+	if !strings.Contains(script, "/opt/dtk/env.sh") {
+		t.Fatalf("expected dtk env source, got %q", script)
+	}
+	if !strings.Contains(script, "/opt/dtk-*/env.sh") {
+		t.Fatalf("expected dtk version fallback, got %q", script)
+	}
+	if !strings.Contains(script, api.LLM_VLLM_EXEC_PATH) {
+		t.Fatalf("expected vllm exec after env source, got %q", script)
+	}
+	idx := strings.Index(script, "/opt/dtk/env.sh")
+	execIdx := strings.Index(script, "exec "+api.LLM_VLLM_EXEC_PATH)
+	if idx < 0 || execIdx < 0 || idx > execIdx {
+		t.Fatalf("expected env source before exec vllm, got %q", script)
 	}
 }
 
@@ -79,7 +104,7 @@ func TestLocalPathSkuEnablesServeEntrypoint(t *testing.T) {
 	if modelPath != "/data/models/huggingface/Qwen3-8B" {
 		t.Fatalf("expected nested local_path mount, got %q", modelPath)
 	}
-	script := buildVLLMEntrypointScript(modelPath, 1, nil, nil)
+	script := buildVLLMEntrypointScript(modelPath, 1, nil, nil, false)
 	if !strings.Contains(script, modelPath) {
 		t.Fatalf("expected script to embed mount path, got %q", script)
 	}

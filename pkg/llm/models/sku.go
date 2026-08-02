@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -95,7 +96,24 @@ func normalizeLLMSkuDevices(devices *api.Devices) error {
 	return nil
 }
 
+func canonicalizeLLMDeviceVendor(vendor string) string {
+	vendor = strings.TrimSpace(vendor)
+	if vendor == "" {
+		return ""
+	}
+	for name := range computeapi.VENDOR_ID_MAP {
+		if strings.EqualFold(name, vendor) {
+			return name
+		}
+	}
+	if name, ok := computeapi.ID_VENDOR_MAP[vendor]; ok {
+		return name
+	}
+	return strings.ToUpper(vendor)
+}
+
 func normalizeLLMSkuDevice(dev *api.Device) {
+	origDevType := dev.DevType
 	switch dev.DevType {
 	case "":
 		dev.DevType = computeapi.GPU_TYPE
@@ -133,6 +151,16 @@ func normalizeLLMSkuDevice(dev *api.Device) {
 	if dev.SharingMode == "" {
 		dev.SharingMode = computeapi.DEVICE_SHARING_MODE_HAMI
 	}
+	if dev.Vendor == "" {
+		switch origDevType {
+		case computeapi.CONTAINER_DEV_HYGON_DCU, computeapi.CONTAINER_DEV_HYGON_DCU_HAMI:
+			dev.Vendor = "HYGON"
+		case computeapi.CONTAINER_DEV_NVIDIA_GPU, computeapi.CONTAINER_DEV_NVIDIA_MPS,
+			computeapi.CONTAINER_DEV_NVIDIA_GPU_SHARE, computeapi.CONTAINER_DEV_NVIDIA_HAMI:
+			dev.Vendor = "NVIDIA"
+		}
+	}
+	dev.Vendor = canonicalizeLLMDeviceVendor(dev.Vendor)
 }
 
 func (skuBase *SLLMSkuBase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMSkuBaseUpdateInput) (api.LLMSkuBaseUpdateInput, error) {
