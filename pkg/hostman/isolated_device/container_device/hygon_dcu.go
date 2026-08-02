@@ -118,7 +118,7 @@ func (m *hygonDCUManager) GetContainerExtraConfigures(devs []*hostapi.ContainerD
 
 func buildHygonRuntimeMounts() []*runtimeapi.Mount {
 	hyhalPath := options.HostOptions.HygonHyhalPath
-	dtkPath := options.HostOptions.HygonDtkPath
+	//dtkPath := options.HostOptions.HygonDtkPath
 	mounts := []*runtimeapi.Mount{}
 	if hygonPathExists(hyhalPath) {
 		mounts = append(mounts, &runtimeapi.Mount{
@@ -127,21 +127,21 @@ func buildHygonRuntimeMounts() []*runtimeapi.Mount {
 			Readonly:      true,
 		})
 	}
-	if hygonPathExists(dtkPath) {
+	/*if hygonPathExists(dtkPath) {
 		mounts = append(mounts, &runtimeapi.Mount{
 			ContainerPath: dtkPath,
 			HostPath:      dtkPath,
 			Readonly:      true,
 		})
-	}
+	}*/
 	return mounts
 }
 
 func buildHygonRuntimeEnvs(indices []string) []*runtimeapi.KeyValue {
-	hyhalPath := options.HostOptions.HygonHyhalPath
-	dtkPath := options.HostOptions.HygonDtkPath
+	// hyhalPath := options.HostOptions.HygonHyhalPath
+	// dtkPath := options.HostOptions.HygonDtkPath
 	envs := []*runtimeapi.KeyValue{
-		{
+		/*{
 			Key:   "HYGON_VISIBLE_DEVICES",
 			Value: strings.Join(indices, ","),
 		},
@@ -160,7 +160,7 @@ func buildHygonRuntimeEnvs(indices []string) []*runtimeapi.KeyValue {
 		{
 			Key:   "ROCM_SMI_LIB_PATH",
 			Value: path.Join(hyhalPath, "lib"),
-		},
+		},*/
 	}
 	return envs
 }

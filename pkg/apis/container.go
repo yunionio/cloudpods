@@ -70,8 +70,10 @@ const (
 )
 
 type ContainerSecurityContext struct {
-	RunAsUser  *int64 `json:"run_as_user,omitempty"`
-	RunAsGroup *int64 `json:"run_as_group,omitempty"`
+	RunAsUser              *int64   `json:"run_as_user,omitempty"`
+	RunAsGroup             *int64   `json:"run_as_group,omitempty"`
+	SupplementalGroups     []int64  `json:"supplemental_groups,omitempty"`
+	SupplementalGroupNames []string `json:"supplemental_group_names,omitempty"`
 	// procMount denotes the type of proc mount to use for the containers.
 	// The default is DefaultProcMount which uses the container runtime defaults for
 	ProcMount       ContainerProcMountType `json:"proc_mount"`
