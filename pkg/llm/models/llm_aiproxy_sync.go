@@ -271,6 +271,11 @@ func collectUpstreamModelKeys(ctx context.Context, userCred mcclient.TokenCreden
 		keys = append(keys, key)
 	}
 	if len(keys) == 0 {
+		if key := UpstreamModelKeyFromLocalPathSku(llm, sku); key != "" {
+			keys = append(keys, key)
+		}
+	}
+	if len(keys) == 0 {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no mounted models on llm instance")
 	}
 	return keys, nil
