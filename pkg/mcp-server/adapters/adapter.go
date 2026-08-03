@@ -18,12 +18,14 @@ import (
 	"context"
 
 	"github.com/golang-plus/errors"
+
+	"yunion.io/x/pkg/gotypes"
+
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcp-server/options"
-	"yunion.io/x/pkg/gotypes"
 )
 
 // CloudpodsAdapter 负责 Cloudpods 认证并创建 mcclient.ClientSession，供 climc 工具执行使用。

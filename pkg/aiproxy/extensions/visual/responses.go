@@ -19,10 +19,10 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 
 	"yunion.io/x/onecloud/pkg/aiproxy/models"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/openai"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 // ShouldHandle reports whether the Responses visual orchestration path should run.
