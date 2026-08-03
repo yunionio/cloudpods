@@ -119,6 +119,46 @@ func TestSkuHasLocalHostPathModel(t *testing.T) {
 	}
 }
 
+func TestUpstreamModelKeyFromLocalPathSku(t *testing.T) {
+	hostPaths := llm.HostPaths{
+		{
+			Type: "directory",
+			Path: "/data/models/Qwen3-8B",
+			Containers: llm.ContainerHostPathRelations{
+				"0": {MountPath: "/data/models/huggingface/Qwen3-8B"},
+			},
+		},
+	}
+	sku := &SLLMSku{
+		LLMType:   string(llm.LLM_CONTAINER_VLLM),
+		Source:    llm.LLM_MODEL_SOURCE_LOCAL_PATH,
+		LocalPath: "/data/models/Qwen3-8B",
+	}
+	sku.HostPaths = &hostPaths
+
+	got := UpstreamModelKeyFromLocalPathSku(nil, sku)
+	if got != "Qwen3-8B" {
+		t.Fatalf("expected upstream model key Qwen3-8B, got %q", got)
+	}
+
+	skuWithPreferred := &SLLMSku{
+		LLMType:   string(llm.LLM_CONTAINER_VLLM),
+		Source:    llm.LLM_MODEL_SOURCE_LOCAL_PATH,
+		LocalPath: "/data/models/Qwen3-8B",
+		LLMSpec:   &llm.LLMSpec{Vllm: &llm.LLMSpecVllm{PreferredModel: "Qwen3-8B"}},
+	}
+	skuWithPreferred.HostPaths = &hostPaths
+	got = UpstreamModelKeyFromLocalPathSku(nil, skuWithPreferred)
+	if got != "Qwen3-8B" {
+		t.Fatalf("expected upstream model key with preferred model, got %q", got)
+	}
+
+	nonLocal := &SLLMSku{LLMType: string(llm.LLM_CONTAINER_VLLM)}
+	if UpstreamModelKeyFromLocalPathSku(nil, nonLocal) != "" {
+		t.Fatal("expected empty key for non local_path sku")
+	}
+}
+
 func TestValidateLocalPathHamiDevicesRequireMemoryMb(t *testing.T) {
 	t.Run("hami without memory_mb fails", func(t *testing.T) {
 		devs := llm.Devices{{Model: "A100", SharingMode: "HAMI"}}
