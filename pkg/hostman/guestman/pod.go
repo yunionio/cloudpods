@@ -57,6 +57,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
+	"yunion.io/x/onecloud/pkg/hostman/isolated_device/container_device"
 	_ "yunion.io/x/onecloud/pkg/hostman/isolated_device/container_device/cdi"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
@@ -2253,7 +2254,11 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			}
 			ctrCfg.Devices = append(ctrCfg.Devices, ctrDevs...)
 		}
-		if err := s.getIsolatedDeviceExtraConfig(spec, ctrCfg); err != nil {
+		if err := func() error {
+			container_device.SetHygonContainerContext(s.GetId(), input.Name)
+			defer container_device.ClearHygonContainerContext()
+			return s.getIsolatedDeviceExtraConfig(spec, ctrCfg)
+		}(); err != nil {
 			return "", err
 		}
 	} else {
@@ -2447,6 +2452,38 @@ func (s *sPodGuestInstance) getIsolatedDeviceExtraConfig(spec *hostapi.Container
 	return nil
 }
 
+func (s *sPodGuestInstance) releaseIsolatedContainerDevices(devs []*hostapi.ContainerDevice) {
+	devsByMan := map[isolated_device.IContainerDeviceManager][]*hostapi.ContainerDevice{}
+	manOrder := []isolated_device.IContainerDeviceManager{}
+	for i := range devs {
+		dev := devs[i]
+		if dev.IsolatedDevice == nil {
+			continue
+		}
+		devType := dev.IsolatedDevice.DeviceType
+		if devType != computeapi.GPU_TYPE && devType != computeapi.NPU_TYPE {
+			continue
+		}
+		if dev.IsolatedDevice.IsCDIUsed() || len(dev.IsolatedDevice.OnlyEnv) > 0 {
+			continue
+		}
+		iDev := hostinfo.Instance().IsolatedDeviceMan.GetDeviceByCloudId(dev.IsolatedDevice.Id)
+		if iDev == nil {
+			continue
+		}
+		devMan := iDev.GetContainerDeviceManager()
+		if _, ok := devsByMan[devMan]; !ok {
+			manOrder = append(manOrder, devMan)
+		}
+		devsByMan[devMan] = append(devsByMan[devMan], dev)
+	}
+	for _, devMan := range manOrder {
+		if rel, ok := devMan.(isolated_device.IContainerDeviceReleaseManager); ok {
+			rel.ReleaseContainerDevices(devsByMan[devMan])
+		}
+	}
+}
+
 func (s *sPodGuestInstance) getContainerSystemCpusDir(ctrId string) string {
 	rootFsPath, _ := s.GetRootFsMountPath(ctrId)
 	if rootFsPath != "" {
@@ -2607,6 +2644,9 @@ func (s *sPodGuestInstance) ensureContainerSystemCpufreqHostDir(cpuDir, hostCpuP
 }
 
 func (s *sPodGuestInstance) DeleteContainer(ctx context.Context, userCred mcclient.TokenCredential, ctrId string) (jsonutils.JSONObject, error) {
+	if ctr := s.GetContainerById(ctrId); ctr != nil {
+		s.releaseIsolatedContainerDevices(ctr.Spec.Devices)
+	}
 	criId, err := s.getContainerCRIId(ctrId)
 	if err != nil && errors.Cause(err) != errors.ErrNotFound {
 		return nil, errors.Wrap(err, "getContainerCRIId")

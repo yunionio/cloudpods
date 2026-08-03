@@ -19,10 +19,9 @@ import (
 	"strings"
 	"testing"
 
+	"yunion.io/x/onecloud/cmd/climc/shell"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/compute"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/image"
-
-	"yunion.io/x/onecloud/cmd/climc/shell"
 )
 
 func TestBuildInputSchemaUsesMcpTags(t *testing.T) {
