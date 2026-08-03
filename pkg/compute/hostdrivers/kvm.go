@@ -220,7 +220,7 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, userCred 
 	if srcHost != nil {
 		rangeObjs = append(rangeObjs, srcHost)
 	}
-	srcHostCacheImage, err := cacheImage.ChooseSourceStoragecacheInRange(api.HOST_TYPE_HYPERVISOR, []string{host.Id}, rangeObjs)
+	srcHostCacheImage, err := cacheImage.ChooseSourceStoragecacheInRange([]string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_CONTAINER}, []string{host.Id}, rangeObjs)
 	if err != nil {
 		return errors.Wrapf(err, "Choose source storagecache")
 	}
