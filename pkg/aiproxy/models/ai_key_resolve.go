@@ -50,6 +50,8 @@ func baseAiKeyWeight(k *SAiKey) int {
 }
 
 // effectiveAiKeyWeight returns load-balance weight including dynamic penalty (差 key 降权).
+// When mul > 0 the result is at least 1 so weight=1 keys are not permanently excluded by
+// integer truncation (e.g. 1*50/100=0 after cooldown recovery).
 func effectiveAiKeyWeight(k *SAiKey) int {
 	base := baseAiKeyWeight(k)
 	if k == nil || base <= 0 {
@@ -59,7 +61,11 @@ func effectiveAiKeyWeight(k *SAiKey) int {
 	if mul <= 0 {
 		return 0
 	}
-	return base * mul / aiKeyHealthMaxScore
+	w := base * mul / aiKeyHealthMaxScore
+	if w < 1 {
+		return 1
+	}
+	return w
 }
 
 func aiKeyRoutingAcceptsModel(r *api.SAiKeyRouting, reqModel string) bool {
