@@ -1214,6 +1214,7 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 		return
 	}
 	var diskId, diskPath, diskUrl string
+	var mergeSnapshotId string
 	var mergeSnapshots bool
 	for i := 0; i < len(disks); i++ {
 		index := disks[i].Index
@@ -1222,6 +1223,7 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 			diskPath = disks[i].Path
 			diskUrl = disks[i].Url
 			mergeSnapshots = disks[i].MergeSnapshot
+			mergeSnapshotId = disks[i].SnapshotId
 		}
 	}
 	if len(diskId) == 0 {
@@ -1235,7 +1237,7 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 		return
 	}
 	if mergeSnapshots {
-		disk.PostCreateFromRemoteHostImage(diskUrl)
+		disk.PostCreateFromRemoteHostImage(diskUrl, mergeSnapshotId)
 	}
 	blockJobCount := s.BlockJobsCount()
 	if blockJobCount == 0 {
@@ -2165,7 +2167,7 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 				}
 			}
 			if d != nil && disk.MergeSnapshot {
-				d.PostCreateFromRemoteHostImage(disk.Url)
+				d.PostCreateFromRemoteHostImage(disk.Url, disk.SnapshotId)
 			}
 			if migrated {
 				if d != nil && utils.IsInStringArray(d.GetType(), []string{api.STORAGE_SLVM, api.STORAGE_CLVM}) {
@@ -2931,7 +2933,7 @@ func (s *SKVMGuestInstance) streamDisksComplete(ctx context.Context) {
 		if disks[i].MergeSnapshot {
 			if d != nil {
 				log.Infof("Disk %s do post create from fuse", d.GetId())
-				d.PostCreateFromRemoteHostImage(disks[i].Url)
+				d.PostCreateFromRemoteHostImage(disks[i].Url, disks[i].SnapshotId)
 			}
 
 			disks[i].MergeSnapshot = false
