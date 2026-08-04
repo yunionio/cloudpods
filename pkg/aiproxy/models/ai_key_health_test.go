@@ -213,3 +213,44 @@ func TestFormatAiKeySkipReasons_Truncates(t *testing.T) {
 		t.Fatalf("got %q", out)
 	}
 }
+
+func TestEffectiveAiKeyWeight_Weight1RecoverableAfterCooldown(t *testing.T) {
+	resetAiKeyHealthForTest()
+	k := &SAiKey{Secret: "sk-test", Weight: 1}
+	k.Id = "id-recover-w1"
+	k.Name = "recover-w1"
+	for i := 0; i < aiKeyHealthCooldownAfter; i++ {
+		RecordAiKeyFailure(k.Id, 429)
+	}
+	st := getAiKeyHealth(k.Id)
+	aiKeyHealthMu.Lock()
+	st.cooldownUntil = time.Now().Add(-time.Second)
+	aiKeyHealthMu.Unlock()
+
+	if w := effectiveAiKeyWeight(k); w < 1 {
+		t.Fatalf("expected effective weight >= 1 after cooldown recovery, got %d", w)
+	}
+	if reason := aiKeySkipReason(k, "Qwen3.5-4B", nil); reason != "" {
+		t.Fatalf("expected key selectable after cooldown recovery, got %q", reason)
+	}
+}
+
+func TestEffectiveAiKeyWeight_Weight1SelectableAfterSingleFailure(t *testing.T) {
+	resetAiKeyHealthForTest()
+	k := &SAiKey{Secret: "sk-test", Weight: 1}
+	k.Id = "id-single-fail-w1"
+	k.Name = "single-fail-w1"
+	RecordAiKeyFailure(k.Id, 429)
+
+	info := aiKeyHealthInfo(k.Id)
+	if info.score != aiKeyHealthMaxScore-aiKeyHealthFailPenalty {
+		t.Fatalf("expected score %d after one failure, got %d", aiKeyHealthMaxScore-aiKeyHealthFailPenalty, info.score)
+	}
+	// Without the floor, 1*75/100 truncates to 0 and permanently excludes the key.
+	if w := effectiveAiKeyWeight(k); w < 1 {
+		t.Fatalf("expected effective weight >= 1 after single failure, got %d", w)
+	}
+	if reason := aiKeySkipReason(k, "Qwen3.5-4B", nil); reason != "" {
+		t.Fatalf("expected key selectable after single failure, got %q", reason)
+	}
+}
