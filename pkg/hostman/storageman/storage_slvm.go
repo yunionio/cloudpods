@@ -25,6 +25,8 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 func init() {
@@ -104,6 +106,36 @@ func (s *SSLVMStorage) GetDiskById(diskId string) (IDisk, error) {
 
 func (s *SSLVMStorage) CreateDiskFromSnapshot(ctx context.Context, disk IDisk, input *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
 	snapshotLocation := disk.GetSnapshotPath(input.DiskInfo.SnapshotId)
+	var activedPath = []string{}
+	var diskPath = snapshotLocation
+	var err error
+	var img *qemuimg.SQemuImage
+	for {
+		if !fileutils2.Exists(diskPath) {
+			err = lvmutils.LVActive(diskPath, s.lvmlockd, false)
+			if err != nil {
+				log.Errorf("lvactive %s failed: %s", diskPath, err)
+				break
+			}
+			activedPath = append(activedPath, diskPath)
+		}
+		img, err = qemuimg.NewQemuImage(diskPath)
+		if err != nil {
+			log.Errorf("failed open qemu image: %s, %s", diskPath, err)
+			break
+		}
+		if len(img.BackFilePath) > 0 {
+			diskPath = img.BackFilePath
+		} else {
+			break
+		}
+	}
+	if err != nil {
+		for _, apath := range activedPath {
+			lvmutils.LVDeactivate(apath)
+		}
+		return nil, err
+	}
 
 	return disk.CreateFromSnapshotLocation(ctx, snapshotLocation, int64(input.DiskInfo.DiskSizeMb), &input.DiskInfo.EncryptInfo)
 }

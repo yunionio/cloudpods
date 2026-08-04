@@ -234,7 +234,7 @@ func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFromat string,
 	return d.GetDiskDesc(), nil
 }
 
-func (d *SRBDDisk) PostCreateFromRemoteHostImage(string) {
+func (d *SRBDDisk) PostCreateFromRemoteHostImage(string, string) {
 	log.Errorf("Not support PostCreateFromRemoteHostImage")
 }
 

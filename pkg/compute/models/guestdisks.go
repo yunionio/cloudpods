@@ -244,6 +244,7 @@ func (self *SGuestdisk) GetDiskJsonDescAtHost(ctx context.Context, host *SHost, 
 				desc.Url = url
 			}
 		}
+		desc.SnapshotId = disk.SnapshotId
 	}
 	if fpath := disk.GetMetadata(ctx, api.DISK_META_REMOTE_ACCESS_PATH, nil); len(fpath) > 0 {
 		guest := self.getGuest()
