@@ -176,7 +176,7 @@ func (d *SLVMDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JS
 	return nil, nil
 }
 
-func (d *SLVMDisk) PostCreateFromRemoteHostImage(diskUrl string) {
+func (d *SLVMDisk) PostCreateFromRemoteHostImage(diskUrl string, snapshotId string) {
 	if diskUrl != "" {
 		if err := d.RequestCloseNbdImage(context.Background(), diskUrl); err != nil {
 			log.Errorf("failed request close nbd image %s: %s", diskUrl, err)
