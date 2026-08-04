@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/printutils"
 
 	apapi "yunion.io/x/onecloud/pkg/apis/aiproxy"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
@@ -18,7 +19,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	apmodules "yunion.io/x/onecloud/pkg/mcclient/modules/aiproxy"
-	"yunion.io/x/pkg/util/printutils"
 )
 
 // aiproxyPlaceholderAPIKey is used for local inference backends (vLLM/Ollama/SGLang)

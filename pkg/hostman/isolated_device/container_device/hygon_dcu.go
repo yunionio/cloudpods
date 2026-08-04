@@ -70,6 +70,7 @@ type hygonDCU struct {
 	*BaseDevice
 	gpuIndex     int
 	renderPath   string
+	cardPath     string
 	memorySize   int
 	computeUnits int
 }
@@ -84,6 +85,10 @@ func (dev *hygonDCU) GetIndex() int {
 
 func (dev *hygonDCU) GetRenderPath() string {
 	return dev.renderPath
+}
+
+func (dev *hygonDCU) GetCardPath() string {
+	return dev.cardPath
 }
 
 func (dev *hygonDCU) GetComputeUnits() int {
@@ -116,9 +121,8 @@ func (m *hygonDCUManager) GetContainerExtraConfigures(devs []*hostapi.ContainerD
 	return m.buildHygonExtraConfigures(indices)
 }
 
-func buildHygonRuntimeMounts() []*runtimeapi.Mount {
+func buildHygonRuntimeMounts(includeDtk bool) []*runtimeapi.Mount {
 	hyhalPath := options.HostOptions.HygonHyhalPath
-	//dtkPath := options.HostOptions.HygonDtkPath
 	mounts := []*runtimeapi.Mount{}
 	if hygonPathExists(hyhalPath) {
 		mounts = append(mounts, &runtimeapi.Mount{
@@ -127,13 +131,16 @@ func buildHygonRuntimeMounts() []*runtimeapi.Mount {
 			Readonly:      true,
 		})
 	}
-	/*if hygonPathExists(dtkPath) {
-		mounts = append(mounts, &runtimeapi.Mount{
-			ContainerPath: dtkPath,
-			HostPath:      dtkPath,
-			Readonly:      true,
-		})
-	}*/
+	if includeDtk {
+		dtkPath := options.HostOptions.HygonDtkPath
+		if hygonPathExists(dtkPath) {
+			mounts = append(mounts, &runtimeapi.Mount{
+				ContainerPath: "/opt/hygondriver",
+				HostPath:      dtkPath,
+				Readonly:      false,
+			})
+		}
+	}
 	return mounts
 }
 
@@ -166,7 +173,7 @@ func buildHygonRuntimeEnvs(indices []string) []*runtimeapi.KeyValue {
 }
 
 func (m *hygonDCUManager) buildHygonExtraConfigures(indices []string) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
-	return buildHygonRuntimeEnvs(indices), buildHygonRuntimeMounts()
+	return buildHygonRuntimeEnvs(indices), buildHygonRuntimeMounts(false)
 }
 
 func hygonCommonDevices() []*runtimeapi.Device {
@@ -185,6 +192,10 @@ func hygonCommonDevices() []*runtimeapi.Device {
 }
 
 func (m *hygonDCUManager) NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {
+	return m.newHygonDrmContainerDevices(dev, true)
+}
+
+func (m *hygonDCUManager) newHygonDrmContainerDevices(dev *hostapi.ContainerDevice, includeCard bool) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {
 	if dev.IsolatedDevice == nil {
 		return nil, nil, errors.Errorf("isolated device is nil")
 	}
@@ -201,13 +212,25 @@ func (m *hygonDCUManager) NewContainerDevices(input *hostapi.ContainerCreateInpu
 		return nil, nil, errors.Errorf("hygon dcu %s has empty render path", dev.IsolatedDevice.Id)
 	}
 	perms := "rwm"
-	ctrDevs := []*runtimeapi.Device{
-		{
-			ContainerPath: renderPath,
-			HostPath:      renderPath,
-			Permissions:   perms,
-		},
+	ctrDevs := []*runtimeapi.Device{}
+	if includeCard {
+		cardPath := dcuDev.GetCardPath()
+		if cardPath == "" {
+			cardPath = hygonCardPathForRender(renderPath)
+		}
+		if cardPath != "" && hygonPathExists(cardPath) {
+			ctrDevs = append(ctrDevs, &runtimeapi.Device{
+				ContainerPath: cardPath,
+				HostPath:      cardPath,
+				Permissions:   "rw",
+			})
+		}
 	}
+	ctrDevs = append(ctrDevs, &runtimeapi.Device{
+		ContainerPath: renderPath,
+		HostPath:      renderPath,
+		Permissions:   perms,
+	})
 	return ctrDevs, hygonCommonDevices(), nil
 }
 
@@ -294,6 +317,7 @@ func getHygonDCUs(manager isolated_device.IContainerDeviceManager, sharingMode s
 			BaseDevice:   NewBaseDevice(pciDev, computeapi.GPU_TYPE, strconv.Itoa(idx), sharingMode, 1),
 			gpuIndex:     idx,
 			renderPath:   renderPath,
+			cardPath:     hygonCardPathForRender(renderPath),
 			memorySize:   memSize,
 			computeUnits: computeUnits,
 		}
