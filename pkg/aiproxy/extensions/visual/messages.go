@@ -21,10 +21,10 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 
 	"yunion.io/x/onecloud/pkg/aiproxy/models"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/openai"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 var ErrVisualStreamingUnsupported = fmt.Errorf("visual extension does not support streaming")

@@ -22,10 +22,10 @@ import (
 	"strings"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
-	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 
 	"yunion.io/x/pkg/errors"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	fileutils "yunion.io/x/onecloud/pkg/util/fileutils2"
