@@ -100,6 +100,11 @@ type IContainerDeviceManager interface {
 	GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount)
 }
 
+// IContainerDeviceReleaseManager is implemented by device managers that need cleanup on container delete.
+type IContainerDeviceReleaseManager interface {
+	ReleaseContainerDevices(devs []*hostapi.ContainerDevice)
+}
+
 type IContainerCDIManager interface {
 	GetKind() apis.ContainerCDIKind
 	GetSpecFilePath() string
