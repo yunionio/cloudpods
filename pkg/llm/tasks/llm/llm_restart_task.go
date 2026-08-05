@@ -376,6 +376,11 @@ func (task *LLMRestartTask) OnResetDiskComplete(ctx context.Context, obj db.ISta
 		return
 	}
 
+	if err := llm.SyncDetachIsolatedDevicesIfEmpty(ctx, task.UserCred, sku); err != nil {
+		task.taskFailed(ctx, llm, errors.Wrap(err, "SyncDetachIsolatedDevicesIfEmpty").Error())
+		return
+	}
+
 	volume, err := llm.GetVolume()
 	if err != nil {
 		task.taskFailed(ctx, llm, errors.Wrap(err, "GetVolume").Error())
