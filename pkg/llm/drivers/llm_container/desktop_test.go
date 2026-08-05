@@ -28,15 +28,36 @@ func TestAppendContainerIsolatedDevicesFromSku(t *testing.T) {
 }
 
 func TestAppendContainerIsolatedDevicesById(t *testing.T) {
+	devices := api.Devices{{Model: "GeForce RTX 4090"}}
+	sku := &models.SLLMSku{}
+	sku.Devices = &devices
 	dev := computeapi.SIsolatedDevice{}
 	dev.Id = "gpu-1"
 	spec := computeapi.ContainerSpec{}
-	appendContainerIsolatedDevices(&spec, nil, nil, []computeapi.SIsolatedDevice{dev})
+	appendContainerIsolatedDevices(&spec, nil, sku, []computeapi.SIsolatedDevice{dev})
 	if len(spec.Devices) != 1 || spec.Devices[0].IsolatedDevice == nil || spec.Devices[0].IsolatedDevice.Id != "gpu-1" {
 		t.Fatalf("devices = %#v", spec.Devices)
 	}
 	if spec.Devices[0].IsolatedDevice.GuestIsolatedDeviceIndex != 0 {
 		t.Fatalf("guest_isolated_device_index = %d", spec.Devices[0].IsolatedDevice.GuestIsolatedDeviceIndex)
+	}
+}
+
+func TestAppendContainerIsolatedDevicesEmptySkuIgnoresBound(t *testing.T) {
+	dev := computeapi.SIsolatedDevice{}
+	dev.Id = "gpu-stale"
+	spec := computeapi.ContainerSpec{}
+	appendContainerIsolatedDevices(&spec, nil, nil, []computeapi.SIsolatedDevice{dev})
+	if len(spec.Devices) != 0 {
+		t.Fatalf("expected no devices when effective devices empty, got %#v", spec.Devices)
+	}
+	sku := &models.SLLMSku{}
+	empty := api.Devices{}
+	sku.Devices = &empty
+	spec2 := computeapi.ContainerSpec{}
+	appendContainerIsolatedDevices(&spec2, nil, sku, []computeapi.SIsolatedDevice{dev})
+	if len(spec2.Devices) != 0 {
+		t.Fatalf("expected no devices for empty sku devices, got %#v", spec2.Devices)
 	}
 }
 
@@ -52,6 +73,11 @@ func TestDesktopUiTitle(t *testing.T) {
 func TestDesktopHasIsolatedGPU(t *testing.T) {
 	if desktopHasIsolatedGPU(nil, nil, nil) {
 		t.Fatal("expected false without devices")
+	}
+	bound := computeapi.SIsolatedDevice{}
+	bound.Id = "gpu-stale"
+	if desktopHasIsolatedGPU(nil, nil, []computeapi.SIsolatedDevice{bound}) {
+		t.Fatal("expected false when only stale bound devices and empty effective devices")
 	}
 	devices := api.Devices{{Model: "GeForce RTX 4090"}}
 	sku := &models.SLLMSku{}
