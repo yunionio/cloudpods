@@ -2476,7 +2476,9 @@ func (s *SKVMGuestInstance) compareDescFloppys(newDesc *desc.SGuestDesc) []*desc
 func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 ) ([]*desc.SGuestNetwork, []*desc.SGuestNetwork, [][2]*desc.SGuestNetwork) {
 	var isValidHotplug = func(net *desc.SGuestNetwork) bool {
-		return net.Driver == "virtio" || net.Driver == "vfio-pci"
+		return utils.IsInStringArray(net.Driver, []string{
+			api.NETWORK_DRIVER_E1000, api.NETWORK_DRIVER_VIRTIO, api.NETWORK_DRIVER_VFIO,
+		})
 	}
 
 	var findNet = func(nets []*desc.SGuestNetwork, net *desc.SGuestNetwork) int {
@@ -2505,10 +2507,8 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 				addNics[idx], // new
 			})
 
-			if isValidHotplug(n) {
-				// remove existing nic from new
-				addNics = append(addNics[:idx], addNics[idx+1:]...)
-			}
+			// remove existing nic from new
+			addNics = append(addNics[:idx], addNics[idx+1:]...)
 		} else {
 			if isValidHotplug(n) {
 				// not found, remove the nic
