@@ -105,9 +105,6 @@ func desktopContainerRootFs(diskIndex *int) *commonapi.ContainerRootfs {
 const desktopDefaultDRINode = "/dev/dri/renderD128"
 
 func desktopHasIsolatedGPU(llm *models.SLLM, sku *models.SLLMSku, devices []computeapi.SIsolatedDevice) bool {
-	if len(devices) > 0 {
-		return true
-	}
 	effDevs := models.GetEffectiveDevices(llm, sku)
 	return effDevs != nil && len(*effDevs) > 0
 }
@@ -122,7 +119,10 @@ func desktopGPUWaylandEnvs() []*commonapi.ContainerKeyValue {
 
 func appendContainerIsolatedDevices(spec *computeapi.ContainerSpec, llm *models.SLLM, sku *models.SLLMSku, devices []computeapi.SIsolatedDevice) {
 	effDevs := models.GetEffectiveDevices(llm, sku)
-	if len(devices) == 0 && effDevs != nil && len(*effDevs) > 0 {
+	if effDevs == nil || len(*effDevs) == 0 {
+		return
+	}
+	if len(devices) == 0 {
 		for i := range *effDevs {
 			index := i
 			spec.Devices = append(spec.Devices, &computeapi.ContainerDevice{
