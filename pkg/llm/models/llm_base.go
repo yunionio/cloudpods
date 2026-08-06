@@ -98,6 +98,64 @@ func getEffectiveDevices(llmBase *SLLMBase, skuBase *SLLMSkuBase) *api.Devices {
 	return nil
 }
 
+// SyncDetachIsolatedDevicesIfEmpty detaches all guest isolated devices when
+// effective devices (llm override or sku) are empty. Used on restart so stale
+// GPU bindings do not survive after SKU devices are cleared.
+func (llm *SLLM) SyncDetachIsolatedDevicesIfEmpty(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku) error {
+	eff := GetEffectiveDevices(llm, sku)
+	if eff != nil && !eff.IsZero() {
+		return nil
+	}
+	server, err := llm.GetServer(ctx)
+	if err != nil {
+		return errors.Wrap(err, "GetServer")
+	}
+	if len(server.IsolatedDevices) == 0 {
+		return nil
+	}
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	params := jsonutils.NewDict()
+	params.Set("detach_all", jsonutils.JSONTrue)
+	_, err = compute.Servers.PerformAction(s, llm.CmpId, "detach-isolated-device", params)
+	if err != nil {
+		return errors.Wrap(err, "detach-isolated-device")
+	}
+	// detach-isolated-device schedules GuestIsolatedDeviceSyncTask asynchronously;
+	// status stays ready briefly then becomes sync_config. Waiting for ready
+	// immediately races and lets start run while still syncing.
+	if err := llm.waitServerLeaveReadyStatus(ctx, 120); err != nil {
+		return errors.Wrap(err, "waitServerLeaveReadyStatus after detach-isolated-device")
+	}
+	server, err = llm.WaitServerStatus(ctx, userCred, []string{computeapi.VM_READY}, 1800)
+	if err != nil {
+		return errors.Wrap(err, "WaitServerStatus after detach-isolated-device")
+	}
+	if len(server.IsolatedDevices) > 0 {
+		return errors.Wrapf(errors.ErrInvalidStatus, "isolated devices still present after detach: %d", len(server.IsolatedDevices))
+	}
+	return nil
+}
+
+// waitServerLeaveReadyStatus polls until guest status is no longer ready
+// (e.g. sync_config), or until timeoutSecs elapses while still ready.
+func (llm *SLLM) waitServerLeaveReadyStatus(ctx context.Context, timeoutSecs int) error {
+	expire := time.Now().Add(time.Second * time.Duration(timeoutSecs))
+	for time.Now().Before(expire) {
+		server, err := llm.GetServer(ctx)
+		if err != nil {
+			return errors.Wrap(err, "GetServer")
+		}
+		if server.Status != computeapi.VM_READY {
+			if strings.Contains(server.Status, "fail") {
+				return errors.Wrapf(errors.ErrInvalidStatus, "server status %s", server.Status)
+			}
+			return nil
+		}
+		time.Sleep(time.Second)
+	}
+	return nil
+}
+
 // HasHygonDevices reports whether effective devices include Hygon DCU (exclusive or HAMI).
 func HasHygonDevices(llm *SLLM, sku *SLLMSku) bool {
 	devs := GetEffectiveDevices(llm, sku)

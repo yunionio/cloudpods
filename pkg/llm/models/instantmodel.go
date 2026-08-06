@@ -71,7 +71,10 @@ type SInstantModel struct {
 	ModelId   string `width:"128" charset:"ascii" list:"user" create:"optional"`
 	ModelName string `width:"128" charset:"ascii" list:"user" create:"required"`
 	ModelTag  string `width:"64" charset:"ascii" list:"user" create:"required"`
-	Source    string `width:"32" charset:"ascii" nullable:"false" default:"huggingface" list:"user" create:"optional"`
+	// nullable:true so AutoSync can ADD/MODIFY on tables that already have rows
+	// without MySQL Error 1265 (Data truncated) from NOT NULL on existing NULLs.
+	// Empty/NULL is treated as huggingface via defaultInstantModelSource.
+	Source string `width:"32" charset:"ascii" nullable:"true" default:"huggingface" list:"user" create:"optional"`
 
 	ImageId string `width:"128" charset:"ascii" list:"user" create:"optional" update:"user"`
 

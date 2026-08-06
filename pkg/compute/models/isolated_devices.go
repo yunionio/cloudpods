@@ -94,6 +94,13 @@ type SIsolatedDevice struct {
 	// # Specific device name read from lspci command, e.g. `Tesla K40m` ...
 	Model string `width:"512" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
 
+	// 云主机Id, keep for backward compatibility
+	// swagger:deprecated
+	GuestId string `width:"36" charset:"ascii" nullable:"true"`
+	// guest network index, keep for backward compatibility
+	// swagger:deprecated
+	NetworkIndex int `nullable:"true" default:"-1"`
+
 	// Nic wire id
 	WireId string `width:"36" charset:"ascii" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// Offload interface name
@@ -102,6 +109,10 @@ type SIsolatedDevice struct {
 	IsInfinibandNic bool `nullable:"false" default:"false" list:"user" create:"optional"`
 	// NVME disk size
 	NvmeSizeMB int `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+
+	// guest disk index, keep for backward compatibility
+	// swagger:deprecated
+	DiskIndex int8 `nullable:"true" default:"-1"`
 
 	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus:addr:port`
 	Addr       string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`

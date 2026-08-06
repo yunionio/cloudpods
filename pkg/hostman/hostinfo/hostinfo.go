@@ -2347,7 +2347,7 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		options.HostOptions.HostType, h.IsContainerHost(), h.IsKvmSupport())
 	log.Infof("==== probeSyncIsolatedDevices hygon config: enableDCU=%v enableHAMI=%v hySmiPath=%s hyhalPath=%s dtkPath=%s",
 		options.HostOptions.EnableContainerHygonDCU,
-		options.HostOptions.EnableContainerHygonDCUHAMI,
+		options.HostOptions.EnableContainerHygonDCUHami,
 		options.HostOptions.HygonHySmiPath,
 		options.HostOptions.HygonHyhalPath,
 		options.HostOptions.HygonDtkPath,
@@ -2361,7 +2361,7 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		EnableContainerAscendNpu:     options.HostOptions.EnableContainerAscendNPU,
 		EnableContainerAscendNpuHAMI: options.HostOptions.EnableContainerAscendNPUHami,
 		EnableContainerHygonDCU:      options.HostOptions.EnableContainerHygonDCU,
-		EnableContainerHygonDCUHAMI:  options.HostOptions.EnableContainerHygonDCUHAMI,
+		EnableContainerHygonDCUHAMI:  options.HostOptions.EnableContainerHygonDCUHami,
 		EnableWhitelist:              options.HostOptions.EnableIsolatedDeviceWhitelist,
 		SriovNics:                    sriovNics,
 		OvsOffloadNics:               offloadNics,

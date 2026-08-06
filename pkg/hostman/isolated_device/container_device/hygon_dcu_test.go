@@ -97,19 +97,6 @@ func TestHygonModelNameFromPCIDevice(t *testing.T) {
 	})
 }
 
-func TestParseHySmiVdeviceIndices(t *testing.T) {
-	input := `Virtual Device 0:
- Actual Device: 0
- Compute units: 5
- Global memory: 4294967296 bytes
-Virtual Device 1:
- Actual Device: 0
- Compute units: 15
- Global memory: 8589934592 bytes`
-	indices := parseHySmiVdeviceIndices(input, 0)
-	assert.Equal(t, []int{0, 1}, indices)
-}
-
 func TestHygonRenderPathFromLinkWithRemote(t *testing.T) {
 	assert.Equal(t, "/dev/dri/renderD128", hygonRenderPathFromLinkWithRemote("../renderD128", false))
 	assert.Equal(t, "/dev/dri/renderD128", hygonRenderPathFromLinkWithRemote("/dev/dri/renderD128", true))

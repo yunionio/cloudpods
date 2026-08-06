@@ -16,10 +16,9 @@ package container_device
 
 import (
 	"fmt"
+	"os"
 	"path"
-	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
@@ -32,26 +31,37 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
-	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 func init() {
 	isolated_device.RegisterContainerDeviceManager(newHygonDCUHamiManager())
 }
 
+type hygonVdevAllocation struct {
+	cacheDir string
+	vdevIdx  int
+	pipeID   int
+	devIdx   int
+	coremsk1 string
+	coremsk2 string
+}
+
 type hygonDCUHamiManager struct {
 	*hygonDCUManager
 
-	vdevMu    sync.Mutex
-	allocated map[string]int // containerDeviceId -> vdevIndex
-	vdevInUse map[int]string // vdevIndex -> containerDeviceId
+	mu        sync.Mutex
+	vidx      [hygonMaxVdevIdx]bool
+	pipeid    map[int][hygonMaxPipePerDev]bool
+	coremask  map[int][2]string
+	allocated map[string]*hygonVdevAllocation // containerDeviceId -> allocation
 }
 
 func newHygonDCUHamiManager() *hygonDCUHamiManager {
 	return &hygonDCUHamiManager{
 		hygonDCUManager: newHygonDCUManager(),
-		allocated:       make(map[string]int),
-		vdevInUse:       make(map[int]string),
+		pipeid:          make(map[int][hygonMaxPipePerDev]bool),
+		coremask:        make(map[int][2]string),
+		allocated:       make(map[string]*hygonVdevAllocation),
 	}
 }
 
@@ -61,6 +71,24 @@ func (m *hygonDCUHamiManager) GetRegisterType() isolated_device.ContainerDeviceT
 
 func (m *hygonDCUHamiManager) ProbeDevices() ([]isolated_device.IDevice, error) {
 	return getHygonDCUs(m, computeapi.DEVICE_SHARING_MODE_HAMI)
+}
+
+func isHygonVDcuRequest(devs []*hostapi.ContainerDevice, fullMemMiB int) bool {
+	if len(devs) == 0 {
+		return false
+	}
+	if len(devs) >= 2 {
+		return false
+	}
+	dev := devs[0]
+	if dev.IsolatedDevice == nil {
+		return false
+	}
+	memLimit := dev.IsolatedDevice.MemoryLimit
+	if memLimit <= 0 {
+		memLimit = fullMemMiB
+	}
+	return memLimit < fullMemMiB
 }
 
 func (m *hygonDCUHamiManager) GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
@@ -80,9 +108,17 @@ func (m *hygonDCUHamiManager) GetContainerExtraConfigures(devs []*hostapi.Contai
 		return nil, nil
 	}
 
+	fullMemMiB := dcuDev.GetMemorySize()
+	isVDcu := isHygonVDcuRequest(devs, fullMemMiB)
+	mounts := buildHygonRuntimeMounts(isVDcu)
+
+	if !isVDcu {
+		return buildHygonRuntimeEnvs([]string{strconv.Itoa(dcuDev.GetIndex())}), mounts
+	}
+
 	memLimitMiB := dev.IsolatedDevice.MemoryLimit
 	if memLimitMiB <= 0 {
-		memLimitMiB = dcuDev.GetMemorySize()
+		memLimitMiB = fullMemMiB
 	}
 	smLimit := dev.IsolatedDevice.SmUtilLimit
 	if smLimit <= 0 {
@@ -92,148 +128,233 @@ func (m *hygonDCUHamiManager) GetContainerExtraConfigures(devs []*hostapi.Contai
 	if computeUnits <= 0 {
 		computeUnits = 60
 	}
-	cuCount := computeUnits * smLimit / 100
-	if cuCount <= 0 {
-		cuCount = 1
+	reqCores := int32(computeUnits * smLimit / 100)
+	if reqCores <= 0 {
+		reqCores = 1
 	}
 
-	vdevIdx, err := m.ensureVdev(dev.IsolatedDevice.Id, dcuDev.GetIndex(), memLimitMiB, cuCount)
+	guestId, containerName := getHygonContainerContext()
+	if guestId == "" {
+		guestId = "unknown"
+	}
+	if containerName == "" {
+		containerName = dev.IsolatedDevice.Id
+	}
+
+	alloc, err := m.ensureVdevAllocation(
+		dev.IsolatedDevice.Id,
+		guestId,
+		containerName,
+		dcuDev,
+		memLimitMiB,
+		reqCores,
+	)
 	if err != nil {
 		log.Errorf("ensure hygon vdev for device %s: %v", dev.IsolatedDevice.Id, err)
-		return nil, nil
+		return nil, mounts
 	}
 
-	envs := buildHygonRuntimeEnvs([]string{strconv.Itoa(vdevIdx)})
-	mounts := buildHygonRuntimeMounts()
+	mounts = append(mounts, &runtimeapi.Mount{
+		ContainerPath: "/etc/vdev/docker/",
+		HostPath:      alloc.cacheDir,
+		Readonly:      false,
+	})
 
-	vdevConfHost := path.Join(options.HostOptions.HygonVdevConfDir, fmt.Sprintf("vdev%d.conf", vdevIdx))
-	vdevConfContainer := path.Join("/etc/vdev/docker", fmt.Sprintf("vdev%d.conf", vdevIdx))
-	if hygonPathExists(vdevConfHost) {
-		mounts = append(mounts, &runtimeapi.Mount{
-			ContainerPath: vdevConfContainer,
-			HostPath:      vdevConfHost,
-			Readonly:      true,
-		})
-	}
-	return envs, mounts
+	return buildHygonRuntimeEnvs([]string{strconv.Itoa(alloc.vdevIdx)}), mounts
 }
 
 func (m *hygonDCUHamiManager) NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error) {
-	return m.hygonDCUManager.NewContainerDevices(input, dev)
+	return m.newHygonDrmContainerDevices(dev, true)
 }
 
-func (m *hygonDCUHamiManager) ensureVdev(containerDevId string, physIdx, memMiB, computeUnits int) (int, error) {
-	m.vdevMu.Lock()
-	defer m.vdevMu.Unlock()
-
-	if vdevIdx, ok := m.allocated[containerDevId]; ok {
-		return vdevIdx, nil
+func (m *hygonDCUHamiManager) ensureCoreMask(devIdx, computeUnits int) {
+	if _, ok := m.coremask[devIdx]; ok {
+		return
 	}
-
-	vdevIdx, err := m.findOrCreateVdev(physIdx, memMiB, computeUnits)
-	if err != nil {
-		return -1, err
-	}
-	m.allocated[containerDevId] = vdevIdx
-	m.vdevInUse[vdevIdx] = containerDevId
-	return vdevIdx, nil
+	init := initHygonCoreUsage(computeUnits)
+	m.coremask[devIdx] = [2]string{init, init}
 }
 
-func (m *hygonDCUHamiManager) findOrCreateVdev(physIdx, memMiB, computeUnits int) (int, error) {
-	existing, err := m.listAvailableVdevIndices(physIdx)
-	if err != nil {
-		log.Warningf("list hygon vdev indices: %v", err)
-	}
-	for _, idx := range existing {
-		if _, used := m.vdevInUse[idx]; !used {
+func (m *hygonDCUHamiManager) allocateVdevIdx() (int, error) {
+	for idx := range m.vidx {
+		if !m.vidx[idx] {
+			m.vidx[idx] = true
 			return idx, nil
 		}
 	}
+	return 0, errors.Error("hygon vdev index out of bound (>200)")
+}
 
-	hySmiPath := options.HostOptions.HygonHySmiPath
-	out, err := procutils.NewRemoteCommandAsFarAsPossible(
-		hySmiPath, "virtual", "-create-vdevices", "1",
-		"-d", strconv.Itoa(physIdx),
-		"-vdevice-compute-units", strconv.Itoa(computeUnits),
-		"-vdevice-memory-size", strconv.Itoa(memMiB),
-	).Output()
-	if err != nil {
-		return -1, errors.Wrapf(err, "create vdev on dcu %d: %s", physIdx, out)
-	}
-
-	created, err := m.listAvailableVdevIndices(physIdx)
-	if err != nil || len(created) == 0 {
-		return physIdx, nil
-	}
-	for _, idx := range created {
-		if _, used := m.vdevInUse[idx]; !used {
+func (m *hygonDCUHamiManager) allocatePipeID(devIdx int) (int, error) {
+	pipes := m.pipeid[devIdx]
+	for idx := range pipes {
+		if !pipes[idx] {
+			pipes[idx] = true
+			m.pipeid[devIdx] = pipes
 			return idx, nil
 		}
 	}
-	return created[len(created)-1], nil
+	return 0, errors.Errorf("hygon pipe index out of bound for device %d", devIdx)
 }
 
-func (m *hygonDCUHamiManager) listAvailableVdevIndices(physIdx int) ([]int, error) {
-	hySmiPath := options.HostOptions.HygonHySmiPath
-	out, err := procutils.NewRemoteCommandAsFarAsPossible(hySmiPath, "virtual", "-show-vdevice-info").Output()
+func (m *hygonDCUHamiManager) ensureVdevAllocation(
+	containerDevId, guestId, containerName string,
+	dcuDev *hygonDCU,
+	memMiB int,
+	reqCores int32,
+) (*hygonVdevAllocation, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if alloc, ok := m.allocated[containerDevId]; ok {
+		return alloc, nil
+	}
+
+	devIdx := dcuDev.GetIndex()
+	computeUnits := dcuDev.GetComputeUnits()
+	if computeUnits <= 0 {
+		computeUnits = 60
+	}
+	m.ensureCoreMask(devIdx, computeUnits)
+
+	coremsk1, reqTmp, err := allocHygonCoreUsage(m.coremask[devIdx][0], int(reqCores))
 	if err != nil {
-		return nil, errors.Wrap(err, "hy-smi virtual -show-vdevice-info")
+		return nil, errors.Wrap(err, "alloc core mask 1")
 	}
-	return parseHySmiVdeviceIndices(string(out), physIdx), nil
+	coremsk2 := initHygonCoreUsage(computeUnits)
+	if reqTmp > 0 {
+		coremsk2, _, err = allocHygonCoreUsage(m.coremask[devIdx][1], reqTmp)
+		if err != nil {
+			return nil, errors.Wrap(err, "alloc core mask 2")
+		}
+	}
+
+	vdevIdx, err := m.allocateVdevIdx()
+	if err != nil {
+		return nil, err
+	}
+	pipeID, err := m.allocatePipeID(devIdx)
+	if err != nil {
+		m.vidx[vdevIdx] = false
+		return nil, err
+	}
+
+	pciBusId := hygonPciBusIdFromAddr(dcuDev.GetAddr())
+	dirName := hygonVgpuCacheDirName(guestId, containerName, devIdx, pipeID, vdevIdx, coremsk1, coremsk2)
+	cacheDir := path.Join(options.HostOptions.HygonVgpuCacheDir, dirName)
+
+	if err := createHygonVdevConfFile(pciBusId, coremsk1, coremsk2, reqCores, int32(memMiB), devIdx, vdevIdx, pipeID, cacheDir, "vdev0.conf"); err != nil {
+		m.vidx[vdevIdx] = false
+		pipes := m.pipeid[devIdx]
+		pipes[pipeID] = false
+		m.pipeid[devIdx] = pipes
+		return nil, err
+	}
+	vdevConfDir := options.HostOptions.HygonVdevConfDir
+	if err := createHygonVdevConfFile(pciBusId, coremsk1, coremsk2, reqCores, int32(memMiB), devIdx, vdevIdx, pipeID, vdevConfDir, fmt.Sprintf("vdev%d.conf", vdevIdx)); err != nil {
+		_ = hygonRemoveAll(cacheDir)
+		m.vidx[vdevIdx] = false
+		pipes := m.pipeid[devIdx]
+		pipes[pipeID] = false
+		m.pipeid[devIdx] = pipes
+		return nil, err
+	}
+
+	coreUsage1, err := addHygonCoreUsage(m.coremask[devIdx][0], coremsk1)
+	if err != nil {
+		return nil, errors.Wrap(err, "add core usage 1")
+	}
+	mask := m.coremask[devIdx]
+	mask[0] = coreUsage1
+	m.coremask[devIdx] = mask
+	coreUsage2, err := addHygonCoreUsage(m.coremask[devIdx][1], coremsk2)
+	if err != nil {
+		return nil, errors.Wrap(err, "add core usage 2")
+	}
+	mask = m.coremask[devIdx]
+	mask[1] = coreUsage2
+	m.coremask[devIdx] = mask
+
+	alloc := &hygonVdevAllocation{
+		cacheDir: cacheDir,
+		vdevIdx:  vdevIdx,
+		pipeID:   pipeID,
+		devIdx:   devIdx,
+		coremsk1: coremsk1,
+		coremsk2: coremsk2,
+	}
+	m.allocated[containerDevId] = alloc
+	return alloc, nil
 }
 
-func parseHySmiVdeviceIndices(output string, physIdx int) []int {
-	indices := []int{}
-	currentVdev := -1
-	currentPhys := -1
-	for _, line := range strings.Split(output, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "Virtual Device") {
-			if m := regexp.MustCompile(`Virtual Device\s*(\d+)`).FindStringSubmatch(line); len(m) == 2 {
-				currentVdev, _ = strconv.Atoi(m[1])
-			}
+func (m *hygonDCUHamiManager) ReleaseContainerDevices(devs []*hostapi.ContainerDevice) {
+	for _, dev := range devs {
+		if dev.IsolatedDevice == nil {
 			continue
 		}
-		if strings.HasPrefix(line, "Actual Device:") {
-			parts := strings.SplitN(line, ":", 2)
-			if len(parts) == 2 {
-				currentPhys, _ = strconv.Atoi(strings.TrimSpace(parts[1]))
-			}
-			continue
-		}
-		if currentVdev >= 0 && currentPhys == physIdx {
-			indices = append(indices, currentVdev)
-			currentVdev = -1
-			currentPhys = -1
-		}
+		m.releaseVdev(dev.IsolatedDevice.Id)
 	}
-	if len(indices) == 0 {
-		vdevDir := options.HostOptions.HygonVdevConfDir
-		if hygonPathExists(vdevDir) {
-			entries, err := hygonReadDir(vdevDir)
-			if err == nil {
-				for _, e := range entries {
-					name := e.Name()
-					if strings.HasPrefix(name, "vdev") && strings.HasSuffix(name, ".conf") {
-						numStr := strings.TrimSuffix(strings.TrimPrefix(name, "vdev"), ".conf")
-						if idx, err := strconv.Atoi(numStr); err == nil {
-							indices = append(indices, idx)
-						}
-					}
-				}
-			}
-		}
-	}
-	return indices
 }
 
 func (m *hygonDCUHamiManager) releaseVdev(containerDevId string) {
-	m.vdevMu.Lock()
-	defer m.vdevMu.Unlock()
-	vdevIdx, ok := m.allocated[containerDevId]
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	alloc, ok := m.allocated[containerDevId]
 	if !ok {
 		return
 	}
 	delete(m.allocated, containerDevId)
-	delete(m.vdevInUse, vdevIdx)
+
+	m.vidx[alloc.vdevIdx] = false
+	if pipes, ok := m.pipeid[alloc.devIdx]; ok {
+		pipes[alloc.pipeID] = false
+		m.pipeid[alloc.devIdx] = pipes
+	}
+
+	if _, ok := m.coremask[alloc.devIdx]; ok {
+		m.rebuildCoreMaskLocked(alloc.devIdx)
+	}
+
+	if alloc.cacheDir != "" {
+		if err := hygonRemoveAll(alloc.cacheDir); err != nil {
+			log.Warningf("remove hygon vdev cache dir %s: %v", alloc.cacheDir, err)
+		}
+	}
+	vdevConfPath := path.Join(options.HostOptions.HygonVdevConfDir, fmt.Sprintf("vdev%d.conf", alloc.vdevIdx))
+	if err := hygonRemove(vdevConfPath); err != nil && !os.IsNotExist(err) {
+		log.Warningf("remove hygon vdev conf %s: %v", vdevConfPath, err)
+	}
+}
+
+func (m *hygonDCUHamiManager) rebuildCoreMaskLocked(devIdx int) {
+	dcuDev := m.findHygonDCUByIndex(devIdx)
+	computeUnits := 60
+	if dcuDev != nil && dcuDev.GetComputeUnits() > 0 {
+		computeUnits = dcuDev.GetComputeUnits()
+	}
+	init := initHygonCoreUsage(computeUnits)
+	m.coremask[devIdx] = [2]string{init, init}
+	for _, alloc := range m.allocated {
+		if alloc.devIdx != devIdx {
+			continue
+		}
+		mask := m.coremask[devIdx]
+		if usage, err := addHygonCoreUsage(mask[0], alloc.coremsk1); err == nil {
+			mask[0] = usage
+		}
+		if usage, err := addHygonCoreUsage(mask[1], alloc.coremsk2); err == nil {
+			mask[1] = usage
+		}
+		m.coremask[devIdx] = mask
+	}
+}
+
+func (m *hygonDCUHamiManager) findHygonDCUByIndex(devIdx int) *hygonDCU {
+	for _, dev := range hostinfo.Instance().IsolatedDeviceMan.GetDevices() {
+		if dcu, ok := dev.(*hygonDCU); ok && dcu.GetIndex() == devIdx {
+			return dcu
+		}
+	}
+	return nil
 }
