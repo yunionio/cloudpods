@@ -272,7 +272,7 @@ func (self *SCNwareGuestDriver) GetInstanceCapability() cloudprovider.SInstanceC
 }
 
 func (self *SCNwareGuestDriver) AllowReconfigGuest() bool {
-	return true
+	return false
 }
 
 func (self *SCNwareGuestDriver) IsSupportEip() bool {

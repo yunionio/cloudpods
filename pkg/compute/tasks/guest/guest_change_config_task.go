@@ -235,11 +235,37 @@ func (task *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 	}
 
 	if confs.CpuChanged() || confs.MemChanged() || (drv.DoScheduleSKUFilter() && confs.InstanceTypeChanged()) {
+		// Status is already VM_CHANGE_FLAVOR; ForceStop means guest was running and needs offline change.
+		if confs.ForceStop {
+			task.SetStage("OnGuestStopForChangeConfigComplete", nil)
+			err = guest.StartGuestStopTask(ctx, task.UserCred, 60, true, false, task.GetTaskId())
+			if err != nil {
+				task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			}
+			return
+		}
 		task.SetStage("OnGuestChangeCpuMemSpecComplete", nil)
 		task.startGuestChangeCpuMemSpec(ctx, guest, confs.InstanceType, confs.VcpuCount, confs.CpuSockets, confs.VmemSize)
 	} else {
 		task.OnGuestChangeCpuMemSpecComplete(ctx, obj, data)
 	}
+}
+
+func (task *GuestChangeConfigTask) OnGuestStopForChangeConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+
+	confs, err := task.getChangeConfigSetting()
+	if err != nil {
+		task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+
+	task.SetStage("OnGuestChangeCpuMemSpecComplete", nil)
+	task.startGuestChangeCpuMemSpec(ctx, guest, confs.InstanceType, confs.VcpuCount, confs.CpuSockets, confs.VmemSize)
+}
+
+func (task *GuestChangeConfigTask) OnGuestStopForChangeConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	task.markStageFailed(ctx, obj.(*models.SGuest), data)
 }
 
 func (task *GuestChangeConfigTask) startGuestChangeCpuMemSpec(ctx context.Context, guest *models.SGuest, instanceType string, vcpuCount, cpuSockets int, vmemSize int) {
