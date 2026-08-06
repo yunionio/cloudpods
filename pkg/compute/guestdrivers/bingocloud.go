@@ -91,6 +91,10 @@ func (self *SBingoCloudGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
+func (self *SBingoCloudGuestDriver) AllowReconfigGuest() bool {
+	return false
+}
+
 func (self *SBingoCloudGuestDriver) GetDefaultSysDiskBackend() string {
 	return ""
 }

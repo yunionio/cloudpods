@@ -87,6 +87,10 @@ func (self *SBaremetalGuestDriver) GetMaxSecurityGroupCount() int {
 	return 0
 }
 
+func (self *SBaremetalGuestDriver) AllowReconfigGuest() bool {
+	return false
+}
+
 func (self *SBaremetalGuestDriver) GetMaxVCpuCount() int {
 	return 1024
 }
