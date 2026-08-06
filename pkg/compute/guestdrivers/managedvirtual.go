@@ -1187,35 +1187,6 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 			instanceType = sku.Name
 		}
 
-		drv, err := guest.GetDriver()
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetDriver")
-		}
-
-		runningOk, err := drv.IsChangeInstanceTypeWhileRunningSupported(guest)
-		if err != nil {
-			return nil, errors.Wrapf(err, "IsChangeInstanceTypeWhileRunningSupported")
-		}
-
-		needStart := false
-
-		if !runningOk {
-			status := iVM.GetStatus()
-			if status == api.VM_RUNNING {
-				err = iVM.StopVM(ctx, &cloudprovider.ServerStopOptions{
-					IsForce: true,
-				})
-				if err != nil {
-					return nil, errors.Wrapf(err, "StopVM")
-				}
-				err = cloudprovider.WaitStatus(iVM, api.VM_READY, time.Second*5, time.Minute*10)
-				if err != nil {
-					return nil, errors.Wrapf(err, "WaitStatus")
-				}
-				needStart = true
-			}
-		}
-
 		config := &cloudprovider.SManagedVMChangeConfig{
 			Cpu:          int(vcpuCount),
 			CpuSocket:    int(cpuSockets),
@@ -1258,17 +1229,6 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 			})
 			if err != nil {
 				return nil, errors.Wrap(err, "Update")
-			}
-		}
-
-		if needStart {
-			err = iVM.StartVM(ctx)
-			if err != nil {
-				return nil, errors.Wrapf(err, "StartVM")
-			}
-			err = cloudprovider.WaitStatus(iVM, api.VM_RUNNING, time.Second*5, time.Minute*10)
-			if err != nil {
-				return nil, errors.Wrapf(err, "WaitStatus")
 			}
 		}
 

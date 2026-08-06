@@ -3543,6 +3543,16 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if !utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot change config in status %s", self.Status)
 	}
+
+	if self.RescueMode {
+		return nil, httperrors.NewInvalidStatusError("Cannot change config in rescue mode")
+	}
+
+	// 停止计费模式下, 不允许调整配置
+	if len(self.ExternalId) > 0 && self.ShutdownMode == api.VM_SHUTDOWN_MODE_STOP_CHARGING && self.Status == api.VM_READY {
+		return nil, httperrors.NewInvalidStatusError("Cannot change config in ready status when shutdown mode is stop charging")
+	}
+
 	driver, err := self.GetDriver()
 	if err != nil {
 		return nil, err
@@ -3570,12 +3580,20 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		if err != nil {
 			return nil, err
 		}
-		if !runningOk && !input.ForceStop {
+		// 仅在不支持开机变配, 或开机降配时需要强制关机,或ARM架构时需要强制关机; force_stop 表示允许关机, 而非一定关机
+		needForceStop := !runningOk || confs.ConfigReduced() || apis.IsARM(self.OsArch)
+		if needForceStop && !input.ForceStop {
 			return nil, httperrors.NewInvalidStatusError("Cannot change config in %s for %s, requires force_stop to change config", self.Status, self.GetHypervisor())
+		}
+		if needForceStop {
+			// 走离线变配路径, 变配完成后自动启动
+			confs.ForceStop = true
+			confs.GuestOnline = false
+			confs.AutoStart = true
 		}
 	}
 
-	if self.PowerStates == api.VM_POWER_STATES_ON && (confs.CpuChanged() || confs.MemChanged()) {
+	if self.PowerStates == api.VM_POWER_STATES_ON && (confs.CpuChanged() || confs.MemChanged()) && !confs.ForceStop {
 		confs, err = driver.ValidateGuestHotChangeConfigInput(ctx, self, confs)
 		if err != nil {
 			return nil, httperrors.NewInvalidStatusError("cannot change CPU/Memory spec in power status %s: %s", self.PowerStates, err)
