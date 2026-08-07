@@ -335,12 +335,37 @@ func addRoute(routes []SRouteInfo, net, gw string) []SRouteInfo {
 	return routes
 }
 
-func extendRoutes(routes4, routes6 []SRouteInfo, nicRoutes []types.SRoute) ([]SRouteInfo, []SRouteInfo) {
+func extendRoutes(routes4, routes6 []SRouteInfo, nicRoutes []types.SRoute, nicV4Addr string, nicV6Addr string) ([]SRouteInfo, []SRouteInfo) {
 	for i := 0; i < len(nicRoutes); i++ {
-		if regutils.MatchCIDR6(nicRoutes[i][0]) {
-			routes6 = addRoute(routes6, nicRoutes[i][0], nicRoutes[i][1])
+		prefix := nicRoutes[i][0]
+		if regutils.MatchCIDR6(prefix) {
+			if utils.IsInArray(prefix, Ip4MetadataServers) || prefix == "0.0.0.0/0" {
+				continue
+			}
+			var nextHop string
+			if len(nicRoutes[i]) > 1 {
+				nextHop = nicRoutes[i][1]
+			} else {
+				nextHop = "0.0.0.0"
+			}
+			if nextHop == nicV4Addr {
+				continue
+			}
+			routes6 = addRoute(routes6, prefix, nextHop)
 		} else {
-			routes4 = addRoute(routes4, nicRoutes[i][0], nicRoutes[i][1])
+			if utils.IsInArray(prefix, Ip6MetadataServers) || prefix == "::/0" {
+				continue
+			}
+			var nextHop string
+			if len(nicRoutes[i]) > 1 {
+				nextHop = nicRoutes[i][1]
+			} else {
+				nextHop = "::"
+			}
+			if nextHop == nicV6Addr {
+				continue
+			}
+			routes4 = addRoute(routes4, prefix, nextHop)
 		}
 	}
 	return routes4, routes6
@@ -388,7 +413,7 @@ func AddNicRoutes(routes4 []SRouteInfo, routes6 []SRouteInfo, nicDesc *types.SSe
 	// 	return routes
 	// }
 	if len(nicDesc.Routes) > 0 {
-		routes4, routes6 = extendRoutes(routes4, routes6, nicDesc.Routes)
+		routes4, routes6 = extendRoutes(routes4, routes6, nicDesc.Routes, nicDesc.Ip, nicDesc.Ip6)
 	} else if len(nicDesc.Gateway) > 0 && !isExitAddress(nicDesc.Ip) &&
 		nicCnt == 2 && nicDesc.Ip != mainIp && isExitAddress(mainIp) {
 		for _, pref := range netutils.GetPrivateIPRanges() {
