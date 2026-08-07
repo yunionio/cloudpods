@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -83,8 +84,8 @@ func (man *SLLMSkuBaseManager) ValidateCreateData(ctx context.Context, userCred 
 	return input, nil
 }
 
-// normalizeLLMSkuDevices maps legacy NVIDIA_* DevTypes onto GPU + SharingMode,
-// and defaults empty DevType/SharingMode to GPU + HAMI.
+// normalizeLLMSkuDevices maps legacy NVIDIA_* / HYGON_* / ASCEND_* DevTypes onto
+// GPU|NPU + SharingMode, and defaults empty DevType/SharingMode appropriately.
 func normalizeLLMSkuDevices(devices *api.Devices) error {
 	if devices == nil || len(*devices) == 0 {
 		return nil
@@ -95,9 +96,27 @@ func normalizeLLMSkuDevices(devices *api.Devices) error {
 	return nil
 }
 
+func canonicalizeLLMDeviceVendor(vendor string) string {
+	vendor = strings.TrimSpace(vendor)
+	if vendor == "" {
+		return ""
+	}
+	for name := range computeapi.VENDOR_ID_MAP {
+		if strings.EqualFold(name, vendor) {
+			return name
+		}
+	}
+	if name, ok := computeapi.ID_VENDOR_MAP[vendor]; ok {
+		return name
+	}
+	return strings.ToUpper(vendor)
+}
+
 func normalizeLLMSkuDevice(dev *api.Device) {
+	origDevType := dev.DevType
 	switch dev.DevType {
 	case "":
+		// Decided after vendor canonicalize when Vendor is ASCEND.
 		dev.DevType = computeapi.GPU_TYPE
 	case computeapi.CONTAINER_DEV_NVIDIA_GPU:
 		dev.DevType = computeapi.GPU_TYPE
@@ -119,9 +138,45 @@ func normalizeLLMSkuDevice(dev *api.Device) {
 		if dev.SharingMode == "" {
 			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_HAMI
 		}
+	case computeapi.CONTAINER_DEV_HYGON_DCU:
+		dev.DevType = computeapi.GPU_TYPE
+		if dev.SharingMode == "" {
+			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_EXCLUSIVE
+		}
+	case computeapi.CONTAINER_DEV_HYGON_DCU_HAMI:
+		dev.DevType = computeapi.GPU_TYPE
+		if dev.SharingMode == "" {
+			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_HAMI
+		}
+	case computeapi.CONTAINER_DEV_ASCEND_NPU:
+		dev.DevType = computeapi.NPU_TYPE
+		if dev.SharingMode == "" {
+			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_EXCLUSIVE
+		}
+	case computeapi.CONTAINER_DEV_ASCEND_NPU_HAMI:
+		dev.DevType = computeapi.NPU_TYPE
+		if dev.SharingMode == "" {
+			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_HAMI
+		}
 	}
 	if dev.SharingMode == "" {
 		dev.SharingMode = computeapi.DEVICE_SHARING_MODE_HAMI
+	}
+	if dev.Vendor == "" {
+		switch origDevType {
+		case computeapi.CONTAINER_DEV_HYGON_DCU, computeapi.CONTAINER_DEV_HYGON_DCU_HAMI:
+			dev.Vendor = "HYGON"
+		case computeapi.CONTAINER_DEV_NVIDIA_GPU, computeapi.CONTAINER_DEV_NVIDIA_MPS,
+			computeapi.CONTAINER_DEV_NVIDIA_GPU_SHARE, computeapi.CONTAINER_DEV_NVIDIA_HAMI:
+			dev.Vendor = "NVIDIA"
+		case computeapi.CONTAINER_DEV_ASCEND_NPU, computeapi.CONTAINER_DEV_ASCEND_NPU_HAMI:
+			dev.Vendor = "ASCEND"
+		}
+	}
+	dev.Vendor = canonicalizeLLMDeviceVendor(dev.Vendor)
+	// Ascend devices are NPUs; correct empty/legacy GPU defaults when vendor is ASCEND.
+	if dev.Vendor == "ASCEND" && (origDevType == "" || origDevType == computeapi.GPU_TYPE) {
+		dev.DevType = computeapi.NPU_TYPE
 	}
 }
 

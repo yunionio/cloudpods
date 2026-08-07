@@ -90,6 +90,7 @@ type GuestdiskJsonDesc struct {
 	Index             int8   `json:"index"`
 	BootIndex         *int8  `json:"boot_index"`
 	MergeSnapshot     bool   `json:"merge_snapshot"`
+	SnapshotId        string `json:"snapshot_id"`
 	Fs                string `json:"fs"`
 	Mountpoint        string `json:"mountpoint"`
 	Dev               string `json:"dev"`

@@ -30,6 +30,8 @@ var All = []SMeasurement{
 	radeontop,
 	system,
 	vasmi,
+	npuSmi,
+	hysmi,
 
 	worker,
 	serviceHttpCode,

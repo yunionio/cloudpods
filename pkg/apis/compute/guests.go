@@ -893,8 +893,9 @@ type ServerChangeConfigInput struct {
 	// 内存大小, 1024M, 1G
 	VmemSize string `json:"vmem_size"`
 
-	// 是否强制关机
-	// 若虚拟机不支持开机调整配置, 则需要指定此参数为true, 强制关机后, 再调整配置, 再启动虚拟机
+	// 是否允许强制关机
+	// 仅当虚拟机不支持开机调整配置, 或开机状态下降配(降低CPU/内存), 或ARM架构时时生效: 需指定为true以允许强制关机后再调整配置并启动;
+	// 若已支持开机变配, 即使传入该参数也不会强制关机
 	ForceStop bool `json:"force_stop"`
 
 	// 调整完配置后是否自动启动
@@ -1515,6 +1516,8 @@ type ServerChangeConfigSettings struct {
 
 	AutoStart   bool `json:"auto_start"`
 	GuestOnline bool `json:"guest_online"`
+	// 需要强制关机后再调整配置(仅不支持在线变配/降配时为true), 并在完成后自动启动
+	ForceStop bool `json:"force_stop"`
 
 	// 设置虚拟网卡的流量上限
 	SetTrafficLimits []ServerNicTrafficLimit `json:"set_traffic_limits"`
@@ -1526,6 +1529,10 @@ type ServerChangeConfigSettings struct {
 
 func (conf ServerChangeConfigSettings) CpuChanged() bool {
 	return conf.VcpuCount != conf.Old.VcpuCount
+}
+
+func (conf ServerChangeConfigSettings) CpuReduced() bool {
+	return conf.VcpuCount < conf.Old.VcpuCount
 }
 
 func (conf ServerChangeConfigSettings) AddedCpu() int {
@@ -1540,6 +1547,10 @@ func (conf ServerChangeConfigSettings) ExtraCpuChanged() bool {
 	return conf.ExtraCpuCount != conf.Old.ExtraCpuCount
 }
 
+func (conf ServerChangeConfigSettings) ExtraCpuReduced() bool {
+	return conf.ExtraCpuCount < conf.Old.ExtraCpuCount
+}
+
 func (conf ServerChangeConfigSettings) AddedExtraCpu() int {
 	addCpu := conf.ExtraCpuCount - conf.Old.ExtraCpuCount
 	if addCpu < 0 {
@@ -1552,6 +1563,10 @@ func (conf ServerChangeConfigSettings) MemChanged() bool {
 	return conf.VmemSize != conf.Old.VmemSize
 }
 
+func (conf ServerChangeConfigSettings) MemReduced() bool {
+	return conf.VmemSize < conf.Old.VmemSize
+}
+
 func (conf ServerChangeConfigSettings) InstanceTypeChanged() bool {
 	return len(conf.InstanceType) > 0 && conf.InstanceType != conf.Old.InstanceType
 }
@@ -1562,6 +1577,11 @@ func (conf ServerChangeConfigSettings) AddedMem() int {
 		addMem = 0
 	}
 	return addMem
+}
+
+// ConfigReduced 是否为降配(降低CPU/内存)
+func (conf ServerChangeConfigSettings) ConfigReduced() bool {
+	return conf.CpuReduced() || conf.MemReduced() || conf.ExtraCpuReduced()
 }
 
 func (conf ServerChangeConfigSettings) AddedDisk() int {

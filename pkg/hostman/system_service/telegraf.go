@@ -37,7 +37,9 @@ const (
 	TELEGRAF_INPUT_CONF_BIN_PATH       = "bin_path"
 	TELEGRAF_INPUT_NETDEV              = "ni_rsrc_mon"
 	TELEGRAF_INPUT_VASMI               = "vasmi"
+	TELEGRAF_INPUT_HYSMI               = "hysmi"
 	TELEGRAF_INPUT_NVIDIASMI           = "nvidia-smi"
+	TELEGRAF_INPUT_NPUSMI              = "npu-smi"
 )
 
 type STelegraf struct {
@@ -337,8 +339,22 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		conf += "\n"
 	}
 
+	if hysmi, ok := kwargs[TELEGRAF_INPUT_HYSMI]; ok {
+		hysmiMap, _ := hysmi.(map[string]interface{})
+		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_HYSMI)
+		conf += fmt.Sprintf("  bin_path = \"%s\"\n", hysmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
+		conf += "\n"
+	}
+
 	if _, ok := kwargs[TELEGRAF_INPUT_NVIDIASMI]; ok {
 		conf += "[[inputs.nvidia_smi]]\n"
+		conf += "\n"
+	}
+
+	if npusmi, ok := kwargs[TELEGRAF_INPUT_NPUSMI]; ok {
+		npusmiMap, _ := npusmi.(map[string]interface{})
+		conf += fmt.Sprintf("[[inputs.npu_smi]]\n")
+		conf += fmt.Sprintf("  bin_path = \"%s\"\n", npusmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
 		conf += "\n"
 	}
 

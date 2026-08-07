@@ -32,7 +32,7 @@ func init() {
 		HostType string `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv"`
 		Gpu      bool   `help:"Only show gpu devices"`
 		Zone     string `help:"Filter by zone id or name"`
-		Occupied bool   `help:"show occupid host" json:"-"`
+		Occupied bool   `help:"show occupied host" json:"-"`
 	}
 	R(&ListOptions{}, "spec", "List all kinds of model specs", func(s *mcclient.ClientSession, args *ListOptions) error {
 		var params *jsonutils.JSONDict
@@ -76,7 +76,7 @@ func init() {
 		DiskSpec    []string `help:"Disk spec string, like 'Linux_adapter0_HDD_111Gx4'"`
 		Nic         int64    `help:"#Nics count of host" metavar:"<NIC_COUNT>"`
 		GpuModel    []string `help:"GPU model, like 'GeForce GTX 1050 Ti'"`
-		Occupied    bool     `help:"Show occupid host" json:"-"`
+		Occupied    bool     `help:"Show occupied host" json:"-"`
 		Manufacture string   `help:"Manufacture of host"`
 		Model       string   `help:"Model of host"`
 	}

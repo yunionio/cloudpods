@@ -611,7 +611,7 @@ func (cachedImage *SCachedimage) addRefCount() {
 	}
 }
 
-func (cachedImage *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, excludes []string, rangeObjs []interface{}) (*SStoragecachedimage, error) {
+func (cachedImage *SCachedimage) ChooseSourceStoragecacheInRange(hostType []string, excludes []string, rangeObjs []interface{}) (*SStoragecachedimage, error) {
 	storageCachedImage := StoragecachedimageManager.Query().SubQuery()
 	storage := StorageManager.Query().SubQuery()
 	hostStorage := HoststorageManager.Query().SubQuery()
@@ -635,7 +635,7 @@ func (cachedImage *SCachedimage) ChooseSourceStoragecacheInRange(hostType string
 		q = q.Filter(sqlchemy.NotIn(host.Field("id"), excludes))
 	}
 	if len(hostType) > 0 {
-		q = q.Filter(sqlchemy.Equals(host.Field("host_type"), hostType))
+		q = q.Filter(sqlchemy.In(host.Field("host_type"), hostType))
 	}
 
 	for _, rangeObj := range rangeObjs {

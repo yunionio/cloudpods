@@ -274,7 +274,18 @@ type SHostOptions struct {
 
 	SkipCheckKernelMods []string `help:"skip check kernel modules"`
 
-	EnableContainerAscendNPU bool `help:"enable container npu" default:"true"`
+	EnableContainerAscendNPU     bool   `help:"enable container npu" default:"false"`
+	EnableContainerAscendNPUHami bool   `help:"enable container npu hami" default:"true"`
+	AscendNpuHamiShmPath         string `help:"ascend npu hami shm path" default:"/opt/cloud/hami-shared-region"`
+	AscendNpuHamiLibvnpuPath     string `help:"ascend npu hami libvnpu.so path" default:"/opt/cloud/hami/libvnpu.so"`
+
+	EnableContainerHygonDCU     bool   `help:"enable container hygon dcu" default:"true"`
+	EnableContainerHygonDCUHami bool   `help:"enable container hygon dcu hami" default:"false"`
+	HygonHyhalPath              string `help:"hygon hyhal driver path" default:"/opt/hyhal"`
+	HygonDtkPath                string `help:"hygon dtk toolkit path" default:"/opt/dtk"`
+	HygonHySmiPath              string `help:"hygon hy-smi path" default:"/opt/hyhal/bin/hy-smi"`
+	HygonVdevConfDir            string `help:"hygon vdcu config directory" default:"/etc/vdev"`
+	HygonVgpuCacheDir           string `help:"hygon vgpu vdev cache directory" default:"/usr/local/vgpu/dcu"`
 
 	EnableDirtyRecoverySeconds int  `help:"Seconds to delay enable dirty guests recovery feature, default 15 minutes" default:"900"`
 	EnableContainerCniPortmap  bool `help:"Use container cni portmap plugin" default:"false"`

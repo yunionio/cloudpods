@@ -267,14 +267,17 @@ func (man *isolatedDeviceManager) probeContainerNvidiaGPUs(enableCudaHAMI, enabl
 	}
 }
 
-func (man *isolatedDeviceManager) probeContainerAscendNPUs(enable bool) {
-	if !enable {
+func (man *isolatedDeviceManager) probeContainerAscendNPUs(enable, enableHami bool) {
+	devType := ContainerDeviceTypeAscendNpu
+	if enableHami {
+		devType = ContainerDeviceTypeAscendNpuHami
+	} else if !enable {
 		return
 	}
 
-	devman, err := GetContainerDeviceManager(ContainerDeviceTypeAscendNpu)
+	devman, err := GetContainerDeviceManager(devType)
 	if err != nil {
-		log.Errorf("no container device manager %s found", ContainerDeviceTypeAscendNpu)
+		log.Errorf("no container device manager %s found", devType)
 		return
 	}
 	devs, err := devman.ProbeDevices()
@@ -287,6 +290,38 @@ func (man *isolatedDeviceManager) probeContainerAscendNPUs(enable bool) {
 			log.Infof("Add Container Ascend npu device: %d => %#v", idx, dev)
 		}
 	}
+}
+
+func (man *isolatedDeviceManager) probeContainerHygonDCUs(enable, enableHami bool) {
+	log.Infof("==== hygon dcu probe start: enable=%v enableHami=%v", enable, enableHami)
+	devType := ContainerDeviceTypeHygonDcu
+	if enableHami {
+		devType = ContainerDeviceTypeHygonDcuHami
+	} else if !enable {
+		log.Infof("==== hygon dcu probe skipped: enable_container_hygon_dcu=false and enable_container_hygon_dcu_hami=false")
+		return
+	}
+	log.Infof("==== hygon dcu probe using manager type: %s", devType)
+
+	devman, err := GetContainerDeviceManager(devType)
+	if err != nil {
+		log.Errorf("==== hygon dcu probe failed: no container device manager %s found: %v", devType, err)
+		return
+	}
+	devs, err := devman.ProbeDevices()
+	if err != nil {
+		log.Warningf("==== hygon dcu probe failed: ProbeDevices error: %v", err)
+		return
+	}
+	if len(devs) == 0 {
+		log.Infof("==== hygon dcu probe finished: no devices found")
+		return
+	}
+	for idx, dev := range devs {
+		man.devices = append(man.devices, dev)
+		log.Infof("==== hygon dcu probe add device: idx=%d dev=%#v", idx, dev)
+	}
+	log.Infof("==== hygon dcu probe finished: total %d devices", len(devs))
 }
 
 func (man *isolatedDeviceManager) probeGPUS(skipGPUs bool, amdVgpuPFs, nvidiaVgpuPFs []string, enableWhitelist bool, whitelistModels []IsolatedDeviceModel) {
@@ -457,10 +492,13 @@ type SIsolatedDeviceProbeOptions struct {
 	SkipUSBs       bool
 	SkipCustomDevs bool
 
-	EnableCudaHAMI     bool
-	EnableCudaMps      bool
-	EnableContainerNPU bool
-	EnableWhitelist    bool
+	EnableCudaHAMI               bool
+	EnableCudaMps                bool
+	EnableContainerAscendNpu     bool
+	EnableContainerAscendNpuHAMI bool
+	EnableContainerHygonDCU      bool
+	EnableContainerHygonDCUHAMI  bool
+	EnableWhitelist              bool
 
 	SriovNics, OvsOffloadNics []HostNic
 
@@ -469,11 +507,16 @@ type SIsolatedDeviceProbeOptions struct {
 
 func (man *isolatedDeviceManager) ProbePCIDevices(opts *SIsolatedDeviceProbeOptions) {
 	man.devices = make([]IDevice, 0)
-	if man.host.IsContainerHost() {
+	isContainerHost := man.host.IsContainerHost()
+	log.Infof("==== ProbePCIDevices start: isContainerHost=%v hygonEnable=%v hygonHami=%v skipGPUs=%v",
+		isContainerHost, opts.EnableContainerHygonDCU, opts.EnableContainerHygonDCUHAMI, opts.SkipGPUs)
+	if isContainerHost {
 		man.probeContainerDevices()
 		man.probeContainerNvidiaGPUs(opts.EnableCudaHAMI, opts.EnableCudaMps)
-		man.probeContainerAscendNPUs(opts.EnableContainerNPU)
+		man.probeContainerAscendNPUs(opts.EnableContainerAscendNpu, opts.EnableContainerAscendNpuHAMI)
+		man.probeContainerHygonDCUs(opts.EnableContainerHygonDCU, opts.EnableContainerHygonDCUHAMI)
 	} else {
+		log.Infof("==== ProbePCIDevices: not container host, hygon container probe will NOT run (use host_type=container for hygon dcu)")
 		devModels, err := man.getCustomIsolatedDeviceModels()
 		if err != nil {
 			log.Errorf("get isolated device devModels %s", err.Error())
@@ -488,6 +531,7 @@ func (man *isolatedDeviceManager) ProbePCIDevices(opts *SIsolatedDeviceProbeOpti
 		man.probeNVIDIAVgpus(opts.NvidiaVgpuPFs)
 		man.probeGPUS(opts.SkipGPUs, opts.AmdVgpuPFs, opts.NvidiaVgpuPFs, opts.EnableWhitelist, devModels)
 	}
+	log.Infof("==== ProbePCIDevices finished: total isolated devices=%d", len(man.devices))
 }
 
 type IsolatedDeviceModel struct {

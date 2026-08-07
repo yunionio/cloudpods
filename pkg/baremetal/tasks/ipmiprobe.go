@@ -85,7 +85,10 @@ func (self *SBaremetalIpmiProbeTask) DoIpmiProbe(ctx context.Context, args inter
 		// else, redfish call fails, try IPMI
 	} */
 	log.Warningf("BMC not redfish-compatible for IPMI: %s, use raw probe", ipmiInfo.IpAddr)
-	ipmiTool := ipmitool.NewLanPlusIPMI(ipmiInfo.IpAddr, ipmiInfo.Username, ipmiInfo.Password)
+	ipmiTool, err := ipmitool.NewLanPlusIPMI(ipmiInfo.IpAddr, ipmiInfo.Username, ipmiInfo.Password)
+	if err != nil {
+		return errors.Wrap(err, "NewLanPlusIPMI")
+	}
 	return self.doRawIpmiProbe(ctx, ipmiTool)
 }
 
@@ -249,6 +252,9 @@ func (self *SBaremetalIpmiProbeTask) doRawIpmiProbe(ctx context.Context, cli ipm
 	ipmiInfo.CdromBoot = false
 	ipmiInfo.PxeBoot = o.Options.EnablePxeBoot
 	ipmiInfo.LanChannel = channel
+	if lanPlus, ok := cli.(*ipmitool.LanPlusIPMI); ok {
+		ipmiInfo.CipherSuite = lanPlus.GetCipherSuite()
+	}
 	updateData := jsonutils.Marshal(updateInfo)
 	updateData.(*jsonutils.JSONDict).Update(ipmiInfo.ToPrepareParams())
 	_, err = modules.Hosts.Update(self.Baremetal.GetClientSession(), self.Baremetal.GetId(), updateData)

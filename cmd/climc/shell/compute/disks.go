@@ -94,7 +94,7 @@ func init() {
 		AutoSnapshot string `help:"enable/disable auto snapshot of disk" choices:"enable|disable"`
 		DiskType     string `help:"Disk type" choices:"data|volume|sys"`
 		IsSsd        *bool  `help:"mark disk as ssd" negative:"no-is-ssd"`
-		AutoReset    *bool  `help:"Enable auto reset disk after geust shutdown"`
+		AutoReset    *bool  `help:"Enable auto reset disk after guest shutdown"`
 	}
 	R(&DiskUpdateOptions{}, "disk-update", "Update property of a virtual disk", func(s *mcclient.ClientSession, args *DiskUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -179,7 +179,7 @@ func init() {
 	})
 	type DiskResetOptions struct {
 		DISK      string `help:"ID or name of disk"`
-		SNAPSHOT  string `help:"snapshots ID of disk"`
+		SNAPSHOT  string `help:"Snapshot ID of disk"`
 		AutoStart bool   `help:"Autostart guest"`
 	}
 	R(&DiskResetOptions{}, "disk-reset", "Resize a disk", func(s *mcclient.ClientSession, args *DiskResetOptions) error {
@@ -235,9 +235,9 @@ func init() {
 
 	type DiskChangeOwnerOptions struct {
 		ID      string `help:"Disk to change owner" json:"-"`
-		PROJECT string `help:"Project ID or change" json:"tenant"`
+		PROJECT string `help:"Project ID or name" json:"tenant"`
 	}
-	R(&DiskChangeOwnerOptions{}, "disk-change-owner", "Change owner porject of a disk", func(s *mcclient.ClientSession, opts *DiskChangeOwnerOptions) error {
+	R(&DiskChangeOwnerOptions{}, "disk-change-owner", "Change owner project of a disk", func(s *mcclient.ClientSession, opts *DiskChangeOwnerOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {
 			return err

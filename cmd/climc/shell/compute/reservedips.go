@@ -24,10 +24,10 @@ import (
 
 func init() {
 	type NetworkReserveIPOptions struct {
-		NETWORK  string   `help:"IP or name of network"`
+		NETWORK  string   `help:"ID or name of network"`
 		NOTES    string   `help:"Why reserve this IP"`
 		IPS      []string `help:"IPs to reserve"`
-		Duration string   `help:"reservation duration, e.g. 1I, 1H, 2M"`
+		Duration string   `help:"reservation duration, e.g. 1D, 1H, 2M"`
 		Status   string   `help:"ip status"`
 	}
 	R(&NetworkReserveIPOptions{}, "network-reserve-ip", "Reserve an IP address from pool", func(s *mcclient.ClientSession, args *NetworkReserveIPOptions) error {
@@ -49,7 +49,7 @@ func init() {
 	})
 
 	type NetworkReleaseReservedIPOptions struct {
-		NETWORK string `help:"IP or name of network"`
+		NETWORK string `help:"ID or name of network"`
 		IP      string `help:"IP to release"`
 	}
 	R(&NetworkReleaseReservedIPOptions{}, "network-release-reserved-ip", "Release a reserved IP into pool", func(s *mcclient.ClientSession, args *NetworkReleaseReservedIPOptions) error {

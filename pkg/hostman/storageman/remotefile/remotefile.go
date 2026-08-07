@@ -48,27 +48,30 @@ type SImageDesc struct {
 }
 
 type SRemoteFile struct {
-	ctx          context.Context
-	url          string
-	downloadUrl  string
-	localPath    string
-	tmpPath      string
-	preChksum    string
-	compress     bool
-	timeout      time.Duration
-	extraHeaders map[string]string
+	ctx                  context.Context
+	url                  string
+	downloadUrl          string
+	localPath            string
+	tmpPath              string
+	preChksum            string
+	compress             bool
+	timeout              time.Duration
+	extraHeaders         map[string]string
+	nfsTargetStorageId   string
+	nfsTargetStoragePath string
 
 	chksum string
 	format string
 	name   string
 
-	s3Info *S3RemoteFileInfo
+	s3Info  *S3RemoteFileInfo
+	nfsInfo *NfsRemoteFileInfo
 }
 
 func NewRemoteFile(
 	ctx context.Context, url, localPath string, compress bool,
 	PreChksum string, timeout int, extraHeaders map[string]string,
-	tmpPath string, downloadUrl string,
+	tmpPath, downloadUrl string,
 ) *SRemoteFile {
 	if timeout <= 0 {
 		timeout = 24 * 3600 //24 hours
@@ -88,6 +91,11 @@ func NewRemoteFile(
 		tmpPath:      tmpPath,
 		downloadUrl:  downloadUrl,
 	}
+}
+
+func (r *SRemoteFile) NfsSetTargetStorageId(storageId, storagePath string) {
+	r.nfsTargetStorageId = storageId
+	r.nfsTargetStoragePath = storagePath
 }
 
 func (r *SRemoteFile) GetFormat() string {
@@ -230,8 +238,12 @@ func (r *SRemoteFile) downloadS3(callback func(progress, progressMbps float64, t
 }
 
 func (r *SRemoteFile) downloadInternal(getData bool, preChksum string, callback func(progress, progressMbps float64, totalSizeMb int64)) error {
-	if getData && r.s3Info != nil {
-		return r.downloadS3(callback)
+	if getData {
+		if r.s3Info != nil {
+			return r.downloadS3(callback)
+		} else if r.nfsInfo != nil {
+			return r.nfsInfo.nfsLinkImage(r.tmpPath, r.nfsTargetStoragePath)
+		}
 	}
 
 	var header = http.Header{}
@@ -361,6 +373,14 @@ func (r *SRemoteFile) setProperties(header http.Header) {
 		}
 		if s3Bucket := header.Get("X-Image-Meta-S3_info_bucket"); len(s3Bucket) > 0 {
 			r.s3Info.Bucket = s3Bucket
+		}
+	}
+	if nfsStorageId := header.Get("X-Image-Meta-Nfs_storage_id"); len(nfsStorageId) > 0 && r.nfsTargetStorageId == nfsStorageId {
+		if imgPath := header.Get("X-Image-Meta-Nfs_image_path"); len(imgPath) > 0 {
+			r.nfsInfo = &NfsRemoteFileInfo{
+				NfsImagePath: imgPath,
+			}
+
 		}
 	}
 }

@@ -27,21 +27,21 @@ import (
 type DBInstanceCreateOptions struct {
 	NAME               string   `help:"DBInstance Name"`
 	InstanceType       string   `help:"InstanceType for DBInstance"`
-	VcpuCount          int      `help:"Core of cpu for DBInstance"`
-	VmemSizeMb         int      `help:"Memory size of DBInstance"`
+	VcpuCount          int      `help:"CPU cores for DBInstance"`
+	VmemSizeMb         int      `help:"Memory size in MB for DBInstance"`
 	Port               int      `help:"Port of DBInstance"`
 	Category           string   `help:"Category of DBInstance"`
 	Network            string   `help:"Network of DBInstance"`
 	Address            string   `help:"Address of DBInstance"`
 	Engine             string   `help:"Engine of DBInstance"`
 	EngineVersion      string   `help:"EngineVersion of DBInstance Engine"`
-	StorageType        string   `help:"StorageTyep of DBInstance"`
+	StorageType        string   `help:"Storage type of DBInstance"`
 	Secgroup           string   `help:"Secgroup name or Id for DBInstance"`
 	Zone               string   `help:"ZoneId or name for DBInstance"`
-	DiskSizeGB         int      `help:"Storage size for DBInstance"`
+	DiskSizeGB         int      `help:"Storage size in GB for DBInstance"`
 	Duration           string   `help:"Duration for DBInstance"`
-	AllowDelete        *bool    `help:"not lock dbinstance" `
-	Tags               []string `help:"Tags info,prefix with 'user:', eg: user:project=default" json:"-"`
+	AllowDelete        *bool    `help:"Allow deleting the DBInstance (disable_delete=false)"`
+	Tags               []string `help:"Tags info, prefix with 'user:', eg: user:project=default" json:"-"`
 	DBInstancebackupId string   `help:"create dbinstance from backup" json:"dbinstancebackup_id"`
 	MultiAz            bool     `help:"deploy rds with multi az"`
 }
@@ -119,7 +119,7 @@ type DBInstanceUpdateOptions struct {
 	DBInstanceIdOptions
 	Name        string
 	Description string
-	Delete      string `help:"Lock or not lock dbinstance" choices:"enable|disable"`
+	Delete      string `help:"Lock or unlock deletion (disable=lock, enable=unlock)" choices:"enable|disable"`
 }
 
 func (opts *DBInstanceUpdateOptions) Params() (jsonutils.JSONObject, error) {
@@ -161,7 +161,7 @@ func (opts *DBInstanceChangeConfigOptions) Params() (jsonutils.JSONObject, error
 		params.Add(jsonutils.NewInt(opts.VcpuCount), "vcpu_count")
 	}
 	if opts.VmemSizeMb > 0 {
-		params.Add(jsonutils.NewInt(opts.VmemSizeMb), "vmeme_size_mb")
+		params.Add(jsonutils.NewInt(opts.VmemSizeMb), "vmem_size_mb")
 	}
 	return params, nil
 }
@@ -218,7 +218,7 @@ func (opts *DBInstanceDeleteOptions) Params() (jsonutils.JSONObject, error) {
 
 type DBInstanceChangeOwnerOptions struct {
 	DBInstanceIdOptions
-	PROJECT string `help:"Project ID or change" json:"tenant"`
+	PROJECT string `help:"Target project ID or name" json:"tenant"`
 }
 
 func (opts *DBInstanceChangeOwnerOptions) Params() (jsonutils.JSONObject, error) {

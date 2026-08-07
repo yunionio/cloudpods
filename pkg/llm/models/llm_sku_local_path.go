@@ -2,10 +2,12 @@ package models
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -85,4 +87,71 @@ func SkuHasLocalHostPathModel(sku *SLLMSku) bool {
 		return false
 	}
 	return hostPathsHasContainerMount(*sku.HostPaths, 0)
+}
+
+func effectiveLLMPreferredModel(llm *SLLM, sku *SLLMSku) string {
+	if llm != nil && llm.LLMSpec != nil {
+		if llm.LLMSpec.Vllm != nil {
+			if p := strings.TrimSpace(llm.LLMSpec.Vllm.PreferredModel); p != "" {
+				return p
+			}
+		}
+		if llm.LLMSpec.SGLang != nil {
+			if p := strings.TrimSpace(llm.LLMSpec.SGLang.PreferredModel); p != "" {
+				return p
+			}
+		}
+	}
+	if sku != nil && sku.LLMSpec != nil {
+		if sku.LLMSpec.Vllm != nil {
+			if p := strings.TrimSpace(sku.LLMSpec.Vllm.PreferredModel); p != "" {
+				return p
+			}
+		}
+		if sku.LLMSpec.SGLang != nil {
+			if p := strings.TrimSpace(sku.LLMSpec.SGLang.PreferredModel); p != "" {
+				return p
+			}
+		}
+	}
+	return ""
+}
+
+// UpstreamModelKeyFromLocalPathSku returns the served model name vLLM/SGLang expose
+// for a local_path SKU (basename of the selected container model mount path).
+func UpstreamModelKeyFromLocalPathSku(llm *SLLM, sku *SLLMSku) string {
+	if !SkuHasLocalHostPathModel(sku) {
+		return ""
+	}
+	preferred := effectiveLLMPreferredModel(llm, sku)
+	modelPath := PickContainerModelMountPath(CollectContainerModelMountPaths(llm, sku), preferred)
+	if modelPath != "" {
+		return path.Base(modelPath)
+	}
+	if lp := strings.TrimSpace(sku.LocalPath); lp != "" {
+		return path.Base(lp)
+	}
+	return ""
+}
+
+// ValidateLocalPathHamiDevicesRequireMemoryMb requires every HAMi device to set
+// memory_mb for local_path SKUs (no InstantModel VRAM estimate available).
+// Devices are normalized first so empty SharingMode (default HAMi) is treated
+// the same as pod create.
+func ValidateLocalPathHamiDevicesRequireMemoryMb(devices *api.Devices) error {
+	if devices == nil || len(*devices) == 0 {
+		return nil
+	}
+	for i := range *devices {
+		dev := (*devices)[i]
+		normalizeLLMSkuDevice(&dev)
+		if strings.TrimSpace(dev.SharingMode) != computeapi.DEVICE_SHARING_MODE_HAMI {
+			continue
+		}
+		if dev.MemoryMb <= 0 {
+			return httperrors.NewInputParameterError(
+				"local_path SKU with HAMi requires per-GPU VRAM: set devices[].memory_mb on the LLM SKU")
+		}
+	}
+	return nil
 }

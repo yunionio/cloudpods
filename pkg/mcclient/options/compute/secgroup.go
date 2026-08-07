@@ -36,7 +36,7 @@ type SecgroupListOptions struct {
 	Server         string `help:"Filter secgroups bound to specified server" mcp:"true"`
 	Ip             string `help:"Filter secgroup by ip" mcp:"true"`
 	Ports          string `help:"Filter secgroup by ports" mcp:"true"`
-	Direction      string `help:"Filter secgroup by ports" choices:"all|in|out" mcp:"true"`
+	Direction      string `help:"Filter secgroup by direction" choices:"all|in|out" mcp:"true"`
 	DBInstance     string `help:"Filter secgroups bound to specified rds" json:"dbinstance" mcp:"true"`
 	Cloudregion    string `help:"Filter secgroups by region" mcp:"true"`
 	VpcId          string `mcp:"true"`
@@ -90,7 +90,7 @@ func (opts *SecgroupCreateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type SecgroupIdOptions struct {
-	ID string `help:"ID or Name of security group destination"`
+	ID string `help:"ID or Name of security group"`
 }
 
 func (opts *SecgroupIdOptions) GetId() string {
@@ -127,10 +127,10 @@ type SecgroupsAddRuleOptions struct {
 	SecgroupIdOptions
 	DIRECTION   string `help:"Direction of rule" choices:"in|out"`
 	PROTOCOL    string `help:"Protocol of rule" choices:"any|tcp|udp|icmp"`
-	ACTION      string `help:"Actin of rule" choices:"allow|deny"`
+	ACTION      string `help:"Action of rule" choices:"allow|deny"`
 	PRIORITY    int    `help:"Priority for rule, range 1 ~ 100"`
-	Cidr        string `help:"IP or CIRD for rule"`
-	Description string `help:"Desciption for rule"`
+	Cidr        string `help:"IP or CIDR for rule"`
+	Description string `help:"Description for rule"`
 	Ports       string `help:"Port for rule"`
 }
 

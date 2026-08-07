@@ -1214,6 +1214,7 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 		return
 	}
 	var diskId, diskPath, diskUrl string
+	var mergeSnapshotId string
 	var mergeSnapshots bool
 	for i := 0; i < len(disks); i++ {
 		index := disks[i].Index
@@ -1222,6 +1223,7 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 			diskPath = disks[i].Path
 			diskUrl = disks[i].Url
 			mergeSnapshots = disks[i].MergeSnapshot
+			mergeSnapshotId = disks[i].SnapshotId
 		}
 	}
 	if len(diskId) == 0 {
@@ -1235,7 +1237,7 @@ func (s *SKVMGuestInstance) eventBlockJobReady(event *monitor.Event) {
 		return
 	}
 	if mergeSnapshots {
-		disk.PostCreateFromRemoteHostImage(diskUrl)
+		disk.PostCreateFromRemoteHostImage(diskUrl, mergeSnapshotId)
 	}
 	blockJobCount := s.BlockJobsCount()
 	if blockJobCount == 0 {
@@ -2165,7 +2167,7 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 				}
 			}
 			if d != nil && disk.MergeSnapshot {
-				d.PostCreateFromRemoteHostImage(disk.Url)
+				d.PostCreateFromRemoteHostImage(disk.Url, disk.SnapshotId)
 			}
 			if migrated {
 				if d != nil && utils.IsInStringArray(d.GetType(), []string{api.STORAGE_SLVM, api.STORAGE_CLVM}) {
@@ -2478,7 +2480,9 @@ func (s *SKVMGuestInstance) compareDescFloppys(newDesc *desc.SGuestDesc) []*desc
 func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 ) ([]*desc.SGuestNetwork, []*desc.SGuestNetwork, [][2]*desc.SGuestNetwork) {
 	var isValidHotplug = func(net *desc.SGuestNetwork) bool {
-		return net.Driver == "virtio" || net.Driver == "vfio-pci"
+		return utils.IsInStringArray(net.Driver, []string{
+			api.NETWORK_DRIVER_E1000, api.NETWORK_DRIVER_VIRTIO, api.NETWORK_DRIVER_VFIO,
+		})
 	}
 
 	var findNet = func(nets []*desc.SGuestNetwork, net *desc.SGuestNetwork) int {
@@ -2507,10 +2511,8 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc *desc.SGuestDesc,
 				addNics[idx], // new
 			})
 
-			if isValidHotplug(n) {
-				// remove existing nic from new
-				addNics = append(addNics[:idx], addNics[idx+1:]...)
-			}
+			// remove existing nic from new
+			addNics = append(addNics[:idx], addNics[idx+1:]...)
 		} else {
 			if isValidHotplug(n) {
 				// not found, remove the nic
@@ -2931,7 +2933,7 @@ func (s *SKVMGuestInstance) streamDisksComplete(ctx context.Context) {
 		if disks[i].MergeSnapshot {
 			if d != nil {
 				log.Infof("Disk %s do post create from fuse", d.GetId())
-				d.PostCreateFromRemoteHostImage(disks[i].Url)
+				d.PostCreateFromRemoteHostImage(disks[i].Url, disks[i].SnapshotId)
 			}
 
 			disks[i].MergeSnapshot = false

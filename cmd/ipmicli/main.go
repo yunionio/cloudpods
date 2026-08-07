@@ -81,7 +81,7 @@ func newExecutor(options *BaseOptions) (ipmitool.IPMIExecutor, error) {
 		if options.Port > 0 {
 			port = options.Port
 		}
-		return ipmitool.NewLanPlusIPMIWithPort(options.HOST, options.User, options.PASSWD, port), nil
+		return ipmitool.NewLanPlusIPMIWithPort(options.HOST, options.User, options.PASSWD, port)
 	}
 	return nil, fmt.Errorf("Unsupported mode: %s", options.MODE)
 }

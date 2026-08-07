@@ -46,7 +46,10 @@ const (
 	ContainerDeviceTypeNvidiaGpuShare ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_GPU_SHARE
 	ContainerDeviceTypeNvidiaHAMI     ContainerDeviceType = api.CONTAINER_DEV_NVIDIA_HAMI
 	ContainerDeviceTypeAscendNpu      ContainerDeviceType = api.CONTAINER_DEV_ASCEND_NPU
+	ContainerDeviceTypeAscendNpuHami  ContainerDeviceType = api.CONTAINER_DEV_ASCEND_NPU_HAMI
 	ContainerDeviceTypeVastaitechGpu  ContainerDeviceType = api.CONTAINER_DEV_VASTAITECH_GPU
+	ContainerDeviceTypeHygonDcu       ContainerDeviceType = api.CONTAINER_DEV_HYGON_DCU
+	ContainerDeviceTypeHygonDcuHami   ContainerDeviceType = api.CONTAINER_DEV_HYGON_DCU_HAMI
 )
 
 func GetContainerDeviceManager(devType ContainerDeviceType) (IContainerDeviceManager, error) {
@@ -95,6 +98,11 @@ type IContainerDeviceManager interface {
 	NewContainerDevices(input *hostapi.ContainerCreateInput, dev *hostapi.ContainerDevice) ([]*runtimeapi.Device, []*runtimeapi.Device, error)
 	ProbeDevices() ([]IDevice, error)
 	GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount)
+}
+
+// IContainerDeviceReleaseManager is implemented by device managers that need cleanup on container delete.
+type IContainerDeviceReleaseManager interface {
+	ReleaseContainerDevices(devs []*hostapi.ContainerDevice)
 }
 
 type IContainerCDIManager interface {

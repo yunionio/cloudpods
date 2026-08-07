@@ -19,15 +19,13 @@ import (
 	"sync"
 
 	"yunion.io/x/onecloud/pkg/aiproxy/providerapi"
-	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
-	// "yunion.io/x/onecloud/pkg/aiproxy/providers/aliyun" // uncommon
-	"yunion.io/x/onecloud/pkg/aiproxy/providers/anthropic"
-	// "yunion.io/x/onecloud/pkg/aiproxy/providers/azure" // uncommon
+	"yunion.io/x/onecloud/pkg/aiproxy/providers/anthropic" // "yunion.io/x/onecloud/pkg/aiproxy/providers/azure" // uncommon
 	// "yunion.io/x/onecloud/pkg/aiproxy/providers/baidu" // uncommon
 	// "yunion.io/x/onecloud/pkg/aiproxy/providers/cohere" // uncommon
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/gemini"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/openai"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers/vllm"
+	api "yunion.io/x/onecloud/pkg/apis/aiproxy" // "yunion.io/x/onecloud/pkg/aiproxy/providers/aliyun" // uncommon
 )
 
 var (

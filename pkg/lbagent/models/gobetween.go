@@ -94,16 +94,23 @@ func (b *LoadbalancerCorpus) GenGobetweenConfigs(dir string, opts *GenGobetweenC
 			// healthcheck
 			var serverHealthcheck *gobetween.HealthcheckConfig
 			if listener.HealthCheck == "on" && listener.HealthCheckType == "udp" {
-				serverHealthcheck = &gobetween.HealthcheckConfig{
-					Kind:     "pingudp",
-					Interval: fmt.Sprintf("%ds", listener.HealthCheckInterval),
-					Timeout:  fmt.Sprintf("%ds", listener.HealthCheckTimeout),
-					Passes:   listener.HealthCheckRise,
-					Fails:    listener.HealthCheckFall,
-					UdpHealthcheckConfig: &gobetween.UdpHealthcheckConfig{
-						Send:    listener.HealthCheckReq,
-						Receive: listener.HealthCheckExp,
-					},
+				if listener.HealthCheckReq == "" || listener.HealthCheckExp == "" {
+					log.Warningf("listener %s(%s): skip UDP healthcheck with empty request or expected response",
+						listener.Name, listener.Id)
+				} else {
+					serverHealthcheck = &gobetween.HealthcheckConfig{
+						Kind:     "probe",
+						Interval: fmt.Sprintf("%ds", listener.HealthCheckInterval),
+						Timeout:  fmt.Sprintf("%ds", listener.HealthCheckTimeout),
+						Passes:   listener.HealthCheckRise,
+						Fails:    listener.HealthCheckFall,
+						ProbeHealthcheckConfig: &gobetween.ProbeHealthcheckConfig{
+							ProbeProtocol: "udp",
+							ProbeStrategy: "starts_with",
+							ProbeSend:     listener.HealthCheckReq,
+							ProbeRecv:     listener.HealthCheckExp,
+						},
+					}
 				}
 			}
 

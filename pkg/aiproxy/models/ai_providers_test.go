@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"yunion.io/x/jsonutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )

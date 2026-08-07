@@ -94,6 +94,13 @@ type SIsolatedDevice struct {
 	// # Specific device name read from lspci command, e.g. `Tesla K40m` ...
 	Model string `width:"512" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
 
+	// 云主机Id, keep for backward compatibility
+	// swagger:deprecated
+	GuestId string `width:"36" charset:"ascii" nullable:"true"`
+	// guest network index, keep for backward compatibility
+	// swagger:deprecated
+	NetworkIndex int `nullable:"true" default:"-1"`
+
 	// Nic wire id
 	WireId string `width:"36" charset:"ascii" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// Offload interface name
@@ -102,6 +109,10 @@ type SIsolatedDevice struct {
 	IsInfinibandNic bool `nullable:"false" default:"false" list:"user" create:"optional"`
 	// NVME disk size
 	NvmeSizeMB int `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+
+	// guest disk index, keep for backward compatibility
+	// swagger:deprecated
+	DiskIndex int8 `nullable:"true" default:"-1"`
 
 	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus:addr:port`
 	Addr       string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
@@ -346,6 +357,13 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(
 	if len(query.VendorDeviceId) > 0 {
 		q = q.In("vendor_device_id", query.VendorDeviceId)
 	}
+	if len(query.Vendor) > 0 {
+		conds := make([]sqlchemy.ICondition, 0, len(query.Vendor))
+		for _, v := range query.Vendor {
+			conds = append(conds, sqlchemy.Startswith(q.Field("vendor_device_id"), vendorDeviceIdPrefixForFilter(v)))
+		}
+		q = q.Filter(sqlchemy.OR(conds...))
+	}
 	if len(query.NumaNode) > 0 {
 		q = q.In("numa_node", query.NumaNode)
 	}
@@ -503,6 +521,22 @@ func GetVendorByVendorDeviceId(vendorDeviceId string) string {
 	} else {
 		return vendorId
 	}
+}
+
+func vendorDeviceIdPrefixForFilter(vendor string) string {
+	return resolveVendorIdForFilter(vendor) + ":"
+}
+
+func resolveVendorIdForFilter(vendor string) string {
+	if id, ok := api.VENDOR_ID_MAP[vendor]; ok {
+		return id
+	}
+	for name, id := range api.VENDOR_ID_MAP {
+		if strings.EqualFold(name, vendor) {
+			return id
+		}
+	}
+	return strings.ToLower(vendor)
 }
 
 func (self *SIsolatedDevice) IsGPU() bool {
@@ -1502,6 +1536,7 @@ func (manager *SIsolatedDeviceManager) FetchCustomizeColumns(
 			SharableResourceBaseInfo:  shareRows[i],
 		}
 		dev := objs[i].(*SIsolatedDevice)
+		rows[i].Vendor = dev.getVendor()
 		if dev.SharingMode == api.DEVICE_SHARING_MODE_HAMI {
 			rows[i].MemoryAllocated, _ = dev.getAllocatedMemorySize()
 		} else {

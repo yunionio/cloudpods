@@ -31,10 +31,11 @@ type DeviceListOptions struct {
 
 	DevType        []string `help:"filter by dev_type"`
 	Model          []string `help:"filter by model"`
+	Vendor         []string `help:"filter by vendor, e.g. HYGON, NVIDIA"`
 	Addr           []string `help:"filter by addr"`
 	DevicePath     []string `help:"filter by device path"`
 	VendorDeviceId []string `help:"filter by vendor device id(PCIID)"`
-	NumaNode       []uint8  `help:"fitler by numa node index"`
+	NumaNode       []uint8  `help:"filter by numa node index"`
 	Index          *int     `help:"filter by index"`
 	DeviceMinor    *int     `help:"filter by device minor"`
 }

@@ -196,11 +196,11 @@ func init() {
 		Enabled     bool    `help:"Enabled" mcp:"true"`
 		Disabled    bool    `help:"Disabled" mcp:"true"`
 
-		SkipPasswordComplexityCheck bool `help:"do password complexity check, default is false" mcp:"true"`
+		SkipPasswordComplexityCheck bool `help:"skip password complexity check" mcp:"true"`
 
 		// DefaultProject string `help:"Default project"`
 		SystemAccount bool `help:"is a system account?" mcp:"true"`
-		NoWebConsole  bool `help:"allow web console access" mcp:"true"`
+		NoWebConsole  bool `help:"disallow web console access" mcp:"true"`
 		EnableMfa     bool `help:"enable TOTP mfa" mcp:"true"`
 
 		IdpId       string `help:"Id of identity provider to link with" mcp:"true"`

@@ -25,15 +25,15 @@ import (
 )
 
 type BaseEventListOptions struct {
-	Scope      string   `help:"scope" choices:"project|domain|system"`
+	Scope      string   `help:"RBAC scope" choices:"project|domain|system"`
 	Since      string   `help:"Show logs since specific date" metavar:"DATETIME"`
 	Until      string   `help:"Show logs until specific date" metavar:"DATETIME"`
 	Limit      int64    `help:"Limit number of logs" default:"20"`
-	Offset     int64    `help:"Offset"`
+	Offset     int64    `help:"Offset for pagination"`
 	Ascending  bool     `help:"Ascending order"`
 	Descending bool     `help:"Descending order"`
 	OrderBy    string   `help:"order by specific field"`
-	Action     []string `help:"Log action"`
+	Action     []string `help:"Filter by log action"`
 
 	User    string `help:"filter by operator user"`
 	Project string `help:"filter by operator user's project"`

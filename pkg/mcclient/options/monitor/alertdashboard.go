@@ -64,7 +64,7 @@ func (o *AlertDashBoardDeleteOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type AlertClonePanelOptions struct {
-	ID             string `help:"ID of alart " json:"-"`
+	ID             string `help:"ID of alert" json:"-"`
 	PanelId        string `help:"ID of alertPanel" json:"panel_id"`
 	ClonePanelName string `help:"new panel name" json:"clone_panel_name"`
 }
@@ -78,7 +78,7 @@ func (o *AlertClonePanelOptions) GetId() string {
 }
 
 type AlertCloneDashboardOptions struct {
-	ID        string `help:"ID of alart " json:"-"`
+	ID        string `help:"ID of alert" json:"-"`
 	CloneName string `json:"clone_name" help:"new dashboard name"`
 }
 

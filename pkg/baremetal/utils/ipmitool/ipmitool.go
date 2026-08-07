@@ -89,29 +89,58 @@ func (ipmi *SSHIPMI) ExecuteCommand(args ...string) ([]string, error) {
 	return ipmi.sshClient.Run(cmd.String())
 }
 
+// DefaultCipherSuites is the probe order for RMCP+ cipher suites.
+// 0 means do not pass -C (ipmitool default); 3 and 17 are common BMC requirements.
+var DefaultCipherSuites = []int{0, 3, 17}
+
 type LanPlusIPMI struct {
 	IPMIParser
-	host     string
-	user     string
-	password string
-	port     int
+	host           string
+	user           string
+	password       string
+	port           int
+	cipherSuite    int  // 0 = no -C; >0 = pass -C N
+	cipherResolved bool // true after Ensure/Detect or constructed with known suite > 0
 }
 
-func NewLanPlusIPMI(host, user, password string) *LanPlusIPMI {
+func NewLanPlusIPMI(host, user, password string) (*LanPlusIPMI, error) {
 	return NewLanPlusIPMIWithPort(host, user, password, 623)
 }
 
-func NewLanPlusIPMIWithPort(host, user, password string, port int) *LanPlusIPMI {
-	return &LanPlusIPMI{
-		host:     host,
-		user:     user,
-		password: password,
-		port:     port,
+func NewLanPlusIPMIWithPort(host, user, password string, port int) (*LanPlusIPMI, error) {
+	return NewLanPlusIPMIWithCipher(host, user, password, port, 0)
+}
+
+func NewLanPlusIPMIWithCipher(host, user, password string, port, cipherSuite int) (*LanPlusIPMI, error) {
+	ipmi := &LanPlusIPMI{
+		host:        host,
+		user:        user,
+		password:    password,
+		port:        port,
+		cipherSuite: cipherSuite,
 	}
+	// Known non-default suite from persisted config: skip re-detect.
+	if cipherSuite > 0 {
+		ipmi.cipherResolved = true
+		return ipmi, nil
+	}
+	if err := ipmi.ensureCipherSuite(); err != nil {
+		return nil, err
+	}
+	return ipmi, nil
 }
 
 func (ipmi *LanPlusIPMI) GetMode() string {
 	return "rmcp"
+}
+
+func (ipmi *LanPlusIPMI) SetCipherSuite(suite int) {
+	ipmi.cipherSuite = suite
+	ipmi.cipherResolved = true
+}
+
+func (ipmi *LanPlusIPMI) GetCipherSuite() int {
+	return ipmi.cipherSuite
 }
 
 func (ipmi *LanPlusIPMI) GetCommand(args ...string) (*procutils.Command, context.CancelFunc) {
@@ -121,9 +150,42 @@ func (ipmi *LanPlusIPMI) GetCommand(args ...string) (*procutils.Command, context
 		"-U", ipmi.user,
 		"-P", ipmi.password,
 	}
+	if ipmi.cipherSuite > 0 {
+		nArgs = append(nArgs, "-C", strconv.Itoa(ipmi.cipherSuite))
+	}
 	nArgs = append(nArgs, args...)
 	ctx, cancel := context.WithTimeout(context.Background(), ipmi.GetDefaultTimeout())
 	return procutils.NewCommandContext(ctx, "ipmitool", nArgs...), cancel
+}
+
+// ipmitool may exit with status 1 while still printing usable output (e.g. lan print
+// when optional LAN parameters fail to read). Treat exit 1 as success only when output
+// is non-empty and does not look like a hard failure.
+var ipmitoolErrorSubstrings = []string{
+	"Unable to establish IPMI",
+	"Unable to open interface",
+	"Authentication failed",
+	"Password verification failed",
+	"Invalid user name",
+	"Insufficient privilege level",
+	"Invalid command",
+	"Command not supported in present state",
+	"Get Channel Info command failed",
+	"Invalid channel",
+	"Error: Unable to open",
+}
+
+func ipmitoolOutputAcceptable(out []byte) bool {
+	if len(out) == 0 {
+		return false
+	}
+	s := string(out)
+	for _, p := range ipmitoolErrorSubstrings {
+		if strings.Contains(s, p) {
+			return false
+		}
+	}
+	return true
 }
 
 func (ipmi *LanPlusIPMI) ExecuteCommand(args ...string) ([]string, error) {
@@ -132,9 +194,42 @@ func (ipmi *LanPlusIPMI) ExecuteCommand(args ...string) ([]string, error) {
 	log.Debugf("[LanPlusIPMI] execute command: %s", cmd.String())
 	out, err := cmd.Output()
 	if err != nil {
+		exitCode, ok := cmd.GetExitStatus(err)
+		if ok && exitCode == 1 && ipmitoolOutputAcceptable(out) {
+			log.Warningf("[LanPlusIPMI] command %s exited with status 1 but output looks usable", cmd.String())
+			return ssh.ParseOutput(out), nil
+		}
 		return nil, err
 	}
 	return ssh.ParseOutput(out), nil
+}
+
+// DetectCipherSuite tries DefaultCipherSuites with a single chassis power status each.
+// On success it sets the working suite on the receiver and returns it.
+func (ipmi *LanPlusIPMI) DetectCipherSuite() (int, error) {
+	var errs []error
+	for _, suite := range DefaultCipherSuites {
+		ipmi.cipherSuite = suite
+		ipmi.cipherResolved = false
+		_, err := ipmi.ExecuteCommand("chassis", "power", "status")
+		if err == nil {
+			ipmi.SetCipherSuite(suite)
+			log.Infof("[LanPlusIPMI] detected cipher suite %d for %s", suite, ipmi.host)
+			return suite, nil
+		}
+		errs = append(errs, errors.Wrapf(err, "cipher suite %d", suite))
+		log.Debugf("[LanPlusIPMI] cipher suite %d failed for %s: %v", suite, ipmi.host, err)
+	}
+	return 0, errors.Wrapf(errors.NewAggregate(errs), "detect cipher suite for %s", ipmi.host)
+}
+
+// ensureCipherSuite uses a known suite when already resolved; otherwise runs DetectCipherSuite.
+func (ipmi *LanPlusIPMI) ensureCipherSuite() error {
+	if ipmi.cipherResolved {
+		return nil
+	}
+	_, err := ipmi.DetectCipherSuite()
+	return err
 }
 
 func GetSysGuid(exector IPMIExecutor) string {

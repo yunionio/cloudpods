@@ -1,6 +1,7 @@
 REGISTRY ?= "registry.cn-beijing.aliyuncs.com/yunionio"
 DOCKER_BUILD = docker build -t $(REGISTRY)
 DOCKER_BUILDX = docker buildx build --platform linux/arm64,linux/amd64,linux/riscv64 --push -t $(REGISTRY)
+DOCKER_BUILDX_BM = docker buildx build --platform linux/arm64,linux/amd64 --push -t $(REGISTRY)
 
 
 debian10-base:
@@ -40,7 +41,7 @@ WEBCONSOLE_BASE_VERSION_3-22-2 = 3.22.2-1
 webconsole-base:
 	$(DOCKER_BUILDX)/webconsole-base:$(WEBCONSOLE_BASE_VERSION_3-22-2) -f ./Dockerfile.webconsole-base .
 
-BAREMETAL_BASE_VERSION = v0.3.9-20251112.1
+BAREMETAL_BASE_VERSION = v0.3.9-20260724.0
 
 FEDORA_RISCV64_VERSION = 42
 fedora-riscv64-base:
@@ -53,8 +54,9 @@ baremetal-base-riscv: fedora-riscv64-base
          $(DOCKER_BUILDX)/baremetal-base:$(BAREMETAL_BASE_VERSION) -f ./Dockerfile.baremetal-base-riscv .
          #docker push $(REGISTRY)/baremetal-base:$(BAREMETAL_BASE_VERSION)
 
+# TODO: support riscv64 for baremetal-base
 baremetal-base:
-	$(DOCKER_BUILDX)/baremetal-base:$(BAREMETAL_BASE_VERSION) -f ./Dockerfile.baremetal-base .
+	$(DOCKER_BUILDX_BM)/baremetal-base:$(BAREMETAL_BASE_VERSION) -f ./Dockerfile.baremetal-base .
 	#docker push $(REGISTRY)/baremetal-base:$(BAREMETAL_BASE_VERSION)
 
 TORRENT_VERSION = 20210815.0

@@ -17,8 +17,12 @@ package lvmutils
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -327,4 +331,54 @@ func GetLvSize(lvPath string) (int64, error) {
 		return -1, errors.Wrapf(err, "failed parse size %s", strSize)
 	}
 	return size, nil
+}
+
+func IsDeviceInUse(devPath string) (bool, error) {
+	fi, err := os.Stat(devPath)
+	if err != nil {
+		return false, fmt.Errorf("stat %s: %w", devPath, err)
+	}
+	stat, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		return false, fmt.Errorf("cannot get raw stat")
+	}
+	targetDev := uint64(stat.Rdev)
+
+	procEntries, err := ioutil.ReadDir("/proc")
+	if err != nil {
+		return false, fmt.Errorf("read /proc: %w", err)
+	}
+
+	for _, entry := range procEntries {
+		if !entry.IsDir() {
+			continue
+		}
+		_, err := strconv.Atoi(entry.Name())
+		if err != nil {
+			continue
+		}
+
+		fdDir := filepath.Join("/proc", entry.Name(), "fd")
+		fds, err := ioutil.ReadDir(fdDir)
+		if err != nil {
+			continue
+		}
+
+		for _, fd := range fds {
+			fdPath := filepath.Join(fdDir, fd.Name())
+			fdInfo, err := os.Stat(fdPath)
+			if err != nil {
+				continue
+			}
+			fdStat, ok := fdInfo.Sys().(*syscall.Stat_t)
+			if !ok {
+				continue
+			}
+			if uint64(fdStat.Rdev) == targetDev {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }

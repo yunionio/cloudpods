@@ -360,7 +360,7 @@ type ContainerSaveVolumeMountImage struct {
 	INDEX             int      `help:"Index of volume mount"`
 	GenerateName      string   `help:"Generate image name automatically"`
 	Notes             string   `help:"Extra notes of the image"`
-	UsedByPostOverlay bool     `help:"Used by voluem mount post-overlay"`
+	UsedByPostOverlay bool     `help:"Used by volume mount post-overlay"`
 	Dirs              []string `help:"Internal directories"`
 }
 
@@ -569,8 +569,8 @@ func (o *ContainerRemoveVolumeMountPostOverlayOptions) Params() (jsonutils.JSONO
 }
 
 type ContainerCopyOptions struct {
-	SRC     string `help:"Local path or file name, or cotnainer:path, e.g. /etc/hots or ctr-0:/etc/hosts"`
-	DST     string `help:"Local path or file name, or cotnainer:path, e.g. /etc/hots or ctr-0:/etc/hosts"`
+	SRC     string `help:"Local path or file name, or container:path, e.g. /etc/hosts or ctr-0:/etc/hosts"`
+	DST     string `help:"Local path or file name, or container:path, e.g. /etc/hosts or ctr-0:/etc/hosts"`
 	RawFile bool   `help:"copy the file as raw data, if false, requires tar in executive path in container and host"`
 }
 

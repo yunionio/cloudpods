@@ -336,7 +336,7 @@ type BucketSetRefererOption struct {
 	// 域名列表
 	DomainList []string
 	// 是否允许空referer 访问
-	AllowEmptyRefer bool `help:"all empty refer access"`
+	AllowEmptyRefer bool `help:"allow empty referer access"`
 	Enabled         bool
 	RerererType     string `help:"Referer type" choices:"Black-List|White-List"`
 }
@@ -430,8 +430,8 @@ type BucketUploadObjectsOptions struct {
 	KEY  string `help:"Key of object to upload"`
 	Path string `help:"Path to file to upload" required:"true"`
 
-	ContentLength int64  `help:"Content lenght (bytes)" default:"-1"`
-	StorageClass  string `help:"storage CLass"`
+	ContentLength int64  `help:"Content length (bytes)" default:"-1"`
+	StorageClass  string `help:"storage class"`
 	Acl           string `help:"object acl." choices:"private|public-read|public-read-write"`
 
 	objectstore.ObjectHeaderOptions

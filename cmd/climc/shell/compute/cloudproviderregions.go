@@ -26,7 +26,7 @@ import (
 func init() {
 	type CloudproviderRegionListOptions struct {
 		options.BaseListOptions
-		Region string `help:"ID or Name of Host"`
+		Region string `help:"ID or Name of Region"`
 
 		Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
 	}

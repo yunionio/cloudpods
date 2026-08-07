@@ -69,6 +69,10 @@ func (self *SRemoteFileGuestDriver) GetComputeQuotaKeys(scope rbacscope.TRbacSco
 	return keys
 }
 
+func (self *SRemoteFileGuestDriver) AllowReconfigGuest() bool {
+	return false
+}
+
 func (self *SRemoteFileGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_LOCAL
 }
