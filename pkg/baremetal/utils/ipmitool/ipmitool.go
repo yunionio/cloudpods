@@ -158,12 +158,47 @@ func (ipmi *LanPlusIPMI) GetCommand(args ...string) (*procutils.Command, context
 	return procutils.NewCommandContext(ctx, "ipmitool", nArgs...), cancel
 }
 
+// ipmitool may exit with status 1 while still printing usable output (e.g. lan print
+// when optional LAN parameters fail to read). Treat exit 1 as success only when output
+// is non-empty and does not look like a hard failure.
+var ipmitoolErrorSubstrings = []string{
+	"Unable to establish IPMI",
+	"Unable to open interface",
+	"Authentication failed",
+	"Password verification failed",
+	"Invalid user name",
+	"Insufficient privilege level",
+	"Invalid command",
+	"Command not supported in present state",
+	"Get Channel Info command failed",
+	"Invalid channel",
+	"Error: Unable to open",
+}
+
+func ipmitoolOutputAcceptable(out []byte) bool {
+	if len(out) == 0 {
+		return false
+	}
+	s := string(out)
+	for _, p := range ipmitoolErrorSubstrings {
+		if strings.Contains(s, p) {
+			return false
+		}
+	}
+	return true
+}
+
 func (ipmi *LanPlusIPMI) ExecuteCommand(args ...string) ([]string, error) {
 	cmd, cancel := ipmi.GetCommand(args...)
 	defer cancel()
 	log.Debugf("[LanPlusIPMI] execute command: %s", cmd.String())
 	out, err := cmd.Output()
 	if err != nil {
+		exitCode, ok := cmd.GetExitStatus(err)
+		if ok && exitCode == 1 && ipmitoolOutputAcceptable(out) {
+			log.Warningf("[LanPlusIPMI] command %s exited with status 1 but output looks usable", cmd.String())
+			return ssh.ParseOutput(out), nil
+		}
 		return nil, err
 	}
 	return ssh.ParseOutput(out), nil
