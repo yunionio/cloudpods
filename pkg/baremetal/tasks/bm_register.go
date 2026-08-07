@@ -26,7 +26,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
-	"yunion.io/x/onecloud/pkg/baremetal/profiles"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -260,30 +259,29 @@ func (s *sBaremetalRegisterTask) updateIpmiInfo(ctx context.Context, cli *ssh.Cl
 			ipmitool.SetDellIPMILanPortShared(ipmiTool)
 		}
 	}
+	conf, err := ipmitool.GetLanConfig(ipmiTool, s.IpmiLanChannel)
+	if err != nil {
+		log.Errorf("Failed to get IPMI lan config on channel %d: %v", s.IpmiLanChannel, err)
+		return
+	}
+	if conf == nil {
+		log.Errorf("IPMI lan channel %d returned no configuration", s.IpmiLanChannel)
+		return
+	}
+	if len(conf.Mac) == 0 {
+		log.Errorf("IPMI lan channel %d returned an empty MAC address", s.IpmiLanChannel)
+		return
+	}
 	up := true
-	var nic = &types.SNicDevInfo{
+	nic := &types.SNicDevInfo{
+		Mac:   conf.Mac,
 		Up:    &up,
 		Speed: 100,
 		Mtu:   1500,
 	}
-
-	var conf *types.SIPMILanConfig
-	profile, err := profiles.GetProfile(ctx, sysInfo)
-	if profile != nil {
-		for _, lanChannel := range profile.LanChannels {
-			conf, _ = ipmitool.GetLanConfig(ipmiTool, lanChannel)
-			if conf == nil || len(conf.Mac) == 0 {
-				continue
-			}
-		}
+	if err := s.sendNicInfo(ctx, nic, -1, api.NIC_TYPE_IPMI, false, "", false); err != nil {
+		log.Errorf("Failed to send IPMI NIC info for channel %d: %v", s.IpmiLanChannel, err)
 	}
-
-	if conf == nil || len(conf.Mac) == 0 {
-		log.Errorln("Fail to get IPMI lan config !!!")
-	} else {
-		nic.Mac = conf.Mac
-	}
-	s.sendNicInfo(ctx, nic, -1, api.NIC_TYPE_IPMI, false, "", false)
 }
 
 func (s *sBaremetalRegisterTask) updateBmInfo(ctx context.Context, cli *ssh.Client, i *baremetalPrepareInfo, registered bool) error {

@@ -308,6 +308,10 @@ func GetLanConfig(exector IPMIExecutor, channel uint8) (*types.SIPMILanConfig, e
 	if err != nil {
 		return nil, err
 	}
+	return parseLanConfig(lines), nil
+}
+
+func parseLanConfig(lines []string) *types.SIPMILanConfig {
 	ret := new(types.SIPMILanConfig)
 	for _, line := range lines {
 		key, val := stringutils.SplitKeyValue(line)
@@ -332,7 +336,208 @@ func GetLanConfig(exector IPMIExecutor, channel uint8) (*types.SIPMILanConfig, e
 			ret.VlanId = int(vlanId)
 		}
 	}
-	return ret, nil
+	return ret
+}
+
+// LanConfigCandidate pairs an IPMI channel with its reported LAN configuration.
+type LanConfigCandidate struct {
+	Channel uint8
+	Config  *types.SIPMILanConfig
+}
+
+// LanConfigProbeResult records the result of probing one IPMI LAN channel.
+type LanConfigProbeResult struct {
+	Channel uint8
+	Config  *types.SIPMILanConfig
+	Err     error
+}
+
+// LanConfigSelectionOptions controls how a discovered LAN channel is selected.
+type LanConfigSelectionOptions struct {
+	ConnectedIP         string
+	PersistedChannel    uint8
+	RequireConfiguredIP bool
+	// AllowFallback enables scanning channels 1-11 when no preferred channel
+	// yields a usable configuration. This should be false for OEM/model profiles
+	// (which are authoritative allowlists) and true only when no profile exists
+	// or the profile is the default/empty profile.
+	AllowFallback bool
+}
+
+// LanConfigDiscovery contains the selected configuration and all attempted probes.
+type LanConfigDiscovery struct {
+	Selected *LanConfigCandidate
+	Probes   []LanConfigProbeResult
+}
+
+func getLanConfigOnce(executor IPMIExecutor, channel uint8) (*types.SIPMILanConfig, error) {
+	args := newArgs("lan", "print", channel)
+	lines, err := executor.ExecuteCommand(args...)
+	if err != nil {
+		return nil, err
+	}
+	return parseLanConfig(lines), nil
+}
+
+func isUsableLanConfig(config *types.SIPMILanConfig, requireConfiguredIP bool) bool {
+	if config == nil || len(config.Mac) == 0 {
+		return false
+	}
+	if _, err := net.ParseMAC(config.Mac.String()); err != nil {
+		return false
+	}
+	if !requireConfiguredIP {
+		return true
+	}
+	ipAddr := net.ParseIP(config.IPAddr)
+	return ipAddr != nil && !ipAddr.IsUnspecified()
+}
+
+func sameIPAddress(left, right string) bool {
+	leftIP := net.ParseIP(left)
+	rightIP := net.ParseIP(right)
+	return leftIP != nil && rightIP != nil && leftIP.Equal(rightIP)
+}
+
+func unusableLanConfigError(channel uint8, config *types.SIPMILanConfig, requireConfiguredIP bool) error {
+	if config == nil {
+		return errors.Errorf("LAN channel %d returned no configuration", channel)
+	}
+	if len(config.Mac) == 0 {
+		return errors.Errorf("LAN channel %d has no valid MAC address", channel)
+	}
+	if _, err := net.ParseMAC(config.Mac.String()); err != nil {
+		return errors.Errorf("LAN channel %d has invalid MAC address %q", channel, config.Mac)
+	}
+	if requireConfiguredIP {
+		ipAddr := net.ParseIP(config.IPAddr)
+		if ipAddr == nil {
+			return errors.Errorf("LAN channel %d has invalid IP address %q", channel, config.IPAddr)
+		}
+		if ipAddr.IsUnspecified() {
+			return errors.Errorf("LAN channel %d has unconfigured IP address %q", channel, config.IPAddr)
+		}
+	}
+	return errors.Errorf("LAN channel %d has unusable configuration", channel)
+}
+
+func selectLanConfig(probes []LanConfigProbeResult, opts LanConfigSelectionOptions) (*LanConfigCandidate, error) {
+	usable := make([]LanConfigCandidate, 0, len(probes))
+	var persisted *LanConfigCandidate
+	diagnostics := make([]error, 0, len(probes))
+	for _, probe := range probes {
+		if probe.Err != nil {
+			diagnostics = append(diagnostics, errors.Wrapf(probe.Err, "probe IPMI LAN channel %d", probe.Channel))
+			continue
+		}
+		if !isUsableLanConfig(probe.Config, opts.RequireConfiguredIP) {
+			diagnostics = append(diagnostics, unusableLanConfigError(probe.Channel, probe.Config, opts.RequireConfiguredIP))
+			continue
+		}
+		candidate := LanConfigCandidate{
+			Channel: probe.Channel,
+			Config:  probe.Config,
+		}
+		usable = append(usable, candidate)
+		if opts.ConnectedIP != "" && sameIPAddress(probe.Config.IPAddr, opts.ConnectedIP) {
+			return &candidate, nil
+		}
+		if persisted == nil && probe.Channel == opts.PersistedChannel {
+			persisted = &candidate
+		}
+	}
+	if persisted != nil {
+		return persisted, nil
+	}
+	if len(usable) == 1 {
+		return &usable[0], nil
+	}
+	if len(usable) > 1 {
+		channels := make([]uint8, len(usable))
+		for i := range usable {
+			channels[i] = usable[i].Channel
+		}
+		return nil, errors.Errorf("ambiguous IPMI LAN configurations on channels %v", channels)
+	}
+	if len(diagnostics) == 0 {
+		diagnostics = append(diagnostics, errors.Error("no IPMI LAN channels were probed"))
+	}
+	return nil, errors.Wrap(errors.NewAggregate(diagnostics), "no usable IPMI LAN configuration")
+}
+
+// DiscoverLanConfig probes IPMI LAN channels and safely selects one configuration.
+func DiscoverLanConfig(executor IPMIExecutor, preferredChannels []uint8, opts LanConfigSelectionOptions) (*LanConfigDiscovery, error) {
+	const (
+		minLanChannel uint8 = 1
+		maxLanChannel uint8 = 11
+	)
+
+	type channelProbe struct {
+		channel uint8
+		retry   bool
+	}
+	channels := make([]channelProbe, 0, maxLanChannel-minLanChannel+1)
+	seen := make([]bool, maxLanChannel+1)
+	addPreferredChannel := func(channel uint8) {
+		if channel < minLanChannel || channel > maxLanChannel || seen[channel] {
+			return
+		}
+		channels = append(channels, channelProbe{channel: channel, retry: true})
+		seen[channel] = true
+	}
+	for _, channel := range preferredChannels {
+		addPreferredChannel(channel)
+	}
+	addPreferredChannel(opts.PersistedChannel)
+	if opts.AllowFallback {
+		for channel := minLanChannel; channel <= maxLanChannel; channel++ {
+			if seen[channel] {
+				continue
+			}
+			channels = append(channels, channelProbe{channel: channel})
+		}
+	}
+
+	discovery := &LanConfigDiscovery{
+		Probes: make([]LanConfigProbeResult, 0, len(channels)),
+	}
+	for _, channel := range channels {
+		var config *types.SIPMILanConfig
+		var err error
+		if channel.retry {
+			config, err = GetLanConfig(executor, channel.channel)
+		} else {
+			config, err = getLanConfigOnce(executor, channel.channel)
+		}
+		probe := LanConfigProbeResult{
+			Channel: channel.channel,
+			Config:  config,
+			Err:     err,
+		}
+		discovery.Probes = append(discovery.Probes, probe)
+		if err != nil || !isUsableLanConfig(config, opts.RequireConfiguredIP) {
+			continue
+		}
+		candidate := &LanConfigCandidate{
+			Channel: channel.channel,
+			Config:  config,
+		}
+		if opts.ConnectedIP != "" && sameIPAddress(config.IPAddr, opts.ConnectedIP) {
+			discovery.Selected = candidate
+			return discovery, nil
+		}
+		if opts.ConnectedIP == "" && channel.channel == opts.PersistedChannel {
+			discovery.Selected = candidate
+			return discovery, nil
+		}
+	}
+
+	selected, err := selectLanConfig(discovery.Probes, opts)
+	discovery.Selected = selected
+	if err != nil {
+		return discovery, err
+	}
+	return discovery, nil
 }
 
 func tryExecuteCommand(exector IPMIExecutor, args ...string) ([]string, error) {
