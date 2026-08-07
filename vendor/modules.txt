@@ -2580,7 +2580,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260722023554-952117f57446
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260722023550-7734c3278e9c
 ## explicit; go 1.24
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
@@ -2692,7 +2692,7 @@ yunion.io/x/log/hooks
 yunion.io/x/ovsdb/cli_util
 yunion.io/x/ovsdb/schema/ovn_nb
 yunion.io/x/ovsdb/types
-# yunion.io/x/pkg v1.10.4-0.20260720021919-5e34f63c5815
+# yunion.io/x/pkg v1.10.4-0.20260722094907-0da70a14584f
 ## explicit; go 1.18
 yunion.io/x/pkg/appctx
 yunion.io/x/pkg/errors
@@ -2746,7 +2746,7 @@ yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
 ## explicit; go 1.12
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v1.1.3-0.20251231025938-b0a38f6e9fab
+# yunion.io/x/sqlchemy v1.1.3-0.20260807102031-1d7e260d0dcc
 ## explicit; go 1.17
 yunion.io/x/sqlchemy
 yunion.io/x/sqlchemy/backends
