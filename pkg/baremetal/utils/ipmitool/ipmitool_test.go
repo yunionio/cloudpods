@@ -84,6 +84,8 @@ func probeChannels(probes []LanConfigProbeResult) []uint8 {
 		channels[i] = probes[i].Channel
 	}
 	return channels
+}
+
 func TestIpmitoolOutputAcceptable(t *testing.T) {
 	tests := []struct {
 		name string
