@@ -21,6 +21,48 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
+func TestIpmitoolOutputAcceptable(t *testing.T) {
+	tests := []struct {
+		name string
+		out  string
+		want bool
+	}{
+		{
+			name: "empty",
+			out:  "",
+			want: false,
+		},
+		{
+			name: "valid lan print with exit 1 style output",
+			out: `Set in Progress         : Set Complete
+IP Address Source       : Static Address
+IP Address              : 10.127.223.102
+Subnet Mask             : 255.255.255.0
+MAC Address             : aa:bb:cc:dd:ee:ff
+Default Gateway IP      : 10.127.223.1`,
+			want: true,
+		},
+		{
+			name: "auth failure",
+			out:  "Error: Unable to establish IPMI v2 / RMCP+ session\n",
+			want: false,
+		},
+		{
+			name: "invalid channel",
+			out:  "Get Channel Info command failed\nInvalid channel: 8\n",
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ipmitoolOutputAcceptable([]byte(tt.out))
+			if got != tt.want {
+				t.Errorf("ipmitoolOutputAcceptable() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGetSysInfo(t *testing.T) {
 	type args struct {
 		exector IPMIExecutor
