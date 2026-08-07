@@ -301,18 +301,21 @@ type HealthcheckConfig struct {
 
 	*PingHealthcheckConfig
 	*ExecHealthcheckConfig
-	*UdpHealthcheckConfig
+	*ProbeHealthcheckConfig
 }
 
 type PingHealthcheckConfig struct{}
+
+type ProbeHealthcheckConfig struct {
+	ProbeProtocol string `toml:"probe_protocol" json:"probe_protocol"`
+	ProbeStrategy string `toml:"probe_strategy" json:"probe_strategy"`
+	ProbeSend     string `toml:"probe_send" json:"probe_send"`
+	ProbeRecv     string `toml:"probe_recv" json:"probe_recv"`
+	ProbeRecvLen  int    `toml:"probe_recv_len" json:"probe_recv_len"`
+}
 
 type ExecHealthcheckConfig struct {
 	ExecCommand                string `toml:"exec_command" json:"exec_command,omitempty"`
 	ExecExpectedPositiveOutput string `toml:"exec_expected_positive_output" json:"exec_expected_positive_output"`
 	ExecExpectedNegativeOutput string `toml:"exec_expected_negative_output" json:"exec_expected_negative_output"`
-}
-
-type UdpHealthcheckConfig struct {
-	Receive string
-	Send    string
 }
