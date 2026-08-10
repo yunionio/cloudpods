@@ -522,7 +522,11 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 					if network.Routes[i][0] == "0.0.0.0/0" || network.Routes[i][0] == mdIp {
 						continue
 					}
-					if len(network.Routes[i]) == 2 {
+					if len(network.Routes[i]) > 1 && network.Routes[i][1] == guestnetwork.IpAddr {
+						// if the route is to the guest network self, skip it
+						continue
+					}
+					if len(network.Routes[i]) > 1 {
 						routes = append(routes, network.Routes[i][0], network.Routes[i][1])
 					} else if len(network.Routes[i]) == 1 {
 						routes = append(routes, network.Routes[i][0], "0.0.0.0")

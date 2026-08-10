@@ -156,8 +156,11 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 		return OS_DIST_KYLIN
 	} else if strings.Contains(osDist, "uos") {
 		return OS_DIST_UOS
-	} else if strings.Contains(osDist, "windows") || regexp.MustCompile("(^|[^a-z0-9])win(xp|7|8|10|11|2003|2008|2012|2016|2019|2022)([^a-z0-9]|$)").MatchString(osDist) {
-		for _, ver := range []string{"2003", "2008", "2012", "2016", "2019", "2022"} {
+	} else if strings.Contains(osDist, "windows") || strings.Contains(osDist, "winserver") || regexp.MustCompile("(^|[^a-z0-9])win(xp|7|8|10|11|2003|2008|2012|2016|2019|2022|2025)([^a-z0-9]|$)").MatchString(osDist) {
+		if strings.Contains(osDist, "winserver") || strings.Contains(osDist, "windows server") {
+			return OS_DIST_WINDOWS_SERVER
+		}
+		for _, ver := range []string{"2003", "2008", "2012", "2016", "2019", "2022", "2025"} {
 			if strings.Contains(osDist, ver) {
 				return OS_DIST_WINDOWS_SERVER
 			}
@@ -180,40 +183,40 @@ var imageVersions = map[string][]string{
 	// FreeBSD：补充最新稳定版，覆盖10到15
 	OS_DIST_FREE_BSD: {"10", "11", "12", "13", "14", "15"},
 
-	// Ubuntu：Server版补充LTS版本（每2年一个），Desktop版补充所有主要版本
-	OS_DIST_UBUNTU_SERVER: {"10.04", "12.04", "14.04", "16.04", "18.04", "20.04", "22.04", "24.04",
-		"10", "12", "14", "16", "18", "20", "22", "24"},
-	OS_DIST_UBUNTU: {"10.04", "12.04", "14.04", "15.04", "16.04", "17.04", "18.04", "19.04", "20.04", "21.04", "22.04", "23.04", "24.04",
-		"10", "12", "14", "16", "17", "18", "19", "20", "21", "22", "23", "24"},
+	// Ubuntu：Server版补充LTS版本（每2年一个），Desktop版补充主要.04版本
+	OS_DIST_UBUNTU_SERVER: {"10.04", "12.04", "14.04", "16.04", "18.04", "20.04", "22.04", "24.04", "26.04",
+		"10", "12", "14", "16", "18", "20", "22", "24", "26"},
+	OS_DIST_UBUNTU: {"10.04", "12.04", "14.04", "15.04", "16.04", "17.04", "18.04", "19.04", "20.04", "21.04", "22.04", "23.04", "24.04", "25.04", "26.04",
+		"10", "12", "14", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26"},
 
 	// OpenSUSE：补充Leap版本，SUSE补充SLES主版本
-	OS_DIST_OPEN_SUSE: {"11", "12", "13", "42", "15.0", "15.1", "15.2", "15.3", "15.4", "15.5", "15.6"},
-	OS_DIST_SUSE:      {"10", "11", "12", "15", "15 SP1", "15 SP2", "15 SP3", "15 SP4", "15 SP5"},
+	OS_DIST_OPEN_SUSE: {"11", "12", "13", "42", "15.0", "15.1", "15.2", "15.3", "15.4", "15.5", "15.6", "16.0", "16"},
+	OS_DIST_SUSE:      {"10", "11", "12", "15", "15 SP1", "15 SP2", "15 SP3", "15 SP4", "15 SP5", "15 SP6", "15 SP7", "16.0", "16.1", "16"},
 	// Debian：补充从6到最新的13，覆盖所有稳定版
 	OS_DIST_DEBIAN: {"6", "7", "8", "9", "10", "11", "12", "13"},
 	// CoreOS：补充Container Linux和Fedora CoreOS的主要版本
 	OS_DIST_CORE_OS: {"7", "200", "213", "224", "234", "246", "251", "3033"},
 	// 欧拉OS：补充openEuler和EulerOS完整版本
-	OS_DIST_OPEN_EULER: {"2.0 SP1", "2.0 SP2", "2.0 SP3", "2.0 SP8", "3.0", "22.03", "23.09"},
+	OS_DIST_OPEN_EULER: {"2.0 SP1", "2.0 SP2", "2.0 SP3", "2.0 SP8", "3.0", "20.03", "22.03", "23.09", "24.03", "25.03"},
 	OS_DIST_EULER_OS:   {"2"},
-	// 阿里云Linux：补充1代和2/3代版本
-	OS_DIST_ALIYUN: {"1", "2.1903", "2", "3.2104", "3.2304", "3"},
+	// 阿里云Linux：补充1代和2/3/4代版本
+	OS_DIST_ALIYUN: {"1", "2.1903", "2", "3.2104", "3.2304", "3", "4"},
 
 	// 阿里云轻量版：补充完整版本
-	OS_DIST_ALIBABA_CLOUD_LINUX: {"2.1903", "2", "3.2104", "3.2304", "3.2404", "3"},
+	OS_DIST_ALIBABA_CLOUD_LINUX: {"2.1903", "2", "3.2104", "3.2304", "3.2404", "3", "4"},
 	// 龙蜥OS：补充7/8系列完整小版本
 	OS_DIST_ANOLIS: {"7.6", "7.9", "7", "8.2", "8.4", "8.6", "8.8", "8", "9.0", "9.2", "9"},
-	// Rocky Linux：补充8/9全系列小版本
-	OS_DIST_ROCKY_LINUX: {"8.5", "8.6", "8.7", "8.8", "8.9", "8.10", "8", "9.0", "9.1", "9.2", "9.3", "9.4", "9.5", "9"},
-	// Fedora：补充近年主流版本（33到40）
-	OS_DIST_FEDORA: {"33", "34", "35", "36", "37", "38", "39", "40"},
-	// AlmaLinux：补充8/9全系列
-	OS_DIST_ALMA_LINUX: {"8.5", "8.6", "8.7", "8.8", "8.9", "8.10", "8", "9.0", "9.1", "9.2", "9.3", "9.4", "9.5", "9"},
+	// Rocky Linux：补充8/9/10全系列小版本
+	OS_DIST_ROCKY_LINUX: {"8.5", "8.6", "8.7", "8.8", "8.9", "8.10", "8", "9.0", "9.1", "9.2", "9.3", "9.4", "9.5", "9.6", "9.7", "9.8", "9", "10.0", "10.1", "10.2", "10"},
+	// Fedora：补充近年主流版本（33到44）
+	OS_DIST_FEDORA: {"33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44"},
+	// AlmaLinux：补充8/9/10全系列
+	OS_DIST_ALMA_LINUX: {"8.5", "8.6", "8.7", "8.8", "8.9", "8.10", "8", "9.0", "9.1", "9.2", "9.3", "9.4", "9.5", "9.6", "9.7", "9.8", "9", "10.0", "10.1", "10.2", "10"},
 	// Amazon Linux：补充1/2/2023版本
 	OS_DIST_AMAZON_LINUX: {"2022", "2023", "1", "2"},
 
 	// Windows Server：补充完整服务器版本
-	OS_DIST_WINDOWS_SERVER: {"2003", "2008", "2008 R2", "2012", "2012 R2", "2016", "2019", "2022"},
+	OS_DIST_WINDOWS_SERVER: {"2003", "2008", "2008 R2", "2012", "2012 R2", "2016", "2019", "2022", "2025", "25"},
 	// Windows 桌面版：补充完整版本
 	OS_DIST_WINDOWS: {"XP", "Vista", "7", "8", "8.1", "10", "11"},
 
@@ -226,7 +229,7 @@ var imageVersions = map[string][]string{
 	OS_DIST_TENCENTOS_SERVER: {"2.4", "3.1", "3.2", "3.3", "4.0", "4"},
 	// 其他Linux：预留空列表，可根据实际场景补充
 
-	OS_DIST_DEEPIN:      {"20", "20.9", "21", "21.9", "22", "22.9", "23", "23.9", "Crimson"},
+	OS_DIST_DEEPIN:      {"20", "20.9", "21", "21.9", "22", "22.9", "23", "23.9", "25.2", "25", "Crimson"},
 	OS_DIST_OTHER_LINUX: {},
 }
 
@@ -261,6 +264,10 @@ func normalizeOsVersion(imageName string, osDist string, osVersion string) strin
 			}
 		}
 		if len(bestMatch) > 0 {
+			// winserver25 -> Windows Server 2025
+			if osDist == OS_DIST_WINDOWS_SERVER && len(bestMatch) == 2 {
+				return "20" + bestMatch
+			}
 			return bestMatch
 		}
 	}
