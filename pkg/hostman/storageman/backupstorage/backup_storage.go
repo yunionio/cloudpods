@@ -20,23 +20,24 @@ import (
 	"os"
 	"sync"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type IBackupStorageFactory interface {
-	NewBackupStore(storeId string, backupStorageAccessInfo *jsonutils.JSONDict) (IBackupStorage, error)
+	NewBackupStore(storeId string, backupStorageAccessInfo *compute.SBackupStorageAccessInfo) (IBackupStorage, error)
 }
 
 type IBackupStorage interface {
 	// 从指定路径拷贝磁盘文件到备份存储
-	SaveBackupFrom(ctx context.Context, srcFile io.Reader, fileSize int64, bakcupId string) error
+	SaveBackupFrom(ctx context.Context, srcFile io.Reader, fileSize int64, bakcupId string, backupFilePath string) error
 	// 将备份backupId对应的备份文件拷贝到指定的文件路径
-	RestoreBackupTo(ctx context.Context, targetFilename string, backupId string) error
+	RestoreBackupTo(ctx context.Context, targetFilename string, backupId string, backupFilePath string) error
 	// 删除备份
-	RemoveBackup(ctx context.Context, backupId string) error
+	RemoveBackup(ctx context.Context, backupId string, backupFilePath string) error
 	// 备份是否存在
-	IsBackupExists(backupId string) (bool, string, error)
+	IsBackupExists(backupId string, backupFilePath string) (bool, int64, string, error)
 
 	// 从指定路径拷贝主机备份文件到备份存储
 	SaveBackupInstanceFrom(ctx context.Context, srcFile io.Reader, fileSize int64, bakcupInstanceId string) error
@@ -45,7 +46,7 @@ type IBackupStorage interface {
 	// 删除备份
 	RemoveBackupInstance(ctx context.Context, backupInstanceId string) error
 	// 备份是否存在
-	IsBackupInstanceExists(backupInstanceId string) (bool, string, error)
+	IsBackupInstanceExists(bakcupInstanceFilePath string) (bool, int64, string, error)
 
 	// ConvertTo(destPath string, format qemuimgfmt.TImageFormat, backupId string) error
 	// ConvertFrom(srcPath string, format qemuimgfmt.TImageFormat, backupId string) (int, error)
@@ -56,7 +57,7 @@ type IBackupStorage interface {
 	IsOnline() (bool, string, error)
 
 	// 获取外部访问地址
-	GetExternalAccessUrl(backupId string) (string, error)
+	GetExternalAccessUrl(backupId string, backupFilePath string) (string, error)
 }
 
 var factories []IBackupStorageFactory
@@ -72,7 +73,7 @@ func RegisterFactory(factory IBackupStorageFactory) {
 	factories = append(factories, factory)
 }
 
-func newBackupStorage(backupStroageId string, backupStorageAccessInfo *jsonutils.JSONDict) (IBackupStorage, error) {
+func newBackupStorage(backupStroageId string, backupStorageAccessInfo *compute.SBackupStorageAccessInfo) (IBackupStorage, error) {
 	errs := make([]error, 0)
 	for _, factory := range factories {
 		store, err := factory.NewBackupStore(backupStroageId, backupStorageAccessInfo)
@@ -85,7 +86,7 @@ func newBackupStorage(backupStroageId string, backupStorageAccessInfo *jsonutils
 	return nil, errors.NewAggregate(errs)
 }
 
-func GetBackupStorage(backupStroageId string, backupStorageAccessInfo *jsonutils.JSONDict) (IBackupStorage, error) {
+func GetBackupStorage(backupStroageId string, backupStorageAccessInfo *compute.SBackupStorageAccessInfo) (IBackupStorage, error) {
 	backupStorageLock.Lock()
 	defer backupStorageLock.Unlock()
 
@@ -101,7 +102,7 @@ func GetBackupStorage(backupStroageId string, backupStorageAccessInfo *jsonutils
 	}
 }
 
-func SaveBackupFromFile(ctx context.Context, srcFilename string, bakcupId string, storage IBackupStorage) error {
+func SaveBackupFromFile(ctx context.Context, srcFilename string, bakcupId string, backupFilePath string, storage IBackupStorage) error {
 	fileInfo, err := os.Stat(srcFilename)
 	if err != nil {
 		return errors.Wrapf(err, "stat %s", srcFilename)
@@ -112,10 +113,10 @@ func SaveBackupFromFile(ctx context.Context, srcFilename string, bakcupId string
 	}
 	defer file.Close()
 
-	return storage.SaveBackupFrom(ctx, file, fileInfo.Size(), bakcupId)
+	return storage.SaveBackupFrom(ctx, file, fileInfo.Size(), bakcupId, backupFilePath)
 }
 
-func SaveBackupInstanceFromFile(ctx context.Context, srcFilename string, bakcupInstanceId string, storage IBackupStorage) error {
+func SaveBackupInstanceFromFile(ctx context.Context, srcFilename string, bakcupInstanceFilePath string, storage IBackupStorage) error {
 	fileInfo, err := os.Stat(srcFilename)
 	if err != nil {
 		return errors.Wrapf(err, "stat %s", srcFilename)
@@ -125,5 +126,5 @@ func SaveBackupInstanceFromFile(ctx context.Context, srcFilename string, bakcupI
 		return errors.Wrapf(err, "Open %s", srcFilename)
 	}
 	defer file.Close()
-	return storage.SaveBackupInstanceFrom(ctx, file, fileInfo.Size(), bakcupInstanceId)
+	return storage.SaveBackupInstanceFrom(ctx, file, fileInfo.Size(), bakcupInstanceFilePath)
 }

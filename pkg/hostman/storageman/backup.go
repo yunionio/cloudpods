@@ -117,7 +117,7 @@ func doBackupDisk(ctx context.Context, snapshotPath string, diskBackup *SDiskBac
 		return 0, errors.Wrap(err, "GetBackupStorage")
 	}
 
-	err = backupstorage.SaveBackupFromFile(ctx, backupPath, diskBackup.BackupId, backupStorage)
+	err = backupstorage.SaveBackupFromFile(ctx, backupPath, diskBackup.BackupId, diskBackup.BackupFilePath, backupStorage)
 	if err != nil {
 		return 0, errors.Wrap(err, "SaveBackupFrom")
 	}
@@ -143,7 +143,7 @@ func doRestoreDisk(ctx context.Context, dc IDiskCreator, input *SDiskCreateByDis
 		return errors.Wrap(err, "GetBackupStorage")
 	}
 	backupPath := path.Join(backupTmpDir, diskInfo.Backup.BackupId)
-	err = backupStorage.RestoreBackupTo(ctx, backupPath, diskInfo.Backup.BackupId)
+	err = backupStorage.RestoreBackupTo(ctx, backupPath, diskInfo.Backup.BackupId, diskInfo.Backup.BackupFilePath)
 	if err != nil {
 		return errors.Wrapf(err, "Restore backup %s to %s", diskInfo.Backup.BackupId, backupPath)
 	}
@@ -293,7 +293,7 @@ const (
 	PackageMetadataFilename = "metadata"
 )
 
-func DoInstancePackBackup(ctx context.Context, backupInfo SStoragePackInstanceBackup) (string, error) {
+func DoInstancePackBackup(ctx context.Context, backupInfo api.SStoragePackInstanceBackup) (string, error) {
 	backupTmpDir, err := EnsureBackupDir()
 	if err != nil {
 		return "", errors.Wrap(err, "EnsureBackupDir")
@@ -314,11 +314,21 @@ func DoInstancePackBackup(ctx context.Context, backupInfo SStoragePackInstanceBa
 			return "", errors.Wrapf(err, "mkdir %s failed: %s", packagePath, output)
 		}
 	}
-	{
+	if len(backupInfo.DiskBackups) > 0 {
+		// download disk files
+		for i := range backupInfo.DiskBackups {
+			backup := backupInfo.DiskBackups[i]
+			packageDiskPath := path.Join(packagePath, fmt.Sprintf("%s_%d", PackageDiskFilename, i))
+			err := backupStorage.RestoreBackupTo(ctx, packageDiskPath, backup.Id, backup.BackupFilePath)
+			if err != nil {
+				return "", errors.Wrapf(err, "RestoreBackupTo %s %s", backup.Id, packageDiskPath)
+			}
+		}
+	} else if len(backupInfo.BackupIds) > 0 { // for backward compatibility
 		// download disk files
 		for i, backupId := range backupInfo.BackupIds {
 			packageDiskPath := path.Join(packagePath, fmt.Sprintf("%s_%d", PackageDiskFilename, i))
-			err := backupStorage.RestoreBackupTo(ctx, packageDiskPath, backupId)
+			err := backupStorage.RestoreBackupTo(ctx, packageDiskPath, backupId, "")
 			if err != nil {
 				return "", errors.Wrapf(err, "RestoreBackupTo %s %s", backupId, packageDiskPath)
 			}
@@ -350,7 +360,7 @@ func DoInstancePackBackup(ctx context.Context, backupInfo SStoragePackInstanceBa
 		} else {
 			finalPackageFileName = fmt.Sprintf("%s-%d.tar", backupInfo.PackageName, tried)
 		}
-		exists, _, err := backupStorage.IsBackupInstanceExists(finalPackageFileName)
+		exists, _, _, err := backupStorage.IsBackupInstanceExists(finalPackageFileName)
 		if err != nil {
 			return "", errors.Wrap(err, "IsBackupInstanceExists")
 		}
@@ -432,7 +442,7 @@ func DoInstanceUnpackBackup(ctx context.Context, backupInfo SStorageUnpackInstan
 			backupId := db.DefaultUUIDGenerator()
 			backupIds[i] = backupId
 			packageDiskPath := path.Join(packagePath, fmt.Sprintf("%s_%d", PackageDiskFilename, i))
-			err := backupstorage.SaveBackupFromFile(ctx, packageDiskPath, backupId, backupStorage)
+			err := backupstorage.SaveBackupFromFile(ctx, packageDiskPath, backupId, "", backupStorage)
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "SaveBackupFrom %s %s", packageDiskPath, backupId)
 			}

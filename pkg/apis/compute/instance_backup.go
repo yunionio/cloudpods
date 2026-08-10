@@ -95,6 +95,8 @@ type SSimpleBackup struct {
 	EncryptKeyId string `json:"encrypt_key_id"`
 	// 创建时间
 	CreatedAt time.Time `json:"created_at"`
+	// 备份文件路径
+	BackupFilePath string `json:"backup_file_path"`
 }
 
 type InstanceBackupRecoveryInput struct {
@@ -111,4 +113,13 @@ type InstanceBackupManagerCreateFromPackageInput struct {
 
 	BackupStorageId string `json:"backup_storage_id"`
 	PackageName     string `json:"package_name"`
+}
+
+type SStoragePackInstanceBackup struct {
+	PackageName             string                      `json:"package_name"`
+	BackupStorageId         string                      `json:"backup_storage_id"`
+	BackupStorageAccessInfo *SBackupStorageAccessInfo   `json:"backup_storage_access_info"`
+	BackupIds               []string                    `json:"backup_ids"`
+	Metadata                *InstanceBackupPackMetadata `json:"metadata"`
+	DiskBackups             []SSimpleBackup             `json:"disk_backups"`
 }

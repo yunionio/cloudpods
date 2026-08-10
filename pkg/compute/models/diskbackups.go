@@ -60,7 +60,7 @@ type SDiskBackup struct {
 
 	db.SEncryptedResource
 
-	DiskId          string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user" index:"true"`
+	DiskId          string `width:"36" charset:"ascii" nullable:"true" create:"optional" list:"user" index:"true"`
 	BackupStorageId string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user" index:"true"`
 	StorageId       string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 
@@ -71,6 +71,8 @@ type SDiskBackup struct {
 	// 操作系统类型
 	OsType     string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	DiskConfig *SBackupDiskConfig
+
+	BackupFilePath string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 }
 
 var DiskBackupManager *SDiskBackupManager
@@ -229,6 +231,76 @@ func (db *SDiskBackup) GetRegionDriver() (IRegionDriver, error) {
 	return cloudRegion.GetDriver(), nil
 }
 
+func (dm *SDiskBackupManager) validateCreateDataFromBackupFile(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.DiskBackupCreateInput,
+) (api.DiskBackupCreateInput, error) {
+	var backupStorages []*SBackupStorage
+	if len(input.DiskId) > 0 {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "disk_id is not allowed")
+	}
+	if len(input.BackupStorageId) > 0 {
+		bsObj, err := BackupStorageManager.FetchByIdOrName(ctx, userCred, input.BackupStorageId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return input, httperrors.NewResourceNotFoundError2(BackupStorageManager.Keyword(), input.BackupStorageId)
+			}
+			if errors.Cause(err) == sqlchemy.ErrDuplicateEntry {
+				return input, httperrors.NewDuplicateResourceError(BackupStorageManager.Keyword(), input.BackupStorageId)
+			}
+			return input, httperrors.NewGeneralError(err)
+		}
+		backupStorages = append(backupStorages, bsObj.(*SBackupStorage))
+	} else {
+		bsItems, err := BackupStorageManager.fetchItems(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			q = q.Equals("status", api.BACKUPSTORAGE_STATUS_ONLINE)
+			q = q.Equals("enabled", 1)
+			return q
+		})
+		if err != nil {
+			return input, httperrors.NewGeneralError(err)
+		}
+		for i := range bsItems {
+			backupStorages = append(backupStorages, &bsItems[i])
+		}
+	}
+	if len(backupStorages) == 0 {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "no backup storage found")
+	}
+	var errs []error
+	input.SizeMb = -1
+	for i := range backupStorages {
+		ibs, err := backupStorages[i].GetIBackupStorage()
+		if err != nil {
+			return input, errors.Wrap(err, "GetIBackupStorage")
+		}
+		exists, sizeBytes, offlineReason, err := ibs.IsBackupExists("", input.BackupFilePath)
+		if !exists {
+			if err != nil {
+				errs = append(errs, errors.Wrapf(err, "Backup storage error %s(%s)", backupStorages[i].GetName(), backupStorages[i].GetId()))
+			}
+			if len(offlineReason) > 0 {
+				errs = append(errs, errors.Wrapf(errors.ErrInvalidStatus, "Backup storage %s(%s) is offline: %s", backupStorages[i].GetName(), backupStorages[i].GetId(), offlineReason))
+			}
+			errs = append(errs, errors.Wrapf(errors.ErrNotFound, "Backup file %s not found in backup storage %s(%s)", input.BackupFilePath, backupStorages[i].GetName(), backupStorages[i].GetId()))
+		} else {
+			input.BackupStorageId = backupStorages[i].GetId()
+			input.SizeMb = int(sizeBytes / 1024 / 1024)
+			break
+		}
+	}
+	if input.SizeMb == -1 {
+		if len(errs) > 0 {
+			return input, errors.NewAggregate(errs)
+		}
+		return input, errors.Wrap(httperrors.ErrInputParameter, "no backup storage found")
+	}
+	return input, nil
+}
+
 func (dm *SDiskBackupManager) ValidateCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -236,6 +308,10 @@ func (dm *SDiskBackupManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	input api.DiskBackupCreateInput,
 ) (api.DiskBackupCreateInput, error) {
+	if len(input.BackupFilePath) > 0 {
+		// create disk backup from a backup file
+		return dm.validateCreateDataFromBackupFile(ctx, userCred, ownerId, query, input)
+	}
 	if input.NeedEncrypt() {
 		return input, errors.Wrap(httperrors.ErrInputParameter, "encryption should not be specified")
 	}
@@ -272,9 +348,7 @@ func (dm *SDiskBackupManager) ValidateCreateData(
 		}
 		return input, httperrors.NewGeneralError(err)
 	}
-	if err != nil {
-		return input, err
-	}
+
 	bs := ibs.(*SBackupStorage)
 	if bs.Status != api.BACKUPSTORAGE_STATUS_ONLINE {
 		return input, httperrors.NewForbiddenError("can't backup guest to backup storage with status %s", bs.Status)
@@ -329,36 +403,42 @@ func (db *SDiskBackup) CustomizeCreate(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return err
 	}
-	diskObj, err := DiskManager.FetchById(db.DiskId)
-	if err != nil {
-		return errors.Wrap(err, "DiskManager.FetchById")
+	if len(db.DiskId) > 0 {
+		diskObj, err := DiskManager.FetchById(db.DiskId)
+		if err != nil {
+			return errors.Wrap(err, "DiskManager.FetchById")
+		}
+		disk := diskObj.(*SDisk)
+		db.DiskConfig = &SBackupDiskConfig{
+			DiskConfig:  *disk.ToDiskConfig(),
+			Name:        disk.GetName(),
+			BackupAsTar: input.BackupAsTar,
+		}
+		db.DiskType = disk.DiskType
+		db.DiskSizeMb = disk.DiskSize
+		db.OsArch = disk.OsArch
+		db.StorageId = disk.StorageId
+		db.DomainId = disk.DomainId
+		db.ProjectId = disk.ProjectId
 	}
-	disk := diskObj.(*SDisk)
-	db.DiskConfig = &SBackupDiskConfig{
-		DiskConfig:  *disk.ToDiskConfig(),
-		Name:        disk.GetName(),
-		BackupAsTar: input.BackupAsTar,
-	}
-	db.DiskType = disk.DiskType
-	db.DiskSizeMb = disk.DiskSize
-	db.OsArch = disk.OsArch
-	db.StorageId = disk.StorageId
-	db.DomainId = disk.DomainId
-	db.ProjectId = disk.ProjectId
 	return nil
 }
 
 func (db *SDiskBackup) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	db.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	disk, err := db.GetDisk()
-	if err != nil {
-		log.Errorf("unable to GetDisk: %s", err.Error())
+	if len(db.DiskId) > 0 {
+		disk, err := db.GetDisk()
+		if err != nil {
+			log.Errorf("unable to GetDisk: %s", err.Error())
+		}
+		err = disk.InheritTo(ctx, userCred, db)
+		if err != nil {
+			log.Errorf("unable to inherit from disk %s to backup %s: %s", disk.GetId(), db.GetId(), err.Error())
+		}
+		db.StartBackupCreateTask(ctx, userCred, nil, "")
+	} else {
+		db.SetStatus(ctx, userCred, api.BACKUP_STATUS_READY, "import from backup file")
 	}
-	err = disk.InheritTo(ctx, userCred, db)
-	if err != nil {
-		log.Errorf("unable to inherit from disk %s to backup %s: %s", disk.GetId(), db.GetId(), err.Error())
-	}
-	db.StartBackupCreateTask(ctx, userCred, nil, "")
 }
 
 func (db *SDiskBackup) StartBackupCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
@@ -568,6 +648,8 @@ func (diskBackup *SDiskBackup) PackMetadata() *api.DiskBackupPackMetadata {
 			DiskConfig: diskBackup.DiskConfig.DiskConfig,
 			Name:       diskBackup.DiskConfig.Name,
 		},
+		// 备份文件路径
+		BackupFilePath: diskBackup.BackupFilePath,
 	}
 }
 
@@ -591,6 +673,7 @@ func (manager *SDiskBackupManager) CreateFromPackMetadata(ctx context.Context, o
 	backup.Name = name
 	backup.Id = id
 	backup.Status = api.BACKUP_STATUS_READY
+	backup.BackupFilePath = metadata.BackupFilePath
 	err := DiskBackupManager.TableSpec().Insert(ctx, backup)
 	if err != nil {
 		return nil, err
@@ -631,7 +714,7 @@ func (diskBackup *SDiskBackup) GetDetailsExportInfo(ctx context.Context, userCre
 		return nil, errors.Wrap(err, "GetIBackupStorage")
 	}
 
-	exportInfo.AccessUrl, err = ibs.GetExternalAccessUrl(diskBackup.Id)
+	exportInfo.AccessUrl, err = ibs.GetExternalAccessUrl(diskBackup.Id, diskBackup.BackupFilePath)
 	if err != nil {
 		log.Errorf("SDiskBackup %s(%s) GetExternalAccessUrl fail: %v", diskBackup.GetName(), diskBackup.GetId(), err)
 	}
@@ -744,10 +827,25 @@ func (diskBackup *SDiskBackup) DoImport(ctx context.Context, userCred mcclient.T
 	}
 	defer resp.Body.Close()
 
-	err = ibs.SaveBackupFrom(ctx, resp.Body, resp.ContentLength, diskBackup.Id)
+	err = ibs.SaveBackupFrom(ctx, resp.Body, resp.ContentLength, diskBackup.Id, "")
 	if err != nil {
 		return errors.Wrap(err, "SaveBackupFrom")
 	}
 
 	return nil
+}
+
+func (diskBackup SDiskBackup) ToSimpleBackup() api.SSimpleBackup {
+	return api.SSimpleBackup{
+		Id:           diskBackup.Id,
+		Name:         diskBackup.Name,
+		SizeMb:       diskBackup.SizeMb,
+		DiskSizeMb:   diskBackup.DiskSizeMb,
+		DiskType:     diskBackup.DiskType,
+		Status:       diskBackup.Status,
+		EncryptKeyId: diskBackup.EncryptKeyId,
+		CreatedAt:    diskBackup.CreatedAt,
+
+		BackupFilePath: diskBackup.BackupFilePath,
+	}
 }

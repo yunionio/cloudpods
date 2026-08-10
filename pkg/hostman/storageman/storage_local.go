@@ -41,7 +41,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils/kubelet"
 	"yunion.io/x/onecloud/pkg/hostman/options"
-	"yunion.io/x/onecloud/pkg/hostman/storageman/backupstorage"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -173,19 +172,19 @@ func (s *SLocalStorage) CreateDiskFromBackup(ctx context.Context, disk IDisk, in
 	return nil, nil
 }*/
 
-func (s *SLocalStorage) storageBackupRecovery(ctx context.Context, sbParams *SStorageBackup) (jsonutils.JSONObject, error) {
+/*func (s *SLocalStorage) storageBackupRecovery(ctx context.Context, sbParams *SStorageBackup) (jsonutils.JSONObject, error) {
 	backupStorage, err := backupstorage.GetBackupStorage(sbParams.BackupStorageId, sbParams.BackupStorageAccessInfo)
 	if err != nil {
 		return nil, err
 	}
 	backupPath := path.Join(s.GetBackupDir(), sbParams.BackupId)
-	return nil, backupStorage.RestoreBackupTo(ctx, backupPath, sbParams.BackupId)
+	return nil, backupStorage.RestoreBackupTo(ctx, backupPath, sbParams.BackupId, sbParams.BackupFilePath)
 }
 
 func (s *SLocalStorage) StorageBackupRecovery(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	sbParams := params.(*SStorageBackup)
 	return s.storageBackupRecovery(ctx, sbParams)
-}
+}*/
 
 func (s *SLocalStorage) GetAvailSizeMb() int {
 	sizeMb := s.SBaseStorage.GetAvailSizeMb()
