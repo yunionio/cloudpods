@@ -6809,6 +6809,19 @@ func (self *SGuest) PendingDetachScalingGroup() error {
 	return nil
 }
 
+func (self *SGuest) PendingDeleteSnapshots(ctx context.Context, userCred mcclient.TokenCredential) error {
+	instanceSnapshots, _ := self.GetInstanceSnapshots()
+	for i := range instanceSnapshots {
+		instanceSnapshots[i].DoPendingDelete(ctx, userCred)
+	}
+
+	snapshots, _ := self.GetDiskSnapshotsNotInInstanceSnapshots(false)
+	for i := range snapshots {
+		snapshots[i].DoPendingDelete(ctx, userCred)
+	}
+	return nil
+}
+
 func (self *SGuest) DeleteEip(ctx context.Context, userCred mcclient.TokenCredential) error {
 	eip, err := self.GetEipOrPublicIp()
 	if err != nil {
@@ -7279,12 +7292,22 @@ func (self *SGuest) GetInstanceSnapshots() ([]SInstanceSnapshot, error) {
 	return instanceSnapshots, nil
 }
 
+func (self *SGuest) GetPendingDeleteInstanceSnapshots() ([]SInstanceSnapshot, error) {
+	instanceSnapshots := make([]SInstanceSnapshot, 0)
+	q := InstanceSnapshotManager.Query().Equals("guest_id", self.Id).IsTrue("pending_deleted")
+	err := db.FetchModelObjects(InstanceSnapshotManager, q, &instanceSnapshots)
+	if err != nil {
+		return nil, err
+	}
+	return instanceSnapshots, nil
+}
+
 func (self *SGuest) GetInstanceSnapshotCount() (int, error) {
 	q := InstanceSnapshotManager.Query().Equals("guest_id", self.Id)
 	return q.CountWithError()
 }
 
-func (self *SGuest) GetDiskSnapshotsNotInInstanceSnapshots() ([]SSnapshot, error) {
+func (self *SGuest) GetDiskSnapshotsNotInInstanceSnapshots(pendingDelted bool) ([]SSnapshot, error) {
 	guestDisks, err := self.GetGuestDisks()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetGuestDisks")
@@ -7294,7 +7317,10 @@ func (self *SGuest) GetDiskSnapshotsNotInInstanceSnapshots() ([]SSnapshot, error
 		diskIds[i] = guestDisks[i].DiskId
 	}
 	snapshots := make([]SSnapshot, 0)
-	q := SnapshotManager.Query().IsFalse("fake_deleted").In("disk_id", diskIds)
+	q := SnapshotManager.Query().In("disk_id", diskIds)
+	if pendingDelted {
+		q = q.IsTrue("pending_deleted")
+	}
 	sq := InstanceSnapshotJointManager.Query("snapshot_id").SubQuery()
 	q = q.LeftJoin(sq, sqlchemy.Equals(q.Field("id"), sq.Field("snapshot_id"))).
 		Filter(sqlchemy.IsNull(sq.Field("snapshot_id")))

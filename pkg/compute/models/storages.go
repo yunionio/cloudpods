@@ -190,16 +190,6 @@ func (self *SStorage) StartStorageUpdateTask(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (self *SStorage) getFakeDeletedSnapshots() ([]SSnapshot, error) {
-	q := SnapshotManager.Query().Equals("storage_id", self.Id).IsTrue("fake_deleted")
-	snapshots := make([]SSnapshot, 0)
-	err := db.FetchModelObjects(SnapshotManager, q, &snapshots)
-	if err != nil {
-		return nil, errors.Wrap(err, "FetchModelObjects")
-	}
-	return snapshots, nil
-}
-
 func (self *SStorage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	ok, err := self.IsNeedDeleteStoragecache()
 	if err != nil {
@@ -480,7 +470,7 @@ func (self *SStorage) GetDisks() []SDisk {
 }
 
 func (self *SStorage) GetVisibleSnapshotCount() (int, error) {
-	return SnapshotManager.Query().Equals("storage_id", self.Id).IsFalse("fake_deleted").CountWithError()
+	return SnapshotManager.Query().Equals("storage_id", self.Id).CountWithError()
 }
 
 func (self *SStorage) IsLocal() bool {
@@ -568,9 +558,7 @@ func (manager *SStorageManager) TotalResourceCount(storageIds []string) (map[str
 		sqlchemy.SUM("disk_wasted", _diskWastedSQ.Field("disk_size")),
 	).In("storage_id", storageIds).GroupBy(_diskWastedSQ.Field("storage_id")).SubQuery()
 
-	snapshotSQ := manager.query(SnapshotManager, "snapshot_cnt", storageIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		return q.IsFalse("fake_deleted")
-	})
+	snapshotSQ := manager.query(SnapshotManager, "snapshot_cnt", storageIds, nil)
 
 	storages := manager.Query().SubQuery()
 	storageQ := storages.Query(

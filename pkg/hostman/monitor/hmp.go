@@ -406,6 +406,14 @@ func (m *HmpMonitor) GetBlockJobs(callback func([]BlockJob)) {
 	m.Query("info block-jobs", cb)
 }
 
+func (m *HmpMonitor) GetBlockJobsWithError(callback func([]BlockJob, error)) {
+	m.GetBlockJobs(func(jobs []BlockJob) { callback(jobs, nil) })
+}
+
+func (m *HmpMonitor) WatchBlockJob(device string, callback BlockJobEventCallback) (func(), error) {
+	return nil, errors.Errorf("block job events require QMP")
+}
+
 func (m *HmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallback) {
 	m.Query(fmt.Sprintf("reload_disk_snapshot_blkdev -n %s %s", device, path), callback)
 }
@@ -437,6 +445,18 @@ func (m *HmpMonitor) BlockStream(drive string, callback StringCallback) {
 		cmd   = fmt.Sprintf("block_stream %s %d", drive, speed)
 	)
 	m.Query(cmd, callback)
+}
+
+func (m *HmpMonitor) GetNamedBlockNodes(callback func([]QemuNamedBlockNode, error)) {
+	callback(nil, errors.Errorf("query-named-block-nodes requires QMP"))
+}
+
+func (m *HmpMonitor) BlockStreamToBase(device, base string, callback StringCallback) {
+	callback("block-stream with base requires QMP")
+}
+
+func (m *HmpMonitor) BlockCommit(device, top, base string, callback StringCallback) {
+	callback("block-commit requires QMP")
 }
 
 func (m *HmpMonitor) BlockJobComplete(drive string, callback StringCallback) {

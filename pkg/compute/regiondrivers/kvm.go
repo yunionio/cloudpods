@@ -637,6 +637,12 @@ func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCre
 }
 
 func (self *SKVMRegionDriver) ValidateSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot) error {
+	if guest, _ := snapshot.GetGuest(); guest != nil {
+		if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
+			return httperrors.NewBadRequestError("can't delete snapshot in guest %s", guest.Status)
+		}
+	}
+
 	storage := snapshot.GetStorage()
 	if storage == nil {
 		return httperrors.NewInternalServerError("Kvm snapshot missing storage ??")
@@ -690,7 +696,7 @@ func (self *SKVMRegionDriver) RequestDeleteInstanceSnapshot(ctx context.Context,
 	deletedSnapshotCnt := deleteSnapshotTotalCnt - int64(len(snapshots))
 	params.Set("del_snapshot_id", jsonutils.NewString(snapshots[0].Id))
 	task.SetStage("OnKvmSnapshotDelete", params)
-	err = snapshots[0].StartSnapshotDeleteTask(ctx, task.GetUserCred(), false, task.GetTaskId(), int(deleteSnapshotTotalCnt), int(deletedSnapshotCnt))
+	err = snapshots[0].StartSnapshotDeleteTask(ctx, task.GetUserCred(), task.GetTaskId(), int(deleteSnapshotTotalCnt), int(deletedSnapshotCnt))
 	if err != nil {
 		return err
 	}
@@ -866,7 +872,6 @@ func (self *SKVMRegionDriver) SnapshotIsOutOfChain(disk *models.SDisk) bool {
 func (self *SKVMRegionDriver) GetDiskResetParams(snapshot *models.SSnapshot) *jsonutils.JSONDict {
 	params := jsonutils.NewDict()
 	params.Set("snapshot_id", jsonutils.NewString(snapshot.Id))
-	params.Set("out_of_chain", jsonutils.NewBool(snapshot.OutOfChain))
 	params.Set("location", jsonutils.NewString(snapshot.Location))
 	if len(snapshot.BackingDiskId) > 0 {
 		params.Set("backing_disk_id", jsonutils.NewString(snapshot.BackingDiskId))

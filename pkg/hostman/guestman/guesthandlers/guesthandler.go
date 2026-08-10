@@ -753,6 +753,13 @@ func guestDeleteSnapshot(ctx context.Context, userCred mcclient.TokenCredential,
 		TotalDeleteSnapshotCount: int(totalCnt),
 		DeletedSnapshotCount:     int(deletedCnt),
 	}
+	if snapshotIds, err := body.GetArray("snapshot_ids"); err == nil {
+		for _, snapshotId := range snapshotIds {
+			if id, err := snapshotId.GetString(); err == nil {
+				params.SnapshotIds = append(params.SnapshotIds, id)
+			}
+		}
+	}
 
 	if body.Contains("encrypt_info") {
 		encryptInfo := apis.SEncryptInfo{}
@@ -762,18 +769,6 @@ func guestDeleteSnapshot(ctx context.Context, userCred mcclient.TokenCredential,
 		params.EncryptInfo = encryptInfo
 	}
 
-	// blockStream indicate snapshot<-disk
-	blockStream := jsonutils.QueryBoolean(body, "block_stream", false)
-	autoDeleted := jsonutils.QueryBoolean(body, "auto_deleted", false)
-
-	if !blockStream && !autoDeleted {
-		convertSnapshot, err := body.GetString("convert_snapshot")
-		if err != nil {
-			return nil, httperrors.NewMissingParameterError("convert_snapshot")
-		}
-		params.ConvertSnapshot = convertSnapshot
-	}
-	params.BlockStream = blockStream
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().DeleteSnapshot, params)
 	return nil, nil
 }

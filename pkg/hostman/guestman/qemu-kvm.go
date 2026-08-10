@@ -3317,39 +3317,37 @@ func (s *SKVMGuestInstance) StaticSaveSnapshot(
 }
 
 func (s *SKVMGuestInstance) DeleteSnapshot(ctx context.Context, delParams *SDeleteDiskSnapshot) (jsonutils.JSONObject, error) {
-	if len(delParams.ConvertSnapshot) > 0 || delParams.BlockStream {
-		return s.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
-			delParams.ConvertSnapshot, delParams.BlockStream, delParams.EncryptInfo,
-			delParams.TotalDeleteSnapshotCount, delParams.DeletedSnapshotCount)
-	} else {
+	if !utils.IsInStringArray(delParams.Disk.GetType(), []string{api.STORAGE_LOCAL, api.STORAGE_LVM, api.STORAGE_SLVM}) {
 		res := jsonutils.NewDict()
 		res.Set("deleted", jsonutils.JSONTrue)
-		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "", false, delParams.EncryptInfo)
+		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, delParams.SnapshotIds, delParams.EncryptInfo)
 	}
+	return s.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot, delParams.SnapshotIds, delParams.EncryptInfo,
+		delParams.TotalDeleteSnapshotCount, delParams.DeletedSnapshotCount)
 }
 
 func (s *SKVMGuestInstance) ExecDeleteSnapshotTask(
 	ctx context.Context, disk storageman.IDisk,
-	deleteSnapshot string, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo,
+	deleteSnapshot string, snapshotIds []string, encryptInfo apis.SEncryptInfo,
 	totalDeleteSnapshotCount, deletedSnapshotCount int,
 ) (jsonutils.JSONObject, error) {
 	if s.IsRunning() {
 		if s.isLiveSnapshotEnabled() {
-			task := NewGuestSnapshotDeleteTask(ctx, s, disk, deleteSnapshot, convertSnapshot, blockStream, encryptInfo)
+			task := NewGuestSnapshotDeleteTask(ctx, s, disk, deleteSnapshot, snapshotIds, encryptInfo)
 			task.Start(totalDeleteSnapshotCount, deletedSnapshotCount)
 			return nil, nil
 		} else {
 			return nil, fmt.Errorf("Guest dosen't support live snapshot delete")
 		}
 	} else {
-		return s.deleteStaticSnapshotFile(ctx, disk, deleteSnapshot, convertSnapshot, blockStream, encryptInfo)
+		return s.deleteStaticSnapshotFile(ctx, disk, deleteSnapshot, snapshotIds, encryptInfo)
 	}
 }
 
 func (s *SKVMGuestInstance) deleteStaticSnapshotFile(
-	ctx context.Context, disk storageman.IDisk, deleteSnapshot, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo,
+	ctx context.Context, disk storageman.IDisk, deleteSnapshot string, snapshotIds []string, encryptInfo apis.SEncryptInfo,
 ) (jsonutils.JSONObject, error) {
-	if err := disk.DeleteSnapshot(deleteSnapshot, convertSnapshot, blockStream, encryptInfo); err != nil {
+	if err := disk.DeleteSnapshot(deleteSnapshot, snapshotIds, encryptInfo); err != nil {
 		log.Errorln(err)
 		return nil, err
 	}

@@ -3721,6 +3721,21 @@ func (self *SGuest) DoCancelPendingDelete(ctx context.Context, userCred mcclient
 		disk.DoCancelPendingDelete(ctx, userCred)
 	}
 
+	instanceSnapshots, err := self.GetInstanceSnapshots()
+	if err != nil {
+		return err
+	}
+	for i := range instanceSnapshots {
+		instanceSnapshots[i].DoCancelPendingDelete(ctx, userCred)
+	}
+	snapshots, err := self.GetDiskSnapshotsNotInInstanceSnapshots(true)
+	if err != nil {
+		return err
+	}
+	for i := range snapshots {
+		snapshots[i].DoCancelPendingDelete(ctx, userCred)
+	}
+
 	if self.BillingType == billing_api.BILLING_TYPE_POSTPAID && !self.ExpiredAt.IsZero() {
 		err := SaveReleaseAt(ctx, self, userCred, time.Time{})
 		if err != nil {
@@ -6183,8 +6198,12 @@ func (self *SGuest) GetDetailsJnlp(ctx context.Context, userCred mcclient.TokenC
 	return host.GetDetailsJnlp(ctx, userCred, query)
 }
 
-func (guest *SGuest) StartDeleteGuestSnapshots(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeleteSnapshotsTask", guest, userCred, nil, parentTaskId, "", nil)
+func (guest *SGuest) StartDeleteGuestSnapshots(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, deletePendingSnapshots bool) error {
+	data := jsonutils.NewDict()
+	if deletePendingSnapshots {
+		data.Add(jsonutils.JSONTrue, "delete_pending_snapshots")
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeleteSnapshotsTask", guest, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
