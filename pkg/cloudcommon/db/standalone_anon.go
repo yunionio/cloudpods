@@ -255,6 +255,12 @@ func (model *SStandaloneAnonResourceBase) SetMetadata(ctx context.Context, key s
 	if err != nil {
 		return errors.Wrap(err, "SetValue")
 	}
+	{
+		err := model.forceUpdate()
+		if err != nil {
+			return errors.Wrap(err, "forceUpdate")
+		}
+	}
 	if isUserMetadata(key) {
 		model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
 	}
@@ -265,6 +271,12 @@ func (model *SStandaloneAnonResourceBase) SetAllMetadata(ctx context.Context, di
 	err := Metadata.SetValuesWithLog(ctx, model, dictstore, userCred)
 	if err != nil {
 		return errors.Wrap(err, "SetValuesWithLog")
+	}
+	{
+		err := model.forceUpdate()
+		if err != nil {
+			return errors.Wrap(err, "forceUpdate")
+		}
 	}
 	if containsUserMetadata(dictstore) {
 		model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
@@ -316,7 +328,10 @@ func (model *SStandaloneAnonResourceBase) SetUserMetadataValues(ctx context.Cont
 		return errors.Wrap(err, "SetValuesWithLog")
 	}
 	{
-		model.GetModelManager().TableSpec().InformUpdate(ctx, model, jsonutils.Marshal(model).(*jsonutils.JSONDict))
+		err := model.forceUpdate()
+		if err != nil {
+			return errors.Wrap(err, "forceUpdate")
+		}
 	}
 	model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
 	return nil
@@ -333,7 +348,10 @@ func (model *SStandaloneAnonResourceBase) SetUserMetadataAll(ctx context.Context
 		return errors.Wrap(err, "SetAll")
 	}
 	{
-		model.GetModelManager().TableSpec().InformUpdate(ctx, model, jsonutils.Marshal(model).(*jsonutils.JSONDict))
+		err := model.forceUpdate()
+		if err != nil {
+			return errors.Wrap(err, "forceUpdate")
+		}
 	}
 	model.GetIStandaloneModel().OnMetadataUpdated(ctx, userCred)
 	return nil
@@ -361,9 +379,23 @@ func (model *SStandaloneAnonResourceBase) SetCloudMetadataAll(ctx context.Contex
 		userTags[strings.Replace(k, CLOUD_TAG_PREFIX, USER_TAG_PREFIX, 1)] = v
 	}
 	if readOnly {
-		return Metadata.SetAllWithoutDelelte(ctx, model, userTags, userCred)
+		err := Metadata.SetAllWithoutDelelte(ctx, model, userTags, userCred)
+		if err != nil {
+			return errors.Wrap(err, "SetAllWithoutDelelte")
+		}
+	} else {
+		err := Metadata.SetAll(ctx, model, userTags, userCred, USER_TAG_PREFIX)
+		if err != nil {
+			return errors.Wrap(err, "SetAll")
+		}
 	}
-	return Metadata.SetAll(ctx, model, userTags, userCred, USER_TAG_PREFIX)
+	{
+		err := model.forceUpdate()
+		if err != nil {
+			return errors.Wrap(err, "forceUpdate")
+		}
+	}
+	return nil
 }
 
 func (model *SStandaloneAnonResourceBase) SetOrganizationMetadataAll(ctx context.Context, meta map[string]string, userCred mcclient.TokenCredential) error {
@@ -377,10 +409,15 @@ func (model *SStandaloneAnonResourceBase) SetOrganizationMetadataAll(ctx context
 			return errors.Wrap(err, "SetAllOrganization")
 		}
 	}
-	Update(model, func() error {
+	_, err := Update(model, func() error {
 		model.OrgNodeMd5 = fmt.Sprintf("%x", md5.Sum([]byte(jsonutils.Marshal(meta).String())))
+		model.UpdatedAt = time.Now()
+		model.UpdateVersion += 1
 		return nil
 	})
+	if err != nil {
+		return errors.Wrap(err, "Update")
+	}
 
 	// 避免加入组织架构后，项目所在的层级会移除此项目
 	//{
@@ -400,6 +437,15 @@ func (model *SStandaloneAnonResourceBase) SetOrganizationMetadataAll(ctx context
 	return nil
 }
 
+func (model *SStandaloneAnonResourceBase) forceUpdate() error {
+	_, err := Update(model, func() error {
+		model.UpdateVersion += 1
+		model.UpdatedAt = time.Now()
+		return nil
+	})
+	return err
+}
+
 func (model *SStandaloneAnonResourceBase) SetClassMetadataValues(ctx context.Context, dictstore map[string]string, userCred mcclient.TokenCredential) error {
 	var err error
 	dictStore, err := ensurePrefixString(dictstore, CLASS_TAG_PREFIX)
@@ -409,6 +455,12 @@ func (model *SStandaloneAnonResourceBase) SetClassMetadataValues(ctx context.Con
 	err = Metadata.SetValuesWithLog(ctx, model, dictStore, userCred)
 	if err != nil {
 		return errors.Wrap(err, "SetValuesWithLog")
+	}
+	{
+		err := model.forceUpdate()
+		if err != nil {
+			return errors.Wrap(err, "forceUpdate")
+		}
 	}
 	return nil
 }
@@ -422,6 +474,12 @@ func (model *SStandaloneAnonResourceBase) SetClassMetadataAll(ctx context.Contex
 	err = Metadata.SetAll(ctx, model, afterCheck, userCred, CLASS_TAG_PREFIX)
 	if err != nil {
 		return errors.Wrap(err, "SetAll")
+	}
+	{
+		err := model.forceUpdate()
+		if err != nil {
+			return errors.Wrap(err, "forceUpdate")
+		}
 	}
 	return nil
 }
@@ -671,7 +729,7 @@ func (model *SStandaloneAnonResourceBase) PerformSetUserMetadata(ctx context.Con
 func (model *SStandaloneAnonResourceBase) PerformClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformClassMetadataInput) (jsonutils.JSONObject, error) {
 	err := model.SetClassMetadataValues(ctx, input, userCred)
 	if err != nil {
-		return nil, errors.Wrap(err, "SetUserMetadataValues")
+		return nil, errors.Wrap(err, "SetClassMetadataValues")
 	}
 	return nil, nil
 }
@@ -681,7 +739,7 @@ func (model *SStandaloneAnonResourceBase) PerformClassMetadata(ctx context.Conte
 func (model *SStandaloneAnonResourceBase) PerformSetClassMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetClassMetadataInput) (jsonutils.JSONObject, error) {
 	err := model.SetClassMetadataAll(ctx, input, userCred)
 	if err != nil {
-		return nil, errors.Wrap(err, "SetUserMetadataAll")
+		return nil, errors.Wrap(err, "SetClassMetadataAll")
 	}
 	return nil, nil
 }
