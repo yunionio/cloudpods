@@ -308,11 +308,16 @@ func diskCreate(ctx context.Context, userCred mcclient.TokenCredential, storage 
 
 func diskDelete(ctx context.Context, userCred mcclient.TokenCredential, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
 	flatPath, _ := body.GetString("esxi_flat_file_path")
+	snapshotIds := make([]string, 0)
+	if body.Contains("snapshot_ids") {
+		body.Unmarshal(&snapshotIds, "snapshot_ids")
+	}
 	input := compute.DiskDeleteInput{
 		EsxiFlatFilePath: flatPath,
 
 		// Only local storage support clean snapshots
 		CleanSnapshots: jsonutils.QueryBoolean(body, "clean_snapshots", false),
+		SnapshotIds:    snapshotIds,
 	}
 	if disk != nil {
 		hostutils.DelayTask(ctx, disk.Delete, input)

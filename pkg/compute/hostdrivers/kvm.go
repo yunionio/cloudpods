@@ -292,7 +292,6 @@ func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, us
 			}
 			if options.Options.SnapshotCreateDiskProtocol == "url" {
 				input.SnapshotUrl = fmt.Sprintf("%s/download/snapshots/%s/%s/%s", snapshotHost.ManagerUri, snapshotStorage.Id, snapshot.DiskId, snapshot.Id)
-				input.SnapshotOutOfChain = snapshot.OutOfChain
 			} else if options.Options.SnapshotCreateDiskProtocol == "fuse" {
 				input.SnapshotUrl = fmt.Sprintf("%s/snapshots/%s/%s", snapshotHost.GetFetchUrl(true), snapshot.DiskId, snapshot.Id)
 			}
@@ -323,12 +322,18 @@ func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, hos
 	log.Infof("Deallocating disk on host %s", host.GetName())
 	header := task.GetTaskRequestHeader()
 
+	snapIds := make([]string, 0)
+	snaps := models.SnapshotManager.GetDiskSnapshots(disk.Id)
+	for _, snap := range snaps {
+		snapIds = append(snapIds, snap.Id)
+	}
 	url := fmt.Sprintf("/disks/%s/delete/%s", storage.Id, disk.Id)
 	body := jsonutils.NewDict()
 	if flatPath := disk.GetMetadata(ctx, api.DISK_META_REMOTE_ACCESS_PATH, nil); flatPath != "" {
 		body.Set("esxi_flat_file_path", jsonutils.NewString(flatPath))
 	}
 	body.Set("clean_snapshots", jsonutils.NewBool(cleanSnapshots))
+	body.Set("snapshot_ids", jsonutils.Marshal(snapIds))
 	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
