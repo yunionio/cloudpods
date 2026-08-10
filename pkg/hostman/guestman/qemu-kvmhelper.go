@@ -856,6 +856,9 @@ func (s *SKVMGuestInstance) gpusHasVga() bool {
 	manager := s.manager.GetHost().GetIsolatedDeviceManager()
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
+		if dev == nil {
+			continue
+		}
 		if dev.GetDeviceType() == api.GPU_VGA_TYPE {
 			return true
 		}
@@ -867,6 +870,9 @@ func (s *SKVMGuestInstance) hasGPU() bool {
 	manager := s.manager.GetHost().GetIsolatedDeviceManager()
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
+		if dev == nil {
+			continue
+		}
 		if dev.GetDeviceType() == api.GPU_VGA_TYPE || dev.GetDeviceType() == api.GPU_HPC_TYPE {
 			return true
 		}
