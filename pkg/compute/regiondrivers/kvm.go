@@ -987,23 +987,29 @@ func (self *SKVMRegionDriver) RequestPackInstanceBackup(ctx context.Context, ib 
 	for i := range backupIds {
 		backupIds[i] = backups[i].GetId()
 	}
+	diskBackups := make([]api.SSimpleBackup, len(backups))
+	for i := range diskBackups {
+		diskBackups[i] = backups[i].ToSimpleBackup()
+	}
 	metadata, err := ib.PackMetadata(ctx, task.GetUserCred())
 	if err != nil {
 		return errors.Wrap(err, "unable to PackMetadata")
 	}
 	url := fmt.Sprintf("%s/storages/pack-instance-backup", host.ManagerUri)
-	body := jsonutils.NewDict()
-	body.Set("package_name", jsonutils.NewString(packageName))
-	body.Set("backup_storage_id", jsonutils.NewString(backupStorage.GetId()))
 	accessInfo, err := backupStorage.GetAccessInfo()
 	if err != nil {
 		return errors.Wrap(err, "GetAccessInfo")
 	}
-	body.Set("backup_storage_access_info", jsonutils.Marshal(accessInfo))
-	body.Set("backup_ids", jsonutils.Marshal(backupIds))
-	body.Set("metadata", jsonutils.Marshal(metadata))
+	body := api.SStoragePackInstanceBackup{
+		PackageName:             packageName,
+		BackupStorageId:         backupStorage.GetId(),
+		BackupStorageAccessInfo: accessInfo,
+		DiskBackups:             diskBackups,
+		BackupIds:               backupIds,
+		Metadata:                metadata,
+	}
 	header := task.GetTaskRequestHeader()
-	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, jsonutils.Marshal(body), false)
 	if err != nil {
 		return errors.Wrap(err, "unable to pack instancebackup")
 	}
@@ -1045,6 +1051,24 @@ func (self *SKVMRegionDriver) RequestSyncBackupStorageStatus(ctx context.Context
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		host, err := models.HostManager.GetEnabledKvmHostForBackupStorage(bs)
 		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				// try to detect the backup storage status from region
+				ibs, err := bs.GetIBackupStorage()
+				if err != nil {
+					return nil, errors.Wrap(err, "GetIBackupStorage")
+				}
+				online, reason, err := ibs.IsOnline()
+				if err != nil {
+					return nil, errors.Wrap(err, "IsOnline")
+				}
+				var statusStr string
+				if !online {
+					statusStr = api.BACKUPSTORAGE_STATUS_OFFLINE
+				} else {
+					statusStr = api.BACKUPSTORAGE_STATUS_ONLINE
+				}
+				return nil, bs.SetStatus(ctx, userCred, statusStr, reason)
+			}
 			return nil, errors.Wrap(err, "GetEnabledKvmHostForBackupStorage")
 		}
 		url := fmt.Sprintf("%s/storages/sync-backup-storage", host.ManagerUri)
@@ -1135,6 +1159,9 @@ func (self *SKVMRegionDriver) RequestSyncDiskBackupStatus(ctx context.Context, u
 		body := jsonutils.NewDict()
 		body.Set("backup_id", jsonutils.NewString(backup.GetId()))
 		body.Set("backup_storage_id", jsonutils.NewString(backupStorage.GetId()))
+		if len(backup.BackupFilePath) > 0 {
+			body.Set("backup_file_path", jsonutils.NewString(backup.BackupFilePath))
+		}
 		accessInfo, err := backupStorage.GetAccessInfo()
 		if err != nil {
 			return nil, errors.Wrap(err, "GetAccessInfo")
@@ -1152,7 +1179,11 @@ func (self *SKVMRegionDriver) RequestSyncDiskBackupStatus(ctx context.Context, u
 		} else {
 			backupStatus = api.BACKUP_STATUS_UNKNOWN
 		}
-		return nil, backup.SetStatus(ctx, userCred, backupStatus, "sync status")
+		reason, _ := res.GetString("reason")
+		if len(reason) == 0 {
+			reason = "sync status"
+		}
+		return nil, backup.SetStatus(ctx, userCred, backupStatus, reason)
 	})
 	return nil
 }
@@ -1350,6 +1381,9 @@ func (self *SKVMRegionDriver) RequestDeleteBackup(ctx context.Context, backup *m
 		return errors.Wrap(err, "GetAccessInfo")
 	}
 	body.Set("backup_storage_access_info", jsonutils.Marshal(accessInfo))
+	if len(backup.BackupFilePath) > 0 {
+		body.Set("backup_file_path", jsonutils.NewString(backup.BackupFilePath))
+	}
 	header := task.GetTaskRequestHeader()
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	if err != nil {
@@ -1394,6 +1428,9 @@ func (self *SKVMRegionDriver) RequestCreateBackup(ctx context.Context, backup *m
 		return errors.Wrap(err, "GetAccessInfo")
 	}
 	body.Set("backup_storage_access_info", jsonutils.Marshal(accessInfo))
+	if len(backup.BackupFilePath) > 0 {
+		body.Set("backup_file_path", jsonutils.NewString(backup.BackupFilePath))
+	}
 	if len(backup.EncryptKeyId) > 0 {
 		body.Set("encrypt_key_id", jsonutils.NewString(backup.EncryptKeyId))
 	}
