@@ -1162,7 +1162,12 @@ func (s *SKVMGuestInstance) startMemCleaner() error {
 
 func (s *SKVMGuestInstance) gpusHasVga() bool {
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
-		if s.Desc.IsolatedDevices[i].GpuType == api.GPU_VGA {
+		manager := s.manager.GetHost().GetIsolatedDeviceManager()
+		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
+		if dev == nil {
+			continue
+		}
+		if dev.GetDeviceType() == api.GPU_VGA {
 			return true
 		}
 	}
@@ -1173,6 +1178,9 @@ func (s *SKVMGuestInstance) hasGPU() bool {
 	manager := s.manager.GetHost().GetIsolatedDeviceManager()
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
+		if dev == nil {
+			continue
+		}
 		if dev.GetDeviceType() == api.GPU_TYPE {
 			return true
 		}
