@@ -60,8 +60,6 @@ type SnapshotListInput struct {
 
 	StorageShareFilterListInput
 
-	// filter snapshot that is fake deleted
-	FakeDeleted *bool `json:"fake_deleted"`
 	// filter by disk type
 	DiskType string `json:"disk_type"`
 	// filter instance snapshot
@@ -70,8 +68,7 @@ type SnapshotListInput struct {
 	DiskFilterListInputBase
 	StorageFilterListInputBase
 
-	OutOfChain *bool    `json:"out_of_chain"`
-	OsType     []string `json:"os_type"`
+	OsType []string `json:"os_type"`
 
 	// list server snapshots
 	ServerId string `json:"server_id"`

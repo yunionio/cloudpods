@@ -91,11 +91,6 @@ func (d *SNasDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (j
 		return nil, hostutils.ParamsError
 	}
 
-	outOfChain, err := resetParams.Input.Bool("out_of_chain")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("out_of_chain")
-	}
-
 	location, err := resetParams.Input.GetString("location")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("location")
@@ -112,7 +107,7 @@ func (d *SNasDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (j
 			encryptInfo = &encInfo
 		}
 	}
-	return d.resetFromSnapshot(snapshotPath, outOfChain, encryptInfo)
+	return d.resetFromSnapshot(snapshotPath, encryptInfo)
 }
 
 func (d *SNasDisk) GetSnapshotLocation() string {

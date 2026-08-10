@@ -62,7 +62,6 @@ func (self *SnapshotCleanupTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	}
 	var snapshots = make([]models.SSnapshot, 0)
 	err = models.SnapshotManager.Query().
-		Equals("fake_deleted", false).
 		Equals("created_by", compute.SNAPSHOT_AUTO).
 		LE("expired_at", now).All(&snapshots)
 	if err == sql.ErrNoRows {
@@ -104,7 +103,7 @@ func (self *SnapshotCleanupTask) StartSnapshotsDelete(ctx context.Context, snaps
 	}
 
 	snapshot.SetModelManager(models.SnapshotManager, snapshot)
-	err = snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.GetId(), 0, 0)
+	err = snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, self.GetId(), 0, 0)
 	if err != nil {
 		self.OnDeleteSnapshotFailed(ctx, self.GetObject(), nil)
 	}

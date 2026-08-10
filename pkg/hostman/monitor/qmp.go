@@ -173,6 +173,9 @@ func (m *QmpMonitor) read(r io.Reader) {
 		return
 	}
 	scanner := bufio.NewScanner(r)
+	// set buffer size 256K, default 64K
+	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*256)
+
 	for scanner.Scan() {
 		var objmap map[string]*json.RawMessage
 		b := scanner.Bytes()
@@ -210,7 +213,6 @@ func (m *QmpMonitor) read(r io.Reader) {
 			if timestamp, ok := objmap["timestamp"]; ok {
 				json.Unmarshal(*timestamp, event.Timestamp)
 			}
-			m.watchEvent(event)
 		} else if val, ok := objmap["QMP"]; ok {
 			// On qmp connected
 			json.Unmarshal(*val, &objmap)
@@ -247,15 +249,6 @@ func (m *QmpMonitor) read(r io.Reader) {
 		}
 	}
 	m.reading = false
-}
-
-func (m *QmpMonitor) watchEvent(event *Event) {
-	if !utils.IsInStringArray(event.Event, ignoreEvents) {
-		log.Infof("QMP event %s: %s", m.server, event.String())
-	}
-	if m.qmpEventFunc != nil {
-		go m.qmpEventFunc(event)
-	}
 }
 
 func (m *QmpMonitor) write(cmd []byte) error {
@@ -462,6 +455,36 @@ func (m *QmpMonitor) GetBlocks(callback func([]QemuBlock)) {
 
 	cmd := &Command{Execute: "query-block"}
 	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) GetNamedBlockNodes(callback func([]QemuNamedBlockNode, error)) {
+	cb := func(res *Response) {
+		if res.ErrorVal != nil {
+			callback(nil, errors.Errorf("query-named-block-nodes: %s", jsonutils.Marshal(res.ErrorVal)))
+			return
+		}
+		nodes := []QemuNamedBlockNode{}
+		if err := json.Unmarshal(res.Return, &nodes); err != nil {
+			callback(nil, errors.Wrap(err, "unmarshal query-named-block-nodes"))
+			return
+		}
+		callback(filterQcow2NamedBlockNodes(nodes), nil)
+	}
+	cmd := &Command{
+		Execute: "query-named-block-nodes",
+		Args:    map[string]interface{}{"flat": true},
+	}
+	m.Query(cmd, cb)
+}
+
+func filterQcow2NamedBlockNodes(nodes []QemuNamedBlockNode) []QemuNamedBlockNode {
+	qcow2Nodes := make([]QemuNamedBlockNode, 0, len(nodes))
+	for i := range nodes {
+		if nodes[i].Driver == "qcow2" && nodes[i].NodeName != "" && nodes[i].Filename() != "" {
+			qcow2Nodes = append(qcow2Nodes, nodes[i])
+		}
+	}
+	return qcow2Nodes
 }
 
 func (m *QmpMonitor) ChangeCdrom(dev string, path string, callback StringCallback) {
@@ -780,6 +803,13 @@ func (m *QmpMonitor) GetBlockJobs(callback func([]BlockJob)) {
 	m.Query(&Command{Execute: "query-block-jobs"}, cb)
 }
 
+func (m *QmpMonitor) GetBlockJobsWithError(callback func([]BlockJob, error)) {
+	m.Query(&Command{Execute: "query-block-jobs"}, func(res *Response) {
+		jobs, err := m.blockJobs(res)
+		callback(jobs, err)
+	})
+}
+
 func (m *QmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallback) {
 	var (
 		cb = func(res *Response) {
@@ -861,6 +891,32 @@ func (m *QmpMonitor) BlockStream(drive string, callback StringCallback) {
 		}
 	)
 	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) BlockStreamToBase(device, base, jobId string, callback StringCallback) {
+	args := map[string]interface{}{
+		"device":    device,
+		"base-node": base,
+		"speed":     5 * 100 * 1024 * 1024,
+		"job-id":    jobId,
+	}
+	log.Infof("qmp block-stream device=%s base-node=%s", device, base)
+	m.Query(&Command{Execute: "block-stream", Args: args}, func(res *Response) {
+		callback(m.actionResult(res))
+	})
+}
+
+func (m *QmpMonitor) BlockCommit(device, top, base string, callback StringCallback) {
+	args := map[string]interface{}{
+		"device":    device,
+		"top-node":  top,
+		"base-node": base,
+		"speed":     5 * 100 * 1024 * 1024,
+	}
+	log.Infof("qmp block-commit device=%s top-node=%s base-node=%s", device, top, base)
+	m.Query(&Command{Execute: "block-commit", Args: args}, func(res *Response) {
+		callback(m.actionResult(res))
+	})
 }
 
 func (m *QmpMonitor) SetVncPassword(proto, password string, callback StringCallback) {

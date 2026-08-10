@@ -341,12 +341,11 @@ type DiskAllocateInput struct {
 	BackupId string                       `json:"backup_id"`
 	Backup   *DiskAllocateFromBackupInput `json:"backup"`
 
-	SnapshotUrl        string `json:"snapshot_url"`
-	SnapshotOutOfChain bool   `json:"snapshot_out_of_chain"`
-	Protocol           string `json:"protocol"`
-	SrcDiskId          string `json:"src_disk_id"`
-	SrcPool            string `json:"src_pool"`
-	ExistingPath       string `json:"existing_path"`
+	SnapshotUrl  string `json:"snapshot_url"`
+	Protocol     string `json:"protocol"`
+	SrcDiskId    string `json:"src_disk_id"`
+	SrcPool      string `json:"src_pool"`
+	ExistingPath string `json:"existing_path"`
 
 	// vmware
 	HostIp    string                     `json:"host_ip"`
@@ -367,9 +366,10 @@ type DiskAllocateFromBackupInput struct {
 }
 
 type DiskDeleteInput struct {
-	SkipRecycle      *bool  `json:"skip_recycle"`
-	EsxiFlatFilePath string `json:"esxi_flat_file_path"`
-	CleanSnapshots   bool   `json:"clean_snapshots"`
+	SkipRecycle      *bool    `json:"skip_recycle"`
+	EsxiFlatFilePath string   `json:"esxi_flat_file_path"`
+	CleanSnapshots   bool     `json:"clean_snapshots"`
+	SnapshotIds      []string `json:"snapshot_ids"`
 }
 
 type DiskResetInput struct {

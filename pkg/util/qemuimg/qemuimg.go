@@ -897,6 +897,39 @@ func (img *SQemuImage) Rebase(backPath string, force bool) error {
 	return img.parse()
 }
 
+// Commit writes this image's allocated clusters into its immediate backing
+// image. Callers must rebase the child before removing this image.
+func (img *SQemuImage) Commit() error {
+	if !img.IsValid() {
+		return fmt.Errorf("self is not valid")
+	}
+	encInfo := SImageInfo{
+		Path:    img.Path,
+		Format:  img.Format,
+		IoLevel: img.IoLevel,
+	}
+	// Keep the top intact until callers have safely detached and removed it.
+	args := []string{"-c", strconv.Itoa(int(img.IoLevel)), qemutils.GetQemuImg(), "commit", "-d"}
+	if len(img.Password) > 0 {
+		encInfo.Password = img.Password
+		encInfo.EncryptFormat = img.EncryptFormat
+		encInfo.EncryptAlg = img.EncryptAlg
+		encInfo.secId = "sec0"
+		args = append(args, "--object", encInfo.SecretOptions())
+	}
+	args = append(args, "--image-opts", encInfo.ImageOptions())
+	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
+	if runtime.GOOS == "darwin" {
+		args = args[2:]
+		cmd = procutils.NewRemoteCommandAsFarAsPossible(args[0], args[1:]...)
+	}
+	output, err := cmd.Output()
+	if err != nil {
+		return errors.Wrapf(err, "commit %s", string(output))
+	}
+	return nil
+}
+
 func (img *SQemuImage) Delete() error {
 	if !img.IsValid() {
 		return nil
