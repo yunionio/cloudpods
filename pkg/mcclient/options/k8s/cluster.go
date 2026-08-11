@@ -262,6 +262,18 @@ func (o ClusterGCOpts) Params() (jsonutils.JSONObject, error) {
 	return nil, nil
 }
 
+type ClusterHistoryDataCleanOpts struct {
+	Day *int `help:"days to keep soft-deleted k8s resources before hard delete" default:"30"`
+}
+
+func (o ClusterHistoryDataCleanOpts) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	if o.Day != nil {
+		params.Set("day", jsonutils.NewInt(int64(*o.Day)))
+	}
+	return params, nil
+}
+
 type IdentOptions struct {
 	ID string `help:"ID or name of the model"`
 }
