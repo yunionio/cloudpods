@@ -52,6 +52,7 @@ func initKubeCluster() {
 	cmd.Perform("delete-machines", new(o.KubeClusterDeleteMachinesOptions))
 	cmd.Perform("add-machines", new(o.KubeClusterAddMachinesOptions))
 	cmd.PerformClass("gc", new(o.ClusterGCOpts))
+	cmd.PerformClass("history-data-clean", new(o.ClusterHistoryDataCleanOpts))
 	cmd.Perform("set-extra-config", new(o.ClusterSetExtraConfigOpt))
 	cmd.Get("extra-config", new(o.IdentOptions))
 
