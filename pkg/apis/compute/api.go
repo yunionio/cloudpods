@@ -727,6 +727,11 @@ type ServerCreateInput struct {
 	// 安全组Id列表
 	Secgroups []string `json:"secgroups"`
 
+	// 源 IP 检查
+	SrcIpCheck *bool `json:"src_ip_check"`
+	// 源 MAC 检查
+	SrcMacCheck *bool `json:"src_mac_check"`
+
 	// GCP 网络标记(network tags)，仅对 Google 云有效
 	// 传入后可不指定安全组，创建时直接作为实例 tags 下发
 	// required: false
