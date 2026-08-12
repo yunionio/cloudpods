@@ -960,11 +960,15 @@ func fetchGuestIsolatedDevices(guestIds []string) map[string][]api.SIsolatedDevi
 	}
 	ret := make(map[string][]api.SIsolatedDevice)
 	for i := range devs {
-		dev := api.SIsolatedDevice{}
 		gdev := devs[i].GetIsolatedDevice()
+		if gdev == nil {
+			continue
+		}
+		dev := api.SIsolatedDevice{}
 		dev.Id = gdev.Id
 		dev.HostId = gdev.HostId
 		dev.DevType = gdev.DevType
+		dev.SharingMode = gdev.SharingMode
 		dev.Model = gdev.Model
 		dev.Addr = gdev.Addr
 		dev.VendorDeviceId = gdev.VendorDeviceId

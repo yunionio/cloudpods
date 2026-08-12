@@ -22,6 +22,56 @@ type PodPostStopCleanupConfig struct {
 	Dirs []string `json:"dirs"`
 }
 
+// BuildIsolatedDeviceConfigs builds pod IsolatedDeviceConfig list from SKU/LLM
+// devices. Empty or nil devices yield nil. HAMI devices without per-device
+// memory_mb require a positive vramClaimMb (evenly split across devices).
+func BuildIsolatedDeviceConfigs(effectiveDevices *api.Devices, vramClaimMb int) ([]*computeapi.IsolatedDeviceConfig, error) {
+	if effectiveDevices == nil || effectiveDevices.IsZero() {
+		return nil, nil
+	}
+	devices := make(api.Devices, len(*effectiveDevices))
+	copy(devices, *effectiveDevices)
+	for i := range devices {
+		normalizeLLMSkuDevice(&devices[i])
+	}
+	hasHAMINeedingClaim := false
+	for i := range devices {
+		if devices[i].SharingMode == computeapi.DEVICE_SHARING_MODE_HAMI && devices[i].MemoryMb <= 0 {
+			hasHAMINeedingClaim = true
+			break
+		}
+	}
+	if hasHAMINeedingClaim && vramClaimMb <= 0 {
+		return nil, errors.Wrap(httperrors.ErrInputParameter,
+			"vram claim is 0 for HAMI devices: set devices[].memory_mb, mount InstantModel with weight_size_bytes, or use a non-HAMI sharing_mode")
+	}
+	// Evenly split estimated vram claim across requested devices when a
+	// device does not set memory_mb. Ceiling division so the sum is never
+	// less than the claim.
+	perDevFromClaim := 0
+	if vramClaimMb > 0 && len(devices) > 0 {
+		perDevFromClaim = (vramClaimMb + len(devices) - 1) / len(devices)
+	}
+	out := make([]*computeapi.IsolatedDeviceConfig, 0, len(devices))
+	for i := 0; i < len(devices); i++ {
+		memMb := devices[i].MemoryMb
+		if memMb <= 0 {
+			memMb = perDevFromClaim
+		}
+		out = append(out, &computeapi.IsolatedDeviceConfig{
+			DevType:       devices[i].DevType,
+			SharingMode:   devices[i].SharingMode,
+			Vendor:        devices[i].Vendor,
+			Model:         devices[i].Model,
+			DevicePath:    devices[i].DevicePath,
+			MemoryMb:      memMb,
+			MemoryRequest: memMb,
+			SmUtilLimit:   devices[i].SmUtilLimit,
+		})
+	}
+	return out, nil
+}
+
 func GetLLMBasePodCreateInput(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -65,50 +115,11 @@ func GetLLMBasePodCreateInput(
 	}
 
 	// isolated devices
-	effectiveDevices := getEffectiveDevices(llmBase, skuBase)
-	if effectiveDevices != nil && !effectiveDevices.IsZero() {
-		data.IsolatedDevices = make([]*computeapi.IsolatedDeviceConfig, 0)
-		devices := make(api.Devices, len(*effectiveDevices))
-		copy(devices, *effectiveDevices)
-		for i := range devices {
-			normalizeLLMSkuDevice(&devices[i])
-		}
-		hasHAMINeedingClaim := false
-		for i := range devices {
-			if devices[i].SharingMode == computeapi.DEVICE_SHARING_MODE_HAMI && devices[i].MemoryMb <= 0 {
-				hasHAMINeedingClaim = true
-				break
-			}
-		}
-		if hasHAMINeedingClaim && vramClaimMb <= 0 {
-			return nil, errors.Wrap(httperrors.ErrInputParameter,
-				"vram claim is 0 for HAMI devices: set devices[].memory_mb, mount InstantModel with weight_size_bytes, or use a non-HAMI sharing_mode")
-		}
-		// Evenly split estimated vram claim across requested devices when a
-		// device does not set memory_mb. Ceiling division so the sum is never
-		// less than the claim.
-		perDevFromClaim := 0
-		if vramClaimMb > 0 && len(devices) > 0 {
-			perDevFromClaim = (vramClaimMb + len(devices) - 1) / len(devices)
-		}
-		for i := 0; i < len(devices); i++ {
-			memMb := devices[i].MemoryMb
-			if memMb <= 0 {
-				memMb = perDevFromClaim
-			}
-			isolatedDevice := &computeapi.IsolatedDeviceConfig{
-				DevType:       devices[i].DevType,
-				SharingMode:   devices[i].SharingMode,
-				Vendor:        devices[i].Vendor,
-				Model:         devices[i].Model,
-				DevicePath:    devices[i].DevicePath,
-				MemoryMb:      memMb,
-				MemoryRequest: memMb,
-				SmUtilLimit:   devices[i].SmUtilLimit,
-			}
-			data.IsolatedDevices = append(data.IsolatedDevices, isolatedDevice)
-		}
+	isolatedDevices, err := BuildIsolatedDeviceConfigs(getEffectiveDevices(llmBase, skuBase), vramClaimMb)
+	if err != nil {
+		return nil, err
 	}
+	data.IsolatedDevices = isolatedDevices
 
 	// port mappings
 	// var portRange *computeapi.GuestPortMappingPortRange
