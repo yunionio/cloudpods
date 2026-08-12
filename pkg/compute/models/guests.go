@@ -7232,6 +7232,7 @@ func (self *SGuest) ToIsolatedDevicesConfig() []*api.IsolatedDeviceConfig {
 		devConf.Model = dev.Model
 		devConf.Vendor = dev.getVendor()
 		devConf.DevType = dev.DevType
+		devConf.SharingMode = dev.SharingMode
 		ret[idx] = devConf
 	}
 	return ret

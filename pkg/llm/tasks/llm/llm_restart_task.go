@@ -376,8 +376,8 @@ func (task *LLMRestartTask) OnResetDiskComplete(ctx context.Context, obj db.ISta
 		return
 	}
 
-	if err := llm.SyncDetachIsolatedDevicesIfEmpty(ctx, task.UserCred, sku); err != nil {
-		task.taskFailed(ctx, llm, errors.Wrap(err, "SyncDetachIsolatedDevicesIfEmpty").Error())
+	if err := llm.SyncIsolatedDevicesWithSku(ctx, task.UserCred, sku); err != nil {
+		task.taskFailed(ctx, llm, errors.Wrap(err, "SyncIsolatedDevicesWithSku").Error())
 		return
 	}
 
@@ -398,6 +398,7 @@ func (task *LLMRestartTask) OnResetDiskComplete(ctx context.Context, obj db.ISta
 		diskCaseInsensitive = true
 	}*/
 
+	// Refresh after GPU sync so container update uses the new bound device ids.
 	srvDetails, err := llm.GetServer(ctx)
 	if err != nil {
 		task.taskFailed(ctx, llm, errors.Wrap(err, "GetServer").Error())
