@@ -1993,10 +1993,14 @@ func (s *SKVMGuestInstance) StartGuest(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
-func (s *SKVMGuestInstance) HandleStop(ctx context.Context, timeout int64, isForce bool) error {
+func (s *SKVMGuestInstance) HandleStop(ctx context.Context, timeout int64, isForce, daemonGuestManualStop bool) error {
 	params := &SGuestStopParams{
 		IsForce: isForce,
 		Timeout: timeout,
+	}
+	if daemonGuestManualStop {
+		s.Desc.Metadata[api.DAEMON_GUEST_MANUAL_STOP] = "true"
+		SaveLiveDesc(s, s.Desc)
 	}
 	hostutils.DelayTaskWithoutReqctx(ctx, s.ExecStopTask, params)
 	return nil
