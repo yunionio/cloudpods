@@ -1175,6 +1175,18 @@ func (self *SGuest) StartResumeTask(ctx context.Context, userCred mcclient.Token
 	return driver.StartResumeTask(ctx, userCred, self, nil, parentTaskId)
 }
 
+func isolatedDeviceRestoreKey(devType, sharingMode, model string) string {
+	return devType + "\x00" + sharingMode + "\x00" + model
+}
+
+func parseIsolatedDeviceRestoreKey(key string) (devType, sharingMode, model string, ok bool) {
+	segs := strings.SplitN(key, "\x00", 3)
+	if len(segs) != 3 {
+		return "", "", "", false
+	}
+	return segs[0], segs[1], segs[2], true
+}
+
 func (self *SGuest) PerformRestoreVirtualIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	config := self.GetMetadataJson(ctx, api.VM_METADATA_VIRTUAL_ISOLATED_DEVICE_CONFIG, userCred)
 	if config == nil {
@@ -1191,15 +1203,12 @@ func (self *SGuest) PerformRestoreVirtualIsolatedDevices(ctx context.Context, us
 	}
 	devCount := map[string]int{}
 	for i := range devConfigs {
-		key := devConfigs[i].DevType + "-" + devConfigs[i].Model
-		if cnt, ok := devCount[key]; ok {
-			devCount[key] = cnt + 1
-		} else {
-			devCount[key] = 1
-		}
+		key := isolatedDeviceRestoreKey(devConfigs[i].DevType, devConfigs[i].SharingMode, devConfigs[i].Model)
+		devCount[key] = devCount[key] + 1
 	}
 	for i := range devs {
-		key := devConfigs[i].DevType + "-" + devConfigs[i].Model
+		isoDev := devs[i].GetIsolatedDevice()
+		key := isolatedDeviceRestoreKey(isoDev.DevType, isoDev.SharingMode, isoDev.Model)
 		if cnt, ok := devCount[key]; ok {
 			devCount[key] = cnt - 1
 		}
@@ -1217,10 +1226,14 @@ func (self *SGuest) PerformRestoreVirtualIsolatedDevices(ctx context.Context, us
 		if cnt <= 0 {
 			continue
 		}
-		segs := strings.SplitN(key, "-", 2)
+		devType, sharingMode, model, ok := parseIsolatedDeviceRestoreKey(key)
+		if !ok {
+			return nil, errors.Errorf("invalid restore key %q", key)
+		}
 		devConfig := &api.IsolatedDeviceConfig{
-			Model:   segs[1],
-			DevType: segs[0],
+			Model:       model,
+			DevType:     devType,
+			SharingMode: sharingMode,
 		}
 		err := IsolatedDeviceManager.attachHostDeviceToGuestByModel(ctx, self, host, devConfig, userCred, usedDeviceMap, nil)
 		if err != nil {
