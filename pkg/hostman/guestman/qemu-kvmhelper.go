@@ -270,6 +270,10 @@ func (s *SKVMGuestInstance) isDisableAutoMergeSnapshots() bool {
 	return s.Desc.Metadata[api.VM_METADATA_DISABLE_AUTO_MERGE_SNAPSHOT] == "true"
 }
 
+func (s *SKVMGuestInstance) isDaemonGuestManualStop() bool {
+	return s.Desc.Metadata[api.DAEMON_GUEST_MANUAL_STOP] == "true"
+}
+
 func (s *SKVMGuestInstance) getMachine() string {
 	machine := s.Desc.Machine
 	if machine == "" {
