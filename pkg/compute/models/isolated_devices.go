@@ -674,9 +674,14 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDevicePath(ctx c
 		return fmt.Errorf("Model or DevicePath is empty: %#v", devConfig)
 	}
 	// if dev type is not nic, wire is empty string
-	devs, err := manager.findHostAvailableByDevAttr(devConfig.Model, "device_path", devConfig.DevicePath, host.Id, devConfig.WireId)
+	devs, err := manager.findHostAvailableByDevAttr(devConfig.Model, "device_path", devConfig.DevicePath, host.Id, devConfig.WireId, devConfig.SharingMode)
 	if err != nil || len(devs) == 0 {
 		return fmt.Errorf("Can't found model %s device_path %s on host %s", devConfig.Model, devConfig.DevicePath, host.Id)
+	}
+	devs = filterDevicesBySharingMode(devs, devConfig.SharingMode)
+	if len(devs) == 0 {
+		return fmt.Errorf("Can't found model %s device_path %s sharing_mode %s on host %s",
+			devConfig.Model, devConfig.DevicePath, devConfig.SharingMode, host.Id)
 	}
 	devs = filterDevicesByMemoryMb(devs, devConfig.MemoryMb)
 	if len(devs) == 0 {
@@ -722,6 +727,19 @@ func filterDevicesByMemoryMb(devs []SIsolatedDevice, minMemMb int) []SIsolatedDe
 	return out
 }
 
+func filterDevicesBySharingMode(devs []SIsolatedDevice, sharingMode string) []SIsolatedDevice {
+	if sharingMode == "" {
+		return devs
+	}
+	out := make([]SIsolatedDevice, 0, len(devs))
+	for _, d := range devs {
+		if d.SharingMode == sharingMode {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 type GroupDevs struct {
 	DevPath string
 	Devs    []SIsolatedDevice
@@ -760,7 +778,7 @@ type SNodeIsolateDevicesInfo struct {
 func (manager *SIsolatedDeviceManager) getDevNodesUsedRate(
 	ctx context.Context, host *SHost, devConfig *api.IsolatedDeviceConfig, topo *hostapi.HostTopology,
 ) (map[string]SNodeIsolateDevicesInfo, error) {
-	devs, err := manager.findHostDevsByDevConfig(devConfig.Model, devConfig.DevType, host.Id, devConfig.WireId)
+	devs, err := manager.findHostDevsByDevConfig(devConfig.Model, devConfig.DevType, host.Id, devConfig.WireId, devConfig.SharingMode)
 	if err != nil || len(devs) == 0 {
 		return nil, fmt.Errorf("Can't found model %s on host %s", devConfig.Model, host.Id)
 	}
@@ -875,9 +893,14 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(
 		return fmt.Errorf("Not found model from info: %#v", devConfig)
 	}
 	// if dev type is not nic, wire is empty string
-	devs, err := manager.findHostAvailableByDevConfig(devConfig.Model, devConfig.DevType, host.Id, devConfig.WireId)
+	devs, err := manager.findHostAvailableByDevConfig(devConfig.Model, devConfig.DevType, host.Id, devConfig.WireId, devConfig.SharingMode)
 	if err != nil || len(devs) == 0 {
 		return fmt.Errorf("Can't found model %s on host %s", devConfig.Model, host.Id)
+	}
+	devs = filterDevicesBySharingMode(devs, devConfig.SharingMode)
+	if len(devs) == 0 {
+		return fmt.Errorf("Can't found model %s sharing_mode %s on host %s",
+			devConfig.Model, devConfig.SharingMode, host.Id)
 	}
 	// Honour the request's VRAM floor. Predicate already verified enough
 	// fitting devices exist on the host; here we make sure attach picks one
@@ -1138,19 +1161,22 @@ func (manager *SIsolatedDeviceManager) FindAvailableGpusOnHost(hostId string) ([
 	return devs, nil
 }
 
-func (manager *SIsolatedDeviceManager) findHostAvailableByDevConfig(model, devType, hostId, wireId string) ([]SIsolatedDevice, error) {
-	return manager.findHostAvailableByDevAttr(model, "dev_type", devType, hostId, wireId)
+func (manager *SIsolatedDeviceManager) findHostAvailableByDevConfig(model, devType, hostId, wireId, sharingMode string) ([]SIsolatedDevice, error) {
+	return manager.findHostAvailableByDevAttr(model, "dev_type", devType, hostId, wireId, sharingMode)
 }
 
-func (manager *SIsolatedDeviceManager) findHostDevsByDevConfig(model, devType, hostId, wireId string) ([]SIsolatedDevice, error) {
-	return manager.findHostDevsByDevAttr(model, "dev_type", devType, hostId, wireId)
+func (manager *SIsolatedDeviceManager) findHostDevsByDevConfig(model, devType, hostId, wireId, sharingMode string) ([]SIsolatedDevice, error) {
+	return manager.findHostDevsByDevAttr(model, "dev_type", devType, hostId, wireId, sharingMode)
 }
-func (manager *SIsolatedDeviceManager) findHostDevsByDevAttr(model, attrKey, attrVal, hostId, wireId string) ([]SIsolatedDevice, error) {
+func (manager *SIsolatedDeviceManager) findHostDevsByDevAttr(model, attrKey, attrVal, hostId, wireId, sharingMode string) ([]SIsolatedDevice, error) {
 	devs := make([]SIsolatedDevice, 0)
 	q := manager.Query()
 	q = q.Equals("model", model).Equals("host_id", hostId)
 	if attrVal != "" {
-		q.Equals(attrKey, attrVal)
+		q = q.Equals(attrKey, attrVal)
+	}
+	if sharingMode != "" {
+		q = q.Equals("sharing_mode", sharingMode)
 	}
 	if wireId != "" {
 		wire := WireManager.FetchWireById(wireId)
@@ -1165,12 +1191,15 @@ func (manager *SIsolatedDeviceManager) findHostDevsByDevAttr(model, attrKey, att
 	return devs, nil
 }
 
-func (manager *SIsolatedDeviceManager) findHostAvailableByDevAttr(model, attrKey, attrVal, hostId, wireId string) ([]SIsolatedDevice, error) {
+func (manager *SIsolatedDeviceManager) findHostAvailableByDevAttr(model, attrKey, attrVal, hostId, wireId, sharingMode string) ([]SIsolatedDevice, error) {
 	devs := make([]SIsolatedDevice, 0)
 	q := manager.GetAvailableIsolatedDeviceQuery(nil)
 	q = q.Equals("model", model).Equals("host_id", hostId)
 	if attrVal != "" {
-		q.Equals(attrKey, attrVal)
+		q = q.Equals(attrKey, attrVal)
+	}
+	if sharingMode != "" {
+		q = q.Equals("sharing_mode", sharingMode)
 	}
 	if wireId != "" {
 		wire := WireManager.FetchWireById(wireId)
