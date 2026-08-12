@@ -99,36 +99,182 @@ func getEffectiveDevices(llmBase *SLLMBase, skuBase *SLLMSkuBase) *api.Devices {
 }
 
 // SyncDetachIsolatedDevicesIfEmpty detaches all guest isolated devices when
-// effective devices (llm override or sku) are empty. Used on restart so stale
-// GPU bindings do not survive after SKU devices are cleared.
+// effective devices (llm override or sku) are empty. Kept for callers that only
+// need the empty-SKU path; full sync (including sharing_mode changes) uses
+// SyncIsolatedDevicesWithSku.
 func (llm *SLLM) SyncDetachIsolatedDevicesIfEmpty(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku) error {
-	eff := GetEffectiveDevices(llm, sku)
-	if eff != nil && !eff.IsZero() {
-		return nil
+	return llm.SyncIsolatedDevicesWithSku(ctx, userCred, sku)
+}
+
+type isolatedDeviceBindKey struct {
+	Model       string
+	SharingMode string
+}
+
+// isolatedDevicesNeedSync reports whether bound guest devices differ from
+// desired SKU configs in count, model, or sharing_mode.
+func isolatedDevicesNeedSync(desired []*computeapi.IsolatedDeviceConfig, bound []computeapi.SIsolatedDevice) bool {
+	if len(desired) != len(bound) {
+		return true
+	}
+	want := map[isolatedDeviceBindKey]int{}
+	for _, d := range desired {
+		if d == nil {
+			continue
+		}
+		want[isolatedDeviceBindKey{Model: d.Model, SharingMode: d.SharingMode}]++
+	}
+	for i := range bound {
+		k := isolatedDeviceBindKey{Model: bound[i].Model, SharingMode: bound[i].SharingMode}
+		if want[k] == 0 {
+			return true
+		}
+		want[k]--
+	}
+	return false
+}
+
+type isolatedDeviceAttachGroup struct {
+	Model         string
+	SharingMode   string
+	MemoryRequest int
+	Count         int
+}
+
+func groupIsolatedDeviceAttachConfigs(desired []*computeapi.IsolatedDeviceConfig) []isolatedDeviceAttachGroup {
+	type key struct {
+		Model         string
+		SharingMode   string
+		MemoryRequest int
+	}
+	order := make([]key, 0)
+	counts := map[key]int{}
+	for _, d := range desired {
+		if d == nil {
+			continue
+		}
+		k := key{Model: d.Model, SharingMode: d.SharingMode, MemoryRequest: d.MemoryRequest}
+		if _, ok := counts[k]; !ok {
+			order = append(order, k)
+		}
+		counts[k]++
+	}
+	out := make([]isolatedDeviceAttachGroup, 0, len(order))
+	for _, k := range order {
+		out = append(out, isolatedDeviceAttachGroup{
+			Model:         k.Model,
+			SharingMode:   k.SharingMode,
+			MemoryRequest: k.MemoryRequest,
+			Count:         counts[k],
+		})
+	}
+	return out
+}
+
+// SyncIsolatedDevicesWithSku reconciles guest isolated devices with SKU/LLM
+// effective devices on restart: detach-all when desired differs from bound,
+// then attach by model/sharing_mode/memory_request.
+func (llm *SLLM) SyncIsolatedDevicesWithSku(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku) error {
+	vramClaimMb := 0
+	if sku != nil {
+		vramClaimMb = sku.EstimateVramClaimMb()
+	}
+	desired, err := BuildIsolatedDeviceConfigs(GetEffectiveDevices(llm, sku), vramClaimMb)
+	if err != nil {
+		return errors.Wrap(err, "BuildIsolatedDeviceConfigs")
 	}
 	server, err := llm.GetServer(ctx)
 	if err != nil {
 		return errors.Wrap(err, "GetServer")
 	}
-	if len(server.IsolatedDevices) == 0 {
+	if !isolatedDevicesNeedSync(desired, server.IsolatedDevices) {
+		return nil
+	}
+	if len(server.IsolatedDevices) > 0 {
+		if err := llm.detachAllIsolatedDevices(ctx, userCred); err != nil {
+			return errors.Wrap(err, "detachAllIsolatedDevices")
+		}
+	}
+	if len(desired) == 0 {
 		return nil
 	}
 	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	for _, group := range groupIsolatedDeviceAttachConfigs(desired) {
+		if err := llm.waitServerReadyForIsolatedDeviceAction(ctx, userCred); err != nil {
+			return errors.Wrap(err, "wait ready before attach-isolated-device")
+		}
+		count := group.Count
+		input := &computeapi.ServerAttachIsolatedDeviceInput{
+			Model: group.Model,
+			ServerAttachIsolatedDeviceBase: computeapi.ServerAttachIsolatedDeviceBase{
+				SharingMode: group.SharingMode,
+				Count:       &count,
+				AutoStart:   false,
+			},
+		}
+		if group.SharingMode == computeapi.DEVICE_SHARING_MODE_HAMI {
+			if group.MemoryRequest <= 0 {
+				return errors.Wrap(httperrors.ErrInputParameter, "HAMI attach requires memory_request > 0")
+			}
+			memReq := group.MemoryRequest
+			input.MemoryRequest = &memReq
+		}
+		_, err := compute.Servers.PerformAction(s, llm.CmpId, "attach-isolated-device", jsonutils.Marshal(input))
+		if err != nil {
+			return errors.Wrapf(err, "attach-isolated-device model=%s sharing_mode=%s count=%d",
+				group.Model, group.SharingMode, group.Count)
+		}
+		// Wait through sync_config (if any) back to ready before next attach / final check.
+		if _, err := llm.waitAfterIsolatedDeviceAction(ctx, userCred, nil); err != nil {
+			return errors.Wrap(err, "waitAfterIsolatedDeviceAction after attach-isolated-device")
+		}
+	}
+	server, err = llm.waitAfterIsolatedDeviceAction(ctx, userCred, func(srv *computeapi.ServerDetails) bool {
+		return !isolatedDevicesNeedSync(desired, srv.IsolatedDevices)
+	})
+	if err != nil {
+		return errors.Wrap(err, "waitAfterIsolatedDeviceAction for desired devices")
+	}
+	if isolatedDevicesNeedSync(desired, server.IsolatedDevices) {
+		return errors.Wrapf(errors.ErrInvalidStatus,
+			"isolated devices mismatch after sync: desired=%s bound=%s",
+			formatIsolatedDeviceBindKeys(desired), formatBoundIsolatedDeviceBindKeys(server.IsolatedDevices))
+	}
+	return nil
+}
+
+func formatIsolatedDeviceBindKeys(desired []*computeapi.IsolatedDeviceConfig) string {
+	parts := make([]string, 0, len(desired))
+	for _, d := range desired {
+		if d == nil {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s/%s", d.Model, d.SharingMode))
+	}
+	return fmt.Sprintf("%v", parts)
+}
+
+func formatBoundIsolatedDeviceBindKeys(bound []computeapi.SIsolatedDevice) string {
+	parts := make([]string, 0, len(bound))
+	for i := range bound {
+		parts = append(parts, fmt.Sprintf("%s/%s", bound[i].Model, bound[i].SharingMode))
+	}
+	return fmt.Sprintf("%v", parts)
+}
+
+func (llm *SLLM) detachAllIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential) error {
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
 	params := jsonutils.NewDict()
 	params.Set("detach_all", jsonutils.JSONTrue)
-	_, err = compute.Servers.PerformAction(s, llm.CmpId, "detach-isolated-device", params)
+	_, err := compute.Servers.PerformAction(s, llm.CmpId, "detach-isolated-device", params)
 	if err != nil {
 		return errors.Wrap(err, "detach-isolated-device")
 	}
-	// detach-isolated-device schedules GuestIsolatedDeviceSyncTask asynchronously;
-	// status stays ready briefly then becomes sync_config. Waiting for ready
-	// immediately races and lets start run while still syncing.
-	if err := llm.waitServerLeaveReadyStatus(ctx, 120); err != nil {
-		return errors.Wrap(err, "waitServerLeaveReadyStatus after detach-isolated-device")
-	}
-	server, err = llm.WaitServerStatus(ctx, userCred, []string{computeapi.VM_READY}, 1800)
+	server, err := llm.waitAfterIsolatedDeviceAction(ctx, userCred, func(srv *computeapi.ServerDetails) bool {
+		return len(srv.IsolatedDevices) == 0
+	})
 	if err != nil {
-		return errors.Wrap(err, "WaitServerStatus after detach-isolated-device")
+		return errors.Wrap(err, "waitAfterIsolatedDeviceAction after detach-isolated-device")
 	}
 	if len(server.IsolatedDevices) > 0 {
 		return errors.Wrapf(errors.ErrInvalidStatus, "isolated devices still present after detach: %d", len(server.IsolatedDevices))
@@ -136,24 +282,107 @@ func (llm *SLLM) SyncDetachIsolatedDevicesIfEmpty(ctx context.Context, userCred 
 	return nil
 }
 
-// waitServerLeaveReadyStatus polls until guest status is no longer ready
-// (e.g. sync_config), or until timeoutSecs elapses while still ready.
-func (llm *SLLM) waitServerLeaveReadyStatus(ctx context.Context, timeoutSecs int) error {
-	expire := time.Now().Add(time.Second * time.Duration(timeoutSecs))
-	for time.Now().Before(expire) {
-		server, err := llm.GetServer(ctx)
+const (
+	// isolatedDeviceLeaveReadyProbeSecs: KVM sync briefly leaves ready; POD often
+	// never does. Keep the probe short so POD restart is not stuck for minutes.
+	isolatedDeviceLeaveReadyProbeSecs = 5
+	// isolatedDeviceSettleTimeoutSecs: max wait for bound devices to match after
+	// status is back to ready.
+	isolatedDeviceSettleTimeoutSecs = 60
+)
+
+func (llm *SLLM) waitServerReadyForIsolatedDeviceAction(ctx context.Context, userCred mcclient.TokenCredential) error {
+	server, err := llm.GetServer(ctx)
+	if err != nil {
+		return errors.Wrap(err, "GetServer")
+	}
+	if server.Status == computeapi.VM_READY {
+		return nil
+	}
+	if strings.Contains(server.Status, "fail") {
+		return errors.Wrapf(errors.ErrInvalidStatus, "server status %s", server.Status)
+	}
+	if _, err := llm.WaitServerStatus(ctx, userCred, []string{computeapi.VM_READY}, 1800); err != nil {
+		return errors.Wrap(err, "WaitServerStatus ready")
+	}
+	return nil
+}
+
+// waitAfterIsolatedDeviceAction waits for GuestIsolatedDeviceSyncTask to finish.
+// It first probes for a leave-ready transition (sync_config) without treating
+// "devices already match" as done — DB updates can land before status flips,
+// and attaching while still sync_config fails. After back to ready, optionally
+// wait until settled().
+func (llm *SLLM) waitAfterIsolatedDeviceAction(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	settled func(*computeapi.ServerDetails) bool,
+) (*computeapi.ServerDetails, error) {
+	// Do not pass settled into the leave-ready probe: empty/desired bindings may
+	// appear while status is still about to become sync_config.
+	leftReady, server, err := llm.probeServerLeaveReadyStatus(ctx, isolatedDeviceLeaveReadyProbeSecs)
+	if err != nil {
+		return nil, err
+	}
+	if leftReady || (server != nil && server.Status != computeapi.VM_READY) {
+		server, err = llm.WaitServerStatus(ctx, userCred, []string{computeapi.VM_READY}, 1800)
 		if err != nil {
-			return errors.Wrap(err, "GetServer")
+			return nil, errors.Wrap(err, "WaitServerStatus after isolated-device action")
+		}
+	}
+	if settled == nil {
+		return server, nil
+	}
+	if settled(server) {
+		return server, nil
+	}
+	expire := time.Now().Add(time.Second * time.Duration(isolatedDeviceSettleTimeoutSecs))
+	for time.Now().Before(expire) {
+		server, err = llm.GetServer(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetServer")
 		}
 		if server.Status != computeapi.VM_READY {
 			if strings.Contains(server.Status, "fail") {
-				return errors.Wrapf(errors.ErrInvalidStatus, "server status %s", server.Status)
+				return nil, errors.Wrapf(errors.ErrInvalidStatus, "server status %s", server.Status)
 			}
-			return nil
+			server, err = llm.WaitServerStatus(ctx, userCred, []string{computeapi.VM_READY}, 1800)
+			if err != nil {
+				return nil, errors.Wrap(err, "WaitServerStatus after late leave-ready")
+			}
+			continue
 		}
-		time.Sleep(time.Second)
+		if settled(server) {
+			return server, nil
+		}
+		time.Sleep(500 * time.Millisecond)
 	}
-	return nil
+	return server, nil
+}
+
+// probeServerLeaveReadyStatus polls until status leaves ready or timeout.
+// Returns leftReady=true when status left ready.
+func (llm *SLLM) probeServerLeaveReadyStatus(
+	ctx context.Context,
+	timeoutSecs int,
+) (leftReady bool, server *computeapi.ServerDetails, err error) {
+	expire := time.Now().Add(time.Second * time.Duration(timeoutSecs))
+	for {
+		server, err = llm.GetServer(ctx)
+		if err != nil {
+			return false, nil, errors.Wrap(err, "GetServer")
+		}
+		if server.Status != computeapi.VM_READY {
+			if strings.Contains(server.Status, "fail") {
+				return false, nil, errors.Wrapf(errors.ErrInvalidStatus, "server status %s", server.Status)
+			}
+			return true, server, nil
+		}
+		if !time.Now().Before(expire) {
+			return false, server, nil
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
 }
 
 // HasHygonDevices reports whether effective devices include Hygon DCU (exclusive or HAMI).
