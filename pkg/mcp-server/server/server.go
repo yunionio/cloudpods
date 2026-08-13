@@ -204,6 +204,13 @@ func (s *CloudpodsMCPServer) Start() error {
 		server.WithKeepAlive(true),
 		server.WithKeepAliveInterval(15*time.Second),
 	)
+	// PicoClaw 把 url=/sse 当成 Streamable HTTP（POST JSON-RPC、DELETE 结束会话）。
+	// Cursor 等旧客户端仍是 GET /sse + POST /message。按 method 分流，避免 POST /sse 405。
+	streamable := server.NewStreamableHTTPServer(
+		s.mcpServer,
+		server.WithHTTPContextFunc(contextFunc),
+		server.WithHeartbeatInterval(15*time.Second),
+	)
 	mux.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request) {
 		appsrv.VersionHandler(context.Background(), w, r)
 	})
@@ -219,7 +226,21 @@ func (s *CloudpodsMCPServer) Start() error {
 	mux.HandleFunc("/process_stats", func(w http.ResponseWriter, r *http.Request) {
 		appsrv.ProcessStatsHandler(context.Background(), w, r)
 	})
-	mux.Handle(sseServer.CompleteSsePath(), sseServer.SSEHandler())
+	sseHandler := sseServer.SSEHandler()
+	mux.Handle(sseServer.CompleteSsePath(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost, http.MethodDelete:
+			streamable.ServeHTTP(w, r)
+		case http.MethodGet:
+			if r.Header.Get("Mcp-Session-Id") != "" {
+				streamable.ServeHTTP(w, r)
+				return
+			}
+			sseHandler.ServeHTTP(w, r)
+		default:
+			sseHandler.ServeHTTP(w, r)
+		}
+	}))
 	mux.Handle(sseServer.CompleteMessagePath(), sseServer.MessageHandler())
 
 	addr := fmt.Sprintf("%s:%d", options.Options.Address, options.Options.Port)
