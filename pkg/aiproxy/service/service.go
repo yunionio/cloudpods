@@ -106,6 +106,10 @@ func StartService() {
 	}
 
 	app_common.ServeForeverWithCleanup(app, baseOpts, func() {
+		stopUpload()
+		if err := chatlog.Flush(); err != nil {
+			log.Errorf("flush aiproxy chat log: %v", err)
+		}
 		cloudcommon.CloseDB()
 	})
 }

@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -33,7 +34,8 @@ import (
 
 // SAiProvider stores an LLM provider catalog entry (routing key and OpenAI-compatible config).
 type SAiProvider struct {
-	db.SEnabledStatusStandaloneResourceBase
+	db.SVirtualResourceBase
+	db.SEnabledResourceBase
 
 	// ProviderKey selects the upstream adapter implementation (e.g. openai, vllm, aliyun).
 	// Multiple ai_provider rows may share the same provider_key with different config.
@@ -46,14 +48,15 @@ type SAiProvider struct {
 }
 
 type SAiProviderManager struct {
-	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SVirtualResourceBaseManager
+	db.SEnabledResourceBaseManager
 }
 
 var AiProviderManager *SAiProviderManager
 
 func init() {
 	AiProviderManager = &SAiProviderManager{
-		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SAiProvider{},
 			"ai_providers_tbl",
 			"ai_provider",
@@ -64,7 +67,7 @@ func init() {
 }
 
 func (manager *SAiProviderManager) InitializeData() error {
-	return nil
+	return backfillEmptyTenantId(manager)
 }
 
 func (manager *SAiProviderManager) ListItemFilter(
@@ -73,9 +76,13 @@ func (manager *SAiProviderManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.AiProviderListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
 	}
 	if key := strings.TrimSpace(query.ProviderKey); key != "" {
 		q = q.Equals("provider_key", key)
@@ -89,6 +96,37 @@ func (manager *SAiProviderManager) ListItemFilter(
 	return q, nil
 }
 
+func (manager *SAiProviderManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.AiProviderListInput,
+) (*sqlchemy.SQuery, error) {
+	return manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+}
+
+func (manager *SAiProviderManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (p *SAiProvider) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
+	if err := db.EnabledPerformEnable(p, ctx, userCred, true); err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
+}
+
+func (p *SAiProvider) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
+	if err := db.EnabledPerformEnable(p, ctx, userCred, false); err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
+}
+
 func (manager *SAiProviderManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -98,9 +136,9 @@ func (manager *SAiProviderManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.AiProviderDetails {
 	rows := make([]api.AiProviderDetails, len(objs))
-	baseRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	baseRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range objs {
-		rows[i].EnabledStatusStandaloneResourceDetails = baseRows[i]
+		rows[i].VirtualResourceDetails = baseRows[i]
 		prov := objs[i].(*SAiProvider)
 		rows[i].LlmDeploymentId = prov.LlmDeploymentId
 		rows[i].LlmId = prov.LlmId
@@ -116,9 +154,9 @@ func (manager *SAiProviderManager) ValidateCreateData(
 	input api.AiProviderCreateInput,
 ) (api.AiProviderCreateInput, error) {
 	var err error
-	input.EnabledStatusStandaloneResourceCreateInput, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
+	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
-		return input, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData")
+		return input, errors.Wrap(err, "SVirtualResourceBaseManager.ValidateCreateData")
 	}
 
 	pk, err := validateAiCatalogIdentifier("provider_key", input.ProviderKey, maxAiProviderKeyLen)
@@ -184,7 +222,7 @@ func (p *SAiProvider) CustomizeCreate(
 	if err := rejectProviderConfigAPIKeyInJSON(data); err != nil {
 		return err
 	}
-	return p.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return p.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (p *SAiProvider) PostCreate(
@@ -194,7 +232,7 @@ func (p *SAiProvider) PostCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) {
-	p.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	p.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	input := api.AiProviderCreateInput{}
 	if err := data.Unmarshal(&input); err != nil {
@@ -255,9 +293,9 @@ func (p *SAiProvider) ValidateUpdateData(
 	input *api.AiProviderUpdateInput,
 ) (*api.AiProviderUpdateInput, error) {
 	var err error
-	input.EnabledStatusStandaloneResourceBaseUpdateInput, err = p.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusStandaloneResourceBaseUpdateInput)
+	input.VirtualResourceBaseUpdateInput, err = p.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
 	if err != nil {
-		return input, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.ValidateUpdateData")
+		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
 	}
 
 	if pk := strings.TrimSpace(input.ProviderKey); pk != "" {
@@ -366,7 +404,7 @@ func (p *SAiProvider) ValidateDeleteCondition(ctx context.Context, info jsonutil
 		}
 		return errors.NewAggregate(errs)
 	}
-	return p.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, info)
+	return p.SVirtualResourceBase.ValidateDeleteCondition(ctx, info)
 }
 
 func (p *SAiProvider) CustomizeDelete(
