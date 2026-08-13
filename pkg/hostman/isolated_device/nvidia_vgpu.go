@@ -232,7 +232,7 @@ func (dev *sNVIDIAVgpuDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolated
 	var masterDevOpt *HotPlugOption
 	for i := 0; i < len(isolatedDev.VfioDevs); i++ {
 		sysfsdev := path.Join("/sys/bus/mdev/devices", isolatedDev.MdevId)
-		opts := map[string]string{
+		opts := map[string]interface{}{
 			"sysfsdev": sysfsdev,
 			"bus":      isolatedDev.VfioDevs[i].BusStr(),
 			"addr":     isolatedDev.VfioDevs[i].SlotFunc(),
@@ -240,9 +240,9 @@ func (dev *sNVIDIAVgpuDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolated
 		}
 		if isolatedDev.VfioDevs[i].Multi != nil {
 			if *isolatedDev.VfioDevs[i].Multi {
-				opts["multifunction"] = "on"
+				opts["multifunction"] = true
 			} else {
-				opts["multifunction"] = "off"
+				opts["multifunction"] = false
 			}
 		}
 
