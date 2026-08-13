@@ -76,6 +76,10 @@ func (manager *SAiProxyNodeManager) ResourceScope() rbacscope.TRbacScope {
 	return rbacscope.ScopeUser
 }
 
+func (node *SAiProxyNode) GetOwnerId() mcclient.IIdentityProvider {
+	return &db.SOwnerId{}
+}
+
 func (manager *SAiProxyNodeManager) InitializeData() error {
 	ctx := context.Background()
 	addr, err := AdvertiseAddressFromOptions(nil)
@@ -320,6 +324,13 @@ func (node *SAiProxyNode) ValidateUpdateData(
 		return input, errors.Wrap(httperrors.ErrInputParameter, "hb_timeout must be >= 0")
 	}
 	return input, nil
+}
+
+func (node *SAiProxyNode) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	if node.Id == defaultPrimaryAiProxyNodeId {
+		return httperrors.NewForbiddenError("cannot delete primary ai_proxy_node")
+	}
+	return node.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx, info)
 }
 
 func (node *SAiProxyNode) IsActive() bool {

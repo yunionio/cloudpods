@@ -27,7 +27,7 @@ type SAiProxyOptions struct {
 
 	APILogEnabled               bool   `help:"Enable OpenAI API request JSONL logs" default:"true"`
 	APILogLocalDir              string `help:"Local directory for API JSONL logs" default:"/tmp/aiproxy-apilog"`
-	APILogUploadEnabled         bool   `help:"Upload closed API log hour files to S3" default:"true"`
+	APILogUploadEnabled         bool   `help:"Upload API logs to S3" default:"true"`
 	APILogUploadIntervalSeconds int    `help:"API log upload interval in seconds" default:"10"`
 	APILogSegmentMinutes        int    `help:"API log file segment duration in minutes" default:"60"`
 	APILogS3Endpoint            string `help:"S3 endpoint for API log upload" default:"http://monitor-minio.onecloud-monitoring.svc:9000"`

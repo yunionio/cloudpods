@@ -35,10 +35,11 @@ func NewCompletionsCompat(patches ...PatchFunc) *CompletionsCompat {
 
 func (p *CompletionsCompat) buildBody(body *jsonutils.JSONDict, upstreamModel string, stream bool) *jsonutils.JSONDict {
 	dup := CloneBodyWithModel(body, upstreamModel)
-	if len(p.Patches) == 0 {
-		return dup
+	if len(p.Patches) > 0 {
+		dup = PatchBody(dup, stream, p.Patches...)
 	}
-	return PatchBody(dup, stream, p.Patches...)
+	EnsureStreamIncludeUsage(dup, stream)
+	return dup
 }
 
 func (p *CompletionsCompat) BuildCompletionsRequest(ctx *providerapi.ChatContext, body *jsonutils.JSONDict, stream bool) (*providerapi.HTTPRequest, error) {

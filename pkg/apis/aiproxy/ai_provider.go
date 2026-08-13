@@ -126,7 +126,8 @@ func (c *SAiProviderConfig) IsZero() bool {
 }
 
 type AiProviderListInput struct {
-	apis.EnabledStatusStandaloneResourceListInput
+	apis.VirtualResourceListInput
+	apis.EnabledResourceBaseListInput
 
 	ProviderKey     string `json:"provider_key"`
 	LlmDeploymentId string `json:"llm_deployment_id"`
@@ -134,7 +135,8 @@ type AiProviderListInput struct {
 }
 
 type AiProviderCreateInput struct {
-	apis.EnabledStatusStandaloneResourceCreateInput
+	apis.VirtualResourceCreateInput
+	apis.EnabledBaseResourceCreateInput
 
 	ProviderKey     string             `json:"provider_key"`
 	Config          *SAiProviderConfig `json:"config"`
@@ -145,7 +147,7 @@ type AiProviderCreateInput struct {
 }
 
 type AiProviderUpdateInput struct {
-	apis.EnabledStatusStandaloneResourceBaseUpdateInput
+	apis.VirtualResourceBaseUpdateInput
 
 	ProviderKey     string             `json:"provider_key"`
 	Config          *SAiProviderConfig `json:"config"`
@@ -155,7 +157,7 @@ type AiProviderUpdateInput struct {
 }
 
 type AiProviderDetails struct {
-	apis.EnabledStatusStandaloneResourceDetails
+	apis.VirtualResourceDetails
 
 	ProviderKey     string             `json:"provider_key"`
 	Config          *SAiProviderConfig `json:"config"`

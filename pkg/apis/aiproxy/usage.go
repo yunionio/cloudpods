@@ -17,14 +17,16 @@ package aiproxy
 import "time"
 
 type UsageOverview struct {
-	Usage         UsageOverviewUsage   `json:"usage"`
-	Summary       UsageOverviewSummary `json:"summary"`
-	Series        []UsageOverviewPoint `json:"series"`
-	ServiceHealth []UsageServiceHealth `json:"service_health"`
-	Timezone      string               `json:"timezone"`
-	RangeStart    time.Time            `json:"range_start"`
-	RangeEnd      time.Time            `json:"range_end"`
-	Truncated     bool                 `json:"truncated,omitempty"`
+	Usage             UsageOverviewUsage   `json:"usage"`
+	Summary           UsageOverviewSummary `json:"summary"`
+	Series            []UsageOverviewPoint `json:"series"`
+	ServiceHealth     []UsageServiceHealth `json:"service_health"`
+	APIKeyComposition []UsageComposition   `json:"api_key_composition"`
+	AIKeyComposition  []UsageComposition   `json:"ai_key_composition"`
+	Timezone          string               `json:"timezone"`
+	RangeStart        time.Time            `json:"range_start"`
+	RangeEnd          time.Time            `json:"range_end"`
+	Truncated         bool                 `json:"truncated,omitempty"`
 }
 
 type UsageOverviewUsage struct {
@@ -65,6 +67,7 @@ type UsageOverviewPoint struct {
 
 type UsageServiceHealth struct {
 	Provider       string  `json:"provider"`
+	ProviderName   string  `json:"provider_name,omitempty"`
 	Model          string  `json:"model"`
 	RequestCount   int     `json:"request_count"`
 	SuccessCount   int     `json:"success_count"`
@@ -161,6 +164,7 @@ type UsageEvent struct {
 	Endpoint       string      `json:"endpoint"`
 	Source         string      `json:"source"`
 	Provider       string      `json:"provider"`
+	ProviderName   string      `json:"provider_name,omitempty"`
 	AuthIndex      string      `json:"auth_index"`
 	AuthIndexName  string      `json:"auth_index_name,omitempty"`
 	AuthIndexLabel string      `json:"auth_index_label,omitempty"`
