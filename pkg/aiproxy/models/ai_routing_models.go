@@ -42,7 +42,7 @@ import (
 
 // SAiRoutingModel binds a catalog model (and provider) to an ai_routing with per-entry priority.
 type SAiRoutingModel struct {
-	db.SStandaloneResourceBase
+	db.SVirtualResourceBase
 
 	AiRoutingId  string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user" index:"true"`
 	AiProviderId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
@@ -55,14 +55,14 @@ type SAiRoutingModel struct {
 }
 
 type SAiRoutingModelManager struct {
-	db.SStandaloneResourceBaseManager
+	db.SVirtualResourceBaseManager
 }
 
 var AiRoutingModelManager *SAiRoutingModelManager
 
 func init() {
 	AiRoutingModelManager = &SAiRoutingModelManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SAiRoutingModel{},
 			"ai_routing_models_tbl",
 			"ai_routing_model",
@@ -72,15 +72,19 @@ func init() {
 	AiRoutingModelManager.SetVirtualObject(AiRoutingModelManager)
 }
 
+func (manager *SAiRoutingModelManager) InitializeData() error {
+	return backfillEmptyTenantId(manager)
+}
+
 func (manager *SAiRoutingModelManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
 	query api.AiRoutingModelListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 	if id := strings.TrimSpace(query.AiRoutingId); id != "" {
 		q = q.Equals("ai_routing_id", id)
@@ -97,6 +101,23 @@ func (manager *SAiRoutingModelManager) ListItemFilter(
 	return q, nil
 }
 
+func (manager *SAiRoutingModelManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.AiRoutingModelListInput,
+) (*sqlchemy.SQuery, error) {
+	return manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+}
+
+func (manager *SAiRoutingModelManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SAiRoutingModelManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -106,9 +127,9 @@ func (manager *SAiRoutingModelManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.AiRoutingModelDetails {
 	rows := make([]api.AiRoutingModelDetails, len(objs))
-	baseRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	baseRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range objs {
-		rows[i].StandaloneResourceDetails = baseRows[i]
+		rows[i].VirtualResourceDetails = baseRows[i]
 		rm := objs[i].(*SAiRoutingModel)
 		rows[i].Id = rm.Id
 		rows[i].Name = rm.Name
@@ -130,9 +151,9 @@ func (manager *SAiRoutingModelManager) ValidateCreateData(
 	input api.AiRoutingModelCreateInput,
 ) (api.AiRoutingModelCreateInput, error) {
 	var err error
-	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
+	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
-		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
+		return input, errors.Wrap(err, "SVirtualResourceBaseManager.ValidateCreateData")
 	}
 
 	routingId := strings.TrimSpace(input.AiRoutingId)

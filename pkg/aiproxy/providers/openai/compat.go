@@ -44,10 +44,12 @@ func (p *Compat) Key() string {
 }
 
 func (p *Compat) buildBody(body *jsonutils.JSONDict, upstreamModel string, stream bool) *jsonutils.JSONDict {
-	if len(p.Patches) == 0 {
-		return CloneBodyWithModel(body, upstreamModel)
+	dup := CloneBodyWithModel(body, upstreamModel)
+	if len(p.Patches) > 0 {
+		dup = PatchBody(dup, stream, p.Patches...)
 	}
-	return PatchBody(CloneBodyWithModel(body, upstreamModel), stream, p.Patches...)
+	EnsureStreamIncludeUsage(dup, stream)
+	return dup
 }
 
 func (p *Compat) BuildUpstreamRequest(ctx *providerapi.ChatContext, body *jsonutils.JSONDict, stream bool) (*providerapi.HTTPRequest, error) {

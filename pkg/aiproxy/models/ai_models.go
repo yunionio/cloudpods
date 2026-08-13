@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -32,7 +33,8 @@ import (
 
 // SAiModel stores a model catalog row associated with an SAiProvider.
 type SAiModel struct {
-	db.SEnabledStatusStandaloneResourceBase
+	db.SVirtualResourceBase
+	db.SEnabledResourceBase
 
 	AiProviderId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	// ModelKey is the model id sent to the upstream API (e.g. gpt-4o-mini, qwen-turbo).
@@ -54,14 +56,15 @@ func (m *SAiModel) VisualActive() bool {
 }
 
 type SAiModelManager struct {
-	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SVirtualResourceBaseManager
+	db.SEnabledResourceBaseManager
 }
 
 var AiModelManager *SAiModelManager
 
 func init() {
 	AiModelManager = &SAiModelManager{
-		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SAiModel{},
 			"ai_models_tbl",
 			"ai_model",
@@ -71,15 +74,23 @@ func init() {
 	AiModelManager.SetVirtualObject(AiModelManager)
 }
 
+func (manager *SAiModelManager) InitializeData() error {
+	return backfillEmptyTenantId(manager)
+}
+
 func (manager *SAiModelManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
 	query api.AiModelListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
 	}
 	if id := strings.TrimSpace(query.AiProviderId); id != "" {
 		q = q.Equals("ai_provider_id", id)
@@ -103,6 +114,37 @@ func (manager *SAiModelManager) ListItemFilter(
 		}
 	}
 	return q, nil
+}
+
+func (manager *SAiModelManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.AiModelListInput,
+) (*sqlchemy.SQuery, error) {
+	return manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+}
+
+func (manager *SAiModelManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (m *SAiModel) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
+	if err := db.EnabledPerformEnable(m, ctx, userCred, true); err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
+}
+
+func (m *SAiModel) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
+	if err := db.EnabledPerformEnable(m, ctx, userCred, false); err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
 }
 
 func resolveAiRoutingIdForListFilter(ctx context.Context, userCred mcclient.TokenCredential, idOrName string) (string, error) {
@@ -139,11 +181,11 @@ func (manager *SAiModelManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.AiModelDetails {
 	rows := make([]api.AiModelDetails, len(objs))
-	baseRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	baseRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	providerIds := make([]string, len(objs))
 	visualProviderIds := make([]string, 0, len(objs))
 	for i := range objs {
-		rows[i].EnabledStatusStandaloneResourceDetails = baseRows[i]
+		rows[i].VirtualResourceDetails = baseRows[i]
 		m := objs[i].(*SAiModel)
 		providerIds[i] = m.AiProviderId
 		if vid := strings.TrimSpace(m.VisualProviderId); vid != "" {
@@ -190,9 +232,9 @@ func (manager *SAiModelManager) ValidateCreateData(
 	input api.AiModelCreateInput,
 ) (api.AiModelCreateInput, error) {
 	var err error
-	input.EnabledStatusStandaloneResourceCreateInput, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
+	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
-		return input, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData")
+		return input, errors.Wrap(err, "SVirtualResourceBaseManager.ValidateCreateData")
 	}
 
 	prov, err := fetchEnabledAiProvider(ctx, userCred, input.AiProviderId)
@@ -235,9 +277,9 @@ func (m *SAiModel) ValidateUpdateData(
 	input *api.AiModelUpdateInput,
 ) (*api.AiModelUpdateInput, error) {
 	var err error
-	input.EnabledStatusStandaloneResourceBaseUpdateInput, err = m.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusStandaloneResourceBaseUpdateInput)
+	input.VirtualResourceBaseUpdateInput, err = m.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
 	if err != nil {
-		return input, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.ValidateUpdateData")
+		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
 	}
 
 	providerId := m.AiProviderId

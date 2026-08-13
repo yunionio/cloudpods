@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/pkg/appctx"
 	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/aiproxy/chatlog"
 	"yunion.io/x/onecloud/pkg/aiproxy/models"
@@ -25,10 +26,10 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_policy "yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/util/excelutils"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type usageFilter struct {
@@ -47,6 +48,12 @@ type usageFilter struct {
 	Result     string
 	Limit      int
 	Offset     int
+
+	Scope        rbacscope.TRbacScope
+	ProjectID    string
+	DomainID     string
+	QueryProject string
+	QueryDomain  string
 }
 
 type aiProxyUsageManager struct{}
@@ -70,15 +77,15 @@ func (m aiProxyUsageManager) List() []api.UsageResource {
 	return append([]api.UsageResource(nil), aiProxyUsageResources...)
 }
 
-func (m aiProxyUsageManager) Get(ctx context.Context, id string, query jsonutils.JSONObject) (interface{}, error) {
+func (m aiProxyUsageManager) Get(ctx context.Context, id string, query jsonutils.JSONObject, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) (interface{}, error) {
 	switch id {
 	case "overview", "analysis", "events", "api-keys-options":
 	default:
 		return nil, httperrors.NewResourceNotFoundError2("ai_proxy_usage", id)
 	}
-	filter, err := parseUsageFilterQuery(query)
+	filter, err := loadUsageFilter(ctx, query, owner, scope)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("%v", err)
+		return nil, err
 	}
 	readLimit := maxUsageReadLimit
 	pushdownFilter := false
@@ -92,7 +99,7 @@ func (m aiProxyUsageManager) Get(ctx context.Context, id string, query jsonutils
 	}
 	switch id {
 	case "overview":
-		overview := buildUsageOverview(records, filter)
+		overview := buildUsageOverview(records, filter, resolveUsageNames(records))
 		overview.Truncated = truncated
 		return overview, nil
 	case "analysis":
@@ -153,21 +160,24 @@ type usageNames struct {
 	AiKeys      map[string]string
 	Projects    map[string]string
 	Domains     map[string]string
+	Providers   map[string]string
 }
 
 func resolveUsageNames(records []chatlog.Record) usageNames {
-	var virtualKeyIds, aiKeyIds, projectIds, domainIds []string
+	var virtualKeyIds, aiKeyIds, projectIds, domainIds, providerIds []string
 	for _, rec := range records {
 		virtualKeyIds = appendUsageNameId(virtualKeyIds, rec.VirtualKey)
 		aiKeyIds = appendUsageNameId(aiKeyIds, rec.AiKey)
 		projectIds = appendUsageNameId(projectIds, rec.ProjectID)
 		domainIds = appendUsageNameId(domainIds, rec.DomainID)
+		providerIds = appendUsageNameId(providerIds, rec.AiProviderId)
 	}
 	return usageNames{
 		VirtualKeys: fetchUsageNameMap(models.AiVirtualKeyManager, virtualKeyIds, "ai_virtual_key"),
 		AiKeys:      fetchUsageNameMap(models.AiKeyManager, aiKeyIds, "ai_key"),
 		Projects:    fetchUsageNameMap(db.TenantCacheManager, projectIds, "project"),
 		Domains:     fetchUsageNameMap(db.TenantCacheManager, domainIds, "domain"),
+		Providers:   fetchUsageNameMap(models.AiProviderManager, providerIds, "ai_provider"),
 	}
 }
 
@@ -180,7 +190,7 @@ func appendUsageNameId(ids []string, id string) []string {
 }
 
 func fetchUsageNameMap(manager db.IStandaloneModelManager, ids []string, resource string) map[string]string {
-	if len(ids) == 0 {
+	if manager == nil || len(ids) == 0 {
 		return map[string]string{}
 	}
 	ret, err := db.FetchIdNameMap2(manager, ids)
@@ -202,8 +212,23 @@ func usageName(names map[string]string, id string) string {
 	return id
 }
 
+func recordProviderID(rec chatlog.Record) string {
+	if id := strings.TrimSpace(rec.AiProviderId); id != "" {
+		return id
+	}
+	return strings.TrimSpace(rec.Provider)
+}
+
+func recordProviderName(rec chatlog.Record, names usageNames) string {
+	if id := strings.TrimSpace(rec.AiProviderId); id != "" {
+		return usageName(names.Providers, id)
+	}
+	return strings.TrimSpace(rec.Provider)
+}
+
 func aiProxyUsageListHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	if !checkUsageAccess(ctx, w) {
+	_, query, _ := appsrv.FetchEnv(ctx, w, r)
+	if _, _, ok := resolveUsageAccess(ctx, w, query); !ok {
 		return
 	}
 	body := jsonutils.NewDict()
@@ -217,19 +242,20 @@ func aiProxyUsageListHandler(ctx context.Context, w http.ResponseWriter, r *http
 }
 
 func aiProxyUsageGetHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	if !checkUsageAccess(ctx, w) {
-		return
-	}
 	params := appctx.AppContextParams(ctx)
 	_, query, _ := appsrv.FetchEnv(ctx, w, r)
+	owner, scope, ok := resolveUsageAccess(ctx, w, query)
+	if !ok {
+		return
+	}
 	id := params["<id>"]
 	if id == "events" && usageEventsExportRequested(query) {
-		if err := aiProxyUsage.ExportEvents(ctx, w, query); err != nil {
+		if err := aiProxyUsage.ExportEvents(ctx, w, query, owner, scope); err != nil {
 			httperrors.JsonClientError(ctx, w, httperrors.NewGeneralError(err))
 		}
 		return
 	}
-	result, err := aiProxyUsage.Get(ctx, id, query)
+	result, err := aiProxyUsage.Get(ctx, id, query, owner, scope)
 	if err != nil {
 		httperrors.JsonClientError(ctx, w, httperrors.NewGeneralError(err))
 		return
@@ -243,13 +269,13 @@ func aiProxyUsageGetHandler(ctx context.Context, w http.ResponseWriter, r *http.
 	appsrv.SendJSON(w, body)
 }
 
-func (m aiProxyUsageManager) ExportEvents(ctx context.Context, w http.ResponseWriter, query jsonutils.JSONObject) error {
+func (m aiProxyUsageManager) ExportEvents(ctx context.Context, w http.ResponseWriter, query jsonutils.JSONObject, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) error {
 	if _, _, _, err := usageEventsExportParams(query); err != nil {
 		return err
 	}
-	filter, err := parseUsageFilterQuery(query)
+	filter, err := loadUsageFilter(ctx, query, owner, scope)
 	if err != nil {
-		return httperrors.NewInputParameterError("%v", err)
+		return err
 	}
 	filter.Limit = usageEventsExportLimit(query)
 	records, _, err := m.read(ctx, filter, eventReadLimit(filter), true)
@@ -320,11 +346,12 @@ func usageEventsExportParams(query jsonutils.JSONObject) ([]string, []string, st
 }
 
 func aiProxyUsageEventsDistinctFieldHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	if !checkUsageAccess(ctx, w) {
+	_, query, _ := appsrv.FetchEnv(ctx, w, r)
+	owner, scope, ok := resolveUsageAccess(ctx, w, query)
+	if !ok {
 		return
 	}
-	_, query, _ := appsrv.FetchEnv(ctx, w, r)
-	result, err := aiProxyUsage.DistinctField(ctx, query)
+	result, err := aiProxyUsage.DistinctField(ctx, query, owner, scope)
 	if err != nil {
 		httperrors.JsonClientError(ctx, w, httperrors.NewGeneralError(err))
 		return
@@ -340,14 +367,14 @@ func usageListResultJSON(list usageListResult) jsonutils.JSONObject {
 	return body
 }
 
-func (m aiProxyUsageManager) DistinctField(ctx context.Context, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (m aiProxyUsageManager) DistinctField(ctx context.Context, query jsonutils.JSONObject, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) (jsonutils.JSONObject, error) {
 	field, err := distinctFieldName(query)
 	if err != nil {
 		return nil, err
 	}
-	filter, err := parseUsageFilterQuery(query)
+	filter, err := loadUsageFilter(ctx, query, owner, scope)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("%v", err)
+		return nil, err
 	}
 	records, _, err := m.read(ctx, filter, maxUsageReadLimit, true)
 	if err != nil {
@@ -368,14 +395,76 @@ func distinctFieldName(query jsonutils.JSONObject) (string, error) {
 	return field, nil
 }
 
-func checkUsageAccess(ctx context.Context, w http.ResponseWriter) bool {
+type aiProxyUsageScopedManager struct{}
+
+func (m aiProxyUsageScopedManager) KeywordPlural() string {
+	return "ai_proxy_usage"
+}
+
+func (m aiProxyUsageScopedManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeProject
+}
+
+func (m aiProxyUsageScopedManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return db.FetchProjectInfo(ctx, data)
+}
+
+func resolveUsageAccess(ctx context.Context, w http.ResponseWriter, query jsonutils.JSONObject) (mcclient.IIdentityProvider, rbacscope.TRbacScope, bool) {
 	userCred := auth.FetchUserCredential(ctx, common_policy.FilterPolicyCredential)
-	result := common_policy.PolicyManager.Allow(rbacscope.ScopeSystem, userCred, api.SERVICE_TYPE, "usage", common_policy.PolicyActionList)
-	if result.Result == rbacutils.Deny {
-		httperrors.ForbiddenError(ctx, w, "Not allow to access")
-		return false
+	if query == nil {
+		query = jsonutils.NewDict()
 	}
-	return true
+	ownerId, scope, err, _ := db.FetchCheckQueryOwnerScope(ctx, userCred, query, aiProxyUsageScopedManager{}, common_policy.PolicyActionGet, true)
+	if err != nil {
+		httperrors.JsonClientError(ctx, w, httperrors.NewGeneralError(err))
+		return nil, rbacscope.ScopeNone, false
+	}
+	return ownerId, scope, true
+}
+
+func loadUsageFilter(ctx context.Context, query jsonutils.JSONObject, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) (usageFilter, error) {
+	filter, err := parseUsageFilterQuery(query)
+	if err != nil {
+		return usageFilter{}, httperrors.NewInputParameterError("%v", err)
+	}
+	if err := resolveUsageQueryProjectDomain(ctx, &filter); err != nil {
+		return usageFilter{}, httperrors.NewInputParameterError("%v", err)
+	}
+	applyUsageOwner(&filter, owner, scope)
+	return filter, nil
+}
+
+func applyUsageOwner(filter *usageFilter, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) {
+	if filter == nil {
+		return
+	}
+	filter.Scope = scope
+	if owner == nil {
+		return
+	}
+	filter.ProjectID = owner.GetProjectId()
+	filter.DomainID = owner.GetProjectDomainId()
+}
+
+func resolveUsageQueryProjectDomain(ctx context.Context, filter *usageFilter) error {
+	if filter == nil {
+		return nil
+	}
+	if filter.QueryDomain != "" {
+		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(ctx, filter.QueryDomain)
+		if err != nil {
+			return fmt.Errorf("invalid domain: %w", err)
+		}
+		filter.QueryDomain = domain.Id
+	}
+	if filter.QueryProject != "" {
+		project, err := db.TenantCacheManager.FetchTenantByIdOrNameInDomain(ctx, filter.QueryProject, filter.QueryDomain)
+		if err != nil {
+			return fmt.Errorf("invalid project: %w", err)
+		}
+		filter.QueryProject = project.Id
+	}
+	return nil
 }
 
 func parseUsageFilterQuery(query jsonutils.JSONObject) (usageFilter, error) {
@@ -404,10 +493,14 @@ func parseUsageFilter(r *http.Request) (usageFilter, error) {
 	}
 	now := time.Now().In(loc)
 	rng := strings.TrimSpace(q.Get("range"))
-	if rng == "" {
+	rawStart := strings.TrimSpace(q.Get("start"))
+	rawEnd := strings.TrimSpace(q.Get("end"))
+	if rng == "" && rawStart == "" && rawEnd == "" {
 		rng = "24h"
+	} else if rng == "" && rawStart != "" && rawEnd != "" {
+		rng = "custom"
 	}
-	start, end, err := usageRange(rng, q.Get("start"), q.Get("end"), now)
+	start, end, err := usageRange(rng, rawStart, rawEnd, now)
 	if err != nil {
 		return usageFilter{}, err
 	}
@@ -432,20 +525,22 @@ func parseUsageFilter(r *http.Request) (usageFilter, error) {
 		}
 	}
 	return usageFilter{
-		Range:      rng,
-		Start:      start,
-		End:        end,
-		Timezone:   timezone,
-		APIKeyID:   strings.TrimSpace(q.Get("api_key_id")),
-		RequestID:  requestID,
-		RequestIDs: requestIDs,
-		Model:      strings.TrimSpace(q.Get("model")),
-		Provider:   strings.TrimSpace(q.Get("provider")),
-		Source:     strings.TrimSpace(q.Get("source")),
-		AuthIndex:  strings.TrimSpace(q.Get("auth_index")),
-		Result:     strings.TrimSpace(q.Get("result")),
-		Limit:      limit,
-		Offset:     offset,
+		Range:        rng,
+		Start:        start,
+		End:          end,
+		Timezone:     timezone,
+		APIKeyID:     strings.TrimSpace(q.Get("api_key_id")),
+		RequestID:    requestID,
+		RequestIDs:   requestIDs,
+		Model:        strings.TrimSpace(q.Get("model")),
+		Provider:     strings.TrimSpace(q.Get("provider")),
+		Source:       strings.TrimSpace(q.Get("source")),
+		AuthIndex:    strings.TrimSpace(q.Get("auth_index")),
+		Result:       strings.TrimSpace(q.Get("result")),
+		Limit:        limit,
+		Offset:       offset,
+		QueryProject: firstNonEmpty(q.Get("project"), q.Get("project_id"), q.Get("tenant_id"), q.Get("tenant")),
+		QueryDomain:  firstNonEmpty(q.Get("domain"), q.Get("domain_id"), q.Get("project_domain")),
 	}, nil
 }
 
@@ -483,6 +578,14 @@ func parseUsageRequestIDIn(q url.Values) map[string]struct{} {
 }
 
 func usageRange(rng, rawStart, rawEnd string, now time.Time) (time.Time, time.Time, error) {
+	rawStart = strings.TrimSpace(rawStart)
+	rawEnd = strings.TrimSpace(rawEnd)
+	if rawStart != "" || rawEnd != "" {
+		return usageCustomRange(rawStart, rawEnd, now.Location())
+	}
+	if rng == "" {
+		rng = "24h"
+	}
 	switch rng {
 	case "4h", "8h", "12h", "24h":
 		d, _ := time.ParseDuration(rng)
@@ -498,21 +601,74 @@ func usageRange(rng, rawStart, rawEnd string, now time.Time) (time.Time, time.Ti
 		end := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 		return end.AddDate(0, 0, -1), end, nil
 	case "custom":
-		start, err := time.Parse(time.RFC3339, strings.TrimSpace(rawStart))
-		if err != nil {
-			return time.Time{}, time.Time{}, err
-		}
-		end, err := time.Parse(time.RFC3339, strings.TrimSpace(rawEnd))
-		if err != nil {
-			return time.Time{}, time.Time{}, err
-		}
-		if !end.After(start) {
-			return time.Time{}, time.Time{}, errors.New("end must be after start")
-		}
-		return start, end, nil
+		return time.Time{}, time.Time{}, errors.New("start and end are required")
 	default:
 		return time.Time{}, time.Time{}, errors.New("unsupported range")
 	}
+}
+
+func usageCustomRange(rawStart, rawEnd string, loc *time.Location) (time.Time, time.Time, error) {
+	if rawStart == "" || rawEnd == "" {
+		return time.Time{}, time.Time{}, errors.New("start and end are required")
+	}
+	start, err := parseUsageTime(rawStart, loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid start: %w", err)
+	}
+	end, err := parseUsageTime(rawEnd, loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid end: %w", err)
+	}
+	if !end.After(start) {
+		return time.Time{}, time.Time{}, errors.New("end must be after start")
+	}
+	if end.After(start.AddDate(0, 0, 30)) {
+		return time.Time{}, time.Time{}, errors.New("range too long")
+	}
+	return start, end, nil
+}
+
+func parseUsageTime(raw string, loc *time.Location) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, errors.New("empty time")
+	}
+	if loc == nil {
+		loc = time.Local
+	}
+	if unix, ok := parseUsageUnix(raw); ok {
+		return unix.In(loc), nil
+	}
+	if ts, err := time.Parse(time.RFC3339Nano, raw); err == nil {
+		return ts, nil
+	}
+	if ts, err := time.Parse(time.RFC3339, raw); err == nil {
+		return ts, nil
+	}
+	ts, err := timeutils.ParseTimeStrInLocation(raw, loc)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("unknown time format %s", raw)
+	}
+	return ts, nil
+}
+
+func parseUsageUnix(raw string) (time.Time, bool) {
+	if raw == "" {
+		return time.Time{}, false
+	}
+	for _, c := range raw {
+		if c < '0' || c > '9' {
+			return time.Time{}, false
+		}
+	}
+	n, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return time.Time{}, false
+	}
+	if n >= 1e12 {
+		return time.UnixMilli(n), true
+	}
+	return time.Unix(n, 0), true
 }
 
 func filterRecords(records []chatlog.Record, filter usageFilter) []chatlog.Record {
@@ -526,6 +682,9 @@ func filterRecords(records []chatlog.Record, filter usageFilter) []chatlog.Recor
 }
 
 func recordMatchesFilter(rec chatlog.Record, filter usageFilter) bool {
+	if !recordMatchesOwner(rec, filter) {
+		return false
+	}
 	if len(filter.RequestIDs) > 0 {
 		if _, ok := filter.RequestIDs[rec.RequestID]; !ok {
 			return false
@@ -552,24 +711,45 @@ func recordMatchesFilter(rec chatlog.Record, filter usageFilter) bool {
 	if filter.Result == "failed" && rec.Success {
 		return false
 	}
+	if filter.QueryProject != "" && rec.ProjectID != filter.QueryProject {
+		return false
+	}
+	if filter.QueryDomain != "" && rec.DomainID != filter.QueryDomain {
+		return false
+	}
 	return true
 }
 
-func buildUsageOverview(records []chatlog.Record, filter usageFilter) api.UsageOverview {
+func recordMatchesOwner(rec chatlog.Record, filter usageFilter) bool {
+	switch filter.Scope {
+	case rbacscope.ScopeProject:
+		return rec.ProjectID != "" && rec.ProjectID == filter.ProjectID
+	case rbacscope.ScopeDomain:
+		return rec.DomainID != "" && rec.DomainID == filter.DomainID
+	default:
+		return true
+	}
+}
+
+func buildUsageOverview(records []chatlog.Record, filter usageFilter, names usageNames) api.UsageOverview {
 	durationMinutes := filter.End.Sub(filter.Start).Minutes()
 	if durationMinutes <= 0 {
 		durationMinutes = 1
 	}
 	overview := api.UsageOverview{
-		Timezone:      filter.Timezone,
-		RangeStart:    filter.Start,
-		RangeEnd:      filter.End,
-		Series:        []api.UsageOverviewPoint{},
-		ServiceHealth: []api.UsageServiceHealth{},
+		Timezone:          filter.Timezone,
+		RangeStart:        filter.Start,
+		RangeEnd:          filter.End,
+		Series:            []api.UsageOverviewPoint{},
+		ServiceHealth:     []api.UsageServiceHealth{},
+		APIKeyComposition: []api.UsageComposition{},
+		AIKeyComposition:  []api.UsageComposition{},
 	}
 	bucketSize := overviewBucketSize(filter.End.Sub(filter.Start))
 	series := map[time.Time]*api.UsageOverviewPoint{}
 	health := map[string]*api.UsageServiceHealth{}
+	apiKeys := map[string]*api.UsageComposition{}
+	aiKeys := map[string]*api.UsageComposition{}
 	latencySum := int64(0)
 	latencyCount := 0
 	healthLatencySum := map[string]int64{}
@@ -607,10 +787,15 @@ func buildUsageOverview(records []chatlog.Record, filter usageFilter) api.UsageO
 			point.FailureCount++
 		}
 
-		key := rec.Provider + "\x00" + recordModel(rec)
+		providerID := recordProviderID(rec)
+		key := providerID + "\x00" + recordModel(rec)
 		row := health[key]
 		if row == nil {
-			row = &api.UsageServiceHealth{Provider: rec.Provider, Model: recordModel(rec)}
+			row = &api.UsageServiceHealth{
+				Provider:     rec.Provider,
+				ProviderName: recordProviderName(rec, names),
+				Model:        recordModel(rec),
+			}
 			health[key] = row
 		}
 		row.RequestCount++
@@ -625,6 +810,11 @@ func buildUsageOverview(records []chatlog.Record, filter usageFilter) api.UsageO
 			healthLatencySum[key] += rec.LatencyMs
 			healthLatencyCount[key]++
 		}
+
+		apiKeyName := usageName(names.VirtualKeys, rec.VirtualKey)
+		addComposition(apiKeys, rec.VirtualKey, apiKeyName, apiKeyName, rec, tokens)
+		aiKeyName := usageName(names.AiKeys, rec.AiKey)
+		addComposition(aiKeys, rec.AiKey, aiKeyName, aiKeyName, rec, tokens)
 	}
 
 	overview.Summary.RPM = float64(overview.Summary.RequestCount) / durationMinutes
@@ -661,16 +851,20 @@ func buildUsageOverview(records []chatlog.Record, filter usageFilter) api.UsageO
 		if overview.ServiceHealth[i].RequestCount != overview.ServiceHealth[j].RequestCount {
 			return overview.ServiceHealth[i].RequestCount > overview.ServiceHealth[j].RequestCount
 		}
-		if overview.ServiceHealth[i].Provider != overview.ServiceHealth[j].Provider {
-			return overview.ServiceHealth[i].Provider < overview.ServiceHealth[j].Provider
+		left := firstNonEmpty(overview.ServiceHealth[i].ProviderName, overview.ServiceHealth[i].Provider)
+		right := firstNonEmpty(overview.ServiceHealth[j].ProviderName, overview.ServiceHealth[j].Provider)
+		if left != right {
+			return left < right
 		}
 		return overview.ServiceHealth[i].Model < overview.ServiceHealth[j].Model
 	})
+	overview.APIKeyComposition = sortedCompositions(apiKeys)
+	overview.AIKeyComposition = sortedCompositions(aiKeys)
 	return overview
 }
 
 func buildUsageAnalysis(records []chatlog.Record, filter usageFilter, names usageNames) api.UsageAnalysis {
-	overview := buildUsageOverview(records, filter)
+	overview := buildUsageOverview(records, filter, names)
 	analysis := api.UsageAnalysis{
 		TokenUsage:            overview.Series,
 		APIKeyComposition:     []api.UsageComposition{},
@@ -701,7 +895,7 @@ func buildUsageAnalysis(records []chatlog.Record, filter usageFilter, names usag
 		addComposition(apiKeys, rec.VirtualKey, apiKeyName, apiKeyName, rec, tokens)
 		addComposition(models, modelName, modelName, "", rec, tokens)
 		addComposition(authFiles, rec.AiKey, authFileName, authFileName, rec, tokens)
-		addComposition(providers, rec.Provider, rec.Provider, "", rec, tokens)
+		addComposition(providers, recordProviderID(rec), recordProviderName(rec, names), "", rec, tokens)
 		weekday := rec.Timestamp.Weekday().String()
 		heatKey := weekday + "\x00" + strconv.Itoa(rec.Timestamp.Hour())
 		point := heatmap[heatKey]
@@ -779,6 +973,7 @@ func buildUsageEvents(records []chatlog.Record, filter usageFilter, names usageN
 			Endpoint:       rec.Path,
 			Source:         recordSource(rec),
 			Provider:       rec.Provider,
+			ProviderName:   recordProviderName(rec, names),
 			AuthIndex:      rec.AiKey,
 			AuthIndexName:  authIndexName,
 			AuthIndexLabel: authIndexName,
@@ -986,7 +1181,7 @@ func recordModel(rec chatlog.Record) string {
 }
 
 func recordSource(rec chatlog.Record) string {
-	return firstNonEmpty(rec.Provider, rec.AiKey)
+	return strings.TrimSpace(rec.Path)
 }
 
 func recordTotalTokens(rec chatlog.Record) int {

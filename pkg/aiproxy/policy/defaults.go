@@ -48,6 +48,66 @@ var (
 				},
 			},
 		},
+		{
+			Auth:  true,
+			Scope: rbacscope.ScopeProject,
+			Rules: []rbacutils.SRbacRule{
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "ai_proxy_nodes",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "ai_proxy_nodes",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "ai_proxy_usage",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "ai_proxy_usage",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+			},
+		},
+		{
+			Auth:  true,
+			Scope: rbacscope.ScopeDomain,
+			Rules: []rbacutils.SRbacRule{
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "ai_proxy_nodes",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "ai_proxy_nodes",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "ai_proxy_usage",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "ai_proxy_usage",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+			},
+		},
 	}
 )
 
