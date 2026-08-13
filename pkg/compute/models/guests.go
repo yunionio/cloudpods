@@ -2303,6 +2303,14 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, errors.Wrapf(httperrors.ErrInputParameter, "more than 1 nic(%d) assigned as default gateway", defaultGwCnt)
 	}
 
+	// default: both check on
+	// switch: mac check off, also implies ip check off
+	// router: mac check on, ip check off
+	if input.SrcMacCheck != nil && !*input.SrcMacCheck {
+		srcIpCheck := false
+		input.SrcIpCheck = &srcIpCheck
+	}
+
 	isoDevArray := input.IsolatedDevices
 	for idx := 0; idx < len(isoDevArray); idx += 1 { // .Contains(fmt.Sprintf("isolated_device.%d", idx)); idx += 1 {
 		if input.Backup {
