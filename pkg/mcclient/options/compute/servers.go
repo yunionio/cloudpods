@@ -480,36 +480,38 @@ type ServerCreateOptionalOptions struct {
 	EnableMemclean bool   `help:"clean guest memory after guest exit" json:"enable_memclean"`
 	EnableTpm      bool   `help:"enable tpm device" json:"enable_tpm"`
 
-	Keypair          string   `help:"SSH Keypair" mcp:"true"`
-	Password         string   `help:"Default user password" mcp:"true"`
-	LoginAccount     string   `help:"Guest login account" mcp:"true"`
-	Iso              string   `help:"ISO image ID" metavar:"IMAGE_ID" json:"cdrom" mcp:"true"`
-	IsoBootIndex     *int8    `help:"Iso bootindex" metavar:"IMAGE_BOOT_INDEX" json:"cdrom_boot_index"`
-	VcpuCount        int      `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu" mcp:"true"`
-	ExtraCpuCount    int      `help:"Extra allocate cpu count" json:"extra_cpu_count"`
-	InstanceType     string   `help:"instance flavor" mcp:"true"`
-	Vga              string   `help:"VGA driver" choices:"std|vmware|cirrus|qxl|virtio"`
-	Vdi              string   `help:"VDI protocol" choices:"vnc|spice"`
-	Bios             string   `help:"BIOS" choices:"BIOS|UEFI" mcp:"true"`
-	Machine          string   `help:"Machine type" choices:"pc|q35"`
-	Desc             string   `help:"Description" metavar:"<DESCRIPTION>" json:"description"`
-	Boot             string   `help:"Boot device" metavar:"<BOOT_DEVICE>" choices:"disk|cdrom" json:"-"`
-	EnableCloudInit  bool     `help:"Enable cloud-init service"`
-	NoAccountInit    *bool    `help:"Not reset account password"`
-	AllowDelete      *bool    `help:"Allow deleting the server (disable_delete=false)" json:"-"`
-	ShutdownBehavior string   `help:"Behavior after VM server shutdown" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate|stop_release_gpu"`
-	AutoStart        bool     `help:"Auto start server after it is created" mcp:"true"`
-	Deploy           []string `help:"Specify deploy files in virtual server file system" json:"-"`
-	DeployTelegraf   bool     `help:"Deploy telegraf agent if guest os is supported"`
-	Group            []string `help:"Group ID or Name of virtual server"`
-	System           bool     `help:"Create a system VM, sysadmin ONLY option" json:"is_system"`
-	TaskNotify       *bool    `help:"Setup task notify" json:"-"`
-	FakeCreate       *bool    `help:"Fake create server"`
-	DryRun           *bool    `help:"Dry run to validate create params (not preschedule)；MCP 创建会自动调 scheduler-forecast 预调度，一般无需手动传" json:"-" mcp:"true"`
-	UserDataFile     string   `help:"user_data file path" json:"-"`
-	InstanceSnapshot string   `help:"instance snapshot" json:"instance_snapshot"`
-	Secgroups        []string `help:"Security group IDs or names" json:"secgroups"`
-	NetworkTags      []string `help:"GCP network tags, google only; when set, secgroups can be omitted" json:"network_tags"`
+	Keypair            string   `help:"SSH Keypair" mcp:"true"`
+	Password           string   `help:"Default user password" mcp:"true"`
+	LoginAccount       string   `help:"Guest login account" mcp:"true"`
+	Iso                string   `help:"ISO image ID" metavar:"IMAGE_ID" json:"cdrom" mcp:"true"`
+	IsoBootIndex       *int8    `help:"Iso bootindex" metavar:"IMAGE_BOOT_INDEX" json:"cdrom_boot_index"`
+	VcpuCount          int      `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu" mcp:"true"`
+	ExtraCpuCount      int      `help:"Extra allocate cpu count" json:"extra_cpu_count"`
+	InstanceType       string   `help:"instance flavor" mcp:"true"`
+	Vga                string   `help:"VGA driver" choices:"std|vmware|cirrus|qxl|virtio"`
+	Vdi                string   `help:"VDI protocol" choices:"vnc|spice"`
+	Bios               string   `help:"BIOS" choices:"BIOS|UEFI" mcp:"true"`
+	Machine            string   `help:"Machine type" choices:"pc|q35"`
+	Desc               string   `help:"Description" metavar:"<DESCRIPTION>" json:"description"`
+	Boot               string   `help:"Boot device" metavar:"<BOOT_DEVICE>" choices:"disk|cdrom" json:"-"`
+	EnableCloudInit    bool     `help:"Enable cloud-init service"`
+	NoAccountInit      *bool    `help:"Not reset account password"`
+	AllowDelete        *bool    `help:"Allow deleting the server (disable_delete=false)" json:"-"`
+	ShutdownBehavior   string   `help:"Behavior after VM server shutdown" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate|stop_release_gpu"`
+	AutoStart          bool     `help:"Auto start server after it is created" mcp:"true"`
+	Deploy             []string `help:"Specify deploy files in virtual server file system" json:"-"`
+	DeployTelegraf     bool     `help:"Deploy telegraf agent if guest os is supported"`
+	Group              []string `help:"Group ID or Name of virtual server"`
+	System             bool     `help:"Create a system VM, sysadmin ONLY option" json:"is_system"`
+	TaskNotify         *bool    `help:"Setup task notify" json:"-"`
+	FakeCreate         *bool    `help:"Fake create server"`
+	DryRun             *bool    `help:"Dry run to validate create params (not preschedule)；MCP 创建会自动调 scheduler-forecast 预调度，一般无需手动传" json:"-" mcp:"true"`
+	UserDataFile       string   `help:"user_data file path" json:"-"`
+	InstanceSnapshot   string   `help:"instance snapshot" json:"instance_snapshot"`
+	Secgroups          []string `help:"Security group IDs or names" json:"secgroups"`
+	NetworkTags        []string `help:"GCP network tags, google only; when set, secgroups can be omitted" json:"network_tags"`
+	DisableSrcIpCheck  *bool    `help:"Disable source IP check" json:"-"`
+	DisableSrcMacCheck *bool    `help:"Disable source MAC check" json:"-"`
 
 	OsType string `help:"os type, e.g. Linux, Windows, etc." mcp:"true"`
 
@@ -643,6 +645,14 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 
 	if len(opts.EncryptKey) > 0 {
 		params.EncryptKeyId = &opts.EncryptKey
+	}
+	if opts.DisableSrcMacCheck != nil && *opts.DisableSrcMacCheck {
+		var srcMacCheck = false
+		params.SrcMacCheck = &srcMacCheck
+	}
+	if opts.DisableSrcIpCheck != nil && *opts.DisableSrcIpCheck {
+		var srcIpCheck = false
+		params.SrcIpCheck = &srcIpCheck
 	}
 
 	if regutils.MatchSize(opts.MemSpec) {
