@@ -293,12 +293,22 @@ func (m *HmpMonitor) DriveAdd(bus, node string, params map[string]string, callba
 	m.Query(fmt.Sprintf("%s %s %s", cmd, bus, strings.Join(paramsKvs, ",")), callback)
 }
 
-func (m *HmpMonitor) DeviceAdd(dev string, params map[string]string, callback StringCallback) {
+func (m *HmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callback StringCallback) {
 	var paramsKvs = []string{}
 	for k, v := range params {
-		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, v))
+		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, hmpDeviceValue(v)))
 	}
 	m.Query(fmt.Sprintf("device_add %s,%s", dev, strings.Join(paramsKvs, ",")), callback)
+}
+
+func hmpDeviceValue(value interface{}) interface{} {
+	if value, ok := value.(bool); ok {
+		if value {
+			return "on"
+		}
+		return "off"
+	}
+	return value
 }
 
 func (m *HmpMonitor) MigrateSetDowntime(dtSec float64, callback StringCallback) {

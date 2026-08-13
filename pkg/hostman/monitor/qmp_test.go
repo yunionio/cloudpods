@@ -15,11 +15,32 @@
 package monitor
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
 	"yunion.io/x/log"
 )
+
+func TestDeviceAddArgsPreservesQmpTypes(t *testing.T) {
+	cmd := Command{Execute: "device_add", Args: deviceAddArgs("usb-host", map[string]interface{}{
+		"hostbus":  uint64(1),
+		"hostaddr": uint64(9),
+		"hostport": "1.2",
+	})}
+
+	raw, err := json.Marshal(cmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	for _, want := range []string{`"hostbus":1`, `"hostaddr":9`, `"hostport":"1.2"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("QMP command %s does not contain %s", got, want)
+		}
+	}
+}
 
 func TestQmpMonitor_Connect(t *testing.T) {
 	onConnected := func() { log.Infof("Monitor Connected") }
