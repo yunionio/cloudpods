@@ -564,7 +564,11 @@ func (d *SGuestDiskSyncTask) startAddDisk(disk *desc.SGuestDisk) {
 		}
 		bus = d.guest.GetPciBus()
 	case DISK_DRIVER_IDE:
-		bus = fmt.Sprintf("ide.%d", diskIndex/2)
+		var busNum = diskIndex / 2
+		if d.guest.Desc.Machine == api.VM_MACHINE_TYPE_Q35 {
+			busNum = diskIndex
+		}
+		bus = fmt.Sprintf("ide.%d", busNum)
 	case DISK_DRIVER_SATA:
 		bus = fmt.Sprintf("ahci0.%d", diskIndex)
 	}
