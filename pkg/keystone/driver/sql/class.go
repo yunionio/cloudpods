@@ -56,6 +56,10 @@ func (self *SSQLDriverClass) ValidateConfig(ctx context.Context, userCred mcclie
 	return conf, nil
 }
 
+func (self *SSQLDriverClass) AttributeNames(template string) (map[string]string, error) {
+	return nil, nil
+}
+
 func init() {
 	driver.RegisterDriverClass(&SSQLDriverClass{})
 }

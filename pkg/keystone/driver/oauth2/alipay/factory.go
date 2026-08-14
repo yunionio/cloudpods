@@ -41,6 +41,14 @@ func (drv SAlipayDriverFactory) ValidateConfig(conf api.SOAuth2IdpConfigOptions)
 	return nil
 }
 
+func (drv SAlipayDriverFactory) AttributeNames() map[string]string {
+	return map[string]string{
+		"user_name": "User name in Alipay",
+		"user_id":   "User ID in Alipay",
+		"nick_name": "Nick name in Alipay",
+	}
+}
+
 func init() {
 	oauth2.Register(&SAlipayDriverFactory{})
 }

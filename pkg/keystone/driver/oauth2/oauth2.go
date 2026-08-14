@@ -80,8 +80,9 @@ func (self *SOAuth2Driver) Authenticate(ctx context.Context, ident mcclient.SAut
 	if factory == nil {
 		return nil, errors.Wrapf(httperrors.ErrNotSupported, "template %s not supported", self.Template)
 	}
-	options := self.oauth2Config.SIdpAttributeOptions
-	options.Update(factory.IdpAttributeOptions())
+	options := factory.IdpAttributeOptions()
+	options.Update(self.oauth2Config.SIdpAttributeOptions)
+	// options.Update(factory.IdpAttributeOptions())
 	driver := factory.NewDriver(self.oauth2Config.AppId, self.oauth2Config.Secret)
 	ctx = context.WithValue(ctx, "config", self.SBaseIdentityDriver.Config)
 	attrs, err := driver.Authenticate(ctx, ident.OAuth2.Code)

@@ -86,6 +86,10 @@ func (self *SLDAPDriverClass) ValidateConfig(ctx context.Context, userCred mccli
 	return tconf, nil
 }
 
+func (self *SLDAPDriverClass) AttributeNames(template string) (map[string]string, error) {
+	return nil, nil
+}
+
 func init() {
 	driver.RegisterDriverClass(&SLDAPDriverClass{})
 }

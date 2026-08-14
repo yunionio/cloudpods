@@ -41,6 +41,14 @@ func (drv SWechatDriverFactory) ValidateConfig(conf api.SOAuth2IdpConfigOptions)
 	return nil
 }
 
+func (drv SWechatDriverFactory) AttributeNames() map[string]string {
+	return map[string]string{
+		"name":     "User name",
+		"user_id":  "OpenID of User in Wechat",
+		"union_id": "UnionID of User in Wechat",
+	}
+}
+
 func init() {
 	oauth2.Register(&SWechatDriverFactory{})
 }

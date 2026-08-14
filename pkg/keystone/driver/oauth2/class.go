@@ -111,6 +111,14 @@ func (self *SOAuth2DriverClass) ValidateConfig(ctx context.Context, userCred mcc
 	return tconf, nil
 }
 
+func (self *SOAuth2DriverClass) AttributeNames(template string) (map[string]string, error) {
+	factory := findDriverFactory(template)
+	if factory == nil {
+		return nil, errors.Wrapf(httperrors.ErrNotSupported, "template %s not supported", template)
+	}
+	return factory.AttributeNames(), nil
+}
+
 func init() {
 	driver.RegisterDriverClass(&SOAuth2DriverClass{})
 }

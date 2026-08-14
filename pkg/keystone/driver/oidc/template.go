@@ -31,6 +31,11 @@ var (
 			UserEmailAttribute:       "email",
 			UserDisplaynameAttribtue: "name",
 		},
+		AttributeNames: map[string]string{
+			"name":  "User name in Dex",
+			"sub":   "User ID in Dex",
+			"email": "User email in Dex",
+		},
 	}
 	// https://developer.github.com/apps/building-oauth-apps/authorizing-oauth-apps/
 	// map[avatar_url:https://avatars1.githubusercontent.com/u/1121362?v=4 bio: blog:https://yunion.io collaborators:0 company:Yunion.io created_at:2011-10-12T04:18:27Z disk_usage:925302 email: events_url:https://api.github.com/users/swordqiu/events{/privacy} followers:13 followers_url:https://api.github.com/users/swordqiu/followers following:1 following_url:https://api.github.com/users/swordqiu/following{/other_user} gists_url:https://api.github.com/users/swordqiu/gists{/gist_id} gravatar_id: hireable: html_url:https://github.com/swordqiu
@@ -50,6 +55,12 @@ var (
 			UserNameAttribute:        "login",
 			UserEmailAttribute:       "email",
 			UserDisplaynameAttribtue: "name",
+		},
+		AttributeNames: map[string]string{
+			"name":  "User name in Github",
+			"id":    "User ID in Github",
+			"email": "User email in Github",
+			"login": "User login name in Github",
 		},
 	}
 
@@ -71,6 +82,11 @@ var (
 			UserEmailAttribute:       "email",
 			UserDisplaynameAttribtue: "name",
 		},
+		AttributeNames: map[string]string{
+			"name":  "User name in Google",
+			"sub":   "User ID in Google",
+			"email": "User email in Google",
+		},
 	}
 
 	AzureADTemplate = api.SOIDCIdpConfigOptions{
@@ -85,6 +101,11 @@ var (
 			UserNameAttribute:        "name",
 			UserEmailAttribute:       "email",
 			UserDisplaynameAttribtue: "name",
+		},
+		AttributeNames: map[string]string{
+			"name":  "User name in Azure OAuth2",
+			"sub":   "User ID in Azure OAuth2",
+			"email": "User email in Azure OAuth2",
 		},
 	}
 )
