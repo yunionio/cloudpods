@@ -39,7 +39,7 @@ type SAiKey struct {
 	// AiProviderId optionally associates this key with a catalog provider row.
 	AiProviderId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	// Secret holds raw key material; only privileged scopes should list it.
-	Secret string `width:"4096" charset:"ascii" nullable:"false" create:"required"`
+	Secret string `width:"4096" charset:"ascii" nullable:"false" create:"required" get:"user"`
 	// Weight is used for weighted random load balancing among matching keys (default 1).
 	Weight int `default:"1" nullable:"false" list:"user" create:"optional" update:"user"`
 	// Routing limits which request "model" values may use this key.
@@ -66,7 +66,68 @@ func init() {
 }
 
 func (manager *SAiKeyManager) InitializeData() error {
-	return backfillEmptyTenantId(manager)
+	if err := backfillEmptyTenantId(manager); err != nil {
+		return err
+	}
+	return migrateAiKeySecrets()
+}
+
+func (k *SAiKey) BeforeInsert() {
+	if len(k.Id) == 0 {
+		k.Id = db.DefaultUUIDGenerator()
+	}
+	if err := k.sealSecret(); err != nil {
+		log.Errorf("ai_key sealSecret: %v", err)
+	}
+	k.SVirtualResourceBase.BeforeInsert()
+}
+
+func (k *SAiKey) BeforeUpdate() {
+	if err := k.sealSecret(); err != nil {
+		log.Errorf("ai_key sealSecret: %v", err)
+	}
+}
+
+func (k *SAiKey) GetSecret() string {
+	return decryptAtRest(k.Id, k.Secret)
+}
+
+func (k *SAiKey) sealSecret() error {
+	if len(k.Id) == 0 {
+		k.Id = db.DefaultUUIDGenerator()
+	}
+	plain := strings.TrimSpace(decryptAtRest(k.Id, k.Secret))
+	if plain == "" {
+		return nil
+	}
+	if secretLooksEncrypted(k.Secret) {
+		return nil
+	}
+	enc, err := encryptAtRest(k.Id, plain)
+	if err != nil {
+		return err
+	}
+	k.Secret = enc
+	return nil
+}
+
+func migrateAiKeySecrets() error {
+	keys := make([]SAiKey, 0)
+	q := queryUnprefixedSecret(AiKeyManager.Query(), "secret")
+	if err := q.All(&keys); err != nil {
+		return errors.Wrap(err, "list ai_keys for secret migrate")
+	}
+	for i := range keys {
+		k := &keys[i]
+		k.SetModelManager(AiKeyManager, k)
+		_, err := db.Update(k, func() error {
+			return k.sealSecret()
+		})
+		if err != nil {
+			return errors.Wrapf(err, "encrypt ai_key %s secret", k.Id)
+		}
+	}
+	return nil
 }
 
 func (manager *SAiKeyManager) ListItemFilter(
@@ -134,6 +195,9 @@ func (manager *SAiKeyManager) FetchCustomizeColumns(
 	for i := range objs {
 		rows[i].VirtualResourceDetails = baseRows[i]
 		k := objs[i].(*SAiKey)
+		plain := k.GetSecret()
+		k.Secret = plain
+		rows[i].Secret = plain
 		providerIds[i] = k.AiProviderId
 	}
 	providerNames, err := db.FetchIdNameMap2(AiProviderManager, providerIds)
