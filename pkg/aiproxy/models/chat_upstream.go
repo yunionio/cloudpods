@@ -142,7 +142,7 @@ func loadEnabledVirtualKey(virtualKey string) (*SAiVirtualKey, error) {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "missing virtual key (Authorization: Bearer <vk> or X-Ai-Virtual-Key)")
 	}
 	vk := SAiVirtualKey{}
-	qvk := AiVirtualKeyManager.Query().Equals("virtual_key", virtualKey).Equals("enabled", true)
+	qvk := AiVirtualKeyManager.Query().Equals("virtual_key_hash", virtualKeyDigest(virtualKey)).Equals("enabled", true)
 	err := qvk.First(&vk)
 	if err != nil {
 		if stderrors.Is(err, sql.ErrNoRows) {
