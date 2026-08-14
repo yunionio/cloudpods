@@ -56,6 +56,16 @@ func (drv SQywxDriverFactory) ValidateConfig(conf api.SOAuth2IdpConfigOptions) e
 	return nil
 }
 
+func (drv SQywxDriverFactory) AttributeNames() map[string]string {
+	return map[string]string{
+		"name":        "User name in Wecom",
+		"user_id":     "User ID in Wecom",
+		"displayname": "Display name in Wecom",
+		"email":       "Email in Wecom",
+		"mobile":      "Mobile in Wecom",
+	}
+}
+
 func init() {
 	oauth2.Register(&SQywxDriverFactory{})
 }

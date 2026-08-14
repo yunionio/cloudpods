@@ -45,6 +45,20 @@ func (drv SBingoIAMDriverFactory) ValidateConfig(conf api.SOAuth2IdpConfigOption
 	return nil
 }
 
+func (drv SBingoIAMDriverFactory) AttributeNames() map[string]string {
+	return map[string]string{
+		"tenant_name":  "Tenant name in BingoIAM",
+		"tenant_id":    "Tenant ID in BingoIAM",
+		"name":         "User name in BingoIAM",
+		"name_en":      "English user name in BingoIAM",
+		"user_id":      "User ID in BingoIAM",
+		"display_name": "Display name in BingoIAM",
+		"email":        "Email in BingoIAM",
+		"mobile":       "Mobile in BingoIAM",
+		"org_id":       "Org ID in BingoIAM",
+	}
+}
+
 func init() {
 	oauth2.Register(&SBingoIAMDriverFactory{})
 }

@@ -41,6 +41,15 @@ func (drv SDingtalkDriverFactory) ValidateConfig(conf api.SOAuth2IdpConfigOption
 	return nil
 }
 
+func (drv SDingtalkDriverFactory) AttributeNames() map[string]string {
+	return map[string]string{
+		"name":     "User name in Dingtalk",
+		"user_id":  "UnionID in Dingtalk",
+		"open_id":  "OpenID in Dingtalk",
+		"union_id": "UnionID in Dingtalk",
+	}
+}
+
 func init() {
 	oauth2.Register(&SDingtalkDriverFactory{})
 }

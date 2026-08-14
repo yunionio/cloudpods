@@ -98,6 +98,12 @@ func (self *SCASDriverClass) ValidateConfig(ctx context.Context, userCred mcclie
 	return tconf, nil
 }
 
+func (self *SCASDriverClass) AttributeNames(template string) (map[string]string, error) {
+	return map[string]string{
+		"cas:user": "User name in CAS",
+	}, nil
+}
+
 func init() {
 	driver.RegisterDriverClass(&SCASDriverClass{})
 }

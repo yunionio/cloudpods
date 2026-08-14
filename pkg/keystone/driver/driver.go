@@ -30,6 +30,7 @@ type IIdentityBackendClass interface {
 	IsSso() bool
 	GetDefaultIconUri(tmpName string) string
 	ForceSyncUser() bool
+	AttributeNames(template string) (map[string]string, error)
 }
 
 type IIdentityBackend interface {

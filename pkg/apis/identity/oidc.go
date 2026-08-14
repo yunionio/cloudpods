@@ -29,6 +29,8 @@ type SOIDCIdpConfigOptions struct {
 	TimeoutSecs int `json:"timeout_secs"`
 
 	SIdpAttributeOptions
+
+	AttributeNames map[string]string `json:"attribute_names"`
 }
 
 type SOIDCDexConfigOptions struct {

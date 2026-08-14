@@ -27,6 +27,12 @@ var (
 			UserEmailAttribute:       "urn:oid:0.9.2342.19200300.100.1.3",
 			UserMobileAttribute:      "urn:oid:2.5.4.20",
 		},
+		AttributeNames: map[string]string{
+			"urn:oid:0.9.2342.19200300.100.1.1": "User name",
+			"urn:oid:2.16.840.1.113730.3.1.241": "User display name",
+			"urn:oid:0.9.2342.19200300.100.1.3": "User email",
+			"urn:oid:2.5.4.20":                  "User mobile",
+		},
 	}
 
 	AzureADTemplate = api.SSAMLIdpConfigOptions{
@@ -36,6 +42,12 @@ var (
 			UserDisplaynameAttribtue: "http://schemas.microsoft.com/identity/claims/displayname",
 			UserEmailAttribute:       "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress",
 			UserMobileAttribute:      "",
+		},
+		AttributeNames: map[string]string{
+			"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name":         "User name",
+			"http://schemas.microsoft.com/identity/claims/objectidentifier":      "User ID",
+			"http://schemas.microsoft.com/identity/claims/displayname":           "User display name",
+			"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress": "User email",
 		},
 	}
 )
