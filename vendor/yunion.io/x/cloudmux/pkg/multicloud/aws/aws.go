@@ -200,7 +200,7 @@ func (client *SAwsClient) getAwsSession(regionId string, assumeRole bool) (*sess
 
 		if client.cpcfg.ReadOnly {
 			if len(action) > 0 {
-				for _, prefix := range []string{"Get", "List", "Describe"} {
+				for _, prefix := range []string{"Get", "List", "Describe", "AssumeRole"} {
 					if strings.HasPrefix(action, prefix) {
 						return respCheck, nil
 					}

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/timeutils"
 )
 
 var (
@@ -47,7 +48,7 @@ func SQLPrintf(sqlstr string, variables []interface{}) string {
 		case string:
 			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf("'%s'", v), 1)
 		case time.Time:
-			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf("'%s'", vv.UTC().Format(time.DateTime)), 1)
+			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf("'%s'", timeutils.MysqlTime(vv.UTC())), 1)
 		default:
 			sqlstr = strings.Replace(sqlstr, "?", fmt.Sprintf("'%v'", v), 1)
 		}

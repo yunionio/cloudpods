@@ -376,12 +376,12 @@ func (self *SAliyunClient) GetEcsMetrics(opts *cloudprovider.MetricListOptions) 
 		}
 	case cloudprovider.VM_METRIC_TYPE_PROCESS_NUMBER:
 		metricTags = map[string]string{
-			"process.count_processname": "",
+			"process.number": "",
 		}
 		tagKey = cloudprovider.METRIC_TAG_PROCESS_NAME
 	case cloudprovider.VM_METRIC_TYPE_NET_TCP_CONNECTION:
 		metricTags = map[string]string{
-			"network.tcp.connection_state": "",
+			"net_tcpconnection": "",
 		}
 		tagKey = cloudprovider.METRIC_TAG_STATE
 	default:

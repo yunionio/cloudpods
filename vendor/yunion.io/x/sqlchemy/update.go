@@ -130,6 +130,7 @@ func (us *SUpdateSession) SaveUpdateSql(dt interface{}) (*SUpdateSQLResult, erro
 	updatedFields := make([]string, 0)
 	primaries := make([]sPrimaryKeyValue, 0)
 	setters := make([]SUpdateDiff, 0)
+	forceUpdate := false
 	for _, c := range us.tableSpec.Columns() {
 		k := c.Name()
 		of, _ := ofields.GetInterface(k)
@@ -159,13 +160,14 @@ func (us *SUpdateSession) SaveUpdateSql(dt interface{}) (*SUpdateSQLResult, erro
 		}
 		if c.IsAutoVersion() {
 			versionFields = append(versionFields, k)
-			continue
 		}
 		if c.IsUpdatedAt() {
 			updatedFields = append(updatedFields, k)
-			continue
 		}
 		if reflect.DeepEqual(of, nf) {
+			continue
+		} else if c.IsAutoVersion() || c.IsUpdatedAt() {
+			forceUpdate = true
 			continue
 		}
 		if of != nil && nf != nil {
@@ -184,7 +186,7 @@ func (us *SUpdateSession) SaveUpdateSql(dt interface{}) (*SUpdateSQLResult, erro
 		setters = append(setters, SUpdateDiff{old: of, new: nf, col: c})
 	}
 
-	if len(setters) == 0 {
+	if len(setters) == 0 && !forceUpdate {
 		return nil, ErrNoDataToUpdate
 	}
 

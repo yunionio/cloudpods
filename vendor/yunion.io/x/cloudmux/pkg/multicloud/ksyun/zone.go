@@ -158,7 +158,7 @@ func (zone *SZone) GetStorages() ([]SStorage, error) {
 			return nil, errors.Wrapf(err, "GetZonesByDiskType: %s", storageType)
 		}
 
-		if utils.IsInStringArray(zone.GetName(), zoneList) {
+		if utils.IsInStringArray(zone.GetId(), zoneList) {
 			zoneDiskType[storageType] = true
 		} else {
 			zoneDiskType[storageType] = false
