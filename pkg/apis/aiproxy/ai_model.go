@@ -21,7 +21,8 @@ import (
 )
 
 type AiModelListInput struct {
-	apis.EnabledStatusStandaloneResourceListInput
+	apis.VirtualResourceListInput
+	apis.EnabledResourceBaseListInput
 
 	AiProviderId string `json:"ai_provider_id"`
 	AiRoutingId  string `json:"ai_routing_id"`
@@ -29,7 +30,8 @@ type AiModelListInput struct {
 }
 
 type AiModelCreateInput struct {
-	apis.EnabledStatusStandaloneResourceCreateInput
+	apis.VirtualResourceCreateInput
+	apis.EnabledBaseResourceCreateInput
 
 	AiProviderId     string          `json:"ai_provider_id"`
 	ModelKey         string          `json:"model_key"`
@@ -39,7 +41,7 @@ type AiModelCreateInput struct {
 }
 
 type AiModelUpdateInput struct {
-	apis.EnabledStatusStandaloneResourceBaseUpdateInput
+	apis.VirtualResourceBaseUpdateInput
 
 	AiProviderId     string          `json:"ai_provider_id"`
 	ModelKey         string          `json:"model_key"`
@@ -50,7 +52,7 @@ type AiModelUpdateInput struct {
 }
 
 type AiModelDetails struct {
-	apis.EnabledStatusStandaloneResourceDetails
+	apis.VirtualResourceDetails
 
 	AiProviderId       string          `json:"ai_provider_id"`
 	AiProviderName     string          `json:"ai_provider_name"`

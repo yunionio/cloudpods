@@ -20,9 +20,7 @@ import (
 )
 
 var (
-	aiproxySystemResources = []string{
-		"usage",
-	}
+	aiproxySystemResources = []string{}
 	aiproxyDomainResources = []string{}
 	aiproxyUserResources   = []string{
 		"ai_proxy_nodes",
