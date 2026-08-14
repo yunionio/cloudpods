@@ -112,7 +112,7 @@ func aiKeySkipReason(k *SAiKey, modelKey string, exclude map[string]bool) string
 		return "?: nil ai_key"
 	}
 	label := aiKeyLabel(k)
-	if strings.TrimSpace(k.Secret) == "" {
+	if strings.TrimSpace(k.GetSecret()) == "" {
 		return label + ": empty secret"
 	}
 	if exclude != nil && exclude[k.Id] {
@@ -209,7 +209,7 @@ func resolveUpstreamAPIKeyExcluding(prov *SAiProvider, modelKey string, exclude 
 	skipReasons := make([]string, 0, len(keys))
 	for i := range keys {
 		k := &keys[i]
-		if strings.TrimSpace(k.Secret) == "" {
+		if strings.TrimSpace(k.GetSecret()) == "" {
 			continue
 		}
 		hasSecretKey = true
@@ -225,7 +225,7 @@ func resolveUpstreamAPIKeyExcluding(prov *SAiProvider, modelKey string, exclude 
 			return nil, errors.Wrap(httperrors.ErrInvalidStatus, "failed to pick ai_key")
 		}
 		return &resolvedUpstreamAPIKey{
-			Secret:   strings.TrimSpace(chosen.Secret),
+			Secret:   strings.TrimSpace(chosen.GetSecret()),
 			AiKeyId:  chosen.Id,
 			FromRows: true,
 		}, nil

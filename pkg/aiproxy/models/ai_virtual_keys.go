@@ -44,8 +44,10 @@ type SAiVirtualKey struct {
 
 	// OwnerId is the user that owns this virtual key within the project.
 	OwnerId string `width:"128" charset:"ascii" index:"true" list:"user" nullable:"false" create:"optional" update:"user"`
-	// VirtualKey is the opaque key id or prefix presented to clients (not the upstream provider secret).
-	VirtualKey string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	// VirtualKey stores the client token encrypted at rest with the row id.
+	VirtualKey string `width:"512" charset:"ascii" nullable:"false" create:"optional" update:"user" get:"user"`
+	// VirtualKeyHash is SHA256 of the plaintext token for auth lookup.
+	VirtualKeyHash string `width:"64" charset:"ascii" nullable:"true" unique:"true"`
 	// Limits constrains allowed providers, per-request max_tokens, and request rate.
 	Limits *api.SAiVirtualKeyLimits `length:"medium" charset:"utf8" list:"user" create:"optional" update:"user"`
 }
@@ -67,6 +69,73 @@ func init() {
 		),
 	}
 	AiVirtualKeyManager.SetVirtualObject(AiVirtualKeyManager)
+}
+
+func (manager *SAiVirtualKeyManager) InitializeData() error {
+	return migrateAiVirtualKeys()
+}
+
+func (m *SAiVirtualKey) BeforeInsert() {
+	if len(m.Id) == 0 {
+		m.Id = db.DefaultUUIDGenerator()
+	}
+	if err := m.sealVirtualKey(); err != nil {
+		log.Errorf("ai_virtual_key sealVirtualKey: %v", err)
+	}
+	m.SVirtualResourceBase.BeforeInsert()
+}
+
+func (m *SAiVirtualKey) BeforeUpdate() {
+	if err := m.sealVirtualKey(); err != nil {
+		log.Errorf("ai_virtual_key sealVirtualKey: %v", err)
+	}
+}
+
+func (m *SAiVirtualKey) GetVirtualKey() string {
+	return decryptAtRest(m.Id, m.VirtualKey)
+}
+
+func (m *SAiVirtualKey) sealVirtualKey() error {
+	if len(m.Id) == 0 {
+		m.Id = db.DefaultUUIDGenerator()
+	}
+	plain := strings.TrimSpace(decryptAtRest(m.Id, m.VirtualKey))
+	if plain == "" {
+		return nil
+	}
+	m.VirtualKeyHash = virtualKeyDigest(plain)
+	if secretLooksEncrypted(m.VirtualKey) {
+		return nil
+	}
+	enc, err := encryptAtRest(m.Id, plain)
+	if err != nil {
+		return err
+	}
+	m.VirtualKey = enc
+	return nil
+}
+
+func migrateAiVirtualKeys() error {
+	keys := make([]SAiVirtualKey, 0)
+	q := AiVirtualKeyManager.Query().IsNotEmpty("virtual_key")
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.NOT(sqlchemy.Startswith(q.Field("virtual_key"), atRestPrefix)),
+		sqlchemy.IsNullOrEmpty(q.Field("virtual_key_hash")),
+	))
+	if err := q.All(&keys); err != nil {
+		return errors.Wrap(err, "list ai_virtual_keys for migrate")
+	}
+	for i := range keys {
+		m := &keys[i]
+		m.SetModelManager(AiVirtualKeyManager, m)
+		_, err := db.Update(m, func() error {
+			return m.sealVirtualKey()
+		})
+		if err != nil {
+			return errors.Wrapf(err, "encrypt ai_virtual_key %s", m.Id)
+		}
+	}
+	return nil
 }
 
 func (m *SAiVirtualKey) GetOwnerId() mcclient.IIdentityProvider {
@@ -126,7 +195,7 @@ func (manager *SAiVirtualKeyManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
 	}
 	if v := strings.TrimSpace(query.VirtualKey); v != "" {
-		q = q.Equals("virtual_key", v)
+		q = q.Equals("virtual_key_hash", virtualKeyDigest(v))
 	}
 	userId := strings.TrimSpace(query.UserId)
 	if userId != "" {
@@ -175,6 +244,9 @@ func (manager *SAiVirtualKeyManager) FetchCustomizeColumns(
 	for i := range objs {
 		rows[i].VirtualResourceDetails = virtRows[i]
 		vk := objs[i].(*SAiVirtualKey)
+		plain := vk.GetVirtualKey()
+		vk.VirtualKey = plain
+		rows[i].VirtualKey = plain
 		if strings.TrimSpace(vk.OwnerId) != "" {
 			userIds[i] = vk.OwnerId
 		}
@@ -291,7 +363,11 @@ func validateAiVirtualKeyLimits(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func aiVirtualKeyExists(virtualKey string) (bool, error) {
-	cnt, err := AiVirtualKeyManager.Query().Equals("virtual_key", virtualKey).CountWithError()
+	digest := virtualKeyDigest(virtualKey)
+	if digest == "" {
+		return false, nil
+	}
+	cnt, err := AiVirtualKeyManager.Query().Equals("virtual_key_hash", digest).CountWithError()
 	if err != nil {
 		return false, errors.Wrap(err, "count ai_virtual_key")
 	}
