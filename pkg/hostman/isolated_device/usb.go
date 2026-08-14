@@ -26,6 +26,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
 
@@ -69,6 +70,21 @@ func GetUSBDevId(vendorId, devId, bus, addr string) string {
 }
 
 func getUSBDevQemuOptions(vendorId, deviceId string, bus, addr, port string) (map[string]interface{}, error) {
+	vendorIDI, err := strconv.ParseUint(vendorId, 16, 32)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse vendor ID %q", vendorId)
+	}
+	productIDI, err := strconv.ParseUint(deviceId, 16, 32)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse product ID %q", deviceId)
+	}
+	if !options.HostOptions.DisablePassthroughWithVendorDeviceId {
+		return map[string]interface{}{
+			"vendorid":  uint32(vendorIDI),
+			"productid": uint32(productIDI),
+		}, nil
+	}
+
 	// id := GetUSBDevId(vendorId, deviceId, bus, addr)
 	busI, err := strconv.Atoi(bus)
 	if err != nil {
@@ -85,14 +101,6 @@ func getUSBDevQemuOptions(vendorId, deviceId string, bus, addr, port string) (ma
 		}, nil
 	}
 
-	vendorIDI, err := strconv.ParseUint(vendorId, 16, 32)
-	if err != nil {
-		return nil, errors.Wrapf(err, "parse vendor ID %q", vendorId)
-	}
-	productIDI, err := strconv.ParseUint(deviceId, 16, 32)
-	if err != nil {
-		return nil, errors.Wrapf(err, "parse product ID %q", deviceId)
-	}
 	return map[string]interface{}{
 		// "id": id,
 		// "bus":       "usb.0",

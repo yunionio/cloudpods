@@ -220,14 +220,15 @@ type SHostOptions struct {
 
 	DisableKVM bool `help:"force disable KVM" default:"false" json:"disable_kvm"`
 
-	DisableGPU          bool     `help:"force disable GPU detect" default:"false" json:"disable_gpu"`
-	DisableCustomDevice bool     `help:"force disable custom pci device detect" default:"false" json:"disable_custom_device"`
-	DisableUSB          bool     `help:"force disable USB detect" default:"true" json:"disable_usb"`
-	SRIOVNics           []string `help:"nics enable sriov" json:"sriov_nics"`
-	OvsOffloadNics      []string `help:"nics enable ovs offload" json:"ovs_offload_nics"`
-	PTNVMEConfigs       []string `help:"passthrough nvme disk pci address and size"`
-	AMDVgpuPFs          []string `help:"amd vgpu pf pci addresses"`
-	NVIDIAVgpuPFs       []string `help:"nvidia vgpu pf pci addresses"`
+	DisableGPU                           bool     `help:"force disable GPU detect" default:"false" json:"disable_gpu"`
+	DisableCustomDevice                  bool     `help:"force disable custom pci device detect" default:"false" json:"disable_custom_device"`
+	DisableUSB                           bool     `help:"force disable USB detect" default:"true" json:"disable_usb"`
+	DisablePassthroughWithVendorDeviceId bool     `help:"disable usb passthrough with vendor device id" default:"false" json:"disable_passthrough_with_vendor_device_id"`
+	SRIOVNics                            []string `help:"nics enable sriov" json:"sriov_nics"`
+	OvsOffloadNics                       []string `help:"nics enable ovs offload" json:"ovs_offload_nics"`
+	PTNVMEConfigs                        []string `help:"passthrough nvme disk pci address and size"`
+	AMDVgpuPFs                           []string `help:"amd vgpu pf pci addresses"`
+	NVIDIAVgpuPFs                        []string `help:"nvidia vgpu pf pci addresses"`
 
 	EthtoolEnableGso bool `help:"use ethtool to turn on or off GSO(generic segment offloading)" default:"true" json:"ethtool_enable_gso"`
 
