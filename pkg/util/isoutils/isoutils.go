@@ -331,12 +331,38 @@ func getOsInfoByIsoLinux(content string) *ISOInfo {
 	return result
 }
 
+// extractGrubMenuEntryTitles 提取 menuentry 标题，忽略 --class 等选项，
+// 避免如 `--class fedora` 导致麒麟等发行版被误识别为 Fedora。
+func extractGrubMenuEntryTitles(content string) []string {
+	// menuentry 'title' --class fedora ... 或 menuentry "title" ...
+	menuEntryRegex := regexp.MustCompile(`(?i)menuentry\s+["']([^"']+)["']`)
+	matches := menuEntryRegex.FindAllStringSubmatch(content, -1)
+	titles := make([]string, 0, len(matches))
+	for _, m := range matches {
+		if len(m) >= 2 {
+			title := strings.TrimSpace(m[1])
+			if title != "" {
+				titles = append(titles, title)
+			}
+		}
+	}
+	return titles
+}
+
 func getOsInfoByGrub(content string) *ISOInfo {
 	result := &ISOInfo{}
-	lowerContent := strings.ToLower(content)
-	result.Distro = detectDistro(lowerContent)
+	titles := extractGrubMenuEntryTitles(content)
+	titleText := strings.Join(titles, "\n")
+	if len(titleText) == 0 {
+		// 无 menuentry 时回退到全文（仍尽量去掉 --class 噪声）
+		titleText = regexp.MustCompile(`(?i)--class\s+\S+`).ReplaceAllString(content, "")
+	}
+	lowerTitles := strings.ToLower(titleText)
+	result.Distro = detectDistro(lowerTitles)
 	result.Version = detectGrubVersion(content)
-	result.Arch = detectArchitecture(lowerContent, content)
+	// 架构仍可用全文（路径/内核参数里更常见），但去掉 --class 避免无关命中
+	archContent := regexp.MustCompile(`(?i)--class\s+\S+`).ReplaceAllString(content, "")
+	result.Arch = detectArchitecture(strings.ToLower(archContent), archContent)
 	return result
 }
 
@@ -398,24 +424,27 @@ func detectArchitecture(lowerContent, rawContent string) string {
 
 // detectGrubVersion 从 grub.cfg 提取版本号
 func detectGrubVersion(content string) string {
-	// 匹配版本号的正则（支持 x x.y、x.y.z、x.y-LTS、x.y.z-xxx 等格式）
-	versionRegex := regexp.MustCompile(`(\d+(\.\d+(\.\d+)?)?(-[A-Za-z0-9]+)?)`)
+	// 匹配版本号的正则（支持 x、x.y、x.y.z、x.y-LTS、v10 等格式）
+	versionRegex := regexp.MustCompile(`(?i)v?\d+(\.\d+(\.\d+)?)?(-[A-Za-z0-9]+)?`)
 
-	// 优先从 GRUB 菜单标题（menuentry）中提取（准确性更高）
-	menuEntryRegex := regexp.MustCompile(`(?i)menuentry\s+["'](.+?)["']`)
-	menuEntries := menuEntryRegex.FindAllStringSubmatch(content, -1)
-	for _, entry := range menuEntries {
-		log.Debugf("entry: %s", entry)
-		if len(entry) >= 1 {
-			version := versionRegex.FindString(entry[0])
-			if version != "" {
+	titles := extractGrubMenuEntryTitles(content)
+	// 优先从带 install 的菜单标题提取
+	for _, title := range titles {
+		lower := strings.ToLower(title)
+		if strings.Contains(lower, "install") {
+			if version := versionRegex.FindString(title); version != "" {
 				return version
 			}
 		}
 	}
+	for _, title := range titles {
+		if version := versionRegex.FindString(title); version != "" {
+			return version
+		}
+	}
 
 	// 从内核文件名/参数中提取
-	kernelLines := regexp.MustCompile(`linux\s+.+`).FindAllString(content, -1)
+	kernelLines := regexp.MustCompile(`(?i)linux(efi)?\s+.+`).FindAllString(content, -1)
 	for _, line := range kernelLines {
 		version := versionRegex.FindString(line)
 		if version != "" {
@@ -423,6 +452,5 @@ func detectGrubVersion(content string) string {
 		}
 	}
 
-	// 最后从整个内容中提取第一个匹配的版本号
-	return versionRegex.FindString(content)
+	return ""
 }
