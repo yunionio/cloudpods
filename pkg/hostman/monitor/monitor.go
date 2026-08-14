@@ -219,7 +219,7 @@ type Monitor interface {
 
 	ObjectAdd(objectType string, params map[string]string, callback StringCallback)
 	DriveAdd(bus, node string, params map[string]string, callback StringCallback)
-	DeviceAdd(dev string, params map[string]string, callback StringCallback)
+	DeviceAdd(dev string, params map[string]interface{}, callback StringCallback)
 	DeviceAddCpu(dev string, params map[string]interface{}, callback StringCallback)
 
 	XBlockdevChange(parent, node, child string, callback StringCallback)
@@ -278,6 +278,15 @@ type SBaseMonitor struct {
 	mutex   *sync.Mutex
 	writing bool
 	reading bool
+}
+
+// StringParams preserves string-valued device properties while callers migrate to typed QMP arguments.
+func StringParams(params map[string]string) map[string]interface{} {
+	ret := make(map[string]interface{}, len(params))
+	for k, v := range params {
+		ret[k] = v
+	}
+	return ret
 }
 
 func NewBaseMonitor(server, sid string, OnMonitorConnected MonitorSuccFunc, OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc) *SBaseMonitor {

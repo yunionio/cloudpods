@@ -532,25 +532,10 @@ func (m *QmpMonitor) DriveAdd(bus, node string, params map[string]string, callba
 	m.HumanMonitorCommand(cmd, callback)
 }
 
-func (m *QmpMonitor) DeviceAdd(dev string, params map[string]string, callback StringCallback) {
-	args := map[string]interface{}{
-		"driver": dev,
-	}
-
-	for k, v := range params {
-		var iv interface{}
-		iv = v
-		if v == "on" || v == "true" {
-			iv = true
-		} else if v == "off" || v == "false" {
-			iv = false
-		}
-		args[k] = iv
-	}
-
+func (m *QmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callback StringCallback) {
 	cmd := &Command{
 		Execute: "device_add",
-		Args:    args,
+		Args:    deviceAddArgs(dev, params),
 	}
 
 	cb := func(res *Response) {
@@ -558,6 +543,14 @@ func (m *QmpMonitor) DeviceAdd(dev string, params map[string]string, callback St
 	}
 
 	m.Query(cmd, cb)
+}
+
+func deviceAddArgs(dev string, params map[string]interface{}) map[string]interface{} {
+	args := map[string]interface{}{"driver": dev}
+	for k, v := range params {
+		args[k] = v
+	}
+	return args
 }
 
 func (m *QmpMonitor) DeviceAddCpu(dev string, params map[string]interface{}, callback StringCallback) {

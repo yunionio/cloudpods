@@ -294,7 +294,7 @@ func (d *SGuestDiskSyncTask) changeCdrom(cdrom *desc.SGuestCdrom) {
 				}
 				cb := func(res string) {
 					cdrom.Scsi.Options["drive"] = cdrom.Id
-					d.guest.Monitor.DeviceAdd(cdrom.Scsi.DevType, cdrom.Scsi.Options, cb2)
+					d.guest.Monitor.DeviceAdd(cdrom.Scsi.DevType, monitor.StringParams(cdrom.Scsi.Options), cb2)
 				}
 				params := map[string]string{}
 				for k, v := range cdrom.DriveOptions {
@@ -471,7 +471,7 @@ func (d *SGuestDiskSyncTask) checkDiskDriver(disk *desc.SGuestDisk) {
 			d.checkDrivers = append(d.checkDrivers, DISK_DRIVER_SCSI)
 			d.startAddDisk(disk)
 		}
-		params := map[string]string{
+		params := map[string]interface{}{
 			"id":   d.guest.Desc.VirtioScsi.Id,
 			"bus":  d.guest.Desc.VirtioScsi.BusStr(),
 			"addr": d.guest.Desc.VirtioScsi.SlotFunc(),
@@ -504,7 +504,7 @@ func (d *SGuestDiskSyncTask) checkDiskDriver(disk *desc.SGuestDisk) {
 			d.checkDrivers = append(d.checkDrivers, DISK_DRIVER_SATA)
 			d.startAddDisk(disk)
 		}
-		params := map[string]string{
+		params := map[string]interface{}{
 			"id":   d.guest.Desc.SataController.Id,
 			"bus":  d.guest.Desc.SataController.BusStr(),
 			"addr": d.guest.Desc.SataController.SlotFunc(),
@@ -564,7 +564,11 @@ func (d *SGuestDiskSyncTask) startAddDisk(disk *desc.SGuestDisk) {
 		}
 		bus = d.guest.GetPciBus()
 	case DISK_DRIVER_IDE:
-		bus = fmt.Sprintf("ide.%d", diskIndex/2)
+		var busNum = diskIndex / 2
+		if d.guest.Desc.Machine == api.VM_MACHINE_TYPE_Q35 {
+			busNum = diskIndex
+		}
+		bus = fmt.Sprintf("ide.%d", busNum)
 	case DISK_DRIVER_SATA:
 		bus = fmt.Sprintf("ahci0.%d", diskIndex)
 	}
@@ -604,7 +608,7 @@ func (d *SGuestDiskSyncTask) onAddDiskSucc(disk *desc.SGuestDisk, results string
 	}
 
 	d.guest.Desc.Disks = append(d.guest.Desc.Disks, disk)
-	var params = map[string]string{
+	var params = map[string]interface{}{
 		"drive": fmt.Sprintf("drive_%d", diskIndex),
 		"id":    fmt.Sprintf("drive_%d", diskIndex),
 	}
@@ -882,7 +886,7 @@ func (n *SGuestNetworkSyncTask) onNetdevAdd(nic *desc.SGuestNetwork, cType *desc
 		return
 	}
 
-	params := map[string]string{
+	params := map[string]interface{}{
 		"id":     fmt.Sprintf("netdev-%s", nic.Ifname),
 		"netdev": nic.Ifname,
 		"mac":    nic.Mac,
@@ -2862,7 +2866,7 @@ func (task *SGuestHotplugCpuMemTask) onAddMemObject(reason string, memSlot *desc
 		task.onAddMemFailed(reason)
 		return
 	}
-	params := map[string]string{
+	params := map[string]interface{}{
 		"id":     fmt.Sprintf("dimm%d", *task.memSlotNewIndex),
 		"memdev": fmt.Sprintf("mem%d", *task.memSlotNewIndex),
 	}
