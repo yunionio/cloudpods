@@ -775,4 +775,17 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type IdentityProviderGetPropertyAttributeNamesOptions struct {
+		DRIVER   string `help:"driver of idp to query" json:"driver" choices:"oidc|oauth2|saml|cas"`
+		TEMPLATE string `help:"template of idp to query" json:"template"`
+	}
+	R(&IdentityProviderGetPropertyAttributeNamesOptions{}, "idp-attribute-names", "Get property attribute names of a idp", func(s *mcclient.ClientSession, args *IdentityProviderGetPropertyAttributeNamesOptions) error {
+		result, err := modules.IdentityProviders.Get(s, "attribute-names", jsonutils.Marshal(args))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

@@ -150,5 +150,6 @@ func (drv *SWechatOAuth2Driver) Authenticate(ctx context.Context, code string) (
 	ret := make(map[string][]string)
 	ret["name"] = []string{userInfo.Nickname}
 	ret["user_id"] = []string{userInfo.Openid}
+	ret["union_id"] = []string{userInfo.Unionid}
 	return ret, nil
 }

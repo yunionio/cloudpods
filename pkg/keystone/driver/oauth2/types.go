@@ -25,6 +25,7 @@ type IOAuth2DriverFactory interface {
 	TemplateName() string
 	IdpAttributeOptions() api.SIdpAttributeOptions
 	ValidateConfig(conf api.SOAuth2IdpConfigOptions) error
+	AttributeNames() map[string]string
 }
 
 type IOAuth2Driver interface {

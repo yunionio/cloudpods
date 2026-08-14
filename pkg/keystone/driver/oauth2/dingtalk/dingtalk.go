@@ -120,5 +120,7 @@ func (drv *SDingtalkOAuth2Driver) Authenticate(ctx context.Context, code string)
 	ret := make(map[string][]string)
 	ret["name"] = []string{data.Nick}
 	ret["user_id"] = []string{data.Unionid}
+	ret["open_id"] = []string{data.Openid}
+	ret["union_id"] = []string{data.Unionid}
 	return ret, nil
 }
