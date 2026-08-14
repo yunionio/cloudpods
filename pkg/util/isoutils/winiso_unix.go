@@ -19,80 +19,30 @@ package isoutils
 
 import (
 	"fmt"
-
-	"github.com/Microsoft/go-winio/wim"
-
-	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/imagetools"
 )
 
-// ========== 7. 保留Windows版本识别函数（适配新结构） ==========
+// DetectWindowsEdition reads sources/install.wim or sources/install.esd XML metadata
+// to determine Windows edition/version. Prefer .wim, fall back to .esd.
 func DetectWindowsEdition(r *ISOFileReader) (*ISOInfo, error) {
-	wimFile, err := r.GetFile("sources/install.wim")
-	if err != nil {
-		return nil, err
-	}
-	wim, err := wim.NewReader(wimFile.NewReader())
-	if err != nil {
-		return nil, err
-	}
-	result := &ISOInfo{}
-	for _, image := range wim.Image {
-		version := fmt.Sprintf("%d.%d.%d", image.Windows.Version.Major, image.Windows.Version.Minor, image.Windows.Version.Build)
-		if image.Windows != nil {
-			if image.Windows.Arch == 9 {
-				result.Arch = "x86_64"
-			} else if image.Windows.Arch == 12 {
-				result.Arch = "arm64"
-			} else if image.Windows.Arch == 0 {
-				result.Arch = "x86"
-			}
-			result.Distro = imagetools.OS_DIST_WINDOWS
-			result.Language = image.Windows.DefaultLanguage
-			switch fmt.Sprintf("%d.%d", image.Windows.Version.Major, image.Windows.Version.Minor) {
-			case "6.0":
-				result.Version = "Windows Vista"
-			case "6.1":
-				result.Version = "Windows 7"
-			case "6.2":
-				result.Version = "Windows 8"
-			case "6.3":
-				result.Version = "Windows 8.1"
-			case "10.0":
-				if image.Windows.Version.Build >= 27500 {
-					result.Version = "Windows 12"
-				} else if image.Windows.Version.Build >= 22000 {
-					result.Version = "Windows 11"
-				} else {
-					result.Version = "Windows 10"
-				}
-			}
-			if image.Windows.ProductType == "ServerNT" {
-				result.Distro = imagetools.OS_DIST_WINDOWS_SERVER
-				switch fmt.Sprintf("%d.%d", image.Windows.Version.Major, image.Windows.Version.Minor) {
-				case "6.0":
-					result.Version = "Windows Server 2008"
-				case "6.1":
-					result.Version = "Windows Server 2008 R2"
-				case "6.2":
-					result.Version = "Windows Server 2012"
-				case "6.3":
-					result.Version = "Windows Server 2012 R2"
-				case "10.0":
-					if image.Windows.Version.Build >= 26040 {
-						result.Version = "Windows Server 2025"
-					} else if image.Windows.Version.Build >= 20348 {
-						result.Version = "Windows Server 2022"
-					} else if image.Windows.Version.Build >= 17763 {
-						result.Version = "Windows Server 2019"
-					} else if image.Windows.Version.Build >= 14393 {
-						result.Version = "Windows Server 2016"
-					}
-				}
-			}
-			log.Debugf("识别到 %s 版本: %s -> %s", result.Distro, version, result.Version)
-			break
+	var lastErr error
+	for _, path := range []string{"sources/install.wim", "sources/install.esd"} {
+		if !r.FileExists(path) {
+			continue
 		}
+		f, err := r.GetFile(path)
+		if err != nil {
+			lastErr = fmt.Errorf("open %s: %w", path, err)
+			continue
+		}
+		info, err := parseWimXmlMetadata(f.NewReader())
+		if err != nil {
+			lastErr = fmt.Errorf("parse %s: %w", path, err)
+			continue
+		}
+		return info, nil
 	}
-	return result, nil
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, fmt.Errorf("sources/install.wim or sources/install.esd not found")
 }

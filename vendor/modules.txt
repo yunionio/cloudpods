@@ -123,8 +123,6 @@ github.com/Microsoft/go-winio/internal/stringbuffer
 github.com/Microsoft/go-winio/pkg/bindfilter
 github.com/Microsoft/go-winio/pkg/guid
 github.com/Microsoft/go-winio/vhd
-github.com/Microsoft/go-winio/wim
-github.com/Microsoft/go-winio/wim/lzx
 # github.com/Microsoft/hcsshim v0.11.4
 ## explicit; go 1.18
 github.com/Microsoft/hcsshim
@@ -2580,7 +2578,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260722023550-7734c3278e9c
+# yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260812062629-c8dbc2950f4d
 ## explicit; go 1.24
 yunion.io/x/cloudmux/pkg/apis
 yunion.io/x/cloudmux/pkg/apis/billing
