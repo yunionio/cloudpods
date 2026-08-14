@@ -1012,6 +1012,9 @@ func getMetricDescriptionDetails(metricDetails *monitor.CommonAlertMetricDetails
 	if len(influxdbMeasurements[0].ResType) != 0 {
 		metricDetails.ResType = influxdbMeasurements[0].ResType
 	}
+	if metricDetails.ResType != "" {
+		metricDetails.ResIdKey = monitor.GetMeasurementTagIdKeyByResTypeWithDefault(metricDetails.ResType)
+	}
 	fields := make([]string, 0)
 	if len(metricDetails.FieldOpt) != 0 {
 		fields = append(fields, strings.Split(metricDetails.Field, metricDetails.FieldOpt)...)
