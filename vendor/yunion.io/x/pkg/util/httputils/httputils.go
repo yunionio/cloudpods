@@ -302,11 +302,11 @@ func GetAddrPort(urlStr string) (string, int, error) {
 }
 
 func GetTransport(insecure bool) *http.Transport {
-	return getTransport(insecure, false, 0)
+	return getTransport(insecure, false, false, 0)
 }
 
 func GetAdaptiveTransport(insecure bool) *http.Transport {
-	return getTransport(insecure, true, 0)
+	return getTransport(insecure, false, true, 0)
 }
 
 func adptiveDial(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -317,7 +317,44 @@ func adptiveDial(ctx context.Context, network, addr string) (net.Conn, error) {
 	return getConnDelegate(conn, 10*time.Second, 20*time.Second), nil
 }
 
-func getTransport(insecure bool, adaptive bool, timeout time.Duration) *http.Transport {
+func getTransport(insecure bool, legacyTLS bool, adaptive bool, timeout time.Duration) *http.Transport {
+	tlsConfig := &tls.Config{}
+	if insecure {
+		tlsConfig.InsecureSkipVerify = true
+	}
+	if legacyTLS {
+		tlsConfig.MinVersion = tls.VersionTLS10
+		tlsConfig.CipherSuites = []uint16{
+			// https://github.com/golang/go/issues/66512
+			// TLS 1.0 - 1.2 cipher suites.
+			tls.TLS_RSA_WITH_RC4_128_SHA,
+			tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_128_CBC_SHA256,
+			tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+			tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+			// TLS 1.3 cipher suites.
+			tls.TLS_AES_128_GCM_SHA256,
+			tls.TLS_AES_256_GCM_SHA384,
+			tls.TLS_CHACHA20_POLY1305_SHA256,
+		}
+	}
 	tr := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		// 一个空闲连接保持连接的时间
@@ -345,7 +382,7 @@ func getTransport(insecure bool, adaptive bool, timeout time.Duration) *http.Tra
 		// waiting for the server to approve.
 		// This time does not include the time to send the request header.
 		ExpectContinueTimeout: 5 * time.Second,
-		TLSClientConfig:       &tls.Config{InsecureSkipVerify: insecure},
+		TLSClientConfig:       tlsConfig,
 	}
 	if adaptive {
 		tr.DialContext = adptiveDial
@@ -382,12 +419,20 @@ func getTransport(insecure bool, adaptive bool, timeout time.Duration) *http.Tra
 	return tr
 }
 
+func GetLegacyTLSClient(timeout time.Duration) *http.Client {
+	return getClient(true, true, timeout)
+}
+
 func GetClient(insecure bool, timeout time.Duration) *http.Client {
+	return getClient(insecure, false, timeout)
+}
+
+func getClient(insecure bool, legacyTLS bool, timeout time.Duration) *http.Client {
 	adaptive := false
 	if timeout == 0 {
 		adaptive = true
 	}
-	tr := getTransport(insecure, adaptive, timeout)
+	tr := getTransport(insecure, legacyTLS, adaptive, timeout)
 	return &http.Client{
 		Transport: tr,
 		// 一个完整http request的超时时间

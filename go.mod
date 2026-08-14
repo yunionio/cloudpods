@@ -6,7 +6,6 @@ require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
 	github.com/LeeEirc/terminalparser v0.0.0-20240205084113-fbf78c8480f2
-	github.com/Microsoft/go-winio v0.6.2
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.684
 	github.com/anacrolix/torrent v0.0.0-20181129073333-cc531b8c4a80
 	github.com/benbjohnson/clock v1.0.0
@@ -94,14 +93,14 @@ require (
 	k8s.io/client-go v0.26.1
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260512084607-77c927d96c32
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260811060328-81427502ea46
 	yunion.io/x/executor v0.0.0-20260312022053-f538abd2b005
-	yunion.io/x/jsonutils v1.0.1-0.20250507052344-1abcf4f443b1
+	yunion.io/x/jsonutils v1.0.1-0.20260715075349-615cfb44ff7c
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
-	yunion.io/x/pkg v1.10.4-0.20260422030155-01b100134978
+	yunion.io/x/pkg v1.10.4-0.20260722094907-0da70a14584f
 	yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
-	yunion.io/x/sqlchemy v1.1.3-0.20251231025938-b0a38f6e9fab
+	yunion.io/x/sqlchemy v1.1.3-0.20260807102031-1d7e260d0dcc
 	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
 )
 
@@ -127,6 +126,7 @@ require (
 	github.com/DataDog/datadog-go/v5 v5.0.2 // indirect
 	github.com/DataDog/go-tuf v0.3.0--fix-localmeta-fork // indirect
 	github.com/DataDog/sketches-go v1.2.1 // indirect
+	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/RoaringBitmap/roaring v1.2.3 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
