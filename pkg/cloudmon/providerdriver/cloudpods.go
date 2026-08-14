@@ -18,6 +18,7 @@ import (
 	"time"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudmon/options"
 )
 
 type CloudpodsCollect struct {
@@ -37,5 +38,5 @@ func init() {
 }
 
 func (self *CloudpodsCollect) GetDelayDuration() time.Duration {
-	return time.Minute * 9
+	return time.Minute * time.Duration(options.Options.CloudpodsCollectDelayMinutes)
 }
