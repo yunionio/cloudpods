@@ -347,6 +347,38 @@ func (manager *SIdentityProviderManager) getDriveInstanceCount(drvName string) (
 	return manager.Query().Equals("driver", drvName).CountWithError()
 }
 
+func (manager *SIdentityProviderManager) GetPropertyAttributeNames(ctx context.Context, userCred mcclient.TokenCredential, input api.IdentityProviderPropertyAttributeNamesInput) (jsonutils.JSONObject, error) {
+	var drvName string
+
+	template := input.Template
+	if len(template) > 0 {
+		if _, ok := api.IdpTemplateDriver[template]; !ok {
+			return nil, httperrors.NewInputParameterError("invalid template")
+		}
+		drvName = api.IdpTemplateDriver[template]
+		input.Driver = drvName
+	} else {
+		drvName = input.Driver
+		if len(drvName) == 0 {
+			return nil, httperrors.NewInputParameterError("missing driver")
+		}
+	}
+
+	drvCls := driver.GetDriverClass(drvName)
+	if drvCls == nil {
+		return nil, httperrors.NewInputParameterError("driver %s not supported", drvName)
+	}
+
+	attrs, err := drvCls.AttributeNames(input.Template)
+	if err != nil {
+		return nil, errors.Wrap(err, "AttributeNames")
+	}
+	if len(attrs) == 0 {
+		return jsonutils.NewDict(), nil
+	}
+	return jsonutils.Marshal(attrs), nil
+}
+
 func (manager *SIdentityProviderManager) ValidateCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
