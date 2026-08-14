@@ -75,3 +75,28 @@ func TestVLLMProviderBuildChatCompletionsRequest(t *testing.T) {
 		t.Fatalf("stream_options should be stripped for non-stream requests: %s", req.Body)
 	}
 }
+
+func TestVLLMProviderStreamIncludeUsage(t *testing.T) {
+	p := New()
+	body := jsonutils.NewDict()
+	msg := jsonutils.NewDict()
+	msg.Add(jsonutils.NewString("user"), "role")
+	msg.Add(jsonutils.NewString("hi"), "content")
+	body.Add(jsonutils.NewArray(msg), "messages")
+
+	req, err := p.BuildUpstreamRequest(&providerapi.ChatContext{
+		BaseURL:       "http://127.0.0.1:8000",
+		UpstreamModel: "Qwen/Qwen2.5-7B-Instruct",
+	}, body, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := jsonutils.Parse(req.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	include, err := parsed.Bool("stream_options", "include_usage")
+	if err != nil || !include {
+		t.Fatalf("vllm stream body should include usage: %s", req.Body)
+	}
+}

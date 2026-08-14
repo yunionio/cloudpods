@@ -393,6 +393,21 @@ func NewImagesGenerationsResponse(items []ImageItem) ([]byte, error) {
 	})
 }
 
+// EnsureStreamIncludeUsage asks OpenAI-compatible upstreams to emit usage on the last SSE chunk.
+func EnsureStreamIncludeUsage(body *jsonutils.JSONDict, stream bool) {
+	if body == nil || !stream {
+		return
+	}
+	opts := jsonutils.NewDict()
+	if obj, err := body.Get("stream_options"); err == nil {
+		if dict, ok := obj.(*jsonutils.JSONDict); ok {
+			opts = dict
+		}
+	}
+	opts.Set("include_usage", jsonutils.JSONTrue)
+	body.Set("stream_options", opts)
+}
+
 // PatchFunc mutates an OpenAI request body before forwarding upstream.
 type PatchFunc func(body *jsonutils.JSONDict, stream bool)
 

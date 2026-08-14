@@ -16,13 +16,13 @@ package chatlog
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +30,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 
 	"yunion.io/x/log"
 )
@@ -38,6 +40,8 @@ const (
 	fileHourLayout   = "20060102-15"
 	fileMinuteLayout = "20060102-1504"
 )
+
+var errObjectNotFound = errors.New("object not found")
 
 type Options struct {
 	Enabled               bool
@@ -68,6 +72,7 @@ type Record struct {
 	ModelRequested string      `json:"model_requested,omitempty"`
 	ModelFinal     string      `json:"model_final,omitempty"`
 	Provider       string      `json:"provider,omitempty"`
+	AiProviderId   string      `json:"provider_id,omitempty"`
 	Success        bool        `json:"success"`
 	StatusCode     int         `json:"status_code,omitempty"`
 	ErrorCode      string      `json:"error_code,omitempty"`
@@ -110,27 +115,41 @@ type ReadResult struct {
 	Truncated bool     `json:"truncated"`
 }
 
+type objectStore interface {
+	Get(ctx context.Context, key string) ([]byte, error)
+	Put(ctx context.Context, key string, body []byte) error
+}
+
+type flushItem struct {
+	key  string
+	body []byte
+}
+
 type Writer struct {
-	opts Options
-	mu   sync.Mutex
+	opts  Options
+	store objectStore
+	now   func() time.Time
+
+	mu       sync.Mutex
+	buf      []byte
+	key      string
+	dirty    bool
+	loaded   bool
+	flushing bool
+	pending  []flushItem
+	flushErr error
 }
 
 var defaultWriter = NewWriter(Options{})
 
 func NewWriter(opts Options) *Writer {
-	if opts.LocalDir == "" {
-		opts.LocalDir = "/var/log/yunion/aiproxy/chat"
-	}
-	if opts.UploadIntervalSeconds <= 0 {
-		opts.UploadIntervalSeconds = 300
-	}
 	if opts.SegmentMinutes <= 0 || opts.SegmentMinutes > 60 {
 		opts.SegmentMinutes = 60
 	}
 	if opts.Instance == "" {
 		opts.Instance, _ = os.Hostname()
 	}
-	return &Writer{opts: opts}
+	return &Writer{opts: opts, now: time.Now}
 }
 
 func Configure(opts Options) {
@@ -139,6 +158,10 @@ func Configure(opts Options) {
 
 func Write(rec *Record) {
 	defaultWriter.Write(rec)
+}
+
+func Flush() error {
+	return defaultWriter.Flush(context.Background())
 }
 
 func segmentStart(ts time.Time, minutes int) time.Time {
@@ -156,33 +179,185 @@ func logFileName(ts time.Time, minutes int) string {
 	return "chat-" + start.Format(fileMinuteLayout) + ".jsonl"
 }
 
+func (w *Writer) objectKey(ts time.Time) string {
+	start := segmentStart(ts, w.opts.SegmentMinutes)
+	return UploadKey(w.opts.S3Prefix, start, logFileName(ts, w.opts.SegmentMinutes), w.opts.Instance)
+}
+
 func (w *Writer) Write(rec *Record) {
 	if w == nil || rec == nil || !w.opts.Enabled {
 		return
 	}
 	if rec.Timestamp.IsZero() {
-		rec.Timestamp = time.Now()
+		rec.Timestamp = w.now()
 	}
 	data, err := json.Marshal(rec)
 	if err != nil {
 		log.Errorf("marshal aiproxy chat log: %v", err)
 		return
 	}
+	line := append(data, '\n')
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if err := os.MkdirAll(w.opts.LocalDir, 0750); err != nil {
-		log.Errorf("mkdir aiproxy chat log dir: %v", err)
+	w.rotateLocked(rec.Timestamp)
+	w.buf = append(w.buf, line...)
+	w.dirty = true
+	w.kickFlushLocked()
+}
+
+func (w *Writer) rotateLocked(ts time.Time) {
+	key := w.objectKey(ts)
+	if w.key == key {
+		w.ensureLoadedLocked()
 		return
 	}
-	path := filepath.Join(w.opts.LocalDir, logFileName(rec.Timestamp, w.opts.SegmentMinutes))
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if w.key != "" && w.dirty {
+		w.pending = append(w.pending, flushItem{key: w.key, body: append([]byte(nil), w.buf...)})
+		w.dirty = false
+	}
+	w.key = key
+	w.buf = nil
+	w.dirty = false
+	w.loaded = false
+	w.ensureLoadedLocked()
+}
+
+func (w *Writer) ensureLoadedLocked() {
+	if w.loaded || w.key == "" || !w.opts.UploadEnabled {
+		return
+	}
+	store, err := w.getStoreLocked()
 	if err != nil {
-		log.Errorf("open aiproxy chat log: %v", err)
+		log.Errorf("init aiproxy chat log store: %v", err)
+		w.loaded = true
 		return
 	}
-	defer f.Close()
-	if _, err := f.Write(append(data, '\n')); err != nil {
-		log.Errorf("write aiproxy chat log: %v", err)
+	body, err := store.Get(context.Background(), w.key)
+	if err != nil {
+		if !isObjectNotFound(err) {
+			log.Errorf("load aiproxy chat log %s: %v", w.key, err)
+		}
+		w.loaded = true
+		return
+	}
+	w.buf = append([]byte(nil), body...)
+	w.loaded = true
+}
+
+func (w *Writer) getStoreLocked() (objectStore, error) {
+	if w.store != nil {
+		return w.store, nil
+	}
+	client, err := w.s3Client()
+	if err != nil {
+		return nil, err
+	}
+	w.store = &s3ObjectStore{
+		client: client,
+		bucket: w.opts.S3Bucket,
+	}
+	return w.store, nil
+}
+
+func (w *Writer) kickFlushLocked() {
+	if !w.opts.UploadEnabled || w.flushing {
+		return
+	}
+	w.flushing = true
+	go w.flushLoop()
+}
+
+func (w *Writer) flushLoop() {
+	for {
+		w.mu.Lock()
+		jobs := w.takeFlushJobsLocked()
+		if len(jobs) == 0 {
+			w.flushing = false
+			w.mu.Unlock()
+			return
+		}
+		store, err := w.getStoreLocked()
+		w.mu.Unlock()
+		if err != nil {
+			log.Errorf("init aiproxy chat log store: %v", err)
+			w.mu.Lock()
+			w.requeueFlushJobsLocked(jobs)
+			w.flushing = false
+			w.flushErr = err
+			w.mu.Unlock()
+			return
+		}
+		for _, job := range jobs {
+			if err := store.Put(context.Background(), job.key, job.body); err != nil {
+				log.Errorf("put aiproxy chat log %s: %v", job.key, err)
+				w.mu.Lock()
+				w.requeueFlushJobsLocked([]flushItem{job})
+				w.flushing = false
+				w.flushErr = err
+				w.mu.Unlock()
+				return
+			}
+		}
+		w.mu.Lock()
+		w.flushErr = nil
+		w.mu.Unlock()
+	}
+}
+
+func (w *Writer) takeFlushJobsLocked() []flushItem {
+	jobs := append([]flushItem(nil), w.pending...)
+	w.pending = w.pending[:0]
+	if w.dirty && w.key != "" {
+		jobs = append(jobs, flushItem{key: w.key, body: append([]byte(nil), w.buf...)})
+		w.dirty = false
+	}
+	return jobs
+}
+
+func (w *Writer) requeueFlushJobsLocked(jobs []flushItem) {
+	for _, job := range jobs {
+		if job.key == w.key {
+			if !bytes.Equal(w.buf, job.body) {
+				w.dirty = true
+				continue
+			}
+			w.dirty = true
+			continue
+		}
+		w.pending = append(w.pending, job)
+	}
+}
+
+func (w *Writer) Flush(ctx context.Context) error {
+	if w == nil || !w.opts.Enabled {
+		return nil
+	}
+	if !w.opts.UploadEnabled {
+		return nil
+	}
+	w.mu.Lock()
+	w.kickFlushLocked()
+	w.mu.Unlock()
+	for {
+		w.mu.Lock()
+		done := !w.flushing && !w.dirty && len(w.pending) == 0
+		stuck := !w.flushing && (w.dirty || len(w.pending) > 0)
+		err := w.flushErr
+		if stuck && err == nil {
+			w.kickFlushLocked()
+		}
+		w.mu.Unlock()
+		if done {
+			return err
+		}
+		if stuck && err != nil {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(5 * time.Millisecond):
+		}
 	}
 }
 
@@ -206,7 +381,6 @@ func FillUsageFromJSON(rec *Record, data []byte) bool {
 	prompt := u.PromptTokens
 	completion := u.CompletionTokens
 	total := u.TotalTokens
-	// Prefer OpenAI fields; fall back to Responses/Anthropic aliases.
 	if prompt == 0 {
 		prompt = u.InputTokens
 	}
@@ -296,6 +470,64 @@ func (w *Writer) s3Client() (*s3.Client, error) {
 	}), nil
 }
 
+type s3ObjectStore struct {
+	client      *s3.Client
+	bucket      string
+	ensureOnce  sync.Once
+	ensureError error
+}
+
+func (s *s3ObjectStore) Get(ctx context.Context, key string) ([]byte, error) {
+	out, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		if isObjectNotFound(err) {
+			return nil, errObjectNotFound
+		}
+		return nil, err
+	}
+	defer out.Body.Close()
+	return io.ReadAll(out.Body)
+}
+
+func (s *s3ObjectStore) Put(ctx context.Context, key string, body []byte) error {
+	s.ensureOnce.Do(func() {
+		s.ensureError = ensureBucket(ctx, s.client, s.bucket)
+	})
+	if s.ensureError != nil {
+		return s.ensureError
+	}
+	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader(body),
+	})
+	return err
+}
+
+func isObjectNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, errObjectNotFound) {
+		return true
+	}
+	var nsk *types.NoSuchKey
+	if errors.As(err, &nsk) {
+		return true
+	}
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		switch apiErr.ErrorCode() {
+		case "NoSuchKey", "NotFound", "NoSuchBucket":
+			return true
+		}
+	}
+	return false
+}
+
 func hourObjectPrefix(prefix string, ts time.Time) string {
 	prefix = strings.Trim(strings.TrimSpace(prefix), "/")
 	key := "date=" + ts.Format("2006-01-02") + "/hour=" + ts.Format("15") + "/"
@@ -331,95 +563,19 @@ func objectMatchesInstance(key string, instance string) bool {
 	return suffix == "" || strings.HasSuffix(base, suffix)
 }
 
-func markUploaded(dir, name string) error {
-	return os.WriteFile(filepath.Join(dir, filepath.Base(name)+".uploaded"), []byte(time.Now().Format(time.RFC3339)), 0600)
-}
-
-func finishUploaded(path string) error {
-	if err := os.Remove(path); err != nil {
-		return markUploaded(filepath.Dir(path), filepath.Base(path))
-	}
-	return nil
-}
-
-func uploaded(dir, name string) bool {
-	_, err := os.Stat(filepath.Join(dir, filepath.Base(name)+".uploaded"))
-	return err == nil
-}
-
-func fileSegmentStart(name string) (time.Time, error) {
-	return fileSegmentStartInLocation(name, time.Local)
-}
-
-func fileSegmentStartInLocation(name string, loc *time.Location) (time.Time, error) {
-	part := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(name), "chat-"), ".jsonl")
-	if len(part) == len("20060102-1504") {
-		return time.ParseInLocation(fileMinuteLayout, part, loc)
-	}
-	return time.ParseInLocation(fileHourLayout, part, loc)
-}
-
-func closedSegmentFiles(dir string, now time.Time, segmentMinutes int) ([]string, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	current := segmentStart(now, segmentMinutes)
-	files := make([]string, 0, len(entries))
-	for _, e := range entries {
-		name := e.Name()
-		if e.IsDir() || !strings.HasPrefix(name, "chat-") || !strings.HasSuffix(name, ".jsonl") || uploaded(dir, name) {
-			continue
-		}
-		start, err := fileSegmentStartInLocation(name, now.Location())
-		if err != nil || !start.Before(current) {
-			continue
-		}
-		files = append(files, filepath.Join(dir, name))
-	}
-	sort.Strings(files)
-	return files, nil
-}
-
 func StartUploader(ctx context.Context) {
 	if defaultWriter == nil || !defaultWriter.opts.Enabled || !defaultWriter.opts.UploadEnabled {
 		return
 	}
-	go defaultWriter.uploadLoop(ctx)
-}
-
-func (w *Writer) uploadLoop(ctx context.Context) {
-	ticker := time.NewTicker(time.Duration(w.opts.UploadIntervalSeconds) * time.Second)
-	defer ticker.Stop()
-	w.uploadClosedSegments(ctx)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			w.uploadClosedSegments(ctx)
+	defaultWriter.mu.Lock()
+	defaultWriter.rotateLocked(defaultWriter.now())
+	defaultWriter.mu.Unlock()
+	go func() {
+		<-ctx.Done()
+		if err := defaultWriter.Flush(context.Background()); err != nil {
+			log.Errorf("flush aiproxy chat log on stop: %v", err)
 		}
-	}
-}
-
-func (w *Writer) uploadClosedSegments(ctx context.Context) {
-	files, err := closedSegmentFiles(w.opts.LocalDir, time.Now(), w.opts.SegmentMinutes)
-	if err != nil {
-		log.Errorf("list aiproxy chat logs for upload: %v", err)
-		return
-	}
-	for _, path := range files {
-		if err := w.uploadFile(ctx, path); err != nil {
-			log.Errorf("upload aiproxy chat log %s: %v", path, err)
-			continue
-		}
-		if err := finishUploaded(path); err != nil {
-			log.Errorf("finish uploaded aiproxy chat log %s: %v", path, err)
-		}
-	}
+	}()
 }
 
 func Read(ctx context.Context, opts ReadOptions) (*ReadResult, error) {
@@ -530,32 +686,6 @@ func readJSONLines(r io.Reader, opts ReadOptions, ret *ReadResult) error {
 		}
 	}
 	return scanner.Err()
-}
-
-func (w *Writer) uploadFile(ctx context.Context, path string) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	ts, err := fileSegmentStart(filepath.Base(path))
-	if err != nil {
-		return err
-	}
-	client, err := w.s3Client()
-	if err != nil {
-		return err
-	}
-	if err := ensureBucket(ctx, client, w.opts.S3Bucket); err != nil {
-		return err
-	}
-	key := UploadKey(w.opts.S3Prefix, ts, path, w.opts.Instance)
-	_, err = client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(w.opts.S3Bucket),
-		Key:    aws.String(key),
-		Body:   f,
-	})
-	return err
 }
 
 func ensureBucket(ctx context.Context, client *s3.Client, bucket string) error {
