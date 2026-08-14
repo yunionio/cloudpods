@@ -68,7 +68,7 @@ func GetUSBDevId(vendorId, devId, bus, addr string) string {
 	return fmt.Sprintf("dev_%s_%s-%s_%s", vendorId, devId, bus, addr)
 }
 
-func getUSBDevQemuOptions(vendorId, deviceId string, bus, addr, port string) (map[string]string, error) {
+func getUSBDevQemuOptions(vendorId, deviceId string, bus, addr, port string) (map[string]interface{}, error) {
 	// id := GetUSBDevId(vendorId, deviceId, bus, addr)
 	busI, err := strconv.Atoi(bus)
 	if err != nil {
@@ -79,23 +79,31 @@ func getUSBDevQemuOptions(vendorId, deviceId string, bus, addr, port string) (ma
 		return nil, errors.Wrapf(err, "parse addr to int %q", bus)
 	}
 	if len(port) > 0 {
-		return map[string]string{
-			"hostbus":  fmt.Sprintf("%d", busI),
+		return map[string]interface{}{
+			"hostbus":  uint64(busI),
 			"hostport": port,
 		}, nil
 	}
 
-	return map[string]string{
+	vendorIDI, err := strconv.ParseUint(vendorId, 16, 32)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse vendor ID %q", vendorId)
+	}
+	productIDI, err := strconv.ParseUint(deviceId, 16, 32)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse product ID %q", deviceId)
+	}
+	return map[string]interface{}{
 		// "id": id,
 		// "bus":       "usb.0",
-		"vendorid":  fmt.Sprintf("0x%s", vendorId),
-		"productid": fmt.Sprintf("0x%s", deviceId),
-		"hostbus":   fmt.Sprintf("%d", busI),
-		"hostaddr":  fmt.Sprintf("%d", addrI),
+		"vendorid":  uint32(vendorIDI),
+		"productid": uint32(productIDI),
+		"hostbus":   uint64(busI),
+		"hostaddr":  uint64(addrI),
 	}, nil
 }
 
-func GetUSBDevQemuOptions(vendorDevId string, addr string) (map[string]string, error) {
+func GetUSBDevQemuOptions(vendorDevId string, addr string) (map[string]interface{}, error) {
 	parts := strings.Split(vendorDevId, ":")
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("invalid vendor_device_id %q", vendorDevId)
@@ -128,7 +136,15 @@ func (dev *sUSBDevice) GetQemuId() string {
 
 func (dev *sUSBDevice) GetPassthroughOptions() map[string]string {
 	opts, _ := GetUSBDevQemuOptions(dev.dev.GetVendorDeviceId(), dev.dev.Addr)
-	return opts
+	ret := make(map[string]string, len(opts))
+	for k, v := range opts {
+		if k == "vendorid" || k == "productid" {
+			ret[k] = fmt.Sprintf("0x%x", v)
+			continue
+		}
+		ret[k] = fmt.Sprint(v)
+	}
+	return ret
 }
 
 func (dev *sUSBDevice) GetPassthroughCmd(index int) string {

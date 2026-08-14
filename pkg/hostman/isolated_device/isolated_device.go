@@ -95,7 +95,7 @@ type IHost interface {
 
 type HotPlugOption struct {
 	Device  string
-	Options map[string]string
+	Options map[string]interface{}
 }
 
 type HotUnplugOption struct {
@@ -1112,7 +1112,7 @@ func (dev *SBaseDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice
 
 	var masterDevOpt *HotPlugOption
 	for i := 0; i < len(isolatedDev.VfioDevs); i++ {
-		opts := map[string]string{
+		opts := map[string]interface{}{
 			"host": isolatedDev.VfioDevs[i].HostAddr,
 			"bus":  isolatedDev.VfioDevs[i].BusStr(),
 			"addr": isolatedDev.VfioDevs[i].SlotFunc(),
@@ -1120,13 +1120,13 @@ func (dev *SBaseDevice) GetHotPlugOptions(isolatedDev *desc.SGuestIsolatedDevice
 		}
 		if isolatedDev.VfioDevs[i].Multi != nil {
 			if *isolatedDev.VfioDevs[i].Multi {
-				opts["multifunction"] = "on"
+				opts["multifunction"] = true
 			} else {
-				opts["multifunction"] = "off"
+				opts["multifunction"] = false
 			}
 		}
 		if isolatedDev.VfioDevs[i].XVga {
-			opts["x-vga"] = "on"
+			opts["x-vga"] = true
 		}
 		devOpt := &HotPlugOption{
 			Device:  isolatedDev.VfioDevs[i].DevType,
