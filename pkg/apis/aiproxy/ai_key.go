@@ -88,6 +88,7 @@ type AiKeyDetails struct {
 
 	AiProviderId   string         `json:"ai_provider_id"`
 	AiProviderName string         `json:"ai_provider_name"`
+	Secret         string         `json:"secret"`
 	Weight         int            `json:"weight"`
 	Routing        *SAiKeyRouting `json:"routing"`
 }
