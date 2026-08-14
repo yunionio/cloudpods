@@ -252,7 +252,11 @@ func (manager *SAssignmentManager) fetchProjectRoleUserIdsQuery(projId, roleId s
 		q1 = q1.Equals("role_id", roleId)
 	}
 
-	assigns := AssignmentManager.Query().SubQuery()
+	assignsQ := AssignmentManager.Query()
+	if len(roleId) > 0 {
+		assignsQ = assignsQ.Equals("role_id", roleId)
+	}
+	assigns := assignsQ.SubQuery()
 	usergroups := UsergroupManager.Query().SubQuery()
 
 	q2 := usergroups.Query(usergroups.Field("user_id", "actor_id"))
@@ -262,9 +266,6 @@ func (manager *SAssignmentManager) fetchProjectRoleUserIdsQuery(projId, roleId s
 	q2 = q2.Filter(sqlchemy.Equals(assigns.Field("type"), api.AssignmentGroupProject))
 	q2 = q2.Filter(sqlchemy.Equals(assigns.Field("target_id"), projId))
 	q2 = q2.Filter(sqlchemy.IsFalse(assigns.Field("inherited")))
-	if len(roleId) > 0 {
-		q2 = q2.Equals("role_id", roleId)
-	}
 
 	union := sqlchemy.Union(q1, q2)
 	return union.Query().Distinct()

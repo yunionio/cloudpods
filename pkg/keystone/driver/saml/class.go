@@ -135,6 +135,16 @@ func (self *SSAMLDriverClass) ValidateConfig(ctx context.Context, userCred mccli
 	return tconf, nil
 }
 
+func (self *SSAMLDriverClass) AttributeNames(template string) (map[string]string, error) {
+	switch template {
+	case api.IdpTemplateSAMLTest:
+		return SAMLTestTemplate.AttributeNames, nil
+	case api.IdpTemplateAzureADSAML:
+		return AzureADTemplate.AttributeNames, nil
+	}
+	return nil, nil
+}
+
 func init() {
 	driver.RegisterDriverClass(&SSAMLDriverClass{})
 }

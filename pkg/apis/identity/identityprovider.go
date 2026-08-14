@@ -104,6 +104,14 @@ type IdentityProviderCreateInput struct {
 	IconUri string `json:"icon_uri"`
 }
 
+type IdentityProviderPropertyAttributeNamesInput struct {
+	// 后端驱动名称
+	Driver string `json:"driver"`
+
+	// 模板名称
+	Template string `json:"template"`
+}
+
 type GetIdpSamlMetadataInput struct {
 	// 缩进展示SAML sp metadata
 	Pretty *bool `json:"pretty"`

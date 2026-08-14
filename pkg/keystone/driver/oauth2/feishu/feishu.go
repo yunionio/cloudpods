@@ -76,6 +76,7 @@ type sAccessTokenData struct {
 	Name             string `json:"name"`
 	EnName           string `json:"en_name"`
 	OpenID           string `json:"open_id"`
+	UnionID          string `json:"union_id"`
 	TenantKey        string `json:"tenant_key"`
 	RefreshExpiresIn int64  `json:"refresh_expires_in"`
 	RefreshToken     string `json:"refresh_token"`
@@ -177,8 +178,10 @@ func (drv *SFeishuOAuth2Driver) Authenticate(ctx context.Context, code string) (
 	ret := make(map[string][]string)
 	ret["name"] = []string{userInfo.Name}
 	ret["user_id"] = []string{userInfo.UserID}
-	ret["name_en"] = []string{accessData.EnName}
+	ret["en_name"] = []string{accessData.EnName}
 	ret["email"] = []string{userInfo.Email}
 	ret["mobile"] = []string{userInfo.Mobile}
+	ret["open_id"] = []string{accessData.OpenID}
+	ret["union_id"] = []string{accessData.UnionID}
 	return ret, nil
 }
