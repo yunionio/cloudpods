@@ -106,6 +106,8 @@ type DiskBackupListInput struct {
 	IsInstanceBackup *bool `json:"is_instance_backup"`
 	// 按硬盘名称排序
 	OrderByDiskName string `json:"order_by_disk_name"`
+	// description: 主机ID
+	ServerId string `json:"server_id"`
 }
 
 type DiskBackupDetails struct {
