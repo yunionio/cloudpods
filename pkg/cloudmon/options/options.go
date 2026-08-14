@@ -26,6 +26,8 @@ type CloudMonOptions struct {
 	CollectMetricInterval   int64  `help:"Increment Sync Interval unit:minute" default:"6"`
 	SkipMetricPullProviders string `help:"Skip indicate provider metric pull" default:""`
 
+	CloudpodsCollectDelayMinutes int64 `help:"Cloudpods Collect Delay Duration unit:minute" default:"0"`
+
 	InfluxDatabase string `help:"influxdb database name, default telegraf" default:"telegraf"`
 
 	DisableServiceMetric               bool  `help:"disable service metric collect"`
