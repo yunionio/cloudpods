@@ -186,8 +186,8 @@ func DetectOSFromISO(r io.Reader) (*ISOInfo, error) {
 		return nil, err
 	}
 
-	// ========== 识别Windows系列 ==========
-	if reader.FileExists("sources/install.wim") {
+	// ========== 识别Windows系列（install.wim 或 install.esd） ==========
+	if reader.FileExists("sources/install.wim") || reader.FileExists("sources/install.esd") {
 		return DetectWindowsEdition(reader)
 	}
 
