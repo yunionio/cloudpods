@@ -34,7 +34,17 @@ import (
 
 const aliyunNoticeRssURL = "https://www.aliyun.com/rss/notice/zh.xml"
 
-var htmlTagRe = regexp.MustCompile(`<[^>]*>`)
+var (
+	// 仅匹配真实 HTML 标签，避免把版本比较里的 <= / >= 当成标签删掉
+	htmlTagRe       = regexp.MustCompile(`(?i)</?[a-z][a-z0-9]*\b[^>]*>`)
+	htmlBreakTagRe  = regexp.MustCompile(`(?i)<br\s*/?>`)
+	htmlLinkRe      = regexp.MustCompile(`(?i)<a\s[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)</a>`)
+	htmlLiTagRe     = regexp.MustCompile(`(?i)<li\b[^>]*>`)
+	htmlTdThTagRe   = regexp.MustCompile(`(?i)</t[dh]\s*>`)
+	htmlBlockTagRe  = regexp.MustCompile(`(?i)</?(p|div|tr|ul|ol|table|thead|tbody|tfoot|h[1-6]|section|article|blockquote|hr)\b[^>]*>`)
+	htmlMultiLineRe = regexp.MustCompile(`\n{3,}`)
+	htmlSpaceRe     = regexp.MustCompile(`[^\S\n]{2,}`)
+)
 
 type SNotice struct {
 	title   string
@@ -137,16 +147,45 @@ func stripHTML(s string) string {
 	if len(s) == 0 {
 		return ""
 	}
+	// 阿里云 RSS 常把 &nbsp; 误用作标签内属性分隔符，需先还原成空格再解析标签
+	s = strings.ReplaceAll(s, "&nbsp;", " ")
+	s = strings.ReplaceAll(s, "&#160;", " ")
 	s = html.UnescapeString(s)
-	s = htmlTagRe.ReplaceAllString(s, "")
 	s = strings.ReplaceAll(s, "\u00a0", " ")
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+
+	// 保留超链接：文案 (url)；文案与 url 相同时只保留 url
+	s = htmlLinkRe.ReplaceAllStringFunc(s, func(m string) string {
+		parts := htmlLinkRe.FindStringSubmatch(m)
+		if len(parts) < 3 {
+			return m
+		}
+		url := strings.TrimSpace(parts[1])
+		text := strings.TrimSpace(htmlTagRe.ReplaceAllString(parts[2], ""))
+		text = strings.Join(strings.Fields(text), " ")
+		if len(text) == 0 || text == url {
+			return url
+		}
+		return fmt.Sprintf("%s (%s)", text, url)
+	})
+
+	s = htmlBreakTagRe.ReplaceAllString(s, "\n")
+	s = htmlLiTagRe.ReplaceAllString(s, "\n- ")
+	s = htmlTdThTagRe.ReplaceAllString(s, " | ")
+	s = htmlBlockTagRe.ReplaceAllString(s, "\n")
+	s = htmlTagRe.ReplaceAllString(s, "")
+
 	lines := strings.Split(s, "\n")
-	parts := []string{}
+	parts := make([]string, 0, len(lines))
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if len(line) > 0 {
-			parts = append(parts, line)
-		}
+		line = strings.Trim(line, "|")
+		line = strings.TrimSpace(line)
+		line = htmlSpaceRe.ReplaceAllString(line, " ")
+		parts = append(parts, line)
 	}
-	return strings.Join(parts, "\n")
+	s = strings.Join(parts, "\n")
+	s = htmlMultiLineRe.ReplaceAllString(s, "\n\n")
+	return strings.TrimSpace(s)
 }

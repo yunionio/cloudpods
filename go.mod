@@ -6,7 +6,6 @@ require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
 	github.com/LeeEirc/terminalparser v0.0.0-20240205084113-fbf78c8480f2
-	github.com/Microsoft/go-winio v0.6.2
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.684
 	github.com/anacrolix/torrent v1.57.0
 	github.com/aws/aws-sdk-go-v2 v1.41.5
@@ -113,7 +112,7 @@ require (
 	k8s.io/cri-api v0.28.15
 	k8s.io/klog/v2 v2.90.1
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260722023537-f41e01f2eee3
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260812062623-2b79dfea19bd
 	yunion.io/x/executor v0.0.0-20260312022053-f538abd2b005
 	yunion.io/x/jsonutils v1.0.1-0.20260715075349-615cfb44ff7c
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
@@ -141,6 +140,7 @@ require (
 	github.com/DataDog/datadog-go/v5 v5.0.2 // indirect
 	github.com/DataDog/go-tuf v0.3.0--fix-localmeta-fork // indirect
 	github.com/DataDog/sketches-go v1.2.1 // indirect
+	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Microsoft/hcsshim v0.11.4 // indirect
 	github.com/RoaringBitmap/roaring v1.2.3 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
