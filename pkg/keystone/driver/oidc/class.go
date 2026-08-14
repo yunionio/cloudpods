@@ -123,6 +123,20 @@ func (self *SOIDCDriverClass) ValidateConfig(ctx context.Context, userCred mccli
 	return tconf, nil
 }
 
+func (self *SOIDCDriverClass) AttributeNames(template string) (map[string]string, error) {
+	switch template {
+	case api.IdpTemplateDex:
+		return DexOIDCTemplate.AttributeNames, nil
+	case api.IdpTemplateGithub:
+		return GithubOIDCTemplate.AttributeNames, nil
+	case api.IdpTemplateAzureOAuth2:
+		return AzureADTemplate.AttributeNames, nil
+	case api.IdpTemplateGoogle:
+		return GoogleOIDCTemplate.AttributeNames, nil
+	}
+	return nil, nil
+}
+
 func init() {
 	driver.RegisterDriverClass(&SOIDCDriverClass{})
 }

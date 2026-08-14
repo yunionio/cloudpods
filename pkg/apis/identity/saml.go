@@ -43,6 +43,8 @@ type SSAMLIdpConfigOptions struct {
 	SSAMLIdpBaseConfigOptions
 
 	SIdpAttributeOptions
+
+	AttributeNames map[string]string `json:"attribute_names"`
 }
 
 type SSAMLTestIdpConfigOptions struct {

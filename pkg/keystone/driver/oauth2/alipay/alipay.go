@@ -73,5 +73,7 @@ func (drv *SAlipayOAuth2Driver) Authenticate(ctx context.Context, code string) (
 		attrs[k] = []string{v}
 	}
 	attrs["user_name"] = []string{fmt.Sprintf("alipay%s", userInfo["user_id"])}
+	attrs["user_id"] = []string{userInfo["user_id"]}
+	attrs["nick_name"] = []string{userInfo["nick_name"]}
 	return attrs, nil
 }

@@ -31,7 +31,7 @@ func (drv SFeishuDriverFactory) TemplateName() string {
 
 func (drv SFeishuDriverFactory) IdpAttributeOptions() api.SIdpAttributeOptions {
 	return api.SIdpAttributeOptions{
-		UserNameAttribute:        "name_en",
+		UserNameAttribute:        "name",
 		UserIdAttribute:          "user_id",
 		UserDisplaynameAttribtue: "name",
 		UserEmailAttribute:       "email",
@@ -41,6 +41,18 @@ func (drv SFeishuDriverFactory) IdpAttributeOptions() api.SIdpAttributeOptions {
 
 func (drv SFeishuDriverFactory) ValidateConfig(conf api.SOAuth2IdpConfigOptions) error {
 	return nil
+}
+
+func (drv SFeishuDriverFactory) AttributeNames() map[string]string {
+	return map[string]string{
+		"en_name":  "User name in Feishu",
+		"user_id":  "User ID in Feishu",
+		"name":     "User name in Feishu",
+		"email":    "Email in Feishu",
+		"mobile":   "Mobile in Feishu",
+		"union_id": "Union ID in Feishu",
+		"open_id":  "Open ID in Feishu",
+	}
 }
 
 func init() {
