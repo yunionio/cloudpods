@@ -19,7 +19,7 @@ import (
 )
 
 type AiRoutingModelListInput struct {
-	apis.StandaloneResourceListInput
+	apis.VirtualResourceListInput
 
 	AiRoutingId  string `json:"ai_routing_id"`
 	AiProviderId string `json:"ai_provider_id"`
@@ -28,7 +28,7 @@ type AiRoutingModelListInput struct {
 }
 
 type AiRoutingModelCreateInput struct {
-	apis.StandaloneResourceCreateInput
+	apis.VirtualResourceCreateInput
 
 	AiRoutingId  string `json:"ai_routing_id"`
 	AiProviderId string `json:"ai_provider_id"`
@@ -39,7 +39,7 @@ type AiRoutingModelCreateInput struct {
 }
 
 type AiRoutingModelUpdateInput struct {
-	apis.StandaloneResourceBaseUpdateInput
+	apis.VirtualResourceBaseUpdateInput
 
 	AiRoutingId  string `json:"ai_routing_id,omitempty"`
 	AiProviderId string `json:"ai_provider_id,omitempty"`
@@ -50,7 +50,7 @@ type AiRoutingModelUpdateInput struct {
 }
 
 type AiRoutingModelDetails struct {
-	apis.StandaloneResourceDetails
+	apis.VirtualResourceDetails
 
 	// Id and Name are set explicitly for nested routing_models on ai_routing details
 	// (list responses also merge the full model row, which includes these fields).

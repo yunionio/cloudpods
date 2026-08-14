@@ -81,6 +81,7 @@ func fillAPILogFromUpstream(rec *chatlog.Record, up *models.ChatUpstream) {
 	rec.AiKey = up.AiKeyId
 	rec.ModelFinal = up.UpstreamModel
 	rec.Provider = up.ProviderKey
+	rec.AiProviderId = up.AiProviderId
 	if up.RoutingLog != nil {
 		rec.RoutingEnabled = up.RoutingLog.Enabled
 		rec.RoutingCandidates = up.RoutingLog.Candidates
