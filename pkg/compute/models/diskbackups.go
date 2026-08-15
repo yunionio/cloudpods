@@ -137,6 +137,17 @@ func (dm *SDiskBackupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			q = q.Join(insjsq, sqlchemy.Equals(q.Field("id"), insjsq.Field("disk_backup_id")))
 		}
 	}
+	if len(input.ServerId) > 0 {
+		iG, err := GuestManager.FetchByIdOrName(ctx, userCred, input.ServerId)
+		if err != nil && err == sql.ErrNoRows {
+			return nil, httperrors.NewNotFoundError("guest %s not found", input.ServerId)
+		} else if err != nil {
+			return nil, errors.Wrap(err, "fetch guest")
+		}
+		guest := iG.(*SGuest)
+		gdq := GuestdiskManager.Query("disk_id").Equals("guest_id", guest.Id).SubQuery()
+		q = q.In("disk_id", gdq)
+	}
 	return q, nil
 }
 
