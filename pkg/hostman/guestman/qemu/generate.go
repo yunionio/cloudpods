@@ -92,10 +92,14 @@ func generateSpiceOptions(port uint, spice *desc.SSpiceDesc) []string {
 	// intel-hda and codec hda-duplex
 	opts = append(opts, generatePCIDeviceOption(spice.IntelHDA.PCIDevice))
 	codec := spice.IntelHDA.Codec
-	opts = append(opts,
-		fmt.Sprintf("-device %s,id=%s,bus=%s.0,cad=%d",
-			codec.Type, codec.Id, spice.IntelHDA.Id, codec.Cad),
-	)
+	codecOpts := fmt.Sprintf("-device %s,id=%s,bus=%s.0,cad=%d", codec.Type, codec.Id, spice.IntelHDA.Id, codec.Cad)
+	if spice.IntelHDA.Audio != nil {
+		opts = append(opts,
+			fmt.Sprintf("-audiodev %s,id=%s", spice.IntelHDA.Audio.Type, spice.IntelHDA.Audio.Id),
+		)
+		codecOpts = fmt.Sprintf("%s,audiodev=%s", codecOpts, spice.IntelHDA.Audio.Id)
+	}
+	opts = append(opts, codecOpts)
 
 	// serial port
 	opts = append(opts, generatePCIDeviceOption(spice.VdagentSerial.PCIDevice))
