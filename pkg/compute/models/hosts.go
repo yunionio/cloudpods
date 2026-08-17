@@ -1443,17 +1443,35 @@ func (hh *SHostManager) GetPropertyK8sMasterNodeIps(ctx context.Context, userCre
 	if err != nil {
 		return nil, errors.Wrap(err, "list master nodes")
 	}
-	ips := make([]string, 0)
+	ips := map[string]struct{}{}
 	for i := range nodes.Items {
 		for j := range nodes.Items[i].Status.Addresses {
 			if nodes.Items[i].Status.Addresses[j].Type == v1.NodeInternalIP {
-				ips = append(ips, nodes.Items[i].Status.Addresses[j].Address)
+				ips[nodes.Items[i].Status.Addresses[j].Address] = struct{}{}
 			}
 		}
 	}
 	log.Infof("k8s master nodes ips %v", ips)
+	if jsonutils.QueryBoolean(query, "kvm_hosts", false) {
+		hostq := hh.Query("access_ip")
+		hostq = hostq.In("host_type", []string{api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_KVM, api.HOST_TYPE_CONTAINER})
+		type HostIp struct {
+			AccessIp string
+		}
+		hostIps := make([]HostIp, 0)
+		if err := hostq.All(&hostIps); err != nil && err != sql.ErrNoRows {
+			return nil, err
+		}
+		for i := range hostIps {
+			ips[hostIps[i].AccessIp] = struct{}{}
+		}
+	}
+	ipArr := make([]string, 0, len(ips))
+	for k := range ips {
+		ipArr = append(ipArr, k)
+	}
 	res := jsonutils.NewDict()
-	res.Set("ips", jsonutils.Marshal(ips))
+	res.Set("ips", jsonutils.Marshal(ipArr))
 	return res, nil
 }
 
