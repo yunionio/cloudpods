@@ -626,30 +626,53 @@ func (b *SBaremetalInstance) SaveDesc(desc jsonutils.JSONObject) error {
 	return ioutil.WriteFile(b.GetDescFilePath(), []byte(b.desc.String()), 0644)
 }
 
+func (b *SBaremetalInstance) fetchServerDesc(serverId string) (jsonutils.JSONObject, error) {
+	desc, err := modules.Servers.GetSpecific(b.GetClientSession(), serverId, "desc", nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fetch server %s desc", serverId)
+	}
+	uuid, err := desc.GetString("uuid")
+	if err != nil {
+		return nil, errors.Wrap(err, "server desc missing uuid")
+	}
+	if uuid != serverId {
+		return nil, errors.Errorf("server desc uuid %q not equal expected server id %q", uuid, serverId)
+	}
+	return desc, nil
+}
+
 func (b *SBaremetalInstance) loadServer() {
 	b.serverLock.Lock()
 	defer b.serverLock.Unlock()
-	if !b.desc.Contains("server_id") {
+	serverId, err := b.desc.GetString("server_id")
+	if err != nil || serverId == "" {
 		return
 	}
 	descPath := b.GetServerDescFilePath()
-	desc, err := ioutil.ReadFile(descPath)
+	descBytes, err := ioutil.ReadFile(descPath)
+	var descObj jsonutils.JSONObject
 	if err != nil {
-		log.Errorf("Failed to read server desc %s: %v", descPath, err)
-		return
-	}
-	descObj, err := jsonutils.Parse(desc)
-	if err != nil {
-		log.Errorf("Failed to parse server json string: %v", err)
-		return
+		log.Warningf("Failed to read server desc %s: %v, try fetch from region", descPath, err)
+		descObj, err = b.fetchServerDesc(serverId)
+		if err != nil {
+			log.Errorf("Failed to fetch server %s desc from region: %v", serverId, err)
+			return
+		}
+		log.Infof("Fetched server %s desc from region and will save to %s", serverId, descPath)
+	} else {
+		descObj, err = jsonutils.Parse(descBytes)
+		if err != nil {
+			log.Errorf("Failed to parse server json string: %v", err)
+			return
+		}
 	}
 	srv, err := newBaremetalServer(b, descObj.(*jsonutils.JSONDict))
 	if err != nil {
 		log.Errorf("New server error: %v", err)
 		return
 	}
-	if bmSrvId, _ := b.desc.GetString("server_id"); srv.GetId() != bmSrvId {
-		log.Errorf("Server id %q not equal baremetal %q server id %q", srv.GetId(), b.GetName(), bmSrvId)
+	if srv.GetId() != serverId {
+		log.Errorf("Server id %q not equal baremetal %q server id %q", srv.GetId(), b.GetName(), serverId)
 		return
 	}
 	b.server = srv
@@ -791,14 +814,15 @@ func (b *SBaremetalInstance) ServerLoadDesc() error {
 	}
 	b.SaveDesc(res)
 	sid, err := res.GetString("server_id")
-	if err == nil {
-		sDesc := jsonutils.NewDict()
-		sDesc.Set("uuid", jsonutils.NewString(sid))
-		b.server, err = newBaremetalServer(b, sDesc)
-		return err
-	} else {
+	if err != nil || sid == "" {
 		return nil
 	}
+	sDesc, err := b.fetchServerDesc(sid)
+	if err != nil {
+		return err
+	}
+	b.server, err = newBaremetalServer(b, sDesc.(*jsonutils.JSONDict))
+	return err
 }
 
 func PowerStatusToBaremetalStatus(status string) string {
