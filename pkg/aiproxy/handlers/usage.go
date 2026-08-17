@@ -622,9 +622,6 @@ func usageCustomRange(rawStart, rawEnd string, loc *time.Location) (time.Time, t
 	if !end.After(start) {
 		return time.Time{}, time.Time{}, errors.New("end must be after start")
 	}
-	if end.After(start.AddDate(0, 0, 30)) {
-		return time.Time{}, time.Time{}, errors.New("range too long")
-	}
 	return start, end, nil
 }
 
