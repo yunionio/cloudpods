@@ -103,15 +103,16 @@ func TestUsageRangeEndNotAfterStart(t *testing.T) {
 	}
 }
 
-func TestUsageRangeTooLong(t *testing.T) {
+func TestUsageRangeLongWindowAllowed(t *testing.T) {
 	now := time.Date(2026, 8, 13, 16, 0, 0, 0, time.UTC)
-	_, _, err := usageRange("custom", "2026-01-01T00:00:00Z", "2026-02-02T00:00:00Z", now)
-	if err == nil {
-		t.Fatal("expected error for range longer than 30 days")
-	}
-	_, _, err = usageRange("custom", "2026-01-01T00:00:00Z", "2026-01-31T00:00:00Z", now)
+	start, end, err := usageRange("custom", "2026-01-01T00:00:00Z", "2026-02-02T00:00:00Z", now)
 	if err != nil {
-		t.Fatalf("30-day window should be allowed: %v", err)
+		t.Fatalf("long window should be allowed: %v", err)
+	}
+	wantStart := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	wantEnd := time.Date(2026, 2, 2, 0, 0, 0, 0, time.UTC)
+	if !start.Equal(wantStart) || !end.Equal(wantEnd) {
+		t.Fatalf("got %v %v, want %v %v", start, end, wantStart, wantEnd)
 	}
 }
 
