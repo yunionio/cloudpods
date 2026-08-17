@@ -1761,6 +1761,10 @@ func (manager *SGuestManager) validateCreateData(
 			imgProperties = map[string]string{"os_type": "Linux"}
 		}
 		input.DisableUsbKbd = imgProperties[imageapi.IMAGE_DISABLE_USB_KBD] == "true"
+		imageMachineType := imgProperties[imageapi.IMAGE_MACHINE_TYPE]
+		if len(input.Machine) == 0 && len(imageMachineType) > 0 {
+			input.Machine = imageMachineType
+		}
 		imgIsWindows := imgProperties[imageapi.IMAGE_OS_TYPE] == "Windows"
 
 		hasGpuVga := func() bool {
