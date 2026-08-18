@@ -23,8 +23,10 @@ import (
 type IpSetListOptions struct {
 	options.BaseListOptions
 
-	IPSetType []string `help:"filter by ip set type" choices:"ipv4_cidr_list|ipv6_cidr_list" json:"ip_set_type"`
-	Ip        string   `help:"filter by ip or cidr" json:"ip"`
+	IPSetType   []string `help:"filter by ip set type" choices:"ipv4_cidr_list|ipv6_cidr_list" json:"ip_set_type"`
+	Ip          string   `help:"filter by ip or cidr" json:"ip"`
+	Cloudregion string   `help:"filter by cloudregion" json:"cloudregion_id"`
+	ExternalId  string   `help:"filter by external id" json:"external_id"`
 }
 
 func (opts *IpSetListOptions) Params() (jsonutils.JSONObject, error) {
@@ -34,8 +36,10 @@ func (opts *IpSetListOptions) Params() (jsonutils.JSONObject, error) {
 type IpSetCreateOptions struct {
 	options.BaseCreateOptions
 
-	IPSetType string `help:"ip set type" choices:"ipv4_cidr_list|ipv6_cidr_list" json:"ip_set_type" required:"true"`
-	Data      string `help:"comma separated ip/cidr list, e.g. 192.168.1.0/24,10.0.0.1" json:"data" required:"true"`
+	IPSetType     string `help:"ip set type" choices:"ipv4_cidr_list|ipv6_cidr_list" json:"ip_set_type" required:"true"`
+	Data          string `help:"comma separated ip/cidr list, e.g. 192.168.1.0/24,10.0.0.1" json:"data" required:"true"`
+	CloudregionId string `help:"cloudregion id" json:"cloudregion_id"`
+	ManagerId     string `help:"cloudprovider id" json:"manager_id"`
 }
 
 func (opts *IpSetCreateOptions) Params() (jsonutils.JSONObject, error) {

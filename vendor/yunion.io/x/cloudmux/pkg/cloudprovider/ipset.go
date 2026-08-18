@@ -12,20 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package cloudprovider
 
-import (
-	"yunion.io/x/onecloud/cmd/climc/shell"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
+const (
+	IpSetTypeIpv4CidrList = "ipv4_cidr_list"
+	IpSetTypeIpv6CidrList = "ipv6_cidr_list"
 )
 
-func init() {
-	cmd := shell.NewResourceCmd(&modules.IpSets)
-	cmd.List(&compute.IpSetListOptions{})
-	cmd.Show(&compute.IpSetIdOptions{})
-	cmd.Create(&compute.IpSetCreateOptions{})
-	cmd.Update(&compute.IpSetUpdateOptions{})
-	cmd.Delete(&compute.IpSetIdOptions{})
-	cmd.Perform("syncstatus", &compute.IpSetIdOptions{})
+type IpSetCreateOptions struct {
+	Name      string
+	Desc      string
+	IpSetType string
+	Addresses []string
+}
+
+type IpSetUpdateOptions struct {
+	Name      string
+	Addresses []string
+}
+
+type ICloudIpSet interface {
+	IVirtualResource
+
+	GetIpSetType() string
+	GetAddresses() []string
+
+	Update(opts *IpSetUpdateOptions) error
+	Delete() error
 }

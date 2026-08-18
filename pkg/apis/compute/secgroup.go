@@ -184,6 +184,9 @@ func (input *SSecgroupRuleResource) Check() error {
 		}
 	}
 
+	if len(input.TargetType) == 0 {
+		input.TargetType = SecurityGroupRuleTargetTypeCidr
+	}
 	switch input.TargetType {
 	case SecurityGroupRuleTargetTypeCidr:
 		if len(input.CIDR) > 0 {

@@ -679,8 +679,9 @@ func (self *SAliyunRegionDriver) ValidateCreateWafRuleData(ctx context.Context, 
 }
 
 func (self *SAliyunRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
+	ipSetCidrs := map[int]string{}
 	for i := range input.Rules {
-		rule := input.Rules[i]
+		rule := &input.Rules[i]
 		if rule.Priority == nil {
 			return nil, httperrors.NewMissingParameterError("priority")
 		}
@@ -692,8 +693,31 @@ func (self *SAliyunRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Co
 		if len(rule.Ports) > 0 && strings.Contains(input.Rules[i].Ports, ",") {
 			return nil, httperrors.NewInputParameterError("invalid ports %s", input.Rules[i].Ports)
 		}
+
+		if len(rule.TargetType) == 0 {
+			rule.TargetType = api.SecurityGroupRuleTargetTypeCidr
+		}
+		switch rule.TargetType {
+		case api.SecurityGroupRuleTargetTypeCidr:
+		case api.SecurityGroupRuleTargetTypeIpSet:
+			ipSet, err := validateSecgroupIpSet(ctx, userCred, rule.CIDR, input.CloudproviderId, input.CloudregionId, true)
+			if err != nil {
+				return nil, err
+			}
+			ipSetCidrs[i] = ipSet.Id
+			rule.CIDR = ""
+		default:
+			return nil, httperrors.NewInputParameterError("unsupported target type %s", rule.TargetType)
+		}
 	}
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
+	input, err := self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
+	if err != nil {
+		return nil, err
+	}
+	for i, cidr := range ipSetCidrs {
+		input.Rules[i].CIDR = cidr
+	}
+	return input, nil
 }
 
 func (self *SAliyunRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
@@ -709,7 +733,7 @@ func (self *SAliyunRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx contex
 	if len(rule.Ports) > 0 && strings.Contains(input.Ports, ",") {
 		return nil, httperrors.NewInputParameterError("invalid ports %s", input.Ports)
 	}
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupRuleInput(ctx, userCred, input)
+	return validateManagedSecgroupRuleCreateWithIpSet(ctx, userCred, input, self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupRuleInput)
 }
 
 func (self *SAliyunRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
@@ -721,5 +745,5 @@ func (self *SAliyunRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx contex
 		return nil, httperrors.NewInputParameterError("invalid ports %s", *input.Ports)
 	}
 
-	return self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
+	return validateManagedSecgroupRuleUpdateWithIpSet(ctx, userCred, input, "", "", self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput)
 }

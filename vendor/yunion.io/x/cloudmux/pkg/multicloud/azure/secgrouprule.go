@@ -99,6 +99,10 @@ func (self *SecurityRules) GetCIDRs() []string {
 	return ret
 }
 
+func (self *SecurityRules) GetTargetType() string {
+	return cloudprovider.SecurityGroupRuleTargetTypeCidr
+}
+
 func (self *SecurityRules) GetPorts() string {
 	ports := []string{}
 	if len(self.Properties.DestinationPortRange) > 0 && self.Properties.DestinationPortRange != "*" {

@@ -46,6 +46,8 @@ type SPermission struct {
 	SourceGroupId           string
 	SourceGroupName         string
 	SourceGroupOwnerAccount string
+	SourcePrefixListId      string
+	DestPrefixListId        string
 	SecurityGroupRuleId     string
 	SecurityGroupId         string
 }
@@ -74,6 +76,12 @@ func (self *SPermission) GetDirection() secrules.TSecurityRuleDirection {
 
 func (self *SPermission) GetCIDRs() []string {
 	ret := []string{}
+	if len(self.SourcePrefixListId) > 0 {
+		ret = append(ret, self.SourcePrefixListId)
+	}
+	if len(self.DestPrefixListId) > 0 {
+		ret = append(ret, self.DestPrefixListId)
+	}
 	if len(self.SourceCidrIp) > 0 {
 		ret = append(ret, self.SourceCidrIp)
 	}
@@ -81,7 +89,7 @@ func (self *SPermission) GetCIDRs() []string {
 		ret = append(ret, self.SourceGroupId)
 	}
 	if len(self.DestGroupId) > 0 {
-		ret = append(ret, self.SourceGroupId)
+		ret = append(ret, self.DestGroupId)
 	}
 	if len(self.DestCidrIp) > 0 {
 		ret = append(ret, self.DestCidrIp)
@@ -93,6 +101,53 @@ func (self *SPermission) GetCIDRs() []string {
 		ret = append(ret, self.Ipv6SourceCidrIp)
 	}
 	return ret
+}
+
+func (self *SPermission) GetTargetType() string {
+	if len(self.SourcePrefixListId) > 0 || len(self.DestPrefixListId) > 0 {
+		return cloudprovider.SecurityGroupRuleTargetTypeIpSet
+	}
+	if len(self.SourceGroupId) > 0 || len(self.DestGroupId) > 0 {
+		return cloudprovider.SecurityGroupRuleTargetTypeSecurityGroup
+	}
+	return cloudprovider.SecurityGroupRuleTargetTypeCidr
+}
+
+func setSecgroupRuleTarget(params map[string]string, prefix string, direction secrules.TSecurityRuleDirection, cidr, targetType string) {
+	switch targetType {
+	case cloudprovider.SecurityGroupRuleTargetTypeIpSet:
+		if direction == secrules.DIR_IN {
+			params[prefix+"SourcePrefixListId"] = cidr
+		} else {
+			params[prefix+"DestPrefixListId"] = cidr
+		}
+	case cloudprovider.SecurityGroupRuleTargetTypeSecurityGroup:
+		if direction == secrules.DIR_IN {
+			params[prefix+"SourceGroupId"] = cidr
+		} else {
+			params[prefix+"DestGroupId"] = cidr
+		}
+	default:
+		if direction == secrules.DIR_IN {
+			if _, err := netutils.NewIPV6Prefix(cidr); err == nil {
+				params[prefix+"Ipv6SourceCidrIp"] = cidr
+			} else {
+				if len(cidr) == 0 {
+					cidr = "0.0.0.0/0"
+				}
+				params[prefix+"SourceCidrIp"] = cidr
+			}
+		} else {
+			if _, err := netutils.NewIPV6Prefix(cidr); err == nil {
+				params[prefix+"Ipv6DestCidrIp"] = cidr
+			} else {
+				if len(cidr) == 0 {
+					cidr = "0.0.0.0/0"
+				}
+				params[prefix+"DestCidrIp"] = cidr
+			}
+		}
+	}
 }
 
 func (self *SPermission) GetProtocol() string {
@@ -173,6 +228,7 @@ func (self *SRegion) DeleteSecurityGroupRule(groupId string, direction secrules.
 
 func (self *SRegion) UpdateSecurityGroupRule(groupId, ruleId string, direction secrules.TSecurityRuleDirection, opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
 	params := map[string]string{
+		"RegionId":            self.RegionId,
 		"ClientToken":         utils.GenRequestId(20),
 		"SecurityGroupId":     groupId,
 		"SecurityGroupRuleId": ruleId,
@@ -206,24 +262,11 @@ func (self *SRegion) UpdateSecurityGroupRule(groupId, ruleId string, direction s
 		params["Policy"] = "drop"
 	}
 	action := "ModifySecurityGroupRule"
-	switch direction {
-	case secrules.DIR_IN:
-		if len(opts.CIDR) > 0 {
-			if _, err := netutils.NewIPV6Prefix(opts.CIDR); err == nil {
-				params["Ipv6SourceCidrIp"] = opts.CIDR
-			} else {
-				params["SourceCidrIp"] = opts.CIDR
-			}
-		}
-	case secrules.DIR_OUT:
+	if direction == secrules.DIR_OUT {
 		action = "ModifySecurityGroupEgressRule"
-		if len(opts.CIDR) > 0 {
-			if _, err := netutils.NewIPV6Prefix(opts.CIDR); err == nil {
-				params["Ipv6DestCidrIp"] = opts.CIDR
-			} else {
-				params["DestCidrIp"] = opts.CIDR
-			}
-		}
+	}
+	if len(opts.CIDR) > 0 {
+		setSecgroupRuleTarget(params, "", direction, opts.CIDR, opts.TargetType)
 	}
 	_, err := self.ecsRequest(action, params)
 	return err

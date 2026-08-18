@@ -80,6 +80,13 @@ func (r *SSecurityGroupRule) GetCIDRs() []string {
 	return []string{r.RemoteIpPrefix}
 }
 
+func (r *SSecurityGroupRule) GetTargetType() string {
+	if r.AimSgid != nil && len(*r.AimSgid) > 0 {
+		return cloudprovider.SecurityGroupRuleTargetTypeSecurityGroup
+	}
+	return cloudprovider.SecurityGroupRuleTargetTypeCidr
+}
+
 func (r *SSecurityGroupRule) Update(opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
 	return errors.ErrNotSupported
 }

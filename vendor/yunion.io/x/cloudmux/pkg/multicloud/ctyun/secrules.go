@@ -83,6 +83,10 @@ func (self *SSecurityGroupRule) GetCIDRs() []string {
 	return []string{self.DestCidrIP}
 }
 
+func (self *SSecurityGroupRule) GetTargetType() string {
+	return cloudprovider.SecurityGroupRuleTargetTypeCidr
+}
+
 func (self *SSecurityGroupRule) Delete() error {
 	err := self.secgroup.region.DeleteSecgroupRule(self.SecurityGroupId, self.Id, self.GetDirection())
 	if err != nil {
