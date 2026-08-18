@@ -353,7 +353,9 @@ func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred
 		return nil, err
 	}
 
-	input.TargetType = self.TargetType
+	if len(input.TargetType) == 0 {
+		input.TargetType = self.TargetType
+	}
 	input, err = driver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
 	if err != nil {
 		return nil, err
@@ -433,6 +435,43 @@ func (rule *SSecurityGroupRule) fetchIpSet() (*SIpSet, error) {
 		return nil, errors.Wrapf(err, "FetchById(%s)", rule.CIDR)
 	}
 	return ipSetObj.(*SIpSet), nil
+}
+
+func GetCloudSecgroupRuleCIDR(targetType api.TSecgroupTargetType, cidr string) (string, error) {
+	switch targetType {
+	case api.SecurityGroupRuleTargetTypeIpSet:
+		if len(cidr) == 0 {
+			return "", errors.Wrap(errors.ErrEmpty, "empty ip set id")
+		}
+		ipSetObj, err := IpSetManager.FetchById(cidr)
+		if err != nil {
+			return "", errors.Wrapf(err, "FetchById(%s)", cidr)
+		}
+		ipSet := ipSetObj.(*SIpSet)
+		if len(ipSet.ExternalId) == 0 {
+			return "", errors.Wrapf(errors.ErrInvalidStatus, "ipset %s has empty external_id", ipSet.Id)
+		}
+		return ipSet.ExternalId, nil
+	case api.SecurityGroupRuleTargetTypeSecurityGroup:
+		if len(cidr) == 0 {
+			return "", errors.Wrap(errors.ErrEmpty, "empty security group id")
+		}
+		secgroupObj, err := SecurityGroupManager.FetchById(cidr)
+		if err != nil {
+			return "", errors.Wrapf(err, "FetchById(%s)", cidr)
+		}
+		secgroup := secgroupObj.(*SSecurityGroup)
+		if len(secgroup.ExternalId) == 0 {
+			return "", errors.Wrapf(errors.ErrInvalidStatus, "security group %s has empty external_id", secgroup.Id)
+		}
+		return secgroup.ExternalId, nil
+	default:
+		return cidr, nil
+	}
+}
+
+func (rule *SSecurityGroupRule) GetCloudCIDR() (string, error) {
+	return GetCloudSecgroupRuleCIDR(rule.TargetType, rule.CIDR)
 }
 
 func (self *SSecurityGroupRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -583,13 +622,79 @@ func (self *SSecurityGroup) SyncRules(
 	return result
 }
 
+func (self *SSecurityGroup) resolveCloudRuleTarget(ext cloudprovider.ISecurityGroupRule) (api.TSecgroupTargetType, string) {
+	cidr := strings.Join(ext.GetCIDRs(), ",")
+	targetType := api.TSecgroupTargetType(ext.GetTargetType())
+	if len(targetType) == 0 {
+		targetType = api.SecurityGroupRuleTargetTypeCidr
+	}
+	switch targetType {
+	case api.SecurityGroupRuleTargetTypeIpSet:
+		if len(cidr) > 0 {
+			ipSet, err := self.fetchIpSetByExternalId(cidr)
+			if err == nil && ipSet != nil {
+				return targetType, ipSet.Id
+			}
+		}
+	case api.SecurityGroupRuleTargetTypeSecurityGroup:
+		if len(cidr) > 0 {
+			secgroup, err := self.fetchSecGroupByExternalId(cidr)
+			if err == nil && secgroup != nil {
+				return targetType, secgroup.Id
+			}
+		}
+	}
+	return targetType, cidr
+}
+
+func (self *SSecurityGroup) fetchIpSetByExternalId(extId string) (*SIpSet, error) {
+	obj, err := db.FetchByExternalIdAndManagerId(IpSetManager, extId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		q = q.Equals("manager_id", self.ManagerId)
+		if len(self.CloudregionId) > 0 {
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.Equals(q.Field("cloudregion_id"), self.CloudregionId),
+				sqlchemy.IsNullOrEmpty(q.Field("cloudregion_id")),
+			))
+		}
+		return q
+	})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*SIpSet), nil
+}
+
+func (self *SSecurityGroup) fetchSecGroupByExternalId(extId string) (*SSecurityGroup, error) {
+	obj, err := db.FetchByExternalIdAndManagerId(SecurityGroupManager, extId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		q = q.Equals("manager_id", self.ManagerId)
+		if len(self.CloudregionId) > 0 {
+			q = q.Equals("cloudregion_id", self.CloudregionId)
+		}
+		return q
+	})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*SSecurityGroup), nil
+}
+
 func (rule *SSecurityGroupRule) syncWithCloudRule(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ISecurityGroupRule) error {
+	secgroup, _ := rule.GetSecGroup()
+	targetType := api.TSecgroupTargetType(ext.GetTargetType())
+	if len(targetType) == 0 {
+		targetType = api.SecurityGroupRuleTargetTypeCidr
+	}
+	cidr := strings.Join(ext.GetCIDRs(), ",")
+	if secgroup != nil {
+		targetType, cidr = secgroup.resolveCloudRuleTarget(ext)
+	}
 	_, err := db.Update(rule, func() error {
 		rule.Action = string(ext.GetAction())
 		rule.Direction = string(ext.GetDirection())
 		rule.Protocol = string(ext.GetProtocol())
 		rule.Description = string(ext.GetDescription())
-		rule.CIDR = strings.Join(ext.GetCIDRs(), ",")
+		rule.CIDR = cidr
+		rule.TargetType = targetType
 		rule.Priority = ext.GetPriority()
 		rule.Ports = ext.GetPorts()
 		rule.Status = apis.STATUS_AVAILABLE
@@ -599,6 +704,7 @@ func (rule *SSecurityGroupRule) syncWithCloudRule(ctx context.Context, userCred 
 }
 
 func (self *SSecurityGroup) newFromCloudRule(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ISecurityGroupRule) error {
+	targetType, cidr := self.resolveCloudRuleTarget(ext)
 	rule := &SSecurityGroupRule{}
 	rule.SetModelManager(SecurityGroupRuleManager, rule)
 	rule.SecgroupId = self.Id
@@ -606,7 +712,8 @@ func (self *SSecurityGroup) newFromCloudRule(ctx context.Context, userCred mccli
 	rule.Direction = string(ext.GetDirection())
 	rule.Protocol = string(ext.GetProtocol())
 	rule.Description = string(ext.GetDescription())
-	rule.CIDR = strings.Join(ext.GetCIDRs(), ",")
+	rule.CIDR = cidr
+	rule.TargetType = targetType
 	rule.Priority = ext.GetPriority()
 	rule.Ports = ext.GetPorts()
 	rule.ExternalId = ext.GetGlobalId()

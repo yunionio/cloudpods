@@ -26,6 +26,13 @@ type SecurityGroupReference struct {
 	Name string
 }
 
+const (
+	SecurityGroupRuleTargetTypeCidr          = "cidr"
+	SecurityGroupRuleTargetTypeIpSet         = "ip_set"
+	SecurityGroupRuleTargetTypeIpSetGroup    = "ip_set_group"
+	SecurityGroupRuleTargetTypeSecurityGroup = "security_group"
+)
+
 type SecurityGroupCreateInput struct {
 	Name      string
 	Desc      string
@@ -36,22 +43,24 @@ type SecurityGroupCreateInput struct {
 }
 
 type SecurityGroupRuleCreateOptions struct {
-	Desc      string
-	Priority  int
-	Protocol  string
-	Ports     string
-	Direction secrules.TSecurityRuleDirection
-	CIDR      string
-	Action    secrules.TSecurityRuleAction
+	Desc       string
+	Priority   int
+	Protocol   string
+	Ports      string
+	Direction  secrules.TSecurityRuleDirection
+	CIDR       string
+	TargetType string
+	Action     secrules.TSecurityRuleAction
 }
 
 type SecurityGroupRuleUpdateOptions struct {
-	CIDR     string
-	Action   secrules.TSecurityRuleAction
-	Desc     string
-	Ports    string
-	Protocol string
-	Priority int
+	CIDR       string
+	TargetType string
+	Action     secrules.TSecurityRuleAction
+	Desc       string
+	Ports      string
+	Protocol   string
+	Priority   int
 }
 
 func (rule *SecurityGroupRuleCreateOptions) String() string {

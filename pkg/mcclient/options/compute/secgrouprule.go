@@ -41,12 +41,14 @@ func (opts *SecGroupRulesListOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 type SecGroupRulesCreateOptions struct {
-	_ struct{} `mcp-desc:"创建安全组规则。SECGROUP 为安全组 id/name，RULE 为规则字符串（如 in:allow tcp 22）；可用 climc_secgroup_list 定位安全组"`
+	_ struct{} `mcp-desc:"创建安全组规则。SECGROUP 为安全组 id/name，RULE 为规则字符串（如 in:allow tcp 22）；腾讯云可用 --ip-set 指定地址模板；可用 climc_secgroup_list 定位安全组"`
 
-	SECGROUP string `help:"Secgroup ID or Name" metavar:"Secgroup"`
-	RULE     string `json:"-"`
-	Priority int64  `help:"priority of Rule" default:"50" mcp:"true"`
-	Desc     string `help:"Description" json:"description" mcp:"true"`
+	SECGROUP   string `help:"Secgroup ID or Name" metavar:"Secgroup"`
+	RULE       string `json:"-"`
+	Priority   int64  `help:"priority of Rule" default:"50" mcp:"true"`
+	Desc       string `help:"Description" json:"description" mcp:"true"`
+	TargetType string `help:"Target type" choices:"cidr|ip_set" json:"target_type"`
+	IpSet      string `help:"Ip set ID or name when target type is ip_set"`
 }
 
 // SecGroupRuleShowOptions / SecGroupRuleDeleteOptions 单独包装，避免复用 BaseShow/BaseId 误注册。
@@ -67,27 +69,42 @@ func (opts *SecGroupRulesCreateOptions) Params() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid rule %s", opts.RULE)
 	}
+	targetType := opts.TargetType
+	cidr := ""
+	if rule.IPNet != nil {
+		cidr = rule.IPNet.String()
+	}
+	if len(opts.IpSet) > 0 {
+		targetType = "ip_set"
+		cidr = opts.IpSet
+	}
+	if len(targetType) == 0 {
+		targetType = "cidr"
+	}
 	return jsonutils.Marshal(map[string]interface{}{
 		"direction":   rule.Direction,
 		"action":      rule.Action,
 		"protocol":    rule.Protocol,
-		"cidr":        rule.IPNet.String(),
+		"cidr":        cidr,
 		"ports":       rule.GetPortsString(),
 		"priority":    opts.Priority,
 		"description": opts.Desc,
 		"secgroup_id": opts.SECGROUP,
+		"target_type": targetType,
 	}), nil
 }
 
 type SecGroupRulesUpdateOptions struct {
 	options.BaseIdOptions
-	Name     string `help:"New name of rule"`
-	Priority int64  `help:"priority of Rule"`
-	Protocol string `help:"Protocol of rule" choices:"any|tcp|udp|icmp"`
-	Ports    string `help:"Ports of rule"`
-	Cidr     string `help:"Cidr of rule"`
-	Action   string `help:"filter Action of rule" choices:"allow|deny"`
-	Desc     string `help:"Description" metavar:"Description"`
+	Name       string `help:"New name of rule"`
+	Priority   int64  `help:"priority of Rule"`
+	Protocol   string `help:"Protocol of rule" choices:"any|tcp|udp|icmp"`
+	Ports      string `help:"Ports of rule"`
+	Cidr       string `help:"Cidr of rule"`
+	IpSet      string `help:"Ip set ID or name when target type is ip_set"`
+	TargetType string `help:"Target type" choices:"cidr|ip_set"`
+	Action     string `help:"filter Action of rule" choices:"allow|deny"`
+	Desc       string `help:"Description" metavar:"Description"`
 }
 
 func (opts *SecGroupRulesUpdateOptions) Params() (jsonutils.JSONObject, error) {
@@ -109,6 +126,12 @@ func (opts *SecGroupRulesUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	}
 	if len(opts.Cidr) > 0 {
 		params.Add(jsonutils.NewString(opts.Cidr), "cidr")
+	}
+	if len(opts.IpSet) > 0 {
+		params.Add(jsonutils.NewString(opts.IpSet), "cidr")
+		params.Add(jsonutils.NewString("ip_set"), "target_type")
+	} else if len(opts.TargetType) > 0 {
+		params.Add(jsonutils.NewString(opts.TargetType), "target_type")
 	}
 	if len(opts.Action) > 0 {
 		params.Add(jsonutils.NewString(opts.Action), "action")

@@ -312,6 +312,10 @@ type ICloudProvider interface {
 	GetISSLCertificates() ([]ICloudSSLCertificate, error)
 	CreateISSLCertificate(opts *SSLCertificateCreateOptions) (ICloudSSLCertificate, error)
 
+	GetIIpSets() ([]ICloudIpSet, error)
+	GetIIpSetById(id string) (ICloudIpSet, error)
+	CreateIIpSet(opts *IpSetCreateOptions) (ICloudIpSet, error)
+
 	GetIAiGateways() ([]IAiGateway, error)
 	GetIAiGatewayById(id string) (IAiGateway, error)
 	CreateIAiGateway(opts *AiGatewayCreateOptions) (IAiGateway, error)
@@ -673,6 +677,18 @@ func (base *SBaseProvider) CreateIAiGateway(opts *AiGatewayCreateOptions) (IAiGa
 
 func (base *SBaseProvider) GetNotices() ([]INotice, error) {
 	return nil, errors.Wrapf(ErrNotImplemented, "GetNotices")
+}
+
+func (base *SBaseProvider) GetIIpSets() ([]ICloudIpSet, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "GetIIpSets")
+}
+
+func (base *SBaseProvider) GetIIpSetById(id string) (ICloudIpSet, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "GetIIpSetById")
+}
+
+func (base *SBaseProvider) CreateIIpSet(opts *IpSetCreateOptions) (ICloudIpSet, error) {
+	return nil, errors.Wrapf(ErrNotImplemented, "CreateIIpSet")
 }
 
 func NewBaseProvider(factory ICloudProviderFactory) SBaseProvider {

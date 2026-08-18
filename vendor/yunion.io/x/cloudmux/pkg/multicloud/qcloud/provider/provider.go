@@ -460,6 +460,18 @@ func (self *SQcloudProvider) GetISSLCertificates() ([]cloudprovider.ICloudSSLCer
 	return self.client.GetISSLCertificates()
 }
 
+func (self *SQcloudProvider) GetIIpSets() ([]cloudprovider.ICloudIpSet, error) {
+	return self.client.GetIIpSets()
+}
+
+func (self *SQcloudProvider) GetIIpSetById(id string) (cloudprovider.ICloudIpSet, error) {
+	return self.client.GetIIpSetById(id)
+}
+
+func (self *SQcloudProvider) CreateIIpSet(opts *cloudprovider.IpSetCreateOptions) (cloudprovider.ICloudIpSet, error) {
+	return self.client.CreateIIpSet(opts)
+}
+
 func (self *SQcloudProvider) GetNotices() ([]cloudprovider.INotice, error) {
 	return self.client.GetNotices()
 }

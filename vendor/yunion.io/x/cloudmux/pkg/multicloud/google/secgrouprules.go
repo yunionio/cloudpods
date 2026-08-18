@@ -77,6 +77,10 @@ func (self *SFirewall) GetCIDRs() []string {
 	return append(self.SourceRanges, self.DestinationRanges...)
 }
 
+func (self *SFirewall) GetTargetType() string {
+	return cloudprovider.SecurityGroupRuleTargetTypeCidr
+}
+
 func (self *SFirewall) GetProtocol() string {
 	ret := func() string {
 		if len(self.Allowed)+len(self.Denied) == 1 {
