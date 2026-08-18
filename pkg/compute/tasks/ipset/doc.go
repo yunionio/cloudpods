@@ -12,20 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
-
-import (
-	"yunion.io/x/onecloud/cmd/climc/shell"
-	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
-	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
-)
-
-func init() {
-	cmd := shell.NewResourceCmd(&modules.IpSets)
-	cmd.List(&compute.IpSetListOptions{})
-	cmd.Show(&compute.IpSetIdOptions{})
-	cmd.Create(&compute.IpSetCreateOptions{})
-	cmd.Update(&compute.IpSetUpdateOptions{})
-	cmd.Delete(&compute.IpSetIdOptions{})
-	cmd.Perform("syncstatus", &compute.IpSetIdOptions{})
-}
+package ipset // import "yunion.io/x/onecloud/pkg/compute/tasks/ipset"

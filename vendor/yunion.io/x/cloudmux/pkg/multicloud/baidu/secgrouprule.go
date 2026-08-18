@@ -95,6 +95,13 @@ func (self *SSecurityGroupRule) GetCIDRs() []string {
 	return ret
 }
 
+func (self *SSecurityGroupRule) GetTargetType() string {
+	if len(self.DestGroupId) > 0 || len(self.SourceGroupId) > 0 {
+		return cloudprovider.SecurityGroupRuleTargetTypeSecurityGroup
+	}
+	return cloudprovider.SecurityGroupRuleTargetTypeCidr
+}
+
 func (self *SSecurityGroupRule) GetProtocol() string {
 	if strings.ToLower(self.Protocol) == "all" || len(self.Protocol) == 0 {
 		return secrules.PROTO_ANY

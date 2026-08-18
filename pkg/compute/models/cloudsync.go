@@ -513,6 +513,42 @@ func syncRegionSecGroup(
 	}
 }
 
+func syncRegionIpSets(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	syncResults SSyncResultSet,
+	provider *SCloudprovider,
+	localRegion *SCloudregion,
+	remoteRegion cloudprovider.ICloudRegion,
+	syncRange *SSyncRange,
+) {
+	ipSets, err := func() ([]cloudprovider.ICloudIpSet, error) {
+		defer syncResults.AddRequestCost(IpSetManager)()
+		return remoteRegion.GetIIpSets()
+	}()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
+		msg := fmt.Sprintf("GetIIpSets for region %s provider %s failed %s", localRegion.Name, provider.Name, err)
+		log.Errorf("%s", msg)
+		return
+	}
+
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(IpSetManager)()
+		return localRegion.SyncIpSets(ctx, userCred, provider, ipSets, syncRange.Xor)
+	}()
+	syncResults.Add(IpSetManager, result)
+
+	notes := fmt.Sprintf("SyncIpSets for region %s provider %s result: %s", localRegion.Name, provider.Name, result.Result())
+	log.Infof("%s", notes)
+	provider.SyncError(result, notes, userCred)
+	if result.IsError() {
+		return
+	}
+}
+
 func syncVpcSecGroup(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -2488,6 +2524,9 @@ func syncPublicCloudProviderInfo(
 				syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 			}
 
+			if syncRange.IsNotSkipSyncResource(IpSetManager) {
+				syncRegionIpSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			}
 			if syncRange.IsNotSkipSyncResource(SecurityGroupManager) {
 				syncRegionSecGroup(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 			}
@@ -3033,6 +3072,13 @@ func SyncCloudproviderResources(ctx context.Context, userCred mcclient.TokenCred
 		syncSSLCertificates(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
 	}
 
+	if syncRange.IsNotSkipSyncResource(IpSetManager) {
+		err = syncProviderIpSets(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+		if err != nil {
+			log.Errorf("syncProviderIpSets error: %v", err)
+		}
+	}
+
 	return nil
 }
 
@@ -3152,6 +3198,29 @@ func syncSSLCertificates(ctx context.Context, userCred mcclient.TokenCredential,
 
 	result := provider.SyncSSLCertificates(ctx, userCred, iEss)
 	notes := fmt.Sprintf("SyncSSLCertificates for provider %s result: %s", provider.Name, result.Result())
+	log.Infof("%s", notes)
+	provider.SyncError(result, notes, userCred)
+	return nil
+}
+
+func syncProviderIpSets(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider, xor bool) error {
+	ipSets, err := func() ([]cloudprovider.ICloudIpSet, error) {
+		defer syncResults.AddRequestCost(IpSetManager)()
+		return driver.GetIIpSets()
+	}()
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
+		return err
+	}
+
+	result := func() compare.SyncResult {
+		defer syncResults.AddSqlCost(IpSetManager)()
+		return provider.SyncIpSets(ctx, userCred, ipSets, xor)
+	}()
+	syncResults.Add(IpSetManager, result)
+	notes := fmt.Sprintf("Sync ip sets for provider %s result: %s", provider.Name, result.Result())
 	log.Infof("%s", notes)
 	provider.SyncError(result, notes, userCred)
 	return nil

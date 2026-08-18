@@ -108,6 +108,10 @@ func (self *SRegion) CreateSecRule(secId string, opts *cloudprovider.SecurityGro
 	input.Direction = string(opts.Direction)
 	input.Description = opts.Desc
 	input.CIDR = opts.CIDR
+	input.TargetType = api.TSecgroupTargetType(opts.TargetType)
+	if len(input.TargetType) == 0 {
+		input.TargetType = api.SecurityGroupRuleTargetTypeCidr
+	}
 
 	input.Ports = opts.Ports
 	ret := &SecurityGroupRule{region: self}

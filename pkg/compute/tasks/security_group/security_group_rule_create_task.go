@@ -74,16 +74,22 @@ func (self *SecurityGroupRuleCreateTask) OnInit(ctx context.Context, obj db.ISta
 		return
 	}
 
-	opts := &cloudprovider.SecurityGroupRuleCreateOptions{
-		Desc:      rule.Description,
-		Priority:  rule.Priority,
-		Protocol:  rule.Protocol,
-		Ports:     rule.Ports,
-		Direction: secrules.TSecurityRuleDirection(rule.Direction),
-		CIDR:      rule.CIDR,
-		Action:    secrules.TSecurityRuleAction(rule.Action),
+	cidr, err := rule.GetCloudCIDR()
+	if err != nil {
+		self.taskFailed(ctx, secgroup, errors.Wrapf(err, "GetCloudCIDR"))
+		return
 	}
-	if len(opts.CIDR) == 0 {
+	opts := &cloudprovider.SecurityGroupRuleCreateOptions{
+		Desc:       rule.Description,
+		Priority:   rule.Priority,
+		Protocol:   rule.Protocol,
+		Ports:      rule.Ports,
+		Direction:  secrules.TSecurityRuleDirection(rule.Direction),
+		CIDR:       cidr,
+		TargetType: string(rule.TargetType),
+		Action:     secrules.TSecurityRuleAction(rule.Action),
+	}
+	if len(opts.CIDR) == 0 && opts.TargetType != cloudprovider.SecurityGroupRuleTargetTypeIpSet {
 		opts.CIDR = "0.0.0.0/0"
 	}
 

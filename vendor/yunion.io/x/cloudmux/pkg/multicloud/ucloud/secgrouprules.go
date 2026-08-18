@@ -60,6 +60,10 @@ func (self *SecurityGroupRule) GetCIDRs() []string {
 	return []string{self.SrcIP}
 }
 
+func (self *SecurityGroupRule) GetTargetType() string {
+	return cloudprovider.SecurityGroupRuleTargetTypeCidr
+}
+
 func (self *SecurityGroupRule) GetProtocol() string {
 	return strings.ToLower(self.ProtocolType)
 }

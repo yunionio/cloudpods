@@ -88,6 +88,10 @@ func (rule *SPermission) GetCIDRs() []string {
 	return []string{rule.CidrBlock}
 }
 
+func (rule *SPermission) GetTargetType() string {
+	return cloudprovider.SecurityGroupRuleTargetTypeCidr
+}
+
 func (rule *SPermission) Update(opts *cloudprovider.SecurityGroupRuleUpdateOptions) error {
 	return errors.ErrNotSupported
 }
