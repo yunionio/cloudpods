@@ -83,6 +83,10 @@ func (self *IPPermissions) GetCIDRs() []string {
 	return nets
 }
 
+func (self *IPPermissions) GetTargetType() string {
+	return cloudprovider.SecurityGroupRuleTargetTypeCidr
+}
+
 func (self *IPPermissions) GetDirection() secrules.TSecurityRuleDirection {
 	return self.direction
 }

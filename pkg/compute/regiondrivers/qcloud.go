@@ -572,7 +572,7 @@ func (self *SQcloudRegionDriver) ValidateCreateCdnData(ctx context.Context, user
 
 func (self *SQcloudRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
 	for i := range input.Rules {
-		rule := input.Rules[i]
+		rule := &input.Rules[i]
 		if rule.Priority == nil {
 			return nil, httperrors.NewMissingParameterError("priority")
 		}
@@ -581,6 +581,20 @@ func (self *SQcloudRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Co
 			return nil, httperrors.NewInputParameterError("invalid priority %d, range 0-99", *rule.Priority)
 		}
 
+		if len(rule.TargetType) == 0 {
+			rule.TargetType = api.SecurityGroupRuleTargetTypeCidr
+		}
+		switch rule.TargetType {
+		case api.SecurityGroupRuleTargetTypeCidr:
+		case api.SecurityGroupRuleTargetTypeIpSet:
+			ipSet, err := validateSecgroupIpSet(ctx, userCred, rule.CIDR, input.CloudproviderId, input.CloudregionId, true)
+			if err != nil {
+				return nil, err
+			}
+			rule.CIDR = ipSet.Id
+		default:
+			return nil, httperrors.NewInputParameterError("unsupported target type %s", rule.TargetType)
+		}
 	}
 	return input, nil
 }
@@ -595,7 +609,7 @@ func (self *SQcloudRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx contex
 		return nil, httperrors.NewInputParameterError("invalid priority %d, range 0-99", *rule.Priority)
 	}
 
-	return input, nil
+	return validateManagedSecgroupRuleCreateWithIpSet(ctx, userCred, input, self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupRuleInput)
 }
 
 func (self *SQcloudRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
@@ -603,7 +617,7 @@ func (self *SQcloudRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx contex
 		return nil, httperrors.NewInputParameterError("invalid priority %d, range 0-99", *input.Priority)
 	}
 
-	return self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
+	return validateManagedSecgroupRuleUpdateWithIpSet(ctx, userCred, input, "", "", self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput)
 }
 
 func (self *SQcloudRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(q *sqlchemy.SQuery) *sqlchemy.SQuery, error) {

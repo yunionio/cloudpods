@@ -61,6 +61,7 @@ const (
 	STATUS_CREATING      = "creating"
 	STATUS_AVAILABLE     = "available"
 	STATUS_CREATE_FAILED = "create_failed"
+	STATUS_UPDATE_FAILED = "update_failed"
 
 	// 更改计费模式
 	STATUS_CHANGE_BILLING_TYPE        = "change_billing_type"
