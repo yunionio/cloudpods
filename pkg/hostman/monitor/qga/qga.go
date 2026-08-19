@@ -435,6 +435,9 @@ func (qga *QemuGuestAgent) QgaGuestGetOsInfo() (*GuestOsInfo, error) {
 		Execute: "guest-get-osinfo",
 	}
 	rawResOsInfo, err := qga.execCmd(cmdOsInfo, true, -1)
+	if err != nil {
+		return nil, errors.Wrap(err, "exec guest-get-osinfo")
+	}
 	resOsInfo := new(GuestOsInfo)
 	err = json.Unmarshal(*rawResOsInfo, resOsInfo)
 	if err != nil {
