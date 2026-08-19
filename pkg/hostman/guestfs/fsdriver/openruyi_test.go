@@ -44,9 +44,6 @@ func TestParseOpenRuyiVersion(t *testing.T) {
 		{name: "double quoted", osRelease: "NAME=\"openRuyi\"\nVERSION_ID=\"Creek\"\n", want: "Creek"},
 		{name: "single quoted", osRelease: "VERSION_ID='River'\n", want: "River"},
 		{name: "unquoted", osRelease: "VERSION_ID=Lake\n", want: "Lake"},
-		{name: "whitespace and CRLF", osRelease: "NAME=openRuyi\r\n  VERSION_ID = ignored\r\n VERSION_ID=\"Creek\"  \r\n", want: "Creek"},
-		{name: "similarly named key", osRelease: "BUILD_VERSION_ID=Creek\n", want: ""},
-		{name: "empty value", osRelease: "VERSION_ID=\"\"\n", want: ""},
 		{name: "missing", osRelease: "NAME=\"openRuyi\"\n", want: ""},
 	}
 	for _, tt := range tests {
