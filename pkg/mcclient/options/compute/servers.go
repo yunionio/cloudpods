@@ -789,6 +789,7 @@ type ServerStopOptions struct {
 	ID           []string `help:"ID or Name of server" json:"-"`
 	Force        *bool    `help:"Stop server forcefully" json:"is_force" mcp:"true"`
 	StopCharging *bool    `help:"Stop charging when server stop" mcp:"true"`
+	TimeoutSecs  *int     `help:"Guest stop timeout seconds" json:"timeout_secs" mcp:"true"`
 }
 
 func (o *ServerStopOptions) GetIds() []string {
@@ -1339,8 +1340,9 @@ func (o *ServerResetOptions) Params() (jsonutils.JSONObject, error) {
 type ServerRestartOptions struct {
 	_ struct{} `mcp-desc:"重启虚机（真正执行）。未知 id 时先 climc_server_list；拿到 id 后立刻调用，仅查询不算完成"`
 
-	ID      []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
-	IsForce *bool    `help:"Force reset or not; default false" json:"is_force" mcp:"true"`
+	ID          []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
+	IsForce     *bool    `help:"Force reset or not; default false" json:"is_force" mcp:"true"`
+	TimeoutSecs *int     `help:"Guest restart stop guest timeout" json:"timeout_secs" mcp:"true"`
 }
 
 func (o *ServerRestartOptions) GetIds() []string {

@@ -43,6 +43,11 @@ type SBaseParams struct {
 	Body jsonutils.JSONObject
 }
 
+type SGuestStopParams struct {
+	IsForce bool
+	Timeout int64
+}
+
 type SGuestDeploy struct {
 	UserCred mcclient.TokenCredential
 

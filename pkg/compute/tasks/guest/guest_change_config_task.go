@@ -238,7 +238,7 @@ func (task *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 		// Status is already VM_CHANGE_FLAVOR; ForceStop means guest was running and needs offline change.
 		if confs.ForceStop {
 			task.SetStage("OnGuestStopForChangeConfigComplete", nil)
-			err = guest.StartGuestStopTask(ctx, task.UserCred, 60, true, false, task.GetTaskId())
+			err = guest.StartGuestStopTask(ctx, task.UserCred, nil, true, false, task.GetTaskId())
 			if err != nil {
 				task.markStageFailed(ctx, guest, jsonutils.NewString(err.Error()))
 			}

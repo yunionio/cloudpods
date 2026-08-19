@@ -1988,8 +1988,12 @@ func (s *SKVMGuestInstance) StartGuest(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
-func (s *SKVMGuestInstance) HandleStop(ctx context.Context, timeout int64) error {
-	hostutils.DelayTaskWithoutReqctx(ctx, s.ExecStopTask, timeout)
+func (s *SKVMGuestInstance) HandleStop(ctx context.Context, timeout int64, isForce bool) error {
+	params := &SGuestStopParams{
+		IsForce: isForce,
+		Timeout: timeout,
+	}
+	hostutils.DelayTaskWithoutReqctx(ctx, s.ExecStopTask, params)
 	return nil
 }
 
@@ -2332,11 +2336,11 @@ func (s *SKVMGuestInstance) forceScriptStop() bool {
 }
 
 func (s *SKVMGuestInstance) ExecStopTask(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	timeout, ok := params.(int64)
+	input, ok := params.(*SGuestStopParams)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	NewGuestStopTask(s, ctx, timeout).Start()
+	NewGuestStopTask(s, ctx, input.Timeout, input.IsForce).Start()
 	return nil, nil
 }
 
