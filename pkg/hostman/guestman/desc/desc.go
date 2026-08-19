@@ -266,12 +266,19 @@ type SGuestRng struct {
 type SoundCard struct {
 	*PCIDevice `json:",omitempty"`
 	Codec      *Codec
+	Audio      *AudioDev
+}
+
+type AudioDev struct {
+	Id   string
+	Type string
 }
 
 type Codec struct {
-	Id   string
-	Type string
-	Cad  int
+	Id       string
+	Type     string
+	Cad      int
+	AudioDev string
 }
 
 type SSpiceDesc struct {
