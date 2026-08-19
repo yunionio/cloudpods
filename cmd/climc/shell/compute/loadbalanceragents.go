@@ -97,6 +97,9 @@ func init() {
 	})
 	R(&options.LoadbalancerAgentUpdateOptions{}, "lbagent-update", "Update lbagent", func(s *mcclient.ClientSession, opts *options.LoadbalancerAgentUpdateOptions) error {
 		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
 		lbagent, err := modules.LoadbalancerAgents.Update(s, opts.ID, params)
 		if err != nil {
 			return err

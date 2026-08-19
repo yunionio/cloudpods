@@ -57,6 +57,9 @@ func init() {
 	})
 	R(&options.ProxySettingUpdateOptions{}, "proxysetting-update", "Update proxysetting", func(s *mcclient.ClientSession, opts *options.ProxySettingUpdateOptions) error {
 		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
 		proxysetting, err := modules.ProxySettings.Update(s, opts.ID, params)
 		if err != nil {
 			return err

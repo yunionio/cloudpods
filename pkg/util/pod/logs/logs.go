@@ -384,8 +384,12 @@ func isContainerRunning(ctx context.Context, id string, r runtimeapi.RuntimeServ
 // the error is error happens during waiting new logs.
 func waitLogs(ctx context.Context, id string, w *fsnotify.Watcher, runtimeService runtimeapi.RuntimeServiceClient) (bool, bool, error) {
 	// no need to wait if the pod is not running
-	if running, err := isContainerRunning(ctx, id, runtimeService); !running {
+	running, err := isContainerRunning(ctx, id, runtimeService)
+	if err != nil {
 		return false, false, err
+	}
+	if !running {
+		return false, false, nil
 	}
 	errRetry := 5
 	for {

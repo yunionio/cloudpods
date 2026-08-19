@@ -210,9 +210,9 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mccli
 	if err != nil {
 		return nil, errors.Wrapf(err, "Fail to request VNC info")
 	}
-	results, err := ret.GetString("results")
+	results, _ := ret.GetString("results")
 	if len(results) == 0 {
-		return nil, errors.Wrapf(err, "Can't get vnc information from host.")
+		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "Can't get vnc information from host.")
 	}
 	// info_vnc = result['results'].split('\n')
 	// port = int(info_vnc[1].split(':')[-1].split()[0])
@@ -268,7 +268,7 @@ func (self *SKVMGuestDriver) RequestStopOnHost(ctx context.Context, guest *model
 			timeout = int64(options.Options.LinuxGuestStopTimeout)
 		}
 	}
-	isForce, err := params.Bool("is_force")
+	isForce, _ := params.Bool("is_force")
 	if isForce {
 		body.Set("is_force", jsonutils.JSONTrue)
 	}

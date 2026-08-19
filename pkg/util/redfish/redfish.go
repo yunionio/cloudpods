@@ -310,6 +310,9 @@ func (r *SBaseRedfishClient) GetVirtualCdromJSON(ctx context.Context) (string, j
 	}
 	resp = r.IRedfishDriver().GetParent(resp)
 	vmList, err := resp.GetArray(r.IRedfishDriver().MemberKey())
+	if err != nil {
+		return "", nil, errors.Wrap(err, "GetArray VirtualMedia")
+	}
 	for i := len(vmList) - 1; i >= 0; i -= 1 {
 		path, _ := vmList[i].GetString(r.IRedfishDriver().LinkKey())
 		if len(path) == 0 {
@@ -719,9 +722,9 @@ func (r *SBaseRedfishClient) GetPower(ctx context.Context) ([]SPower, error) {
 		resp, err = r.Get(ctx, path)
 	} else {
 		_, resp, err = r.GetResource(ctx, "Chassis", "0", "Power")
-		if err != nil {
-			return nil, errors.Wrap(err, "GetResource")
-		}
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "GetPower")
 	}
 	powers := make([]SPower, 0)
 	err = resp.Unmarshal(&powers, "PowerControl")
@@ -739,9 +742,9 @@ func (r *SBaseRedfishClient) GetThermal(ctx context.Context) ([]STemperature, er
 		resp, err = r.Get(ctx, path)
 	} else {
 		_, resp, err = r.GetResource(ctx, "Chassis", "0", "Thermal")
-		if err != nil {
-			return nil, errors.Wrap(err, "GetResource")
-		}
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "GetThermal")
 	}
 	temps := make([]STemperature, 0)
 	err = resp.Unmarshal(&temps, "Temperatures")

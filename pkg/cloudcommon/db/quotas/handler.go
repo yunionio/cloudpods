@@ -580,6 +580,9 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, userCred mccli
 		keyList = append(keyList, quota.GetKeys())
 	}
 	idNameMap, err := manager.keyList2IdNameMap(ctx, keyList)
+	if err != nil {
+		return nil, errors.Wrap(err, "keyList2IdNameMap")
+	}
 	var fields []string
 	for i := range quotaList {
 		keys := quotaList[i].GetKeys()

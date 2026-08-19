@@ -910,6 +910,9 @@ func (manager *SCloudregionManager) ListItemFilter(
 	}
 
 	domainId, err := db.FetchQueryDomain(ctx, userCred, jsonutils.Marshal(query))
+	if err != nil {
+		return nil, err
+	}
 	if len(domainId) > 0 {
 		q = q.In("id", getCloudRegionIdByDomainId(domainId))
 	}

@@ -177,6 +177,9 @@ func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name s
 		}
 	} else {
 		objm, err := NewModelObject(manager)
+		if err != nil {
+			return nil, err
+		}
 		obj := objm.(*SUser)
 		obj.Id = idStr
 		obj.Name = name

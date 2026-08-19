@@ -169,6 +169,9 @@ func (task *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	}
 	quotaCpuMem.SetKeys(keys)
 	err = quotas.CancelPendingUsage(ctx, task.UserCred, &pendingUsage, &quotaCpuMem, true) // success
+	if err != nil {
+		log.Errorf("CancelPendingUsage fail %s", err)
+	}
 	task.SetPendingUsage(&pendingUsage, 0)
 
 	input, err := task.GetCreateInput(data)

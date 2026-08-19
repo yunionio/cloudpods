@@ -332,6 +332,9 @@ func (res *SAlertResource) attachAlert(ctx context.Context, record *SAlertRecord
 	// create resource joint alert record into db
 	jm := GetAlertResourceAlertManager()
 	jObj, err := db.NewModelObject(jm)
+	if err != nil {
+		return errors.Wrap(err, "NewModelObject")
+	}
 	input := &monitor.AlertResourceAttachInput{
 		AlertResourceId: res.GetId(),
 		AlertId:         record.AlertId,

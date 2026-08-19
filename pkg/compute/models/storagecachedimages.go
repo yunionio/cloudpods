@@ -361,6 +361,9 @@ func (manager *SStoragecachedimageManager) RecoverStoragecachedImage(
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	db.OpsLog.LogEvent(&storagecachedImage, db.ACT_UPDATE, diff, userCred)
 	return &storagecachedImage, nil
