@@ -64,6 +64,14 @@ func (f *IsolatedDevicePredicate) PreExecute(ctx context.Context, u *core.Unit, 
 }
 
 func (f *IsolatedDevicePredicate) getIsolatedDeviceCountBySharingMode(sharingMode string, devs []*core.IsolatedDeviceDesc) int {
+	return isolatedDeviceHostFree(sharingMode, devs)
+}
+
+// isolatedDeviceHostFree is the value shown as hostFree in shortage messages.
+// HAMI: sum of (memory_size - memory_size_allocated) on the matched pool,
+// counted before min-memory filtering so remaining-but-too-small cards are
+// not reported as 0.
+func isolatedDeviceHostFree(sharingMode string, devs []*core.IsolatedDeviceDesc) int {
 	if sharingMode == compute.DEVICE_SHARING_MODE_HAMI {
 		ret := 0
 		for i := range devs {
@@ -295,17 +303,18 @@ func (f *IsolatedDevicePredicate) Execute(ctx context.Context, u *core.Unit, c c
 	}
 	for key, reqCount := range devTypeRequest {
 		devType, sharingMode := key.devType, key.sharingMode
-		devs := getter.AvailableIsolatedDevicesByTypeSharingMode(devType, sharingMode)
+		matched := getter.AvailableIsolatedDevicesByTypeSharingMode(devType, sharingMode)
 		match := func(d *compute.IsolatedDeviceConfig) bool {
 			return d.DevType == devType && d.SharingMode == sharingMode
 		}
 		minMem := maxMinMemoryForRequests(reqIsoDevs, match)
-		devs = filterDescsByMinMemory(devs, sharingMode, minMem)
+		hostFree := isolatedDeviceHostFree(sharingMode, matched)
+		devs := filterDescsByMinMemory(matched, sharingMode, minMem)
 		pendingCnt := pendingUsage.Get(path.Join(devType, sharingMode))
 		freeCount := f.getIsolatedDeviceCountBySharingMode(sharingMode, devs)
 		if freeCount < (reqCount + pendingCnt) {
 			spec := shortageSpecFromRequests(reqIsoDevs, match, devType, sharingMode, minMem)
-			h.Exclude(isolatedDeviceShortageMessage(spec, reqCount, freeCount, pendingCnt))
+			h.Exclude(isolatedDeviceShortageMessage(spec, reqCount, hostFree, pendingCnt))
 			return h.GetResult()
 		}
 		cap := freeCount / reqCount
@@ -337,22 +346,19 @@ func (f *IsolatedDevicePredicate) Execute(ctx context.Context, u *core.Unit, c c
 		}
 	}
 	for key, reqCount := range devVendorModelRequest {
-		devs := filterDevicesByTypeSharingMode(getter.AvailableIsolatedDevicesByVendorModel(key.vendorModel), key.devType, key.sharingMode)
+		matched := filterDevicesByTypeSharingMode(getter.AvailableIsolatedDevicesByVendorModel(key.vendorModel), key.devType, key.sharingMode)
 		match := func(d *compute.IsolatedDeviceConfig) bool {
 			return fmt.Sprintf("%s:%s", d.Vendor, d.Model) == key.vendorModel &&
 				d.DevType == key.devType && d.SharingMode == key.sharingMode
 		}
 		minMem := maxMinMemoryForRequests(reqIsoDevs, match)
-		devs = filterDescsByMinMemory(devs, key.sharingMode, minMem)
+		hostFree := isolatedDeviceHostFree(key.sharingMode, matched)
+		devs := filterDescsByMinMemory(matched, key.sharingMode, minMem)
 		spec := shortageSpecFromRequests(reqIsoDevs, match, key.devType, key.sharingMode, minMem)
-		if len(devs) == 0 {
-			h.Exclude(isolatedDeviceShortageMessage(spec, reqCount, 0, 0))
-			return h.GetResult()
-		}
 		pendingCnt := pendingUsage.Get(path.Join(key.devType, key.sharingMode))
 		freeCount := f.getIsolatedDeviceCountBySharingMode(key.sharingMode, devs)
-		if freeCount < (reqCount + pendingCnt) {
-			h.Exclude(isolatedDeviceShortageMessage(spec, reqCount, freeCount, pendingCnt))
+		if len(devs) == 0 || freeCount < (reqCount+pendingCnt) {
+			h.Exclude(isolatedDeviceShortageMessage(spec, reqCount, hostFree, pendingCnt))
 			return h.GetResult()
 		}
 		cap := freeCount / reqCount
@@ -419,22 +425,19 @@ func (f *IsolatedDevicePredicate) Execute(ctx context.Context, u *core.Unit, c c
 		}
 	}
 	for key, reqCnt := range devicePathReq {
-		devs := filterDevicesByTypeSharingMode(getter.AvailableIsolatedDevicesByDevicePath(key.devicePath), key.devType, key.sharingMode)
+		matched := filterDevicesByTypeSharingMode(getter.AvailableIsolatedDevicesByDevicePath(key.devicePath), key.devType, key.sharingMode)
 		match := func(d *compute.IsolatedDeviceConfig) bool {
 			return d.DevicePath == key.devicePath && d.DevType == key.devType && d.SharingMode == key.sharingMode
 		}
 		minMem := maxMinMemoryForRequests(reqIsoDevs, match)
-		devs = filterDescsByMinMemory(devs, key.sharingMode, minMem)
+		hostFree := isolatedDeviceHostFree(key.sharingMode, matched)
+		devs := filterDescsByMinMemory(matched, key.sharingMode, minMem)
 		spec := shortageSpecFromRequests(reqIsoDevs, match, key.devType, key.sharingMode, minMem)
 		spec.devicePath = key.devicePath
-		if len(devs) == 0 {
-			h.Exclude(isolatedDeviceShortageMessage(spec, reqCnt, 0, 0))
-			return h.GetResult()
-		}
 		pendingCnt := pendingUsage.Get(path.Join(key.devType, key.sharingMode))
 		freeCount := f.getIsolatedDeviceCountBySharingMode(key.sharingMode, devs)
-		if freeCount < (reqCnt + pendingCnt) {
-			h.Exclude(isolatedDeviceShortageMessage(spec, reqCnt, freeCount, pendingCnt))
+		if len(devs) == 0 || freeCount < (reqCnt+pendingCnt) {
+			h.Exclude(isolatedDeviceShortageMessage(spec, reqCnt, hostFree, pendingCnt))
 			return h.GetResult()
 		}
 		cap := freeCount / reqCnt
