@@ -546,8 +546,10 @@ func (w *SWindowsRootFs) deploySetupCompleteScripts(uname, passwd string) bool {
 		"Net stop wuauserv",
 	}
 	for _, v := range [][3]string{
-		{"AUOptions", "REG_DWORD", "3"},
-		{"NoAutoUpdate", "REG_DWORD", "0"},
+		// enable: 3, disable: 2
+		{"AUOptions", "REG_DWORD", "2"},
+		// enable: 0, disable: 1
+		{"NoAutoUpdate", "REG_DWORD", "1"},
 		{"ScheduledInstallDay", "REG_DWORD", "0"},
 		{"ScheduledInstallTime", "REG_DWORD", "4"},
 		{"AutoInstallMinorUpdates", "REG_DWORD", "1"},
@@ -559,8 +561,9 @@ func (w *SWindowsRootFs) deploySetupCompleteScripts(uname, passwd string) bool {
 			v[0], v[1], v[2]))
 	}
 	cmds = append(cmds, `REG ADD "HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation" /v RealTimeIsUniversal /t REG_DWORD /d 1 /f`)
-	cmds = append(cmds, "Net start wuauserv")
-	cmds = append(cmds, "wuauclt /detectnow")
+	cmds = append(cmds, `REG ADD "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device" /v DevicePasswordLessBuildVersion /t REG_DWORD /d 0 /f`)
+	// cmds = append(cmds, "Net start wuauserv")
+	// cmds = append(cmds, "wuauclt /detectnow")
 	cmds = append(cmds, `del %SystemRoot%\chgpwd_setup.ps1`)
 	cmds = append(cmds, `del %SystemRoot%\Setup\Scripts\SetupComplete.cmd`)
 	if w.putGuestScriptContents(SETUP_SCRIPT_PATH, strings.Join(cmds, "\r\n")) != nil {
@@ -621,7 +624,8 @@ func (w *SWindowsRootFs) DeployQgaService(part IDiskPartition) error {
 		return errors.Wrap(err, "mkdir qemu-ga path")
 	}
 
-	qgaInstallerPath := path.Join(w.rootFs.GetMountPath(), WIN_QGA_PATH, "qemu-ga-x86_64.msi")
+	winQgaPath := w.rootFs.GetLocalPath(WIN_QGA_PATH, true)
+	qgaInstallerPath := path.Join(winQgaPath, "qemu-ga-x86_64.msi")
 	output, err := procutils.NewCommand("cp", "-f", QGA_WIN_MSI_INSTALLER_PATH, qgaInstallerPath).Output()
 	if err != nil {
 		return errors.Wrapf(err, "cp qga installer failed %s", output)
@@ -643,13 +647,14 @@ func (w *SWindowsRootFs) DeployTelegraf(config string) (bool, error) {
 		return false, errors.Wrap(err, "mkdir telegraf path")
 	}
 
-	telegrafConfPath := path.Join(w.rootFs.GetMountPath(), WIN_TELEGRAF_PATH, "telegraf.conf")
+	winTelegrafPath := w.rootFs.GetLocalPath(WIN_TELEGRAF_PATH, true)
+	telegrafConfPath := path.Join(winTelegrafPath, "telegraf.conf")
 	if err := w.rootFs.FilePutContents(telegrafConfPath, config, false, true); err != nil {
 		return false, errors.Wrap(err, "write boot script")
 	}
 	telegrafConfPath = strings.ReplaceAll(path.Join("%PROGRAMFILES%", "Telegraf", "telegraf.conf"), "/", "\\")
 
-	telegrafBinaryPath := path.Join(w.rootFs.GetMountPath(), WIN_TELEGRAF_PATH, "telegraf.exe")
+	telegrafBinaryPath := path.Join(winTelegrafPath, "telegraf.exe")
 	output, err := procutils.NewCommand("cp", "-f", WIN_TELEGRAF_BINARY_PATH, telegrafBinaryPath).Output()
 	if err != nil {
 		return false, errors.Wrapf(err, "cp telegraf failed %s", output)
