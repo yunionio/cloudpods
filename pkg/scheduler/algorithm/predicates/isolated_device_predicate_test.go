@@ -181,6 +181,41 @@ func TestMaxMinMemoryForRequests(t *testing.T) {
 	}
 }
 
+func TestIsolatedDeviceHostFreeHAMIRemainingBeforeMinMemFilter(t *testing.T) {
+	// Candidate: 16311 total, 11630 allocated → 4681 remaining, below request 5815.
+	dev := &core.IsolatedDeviceDesc{
+		DevType:             computeapi.GPU_TYPE,
+		SharingMode:         computeapi.DEVICE_SHARING_MODE_HAMI,
+		Model:               "GeForce RTX 5060 Ti",
+		MemorySize:          16311,
+		MemorySizeAllocated: 11630,
+		VirtualNum:          1,
+		VirtualNumAllocated: 2,
+	}
+	matched := []*core.IsolatedDeviceDesc{dev}
+	hostFree := isolatedDeviceHostFree(computeapi.DEVICE_SHARING_MODE_HAMI, matched)
+	if hostFree != 4681 {
+		t.Fatalf("hostFree = %d, want 4681 (memory_size - memory_size_allocated)", hostFree)
+	}
+	fit := filterDescsByMinMemory(matched, computeapi.DEVICE_SHARING_MODE_HAMI, 5815)
+	if len(fit) != 0 {
+		t.Fatalf("card with 4681 remaining must not satisfy 5815, got %d", len(fit))
+	}
+	spec := shortageSpecFromRequests([]*computeapi.IsolatedDeviceConfig{
+		{
+			DevType: computeapi.GPU_TYPE, Vendor: "NVIDIA", Model: "GeForce RTX 5060 Ti",
+			SharingMode: computeapi.DEVICE_SHARING_MODE_HAMI, MemoryMb: 5815, MemoryRequest: 5815,
+		},
+	}, func(d *computeapi.IsolatedDeviceConfig) bool {
+		return d.DevType == computeapi.GPU_TYPE && d.SharingMode == computeapi.DEVICE_SHARING_MODE_HAMI
+	}, computeapi.GPU_TYPE, computeapi.DEVICE_SHARING_MODE_HAMI, 5815)
+	got := isolatedDeviceShortageMessage(spec, 5815, hostFree, 0)
+	want := `IsolatedDevice type "GPU" vendor "NVIDIA" model "GeForce RTX 5060 Ti" sharing_mode "HAMI" memory>=5815MiB not enough, request: 5815 MiB, hostFree: 4681 MiB`
+	if got != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 func TestIsolatedDeviceShortageMessage(t *testing.T) {
 	hamiMatchGPU := func(d *computeapi.IsolatedDeviceConfig) bool {
 		return d.DevType == computeapi.GPU_TYPE && d.SharingMode == computeapi.DEVICE_SHARING_MODE_HAMI
