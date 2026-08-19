@@ -344,7 +344,7 @@ func (p *SPodDriver) StartGuestStopTask(guest *models.SGuest, ctx context.Contex
 	return task.ScheduleRun(nil)
 }
 
-func (p *SPodDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
+func (p *SPodDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, timeout *int, parentTaskId string) error {
 	data := jsonutils.NewDict()
 	data.Set("is_force", jsonutils.NewBool(isForce))
 	if err := guest.SetStatus(ctx, userCred, api.VM_STOPPING, ""); err != nil {

@@ -1185,9 +1185,9 @@ func (m *SGuestManager) GuestStart(ctx context.Context, userCred mcclient.TokenC
 	}
 }
 
-func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64) error {
+func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64, isForce bool) error {
 	if server, ok := m.GetServer(sid); ok {
-		if err := server.HandleStop(ctx, timeout); err != nil {
+		if err := server.HandleStop(ctx, timeout, isForce); err != nil {
 			return errors.Wrap(err, "Do stop")
 		}
 	} else {

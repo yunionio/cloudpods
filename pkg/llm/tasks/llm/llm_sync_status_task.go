@@ -100,9 +100,10 @@ func (task *LLMSyncStatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF,
 			computeapi.POD_STATUS_CONTAINER_EXITED,
 		}) {
+			timeout := 10
 			params := computeapi.ServerStopInput{
 				IsForce:     true,
-				TimeoutSecs: 10,
+				TimeoutSecs: &timeout,
 			}
 			_, err := compute.Servers.PerformAction(s, llm.CmpId, "stop", jsonutils.Marshal(params))
 			if err != nil {
