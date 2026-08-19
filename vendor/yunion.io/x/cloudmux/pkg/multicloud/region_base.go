@@ -51,6 +51,18 @@ func (r *SRegion) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetISecurityGroups")
 }
 
+func (r *SRegion) GetIIpSets() ([]cloudprovider.ICloudIpSet, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIIpSets")
+}
+
+func (r *SRegion) GetIIpSetById(id string) (cloudprovider.ICloudIpSet, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIIpSetById")
+}
+
+func (r *SRegion) CreateIIpSet(opts *cloudprovider.IpSetCreateOptions) (cloudprovider.ICloudIpSet, error) {
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "CreateIIpSet")
+}
+
 func (r *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
 	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "GetIStorageById")
 }

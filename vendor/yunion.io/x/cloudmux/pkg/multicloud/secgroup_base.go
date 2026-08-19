@@ -23,6 +23,13 @@ type SSecurityGroup struct {
 	SVirtualResourceBase
 }
 
+type SSecurityGroupRuleBase struct {
+}
+
+func (self *SSecurityGroupRuleBase) GetTargetType() string {
+	return cloudprovider.SecurityGroupRuleTargetTypeCidr
+}
+
 func (self *SSecurityGroup) GetReferences() ([]cloudprovider.SecurityGroupReference, error) {
 	return []cloudprovider.SecurityGroupReference{}, nil
 }

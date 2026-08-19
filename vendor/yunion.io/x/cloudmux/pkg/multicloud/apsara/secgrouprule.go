@@ -87,6 +87,13 @@ func (self *SPermission) GetCIDRs() []string {
 	return ret
 }
 
+func (self *SPermission) GetTargetType() string {
+	if len(self.SourceGroupId) > 0 || len(self.DestGroupId) > 0 {
+		return cloudprovider.SecurityGroupRuleTargetTypeSecurityGroup
+	}
+	return cloudprovider.SecurityGroupRuleTargetTypeCidr
+}
+
 func (self *SPermission) GetProtocol() string {
 	if strings.ToLower(self.IpProtocol) == "all" {
 		return secrules.PROTO_ANY

@@ -51,6 +51,13 @@ func (self *SecurityGroupRule) GetCIDRs() []string {
 	return []string{self.CIDR}
 }
 
+func (self *SecurityGroupRule) GetTargetType() string {
+	if len(self.TargetType) > 0 {
+		return string(self.TargetType)
+	}
+	return cloudprovider.SecurityGroupRuleTargetTypeCidr
+}
+
 func (self *SecurityGroupRule) GetProtocol() string {
 	return self.Protocol
 }
@@ -77,5 +84,10 @@ func (self *SecurityGroupRule) Update(opts *cloudprovider.SecurityGroupRuleUpdat
 	input.Description = opts.Desc
 	input.CIDR = &opts.CIDR
 	input.Ports = &opts.Ports
+	if len(opts.TargetType) > 0 {
+		input.TargetType = api.TSecgroupTargetType(opts.TargetType)
+	} else {
+		input.TargetType = api.SecurityGroupRuleTargetTypeCidr
+	}
 	return self.region.cli.update(&modules.SecGroupRules, self.Id, input)
 }

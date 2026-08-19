@@ -303,6 +303,7 @@ func (self *SCloudregion) purgeResources(ctx context.Context, managerId string) 
 	tables := TablestoreManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	wafs := WafInstanceManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	ipsets := WafIPSetManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
+	addressIpsets := IpSetManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	regsets := WafRegexSetManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	wafgroups := WafRuleGroupManager.Query("id").Equals("manager_id", managerId).Equals("cloudregion_id", self.Id)
 	cprs := CloudproviderRegionManager.Query("row_id").Equals("cloudprovider_id", managerId).Equals("cloudregion_id", self.Id)
@@ -312,6 +313,7 @@ func (self *SCloudregion) purgeResources(ctx context.Context, managerId string) 
 		{manager: WafRuleGroupManager, key: "id", q: wafgroups},
 		{manager: WafRegexSetManager, key: "id", q: regsets},
 		{manager: WafIPSetManager, key: "id", q: ipsets},
+		{manager: IpSetManager, key: "id", q: addressIpsets},
 		{manager: WafInstanceManager, key: "id", q: wafs},
 		{manager: TablestoreManager, key: "id", q: tables},
 		{manager: SnapshotManager, key: "id", q: snapshots},
