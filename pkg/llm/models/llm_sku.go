@@ -10,8 +10,10 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
+	schedulerapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -19,6 +21,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	imagemodules "yunion.io/x/onecloud/pkg/mcclient/modules/image"
+	schedulermodules "yunion.io/x/onecloud/pkg/mcclient/modules/scheduler"
 	mcclientoptions "yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -421,6 +424,130 @@ func EstimateVramClaimMbFromInstantModels(llmType string, modelIds []string, mod
 
 func (sku *SLLMSku) GetLLMContainerDriver() ILLMContainerDriver {
 	return GetLLMContainerDriver(api.LLMContainerType(sku.LLMType))
+}
+
+// buildSchedulableIsolatedDevices builds IsolatedDeviceConfig list for forecast
+// using the same path as pod create (GPU/NPU + SharingMode + MemoryMb).
+func buildSchedulableIsolatedDevices(devices *api.Devices, vramClaimMb int) ([]*computeapi.IsolatedDeviceConfig, int, error) {
+	isoDevs, err := BuildIsolatedDeviceConfigs(devices, vramClaimMb)
+	if err != nil {
+		return nil, 0, err
+	}
+	perDevMinMb := 0
+	if vramClaimMb > 0 && devices != nil && len(*devices) > 0 {
+		perDevMinMb = (vramClaimMb + len(*devices) - 1) / len(*devices)
+	}
+	for _, d := range isoDevs {
+		if d.MemoryMb > perDevMinMb {
+			perDevMinMb = d.MemoryMb
+		}
+	}
+	return isoDevs, perDevMinMb, nil
+}
+
+func skuForecastDisks(volumes *api.Volumes) []*computeapi.DiskConfig {
+	if volumes == nil || volumes.IsZero() {
+		return nil
+	}
+	disks := make([]*computeapi.DiskConfig, 0, len(*volumes))
+	for idx, volume := range *volumes {
+		disks = append(disks, &computeapi.DiskConfig{
+			DiskType: "data",
+			SizeMb:   volume.SizeMB,
+			Index:    idx,
+		})
+	}
+	return disks
+}
+
+// PerformSchedulableCheck is POST /llm_skus/{id}/schedulable-check.
+// Specs are read from the SKU (cpu/memory/volumes/devices). SKUs without
+// GPUs still run forecast for CPU/memory/disk. Isolated-device VRAM checks
+// apply only when devices are configured.
+func (sku *SLLMSku) PerformSchedulableCheck(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, _ api.LLMSchedulableCheckInput,
+) (*api.LLMSchedulableCheckOutput, error) {
+	gpuCount := 0
+	if sku.Devices != nil {
+		gpuCount = len(*sku.Devices)
+	}
+	out := &api.LLMSchedulableCheckOutput{
+		GpuCount: gpuCount,
+	}
+
+	var isoDevs []*computeapi.IsolatedDeviceConfig
+	if gpuCount > 0 {
+		vramClaimMb := sku.EstimateVramClaimMb()
+		out.VramClaimMb = vramClaimMb
+
+		var err error
+		var perDevMinMb int
+		isoDevs, perDevMinMb, err = buildSchedulableIsolatedDevices(sku.Devices, vramClaimMb)
+		if err != nil {
+			out.Reason = err.Error()
+			return out, nil
+		}
+		out.PerDevMinMb = perDevMinMb
+		if vramClaimMb <= 0 && perDevMinMb <= 0 {
+			out.Reason = "Auto VRAM calculation failed — mounted instant models have unknown weight (not yet backfilled)"
+			return out, nil
+		}
+	}
+
+	input := &schedulerapi.ScheduleInput{
+		ServerConfig: schedulerapi.ServerConfig{
+			ServerConfigs: &computeapi.ServerConfigs{
+				Hypervisor:      computeapi.HYPERVISOR_POD,
+				Count:           1,
+				IsolatedDevices: isoDevs,
+				Disks:           skuForecastDisks(sku.Volumes),
+			},
+			Ncpu:   sku.Cpu,
+			Memory: sku.Memory,
+		},
+	}
+
+	s := auth.GetAdminSession(ctx, "")
+	canCreate, raw, err := schedulermodules.SchedManager.DoScheduleForecast(s, input, 1)
+	if err != nil {
+		return nil, errors.Wrap(err, "scheduler forecast")
+	}
+
+	out.Schedulable = canCreate
+	out.Reason = "Scheduler forecast completed — see hosts for qualifying candidates"
+
+	candidates, _ := raw.GetArray("candidates")
+	out.TotalGpuHosts = len(candidates)
+	for _, c := range candidates {
+		hostID, _ := c.GetString("host_id")
+		hostName, _ := c.GetString("name")
+		out.Hosts = append(out.Hosts, api.LLMSchedulableHostInfo{
+			HostId:   hostID,
+			HostName: hostName,
+		})
+		if hostID != "" {
+			out.QualifiedHosts++
+		}
+	}
+
+	if !canCreate {
+		var reasons []string
+		notAllow, _ := raw.GetArray("not_allow_reasons")
+		for _, r := range notAllow {
+			if s, _ := r.GetString(); s != "" {
+				reasons = append(reasons, s)
+			}
+		}
+		if len(reasons) > 0 {
+			out.Reason = fmt.Sprintf("not schedulable: %s", reasons[0])
+		} else {
+			out.Reason = "not schedulable — no host satisfies all predicates"
+		}
+		fc, _ := raw.Get("filtered_candidates")
+		out.FilteredCandidates = fc
+	}
+
+	return out, nil
 }
 
 func ValidateLLMSkuReadyForUse(sku *SLLMSku) error {
