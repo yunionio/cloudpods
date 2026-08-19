@@ -151,7 +151,11 @@ func (h *DHCPHandler) newRequest(pkt dhcp.Packet, man IBaremetalManager) (*dhcpR
 			default:
 				err = errors.Error("malformed client GUID (option 97), wrong size")
 			}
-			cliGuid, err = req.Options.String(optCode)
+			cliGuidStr, guidErr := req.Options.String(optCode)
+			if err == nil {
+				err = guidErr
+			}
+			cliGuid = cliGuidStr
 		}
 		if err != nil {
 			log.Errorf("[DHCP] parse vendor option %d error: %v", optCode, err)

@@ -866,6 +866,9 @@ func (self *SSnapshotManager) PerformDeleteDiskSnapshots(ctx context.Context, us
 		return nil, err
 	}
 	disk, err := DiskManager.FetchById(diskId)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil, err
+	}
 	if disk != nil {
 		return nil, httperrors.NewBadRequestError("Cannot Delete disk %s snapshots, disk exist", diskId)
 	}

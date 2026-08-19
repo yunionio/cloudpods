@@ -30,6 +30,7 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -157,7 +158,7 @@ func HandleSftpList(ctx context.Context, w http.ResponseWriter, r *http.Request)
 						vv.LinkFile.IsRegular = stat.Mode().IsRegular()
 					}
 				} else {
-					err = httperrors.FsErrorNormalize(err)
+					log.Errorf("ReadLink %s: %v", vv.Path, httperrors.FsErrorNormalize(err))
 				}
 			}
 			ret = append(ret, vv)

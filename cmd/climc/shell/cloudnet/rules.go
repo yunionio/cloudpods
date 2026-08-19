@@ -56,6 +56,9 @@ func init() {
 	})
 	R(&options.RuleUpdateOptions{}, "router-rule-update", "Update router rule", func(s *mcclient.ClientSession, opts *options.RuleUpdateOptions) error {
 		params, err := base_options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
 		router, err := modules.Rules.Update(s, opts.ID, params)
 		if err != nil {
 			return err

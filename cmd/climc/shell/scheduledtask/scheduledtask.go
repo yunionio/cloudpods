@@ -45,6 +45,9 @@ func init() {
 	}
 	R(&ScheduledTaskListOptions{}, "scheduledtask-list", "list Scheduled Task", func(s *mcclient.ClientSession, args *ScheduledTaskListOptions) error {
 		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
+		}
 		tasks, err := modules.ScheduledTask.List(s, params)
 		if err != nil {
 			return err

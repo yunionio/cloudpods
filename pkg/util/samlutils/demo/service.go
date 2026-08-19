@@ -75,6 +75,9 @@ func prepareServer() error {
 	}
 
 	err = parser.ParseArgs(os.Args[1:], false)
+	if err != nil {
+		return errors.Wrap(err, "ParseArgs")
+	}
 	options := parser.Options().(*Options)
 
 	if options.Help {

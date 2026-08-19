@@ -500,6 +500,9 @@ func (self *SQcloudRegionDriver) RequestElasticcacheAccountResetPassword(ctx con
 		}
 
 		err = iec.UpdateAuthMode(noAuth, pwd)
+		if err != nil {
+			return errors.Wrap(err, "qcloudRegionDriver.RequestElasticcacheAccountResetPassword.UpdateAuthMode")
+		}
 	} else {
 		err = iea.UpdateAccount(input)
 		if err != nil {

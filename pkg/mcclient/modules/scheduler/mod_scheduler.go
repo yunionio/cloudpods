@@ -165,7 +165,13 @@ func (this *SchedulerManager) CandidateList(s *mcclient.ClientSession, params js
 			return
 		}
 		free, err := resObj.Int("free")
+		if err != nil {
+			return
+		}
 		reserverd, err := resObj.Int("reserverd")
+		if err != nil {
+			return
+		}
 		total, err := resObj.Int("total")
 		if err != nil {
 			return

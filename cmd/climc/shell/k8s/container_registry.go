@@ -101,6 +101,9 @@ func initContainerRegistry() {
 				Username: args.Username,
 				Password: args.Password,
 			})
+			if err != nil {
+				return errors.Wrap(err, "download image by manager")
+			}
 		}
 		output := args.Output
 		if output == "" && fileName != "" {

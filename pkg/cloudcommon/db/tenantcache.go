@@ -391,6 +391,9 @@ func (manager *STenantCacheManager) Save(ctx context.Context, item SCachedTenant
 		}
 	} else {
 		objm, err := NewModelObject(manager)
+		if err != nil {
+			return nil, err
+		}
 		obj := objm.(*STenant)
 		obj.Id = item.Id
 		obj.Name = item.Name

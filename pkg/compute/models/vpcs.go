@@ -1065,9 +1065,9 @@ func (svpc *SVpc) GetIVpc(ctx context.Context) (cloudprovider.ICloudVpc, error) 
 	if provider.GetFactory().IsOnPremise() {
 		iregion, err = provider.GetOnPremiseIRegion()
 	} else {
-		region, err := svpc.GetRegion()
-		if err != nil {
-			return nil, err
+		region, rerr := svpc.GetRegion()
+		if rerr != nil {
+			return nil, rerr
 		}
 		iregion, err = provider.GetIRegionById(region.ExternalId)
 	}

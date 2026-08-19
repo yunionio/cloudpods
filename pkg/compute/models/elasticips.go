@@ -1118,7 +1118,7 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 
 func (eip *SElasticip) GetQuotaKeys() (quotas.IQuotaKeys, error) {
 	region, err := eip.GetRegion()
-	if region == nil {
+	if err != nil {
 		return nil, errors.Wrapf(err, "eip.GetRegion")
 	}
 	return fetchRegionalQuotaKeys(
