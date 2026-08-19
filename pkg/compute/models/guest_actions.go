@@ -6078,6 +6078,9 @@ func (self *SGuest) PerformSnapshotAndClone(
 	input.ServerCreateSnapshotParams = params
 	// set guest pending usage
 	pendingUsage, pendingRegionUsage, err := self.getGuestUsage(count)
+	if err != nil {
+		return nil, errors.Wrap(err, "getGuestUsage")
+	}
 	keys, err := self.GetQuotaKeys()
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, snapshotUsage, snapshotUsage, false)

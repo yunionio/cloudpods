@@ -597,6 +597,9 @@ func (role *SRole) PerformSetPolicies(ctx context.Context, userCred mcclient.Tok
 	addedIds, updatedIds, deletedIds := stringutils2.Split(normalInputIds, existRpIds)
 
 	isBootStrap, err := RolePolicyManager.isBootstrapRolePolicy()
+	if err != nil {
+		return nil, errors.Wrap(err, "isBootstrapRolePolicy")
+	}
 	if !isBootStrap {
 		// validate
 		var newPolicyIds []string
@@ -702,6 +705,9 @@ func (role *SRole) PerformAddPolicy(ctx context.Context, userCred mcclient.Token
 	}
 
 	isBootStrap, err := RolePolicyManager.isBootstrapRolePolicy()
+	if err != nil {
+		return nil, errors.Wrap(err, "isBootstrapRolePolicy")
+	}
 	if !isBootStrap {
 		// validate
 		rps, err := RolePolicyManager.fetchByRoleId(role.Id)

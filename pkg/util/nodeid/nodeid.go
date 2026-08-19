@@ -107,6 +107,9 @@ func getLinuxCpuInfo() (string, error) {
 	}
 
 	lines, e := stringToLines(string(u))
+	if e != nil {
+		return "", e
+	}
 	filted := []string{}
 	for _, line := range lines {
 		l := strings.TrimSpace(line)

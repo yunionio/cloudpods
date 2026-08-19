@@ -1695,6 +1695,9 @@ func parseInstanceSnapshot(ctx context.Context, input *api.ServerCreateInput) (*
 		return nil, httperrors.NewBadRequestError("Instance snapshot not ready")
 	}
 	input, err = isp.ToInstanceCreateInput(input)
+	if err != nil {
+		return nil, errors.Wrap(err, "ToInstanceCreateInput")
+	}
 	if len(input.Disks) == 0 {
 		return nil, httperrors.NewInputParameterError("there are no disks in this instance snapshot, try another one")
 	}
@@ -1714,6 +1717,9 @@ func parseInstanceBackup(ctx context.Context, input *api.ServerCreateInput) (*ap
 		return nil, httperrors.NewBadRequestError("Instance backup not ready")
 	}
 	input, err = isp.ToInstanceCreateInput(input)
+	if err != nil {
+		return nil, errors.Wrap(err, "ToInstanceCreateInput")
+	}
 	if len(input.Disks) == 0 {
 		return nil, httperrors.NewInputParameterError("there are no disks in this instance backup, try another one")
 	}
@@ -5263,6 +5269,9 @@ func (self *SGuest) createDiskOnHost(
 	}
 	if autoAttach {
 		err = self.attach2Disk(ctx, disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint, diskConfig.BootIndex)
+		if err != nil {
+			return nil, err
+		}
 	}
 	err = self.InheritTo(ctx, userCred, disk)
 	if err != nil {

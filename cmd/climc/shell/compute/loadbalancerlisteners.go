@@ -87,6 +87,9 @@ func init() {
 	})
 	R(&options.LoadbalancerListenerUpdateOptions{}, "lblistener-update", "Update lblistener", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerUpdateOptions) error {
 		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
 		lblistener, err := modules.LoadbalancerListeners.Update(s, opts.ID, params)
 		if err != nil {
 			return err

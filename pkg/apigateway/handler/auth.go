@@ -978,7 +978,7 @@ func getUserInfo2(s *mcclient.ClientSession, uid string, pid string, loginIp str
 		data.Add(jsonutils.NewString(projDomainName), "projectDomain")
 		data.Add(jsonutils.NewString(projDomainId), "projectDomainId")
 
-		pmeta, err := projInfo.Get("metadata")
+		pmeta, _ := projInfo.Get("metadata")
 		if pmeta != nil {
 			data.Add(pmeta, "project_meta")
 		}

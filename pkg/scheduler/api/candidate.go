@@ -42,7 +42,13 @@ type ResultResource struct {
 
 func NewResultResourceString(free, reserverd, total string) (*ResultResource, error) {
 	f, err := strconv.ParseFloat(free, 64)
+	if err != nil {
+		return nil, err
+	}
 	r, err := strconv.ParseFloat(reserverd, 64)
+	if err != nil {
+		return nil, err
+	}
 	t, err := strconv.ParseFloat(total, 64)
 	if err != nil {
 		return nil, err

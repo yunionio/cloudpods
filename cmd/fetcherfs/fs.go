@@ -232,8 +232,11 @@ func (fs *FetcherFs) doFetchData(idx int64) error {
 	}
 
 	buf, err := ioutil.ReadAll(lz4Reader)
+	if err != nil {
+		return errors.Wrap(err, "read lz4 data")
+	}
 	if len(buf) != int(end-start+1) {
-		return errors.Wrap(err, "written local file")
+		return errors.Errorf("written local file: size mismatch got %d want %d", len(buf), int(end-start+1))
 	}
 
 	written, err := fs.localFile.WriteAt(buf, start)

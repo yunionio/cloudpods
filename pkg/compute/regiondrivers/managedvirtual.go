@@ -1650,6 +1650,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx co
 		params.Tags, _ = ec.GetAllUserMetadata()
 
 		zone, err := ec.GetZone()
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetZone")
+		}
 		if zone != nil {
 			izone, err := iRegion.GetIZoneById(zone.ExternalId)
 			if err != nil {

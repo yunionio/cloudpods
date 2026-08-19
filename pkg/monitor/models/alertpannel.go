@@ -174,9 +174,9 @@ func (panel *SAlertPanel) CustomizeCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) error {
-	dashboardId, err := data.GetString("dashboard_id")
+	dashboardId, _ := data.GetString("dashboard_id")
 	if len(dashboardId) == 0 {
-		return errors.Wrap(err, "panel CustomizeCreate can not get dashboard_id")
+		return errors.Wrap(httperrors.ErrInputParameter, "panel CustomizeCreate can not get dashboard_id")
 	}
 	dash, _ := AlertDashBoardManager.getDashboardByid(dashboardId)
 	panel.ProjectId = dash.ProjectId

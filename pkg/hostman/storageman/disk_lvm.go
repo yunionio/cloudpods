@@ -187,6 +187,9 @@ func (d *SLVMDisk) PostCreateFromRemoteHostImage(diskUrl string, snapshotId stri
 func (d *SLVMDisk) CreateFromRemoteHostImage(ctx context.Context, url string, size int64, encryptInfo *apis.SEncryptInfo) error {
 	log.Infof("Create from remote host image %s", url)
 	nbdPort, err := d.RequestExportNbdImage(ctx, url, encryptInfo)
+	if err != nil {
+		return errors.Wrap(err, "RequestExportNbdImage")
+	}
 	remoteHostIp := netutils2.ParseIpFromUrl(url)
 	remoteHostAndPort := net.JoinHostPort(remoteHostIp, strconv.Itoa(int(nbdPort)))
 	nbdImagePath := fmt.Sprintf("nbd://%s/%s", remoteHostAndPort, d.GetId())

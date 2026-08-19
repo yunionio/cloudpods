@@ -235,6 +235,9 @@ func init() {
 	}
 	R(&CloudregionCapabiltyOptions{}, "cloud-region-capability", "Show region's capacibilities", func(s *mcclient.ClientSession, args *CloudregionCapabiltyOptions) error {
 		query, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
 		result, err := modules.Cloudregions.GetSpecific(s, args.ID, "capability", query)
 		if err != nil {
 			return err

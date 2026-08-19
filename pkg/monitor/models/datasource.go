@@ -273,6 +273,9 @@ func (m *SDataSourceManager) getMetricDescriptions(influxdbMeasurements []monito
 		log.Errorln(errors.Wrap(err, "DataSourceManager getMetricDescriptions error"))
 	}
 	descriMeasurements, err := MetricMeasurementManager.getMeasurement(query)
+	if err != nil {
+		log.Errorln(errors.Wrap(err, "DataSourceManager getMeasurement error"))
+	}
 	if len(descriMeasurements) != 0 {
 
 		measurementsIns := make([]interface{}, len(descriMeasurements))
@@ -281,9 +284,6 @@ func (m *SDataSourceManager) getMetricDescriptions(influxdbMeasurements []monito
 		}
 		details := MetricMeasurementManager.FetchCustomizeColumns(context.Background(), userCred, jsonutils.NewDict(), measurementsIns,
 			stringutils2.NewSortedStrings([]string{}), true)
-		if err != nil {
-			log.Errorln(errors.Wrap(err, "DataSourceManager getMetricDescriptions error"))
-		}
 		for i, measureDes := range descriMeasurements {
 			for j, _ := range influxdbMeasurements {
 				if measureDes.Name == influxdbMeasurements[j].Measurement {

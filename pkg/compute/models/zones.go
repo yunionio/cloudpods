@@ -803,6 +803,9 @@ func (manager *SZoneManager) ListItemFilter(
 
 	data := jsonutils.Marshal(query.DomainizedResourceListInput)
 	domainId, err := db.FetchQueryDomain(ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
 	if len(domainId) > 0 {
 		q = q.In("cloudregion_id", getCloudRegionIdByDomainId(domainId))
 	}
@@ -869,6 +872,9 @@ func (manager *SZoneManager) ListItemFilter(
 	}
 
 	q, err = managedResourceFilterByRegion(ctx, q, query.RegionalFilterListInput, "", nil)
+	if err != nil {
+		return nil, err
+	}
 
 	if len(query.Location) > 0 {
 		q = q.In("location", query.Location)

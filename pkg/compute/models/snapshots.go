@@ -862,6 +862,9 @@ func (self *SSnapshotManager) GetConvertSnapshot(deleteSnapshot *SSnapshot) (*SS
 // +onecloud:swagger-gen-ignore
 func (self *SSnapshotManager) PerformDeleteDiskSnapshots(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.SnapshotDeleteDiskSnapshotsInput) (jsonutils.JSONObject, error) {
 	disk, err := DiskManager.FetchById(input.DiskId)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil, err
+	}
 	if disk != nil {
 		return nil, httperrors.NewBadRequestError("Cannot delete disk %s snapshots, disk still exists", input.DiskId)
 	}
