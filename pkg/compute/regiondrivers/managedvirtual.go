@@ -3396,15 +3396,20 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateSecurityGroup(
 	}
 
 	for i := range rules {
-		opts := cloudprovider.SecurityGroupRuleCreateOptions{
-			Desc:      rules[i].Description,
-			Direction: secrules.TSecurityRuleDirection(rules[i].Direction),
-			Action:    secrules.TSecurityRuleAction(rules[i].Action),
-			Protocol:  rules[i].Protocol,
-			CIDR:      rules[i].CIDR,
-			Ports:     rules[i].Ports,
+		cidr, err := models.GetCloudSecgroupRuleCIDR(rules[i].TargetType, rules[i].CIDR)
+		if err != nil {
+			return errors.Wrapf(err, "GetCloudSecgroupRuleCIDR")
 		}
-		_, err := iGroup.CreateRule(&opts)
+		opts := cloudprovider.SecurityGroupRuleCreateOptions{
+			Desc:       rules[i].Description,
+			Direction:  secrules.TSecurityRuleDirection(rules[i].Direction),
+			Action:     secrules.TSecurityRuleAction(rules[i].Action),
+			Protocol:   rules[i].Protocol,
+			CIDR:       cidr,
+			TargetType: string(rules[i].TargetType),
+			Ports:      rules[i].Ports,
+		}
+		_, err = iGroup.CreateRule(&opts)
 		if err != nil {
 			return errors.Wrapf(err, "CreateRule")
 		}

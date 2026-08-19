@@ -42,6 +42,9 @@ func (t TIpSetType) IsValid() bool {
 type IpSetCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 
+	CloudregionResourceInput
+	CloudproviderResourceInput
+
 	// IP集合类型
 	// enum: ["ipv4_cidr_list", "ipv6_cidr_list"]
 	// required: true
@@ -63,6 +66,10 @@ type IpSetUpdateInput struct {
 
 type IpSetListInput struct {
 	apis.SharableVirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
+
+	ManagedResourceListInput
+	RegionalFilterListInput
 
 	// 按 IP 集合类型过滤
 	// enum: ["ipv4_cidr_list", "ipv6_cidr_list"]
@@ -74,6 +81,10 @@ type IpSetListInput struct {
 
 type IpSetDetails struct {
 	apis.SharableVirtualResourceDetails
+	ManagedResourceInfo
+	CloudregionResourceInfo
+
+	SIpSet
 
 	// 关联安全组数量
 	SecurityGroupCount int `json:"security_group_count"`

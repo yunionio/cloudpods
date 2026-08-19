@@ -187,44 +187,6 @@ func (self *SRegion) DeleteSecurityGroup(secGroupId string) error {
 	return err
 }
 
-type AddressTemplate struct {
-	AddressSet          []string
-	AddressTemplateId   string
-	AddressTemplateName string
-	CreatedTime         time.Time
-}
-
-func (self *SRegion) AddressList(addressId, addressName string, offset, limit int) ([]AddressTemplate, int, error) {
-	params := map[string]string{}
-	filter := 0
-	if len(addressId) > 0 {
-		params[fmt.Sprintf("Filters.%d.Name", filter)] = "address-template-id"
-		params[fmt.Sprintf("Filters.%d.Values.0", filter)] = addressId
-		filter++
-	}
-	if len(addressName) > 0 {
-		params[fmt.Sprintf("Filters.%d.Name", filter)] = "address-template-name"
-		params[fmt.Sprintf("Filters.%d.Values.0", filter)] = addressName
-		filter++
-	}
-	params["Offset"] = fmt.Sprintf("%d", offset)
-	if limit == 0 {
-		limit = 20
-	}
-	params["Limit"] = fmt.Sprintf("%d", limit)
-	body, err := self.vpcRequest("DescribeAddressTemplates", params)
-	if err != nil {
-		return nil, 0, err
-	}
-	addressTemplates := []AddressTemplate{}
-	err = body.Unmarshal(&addressTemplates, "AddressTemplateSet")
-	if err != nil {
-		return nil, 0, err
-	}
-	total, _ := body.Float("TotalCount")
-	return addressTemplates, int(total), nil
-}
-
 type AddressTemplateGroup struct {
 	AddressTemplateIdSet     []string
 	AddressTemplateGroupName string
@@ -338,7 +300,7 @@ func (self *SRegion) CreateSecurityGroupRule(groupId string, opts *cloudprovider
 	if opts.Action == secrules.SecurityRuleDeny {
 		action = "drop"
 	}
-	if len(opts.CIDR) == 0 {
+	if len(opts.CIDR) == 0 && (len(opts.TargetType) == 0 || opts.TargetType == cloudprovider.SecurityGroupRuleTargetTypeCidr) {
 		opts.CIDR = "0.0.0.0/0"
 	}
 	params := map[string]string{
@@ -348,18 +310,33 @@ func (self *SRegion) CreateSecurityGroupRule(groupId string, opts *cloudprovider
 		prefix + "PolicyDescription": opts.Desc,
 		prefix + "Action":            action,
 		prefix + "Port":              opts.Ports,
-		prefix + "CidrBlock":         opts.CIDR,
 	}
-	if _, err := netutils.NewIPV6Prefix(opts.CIDR); err == nil {
-		params[prefix+"Ipv6CidrBlock"] = opts.CIDR
-		delete(params, prefix+"CidrBlock")
-	}
+	setSecurityGroupPolicyAddress(params, prefix, opts.CIDR, opts.TargetType)
 
 	_, err := self.vpcRequest("CreateSecurityGroupPolicies", params)
 	if err != nil {
 		return errors.Wrapf(err, "CreateSecurityGroupPolicies")
 	}
 	return nil
+}
+
+func setSecurityGroupPolicyAddress(params map[string]string, prefix, cidr, targetType string) {
+	switch targetType {
+	case cloudprovider.SecurityGroupRuleTargetTypeIpSet:
+		params[prefix+"AddressTemplate.AddressId"] = cidr
+		return
+	case cloudprovider.SecurityGroupRuleTargetTypeIpSetGroup:
+		params[prefix+"AddressTemplate.AddressGroupId"] = cidr
+		return
+	case cloudprovider.SecurityGroupRuleTargetTypeSecurityGroup:
+		params[prefix+"SecurityGroupId"] = cidr
+		return
+	}
+	if _, err := netutils.NewIPV6Prefix(cidr); err == nil {
+		params[prefix+"Ipv6CidrBlock"] = cidr
+		return
+	}
+	params[prefix+"CidrBlock"] = cidr
 }
 
 func (self *SSecurityGroup) GetProjectId() string {

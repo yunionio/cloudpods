@@ -47,8 +47,9 @@ func (self *SCloudpodsRegionDriver) ValidateCreateVpcData(ctx context.Context, u
 }
 
 func (self *SCloudpodsRegionDriver) ValidateCreateSecurityGroupInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupCreateInput) (*api.SSecgroupCreateInput, error) {
+	ipSetCidrs := map[int]string{}
 	for i := range input.Rules {
-		rule := input.Rules[i]
+		rule := &input.Rules[i]
 		if rule.Priority == nil {
 			return nil, httperrors.NewMissingParameterError("priority")
 		}
@@ -57,8 +58,30 @@ func (self *SCloudpodsRegionDriver) ValidateCreateSecurityGroupInput(ctx context
 			return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *rule.Priority)
 		}
 
+		if len(rule.TargetType) == 0 {
+			rule.TargetType = api.SecurityGroupRuleTargetTypeCidr
+		}
+		switch rule.TargetType {
+		case api.SecurityGroupRuleTargetTypeCidr:
+		case api.SecurityGroupRuleTargetTypeIpSet:
+			ipSet, err := validateSecgroupIpSet(ctx, userCred, rule.CIDR, input.CloudproviderId, input.CloudregionId, true)
+			if err != nil {
+				return nil, err
+			}
+			ipSetCidrs[i] = ipSet.Id
+			rule.CIDR = ""
+		default:
+			return nil, httperrors.NewInputParameterError("unsupported target type %s", rule.TargetType)
+		}
 	}
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
+	input, err := self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupInput(ctx, userCred, input)
+	if err != nil {
+		return nil, err
+	}
+	for i, cidr := range ipSetCidrs {
+		input.Rules[i].CIDR = cidr
+	}
+	return input, nil
 }
 
 func (self *SCloudpodsRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleCreateInput) (*api.SSecgroupRuleCreateInput, error) {
@@ -70,7 +93,7 @@ func (self *SCloudpodsRegionDriver) ValidateCreateSecurityGroupRuleInput(ctx con
 	if *rule.Priority < 1 || *rule.Priority > 100 {
 		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *rule.Priority)
 	}
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupRuleInput(ctx, userCred, input)
+	return validateManagedSecgroupRuleCreateWithIpSet(ctx, userCred, input, self.SManagedVirtualizationRegionDriver.ValidateCreateSecurityGroupRuleInput)
 }
 
 func (self *SCloudpodsRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSecgroupRuleUpdateInput) (*api.SSecgroupRuleUpdateInput, error) {
@@ -78,7 +101,7 @@ func (self *SCloudpodsRegionDriver) ValidateUpdateSecurityGroupRuleInput(ctx con
 		return nil, httperrors.NewInputParameterError("invalid priority %d, range 1-100", *input.Priority)
 	}
 
-	return self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput(ctx, userCred, input)
+	return validateManagedSecgroupRuleUpdateWithIpSet(ctx, userCred, input, "", "", self.SManagedVirtualizationRegionDriver.ValidateUpdateSecurityGroupRuleInput)
 }
 
 func (self *SCloudpodsRegionDriver) GetSecurityGroupFilter(vpc *models.SVpc) (func(q *sqlchemy.SQuery) *sqlchemy.SQuery, error) {

@@ -87,13 +87,19 @@ func (self *SecurityGroupRuleUpdateTask) OnInit(ctx context.Context, obj db.ISta
 
 	for i := range rules {
 		if rules[i].GetGlobalId() == rule.ExternalId {
+			cidr, err := rule.GetCloudCIDR()
+			if err != nil {
+				self.taskFailed(ctx, secgroup, errors.Wrapf(err, "GetCloudCIDR"))
+				return
+			}
 			opts := &cloudprovider.SecurityGroupRuleUpdateOptions{
-				CIDR:     rule.CIDR,
-				Action:   secrules.TSecurityRuleAction(rule.Action),
-				Desc:     rule.Description,
-				Ports:    rule.Ports,
-				Protocol: rule.Protocol,
-				Priority: rule.Priority,
+				CIDR:       cidr,
+				TargetType: string(rule.TargetType),
+				Action:     secrules.TSecurityRuleAction(rule.Action),
+				Desc:       rule.Description,
+				Ports:      rule.Ports,
+				Protocol:   rule.Protocol,
+				Priority:   rule.Priority,
 			}
 			err = rules[i].Update(opts)
 			if err != nil {

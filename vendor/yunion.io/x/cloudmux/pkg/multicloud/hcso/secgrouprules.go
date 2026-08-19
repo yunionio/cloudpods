@@ -89,6 +89,13 @@ func (self *SecurityGroupRule) GetCIDRs() []string {
 	return ret
 }
 
+func (self *SecurityGroupRule) GetTargetType() string {
+	if len(self.RemoteGroupId) > 0 {
+		return cloudprovider.SecurityGroupRuleTargetTypeSecurityGroup
+	}
+	return cloudprovider.SecurityGroupRuleTargetTypeCidr
+}
+
 func (self *SecurityGroupRule) Delete() error {
 	return self.secgroup.region.DeleteSecurityGroupRule(self.Id)
 }
