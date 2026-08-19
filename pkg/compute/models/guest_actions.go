@@ -1417,15 +1417,22 @@ func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, pr
 	notifyclient.SystemNotifyWithCtx(ctx, priority, event, kwargs)
 }
 
-func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.TokenCredential, timeoutSecs int, isForce, stopCharging bool, parentTaskId string) error {
+func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.TokenCredential, timeoutSecs *int, isForce, stopCharging bool, parentTaskId string) error {
 	if len(parentTaskId) == 0 {
 		self.SetStatus(ctx, userCred, api.VM_START_STOP, "")
 	}
 	params := jsonutils.NewDict()
 	if isForce {
 		params.Add(jsonutils.NewBool(isForce), "is_force")
+	}
+	if timeoutSecs != nil {
+		params.Add(jsonutils.NewInt(int64(*timeoutSecs)), "timeout")
 	} else {
-		params.Add(jsonutils.NewInt(int64(timeoutSecs)), "timeout")
+		timeout := options.Options.LinuxGuestStopTimeout
+		if self.OsType == osprofile.OS_TYPE_WINDOWS {
+			timeout = options.Options.WindowsGuestStopTimeout
+		}
+		params.Add(jsonutils.NewInt(int64(timeout)), "timeout")
 	}
 	params.Add(jsonutils.NewBool(stopCharging), "stop_charging")
 	if len(parentTaskId) > 0 {
@@ -4069,14 +4076,13 @@ func (self *SGuest) StartGuestStopAndFreezeTask(ctx context.Context, userCred mc
 }
 
 // 重启
-func (self *SGuest) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	isForce := jsonutils.QueryBoolean(data, "is_force", false)
-	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED, api.VM_KICKSTART_INSTALLING, api.VM_KICKSTART_FAILED, api.VM_KICKSTART_COMPLETED}) || (isForce && self.Status == api.VM_STOPPING) {
+func (self *SGuest) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerRestartInput) (jsonutils.JSONObject, error) {
+	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_STOP_FAILED, api.VM_KICKSTART_INSTALLING, api.VM_KICKSTART_FAILED, api.VM_KICKSTART_COMPLETED}) || (input.IsForce && self.Status == api.VM_STOPPING) {
 		driver, err := self.GetDriver()
 		if err != nil {
 			return nil, err
 		}
-		return nil, driver.StartGuestRestartTask(self, ctx, userCred, isForce, "")
+		return nil, driver.StartGuestRestartTask(self, ctx, userCred, input.IsForce, input.TimeoutSecs, "")
 	}
 	return nil, httperrors.NewInvalidStatusError("Cannot do restart server in status %s", self.Status)
 }
@@ -7496,7 +7502,7 @@ func (self *SGuest) PerformSetKickstart(ctx context.Context, userCred mcclient.T
 			return nil, errors.Wrap(err, "get driver for restart")
 		}
 
-		if err := driver.StartGuestRestartTask(self, ctx, userCred, false, "kickstart config updated"); err != nil {
+		if err := driver.StartGuestRestartTask(self, ctx, userCred, true, nil, "kickstart config updated"); err != nil {
 			return nil, errors.Wrap(err, "start restart task")
 		}
 
@@ -7542,7 +7548,7 @@ func (self *SGuest) PerformKickstartComplete(ctx context.Context, userCred mccli
 			if err != nil {
 				return nil, errors.Wrap(err, "get driver")
 			}
-			driver.StartGuestRestartTask(self, ctx, userCred, false, "")
+			driver.StartGuestRestartTask(self, ctx, userCred, true, nil, "")
 			return jsonutils.Marshal(map[string]string{
 				"status":  "success",
 				"message": "kickstart marked as completed, restarting VM",

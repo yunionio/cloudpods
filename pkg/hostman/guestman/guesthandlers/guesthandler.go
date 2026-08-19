@@ -241,7 +241,8 @@ func guestStop(ctx context.Context, userCred mcclient.TokenCredential, sid strin
 	if err != nil {
 		timeout = 30
 	}
-	return nil, guestman.GetGuestManager().GuestStop(ctx, sid, timeout)
+	forceStop := jsonutils.QueryBoolean(body, "is_force", false)
+	return nil, guestman.GetGuestManager().GuestStop(ctx, sid, timeout, forceStop)
 }
 
 func guestMonitor(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
