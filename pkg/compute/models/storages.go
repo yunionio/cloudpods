@@ -320,10 +320,7 @@ func (manager *SStorageManager) ValidateCreateData(
 
 func (self *SStorage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	self.SetEnabled(true)
-	self.SetStatus(ctx, userCred, api.STORAGE_UNMOUNT, "CustomizeCreate")
-	if err := self.setHardwareInfoByData(ctx, userCred, data); err != nil {
-		return errors.Wrap(err, "setHardwareInfo")
-	}
+	self.SetStatusValue(api.STORAGE_UNMOUNT)
 	return self.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -371,35 +368,14 @@ func (self *SStorage) ValidateDeleteCondition(ctx context.Context, info api.Stor
 func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
+	if err := self.setHardwareInfoByData(ctx, userCred, data); err != nil {
+		log.Errorf("setHardwareInfoByData error: %v", err)
+	}
+
 	storageDriver := GetStorageDriver(self.StorageType)
 	if storageDriver != nil {
 		storageDriver.PostCreate(ctx, userCred, self, data)
 	}
-}
-
-func (self *SStorage) SetStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
-	if self.Status == status {
-		return nil
-	}
-	oldStatus := self.Status
-	_, err := db.Update(self, func() error {
-		self.Status = status
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	if userCred != nil {
-		notes := fmt.Sprintf("%s=>%s", oldStatus, status)
-		if len(reason) > 0 {
-			notes = fmt.Sprintf("%s: %s", notes, reason)
-		}
-		db.OpsLog.LogEvent(self, db.ACT_UPDATE_STATUS, notes, userCred)
-		// if strings.Contains(notes, "fail") {
-		// 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_SYNC_STATUS, notes, userCred, false)
-		// }
-	}
-	return nil
 }
 
 func (self *SStorage) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
