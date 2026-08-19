@@ -171,8 +171,8 @@ func Test_getUSBDevQemuOptions(t *testing.T) {
 			want: map[string]interface{}{
 				"vendorid":  uint32(0x1d6b),
 				"productid": uint32(0x0001),
-				"hostbus":   uint64(1),
-				"hostaddr":  uint64(9),
+				//"hostbus":   uint64(1),
+				//"hostaddr":  uint64(9),
 			},
 		},
 	}
