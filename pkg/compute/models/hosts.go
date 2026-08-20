@@ -7690,7 +7690,10 @@ func (hh *SHost) GetDetailsJnlp(ctx context.Context, userCred mcclient.TokenCred
 
 func (hh *SHost) PerformInsertIso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if utils.IsInStringArray(hh.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
-		imageStr, err := data.GetString("image")
+		imageStr, _ := data.GetString("image")
+		if len(imageStr) == 0 {
+			return nil, httperrors.NewInputParameterError("missing image")
+		}
 		image, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, false)
 		if err != nil {
 			if err == sql.ErrNoRows {

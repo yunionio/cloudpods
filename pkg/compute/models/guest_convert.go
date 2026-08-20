@@ -171,6 +171,9 @@ func (self *SGuest) StartConvertToKvmTask(
 func (self *SGuest) createConvertedServer(ctx context.Context, userCred mcclient.TokenCredential, data *api.ConvertToKvmInput) (*SGuest, *api.ServerCreateInput, error) {
 	// set guest pending usage
 	pendingUsage, pendingRegionUsage, err := self.getGuestUsage(1)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "getGuestUsage")
+	}
 	keys, err := self.GetQuotaKeys()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "GetQuotaKeys")

@@ -319,8 +319,11 @@ func (self *SCloudpodsESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, us
 			return nil, fmt.Errorf("unable to fetch disk %s", diskId)
 		}
 		storage, err := disk.GetStorage()
+		if err != nil {
+			return nil, errors.Wrap(err, "disk.GetStorage")
+		}
 		if storage == nil {
-			return nil, errors.Wrapf(err, "unable to fetch storage of disk %s", diskId)
+			return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "unable to fetch storage of disk %s", diskId)
 		}
 		desc.Disks[i].StorageId = storage.GetExternalId()
 		desc.Disks[i].Preallocation = disk.Preallocation

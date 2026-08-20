@@ -641,6 +641,9 @@ func (s *SKVMGuestInstance) ensurePciAddresses() error {
 	}
 	if s.Desc.VirtioSerial != nil {
 		err = s.ensureDevicePciAddress(s.Desc.VirtioSerial.PCIDevice, -1, nil)
+		if err != nil {
+			return errors.Wrap(err, "ensure virtio serial pci address")
+		}
 	}
 
 	if s.Desc.VdiDevice != nil && s.Desc.VdiDevice.Spice != nil {

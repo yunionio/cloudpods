@@ -211,6 +211,11 @@ func (task *GuestConvertEsxiToKvmTask) OnHostCreateGuest(
 			disk.Status = api.DISK_READY
 			return nil
 		})
+		if err != nil {
+			log.Errorf("update disk failed %s", err)
+			task.taskFailed(ctx, guest, jsonutils.NewString(err.Error()))
+			return
+		}
 		// TODO: update flat file path on guest start
 		err = disk.SetMetadata(ctx, api.DISK_META_REMOTE_ACCESS_PATH, esxiFlatFilePath, task.UserCred)
 		if err != nil {

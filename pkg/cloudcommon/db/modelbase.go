@@ -414,6 +414,9 @@ func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, 
 		im = manager
 	}
 	fn, err := query.GetArray("field")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("missing field")
+	}
 	efs, _ := query.GetArray("extra_field")
 	fields := make([]string, len(fn))
 

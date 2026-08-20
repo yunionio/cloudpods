@@ -117,6 +117,9 @@ func (obj *SDevtoolTemplate) Binding(ctx context.Context, userCred mcclient.Toke
 	template := obj
 	s := auth.GetSession(ctx, userCred, "")
 	ServerID, err := data.GetString("server_id")
+	if err != nil {
+		return nil, errors.Wrap(err, "get server_id")
+	}
 
 	attrs, err := getServerAttrs(ServerID, s)
 	if err != nil {
@@ -190,6 +193,9 @@ func (obj *SDevtoolTemplate) Unbinding(ctx context.Context, userCred mcclient.To
 	template := obj
 	s := auth.GetSession(ctx, userCred, "")
 	ServerID, err := data.GetString("server_id")
+	if err != nil {
+		return nil, errors.Wrap(err, "get server_id")
+	}
 
 	newPlaybookName := template.Name + "-" + template.Id[0:8] + "-" + ServerID[0:8]
 	if len(newPlaybookName) > 32 {

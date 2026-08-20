@@ -250,6 +250,9 @@ func (man *SForwardManager) PerformCreateFromServer(ctx context.Context, userCre
 	} else {
 		data, err = man.validatePortReq(ctx, typ, -1, agentId, epId, data)
 	}
+	if err != nil {
+		return nil, err
+	}
 
 	forwardObj, err := db.NewModelObject(man)
 	if err != nil {

@@ -212,7 +212,7 @@ func (query *MetricQueryCondition) ExecuteQuery(userCred mcclient.TokenCredentia
 
 		s := auth.GetSession(ctx, userCred, "")
 		ress, regionErr = firstCond.getOnecloudResources(s, scope, false)
-		if err != nil {
+		if regionErr != nil {
 			regionErr = errors.Wrap(regionErr, "get resources from region")
 			return
 		}

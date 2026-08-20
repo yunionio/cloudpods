@@ -50,6 +50,9 @@ func init() {
 		}
 		var result *printutils.ListResult
 		result, err = modules.DevToolTemplates.List(s, params)
+		if err != nil {
+			return err
+		}
 		printList(result, modules.DevToolTemplates.GetColumns(s))
 		return nil
 	})

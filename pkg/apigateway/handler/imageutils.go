@@ -258,9 +258,8 @@ func imageDownloadHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 func imageDownloadByUrlHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	_, query, _ := appsrv.FetchEnv(ctx, w, r)
 	// input params
-	token, err := query.GetString("signature")
+	token, _ := query.GetString("signature")
 	if len(token) == 0 {
-		log.Debugf("get signature %s", err)
 		httperrors.MissingParameterError(ctx, w, "signature")
 		return
 	}

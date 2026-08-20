@@ -656,8 +656,12 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDesc(
 
 func (manager *SIsolatedDeviceManager) attachSpecificDeviceToGuest(ctx context.Context, guest *SGuest, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
 	devObj, err := manager.FetchById(devConfig.Id)
-	if devObj == nil {
-		return fmt.Errorf("Device %s not found: %s", devConfig.Id, err)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return httperrors.NewResourceNotFoundError2(manager.Keyword(), devConfig.Id)
+		} else {
+			return errors.Wrap(err, "SIsolatedDeviceManager.FetchById")
+		}
 	}
 	dev := devObj.(*SIsolatedDevice)
 	if len(devConfig.DevType) > 0 && devConfig.DevType != dev.DevType {

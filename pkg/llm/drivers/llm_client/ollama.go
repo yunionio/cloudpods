@@ -267,6 +267,9 @@ func (o *ollama) Chat(ctx context.Context, mcpAgent *models.SMCPAgent, messages 
 	}
 
 	httpReq, client, err := initRequestClient(ctx, mcpAgent.LLMUrl, mcpAgent.Model, false, ollamaMessages, ollamaTools)
+	if err != nil {
+		return nil, err
+	}
 
 	// 调用底层方法
 	return o.doChatRequest(ctx, httpReq, client)
@@ -585,6 +588,9 @@ func (o *ollama) ChatStream(ctx context.Context, mcpAgent *models.SMCPAgent, mes
 	}
 
 	httpReq, client, err := initRequestClient(ctx, mcpAgent.LLMUrl, mcpAgent.Model, true, ollamaMessages, ollamaTools)
+	if err != nil {
+		return err
+	}
 
 	return o.doChatStreamRequest(ctx, httpReq, client, onChunk)
 }
