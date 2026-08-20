@@ -477,7 +477,9 @@ func (d *SBaseBridgeDriver) SetupAddresses() error {
 	if d.inter != nil {
 		// first shutdown the origin interface
 		ifname := d.inter.String()
-		tryUnmanageInterface(ifname)
+		if len(d.inter.Addr) > 0 || len(d.inter.Addr6) > 0 {
+			tryUnmanageInterface(ifname)
+		}
 		if err := d.inter.FlushAddrs(); err != nil {
 			return errors.Wrapf(err, "bridge %s slave ifname: %s flush addrs fail", br, ifname)
 		}
