@@ -295,7 +295,8 @@ func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Conte
 		host, _ = guest.GetHost()
 	}
 	if host != nil && host.GetEnabled() && host.HostStatus == api.HOST_ONLINE {
-		return guest.StartGuestStopTask(ctx, task.GetUserCred(), 0, true, false, task.GetTaskId())
+		stopTimeout := 0
+		return guest.StartGuestStopTask(ctx, task.GetUserCred(), &stopTimeout, true, false, task.GetTaskId())
 	}
 	if host != nil && !jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
 		return fmt.Errorf("fail to contact host")

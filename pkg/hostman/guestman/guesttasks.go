@@ -63,14 +63,16 @@ type SGuestStopTask struct {
 	*SKVMGuestInstance
 	ctx            context.Context
 	timeout        int64
+	isFroce        bool
 	startPowerdown time.Time
 }
 
-func NewGuestStopTask(guest *SKVMGuestInstance, ctx context.Context, timeout int64) *SGuestStopTask {
+func NewGuestStopTask(guest *SKVMGuestInstance, ctx context.Context, timeout int64, isForce bool) *SGuestStopTask {
 	return &SGuestStopTask{
 		SKVMGuestInstance: guest,
 		ctx:               ctx,
 		timeout:           timeout,
+		isFroce:           isForce,
 		startPowerdown:    time.Time{},
 	}
 }
@@ -91,10 +93,19 @@ func (s *SGuestStopTask) onPowerdownGuest(results string) {
 }
 
 func (s *SGuestStopTask) checkGuestRunning() {
-	if !s.IsRunning() || time.Now().Sub(s.startPowerdown) > time.Duration(s.timeout)*time.Second {
+	if !s.IsRunning() {
 		s.Stop() // force stop
 		s.stopping = false
 		hostutils.TaskComplete(s.ctx, nil)
+	} else if time.Now().Sub(s.startPowerdown) > time.Duration(s.timeout)*time.Second {
+		// timeout
+		if s.isFroce {
+			s.Stop() // force stop
+			s.stopping = false
+			hostutils.TaskComplete(s.ctx, nil)
+		} else {
+			hostutils.TaskFailed(s.ctx, fmt.Sprintf("guest stop timeout after %d seconds", s.timeout))
+		}
 	} else {
 		s.CheckGuestRunningLater()
 	}
@@ -170,7 +181,11 @@ func (s *SGuestSuspendTask) onSaveMemStateCheck(status string) {
 
 func (s *SGuestSuspendTask) onSaveMemStateComplete(_ *SGuestSuspendTask, _ string) {
 	log.Infof("Server %s memory state saved, stopping server", s.GetName())
-	s.ExecStopTask(s.ctx, int64(3))
+	params := &SGuestStopParams{
+		IsForce: true,
+		Timeout: 3,
+	}
+	s.ExecStopTask(s.ctx, params)
 }
 
 /**
