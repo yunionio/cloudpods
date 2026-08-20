@@ -312,6 +312,9 @@ func initKubeCluster() {
 
 		// 2. edit yaml
 		yaml, err := shellutils.Edit(setting.YAMLString())
+		if err != nil {
+			return errors.Wrap(err, "edit component setting")
+		}
 		if len(yaml) == 0 {
 			if !args.Force {
 				log.Infof("Nothing to update")

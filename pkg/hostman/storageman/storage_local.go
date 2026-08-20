@@ -988,9 +988,9 @@ func (s *SLocalStorage) CloneDiskFromStorage(ctx context.Context, srcStorage ISt
 	if fullCopy {
 		_, err = srcImg.Clone(s.GetCloneTargetDiskPath(ctx, targetDiskId), qemuimgfmt.QCOW2, false)
 	} else {
-		newImg, err := qemuimg.NewQemuImage(accessPath)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed new qemu image")
+		newImg, nerr := qemuimg.NewQemuImage(accessPath)
+		if nerr != nil {
+			return nil, errors.Wrap(nerr, "failed new qemu image")
 		}
 
 		err = newImg.CreateQcow2(srcImg.GetSizeMB(), false, "", encInfo.Key, qemuimg.EncryptFormatLuks, encInfo.Alg)

@@ -49,6 +49,9 @@ func init() {
 	R(&ScalingPolicyListOptions{}, "scaling-policy-list", "List Scaling Policy", func(s *mcclient.ClientSession,
 		args *ScalingPolicyListOptions) error {
 		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
+		}
 		policies, err := modules.ScalingPolicy.List(s, params)
 		if err != nil {
 			return err

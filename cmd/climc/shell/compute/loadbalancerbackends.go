@@ -55,6 +55,9 @@ func init() {
 	})
 	R(&options.LoadbalancerBackendUpdateOptions{}, "lbbackend-update", "Update lbbackend", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendUpdateOptions) error {
 		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
 		lbbackend, err := modules.LoadbalancerBackends.Update(s, opts.ID, params)
 		if err != nil {
 			return err

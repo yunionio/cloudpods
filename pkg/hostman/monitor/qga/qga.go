@@ -410,6 +410,9 @@ func (qga *QemuGuestAgent) QgaGuestGetFsInfo() ([]GuestFsInfo, error) {
 		Execute: "guest-get-fsinfo",
 	}
 	rawResFsInfo, err := qga.execCmd(cmdFsInfo, true, -1)
+	if err != nil {
+		return nil, errors.Wrap(err, "exec guest-get-fsinfo")
+	}
 	resFsInfo := make([]GuestFsInfo, 0)
 	err = json.Unmarshal(*rawResFsInfo, &resFsInfo)
 	if err != nil {

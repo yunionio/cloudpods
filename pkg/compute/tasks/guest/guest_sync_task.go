@@ -80,10 +80,10 @@ func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, gues
 		log.Errorf("unable to get prev_mac when restart_network is true when sync guest")
 		return
 	}
-	ipMask, err := self.Params.GetString("ip_mask")
-	gateway, err := self.Params.GetString("gateway")
-	ip6Mask, err := self.Params.GetString("ip6_mask")
-	gateway6, err := self.Params.GetString("gateway6")
+	ipMask, _ := self.Params.GetString("ip_mask")
+	gateway, _ := self.Params.GetString("gateway")
+	ip6Mask, _ := self.Params.GetString("ip6_mask")
+	gateway6, _ := self.Params.GetString("gateway6")
 	if ipMask == "" && ip6Mask == "" {
 		log.Errorf("unable to get ip_mask when restart_network is true when sync guest")
 		return

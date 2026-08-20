@@ -281,6 +281,7 @@ func CheckSSHable(session *mcclient.ClientSession, serverId string) (sshable SSH
 		sshport, err = getServerSshport(session, serverDetail.Id, false)
 		if err != nil {
 			err = errors.Wrapf(err, "unable to get sshport of server %s", serverDetail.Id)
+			return
 		}
 		// create local forward
 		createP := jsonutils.NewDict()

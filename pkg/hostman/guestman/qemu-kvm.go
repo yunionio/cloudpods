@@ -2037,9 +2037,10 @@ func (s *SKVMGuestInstance) DeployFs(ctx context.Context, userCred mcclient.Toke
 		disk, e := storageman.GetManager().GetDiskByPath(diskPath)
 		if e != nil {
 			log.Errorf("failed get disk bypath %s %s", diskPath, e)
+			continue
 		}
 		if utils.IsInStringArray(disk.GetType(), []string{api.STORAGE_SLVM, api.STORAGE_CLVM}) {
-			if errDeactive := lvmutils.LVDeactivate(diskPath); err != nil {
+			if errDeactive := lvmutils.LVDeactivate(diskPath); errDeactive != nil {
 				log.Errorf("failed deactive disk %s: %s", diskPath, errDeactive)
 			}
 		}

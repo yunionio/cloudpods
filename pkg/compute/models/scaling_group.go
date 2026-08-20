@@ -112,6 +112,9 @@ func (sgm *SScalingGroupManager) ValidateCreateData(ctx context.Context, userCre
 	var err error
 	input.VirtualResourceCreateInput, err = sgm.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred,
 		ownerId, query, input.VirtualResourceCreateInput)
+	if err != nil {
+		return input, err
+	}
 	// check InstanceNumber
 	if input.MinInstanceNumber < 0 {
 		return input, httperrors.NewInputParameterError("min_instance_number should not be smaller than 0")
@@ -532,6 +535,9 @@ func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerD
 		err = scalingActivity.SetReject("",
 			fmt.Sprintf("The Cooling Time limit the execution time of the policy to at least: %s",
 				sg.AllowScaleTime.In(CoolingTimeLocation).Format("2006-01-02 15:04:05 -0700")))
+		if err != nil {
+			return errors.Wrap(err, "SetReject")
+		}
 		return nil
 	}
 

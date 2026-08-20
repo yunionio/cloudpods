@@ -663,7 +663,7 @@ func (asc *SASController) actionAfterCreate(
 		}
 		// cancel delete project
 		_, e := modules.Servers.Update(session, ret.Id, updateParams)
-		if err != nil {
+		if e != nil {
 			sggs[0].SetGuestStatus(compute.SG_GUEST_STATUS_READY)
 			log.Errorf("cancel delete project of instance '%s' failed: %s", ret.Id, e.Error())
 			return

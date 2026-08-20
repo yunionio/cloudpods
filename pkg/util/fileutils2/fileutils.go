@@ -315,10 +315,15 @@ func CleanFailedMountpoints() {
 	f, err := os.Open(mtfile)
 	if err != nil {
 		log.Errorf("CleanFailedMountpoints error: %s", err)
+		return
 	}
+	defer f.Close()
 	reader := bufio.NewReader(f)
-	line, _, err := reader.ReadLine()
-	for err != nil {
+	for {
+		line, _, err := reader.ReadLine()
+		if err != nil {
+			break
+		}
 		m := strings.Split(string(line), " ")
 		if len(m) > 1 {
 			mp := m[1]
