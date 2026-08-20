@@ -831,6 +831,10 @@ func (manager *SSecurityGroupManager) DelaySync(ctx context.Context, userCred mc
 			return errors.Wrapf(err, "GetKvmGuests")
 		}
 		for _, guest := range guests {
+			// skip sync if guest has external id(cloudpods guest)
+			if len(guest.ExternalId) > 0 {
+				continue
+			}
 			guest.StartSyncTask(ctx, userCred, true, "")
 		}
 	}
