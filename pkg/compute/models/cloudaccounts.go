@@ -2523,10 +2523,11 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 		}()
 		log.Debugf("syncAccountStatus %s %s", account.Id, account.Name)
 		err := account.syncAccountStatus(ctx, userCred, true)
+		if err != nil {
+			log.Errorf("syncAccountStatus %s %s fail: %s", account.Id, account.Name, err)
+			err = errors.Wrap(err, "account.syncAccountStatus")
+		}
 		if waitChan != nil {
-			if err != nil {
-				err = errors.Wrap(err, "account.syncAccountStatus")
-			}
 			waitChan <- err
 		}
 	})

@@ -56,6 +56,9 @@ func init() {
 	})
 	R(&options.MeshNetworkUpdateOptions{}, "meshnetwork-update", "Update mesh network", func(s *mcclient.ClientSession, opts *options.MeshNetworkUpdateOptions) error {
 		params, err := base_options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
 		mn, err := modules.MeshNetworks.Update(s, opts.ID, params)
 		if err != nil {
 			return err

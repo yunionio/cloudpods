@@ -57,6 +57,9 @@ func init() {
 		}
 		var result *printutils.ListResult
 		result, err = modules.DevToolCronjobs.List(s, params)
+		if err != nil {
+			return err
+		}
 		printList(result, modules.DevToolCronjobs.GetColumns(s))
 		return nil
 	})

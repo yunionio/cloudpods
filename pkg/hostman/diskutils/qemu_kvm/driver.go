@@ -628,7 +628,7 @@ func (d *QemuBaseDriver) CleanGuest() {
 	}
 
 	if d.hugepagePath != "" {
-		err, out := procutils.NewCommand("umount", d.hugepagePath).Output()
+		out, err := procutils.NewCommand("umount", d.hugepagePath).Output()
 		if err != nil {
 			log.Errorf("failed umount %s %s : %s", d.hugepagePath, err, out)
 		} else {

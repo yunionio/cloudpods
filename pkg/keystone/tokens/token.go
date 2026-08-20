@@ -306,6 +306,9 @@ func (t *SAuthToken) GetSimpleUserCred(token string) (mcclient.TokenCredential, 
 		ret.ProjectDomainId = proj.DomainId
 		ret.ProjectDomain = proj.GetDomain().Name
 		roles, err = models.AssignmentManager.FetchUserProjectRoles(t.UserId, t.ProjectId)
+		if err != nil {
+			return nil, errors.Wrap(err, "AssignmentManager.FetchUserProjectRoles")
+		}
 	} else if len(t.DomainId) > 0 {
 		domain, err := models.DomainManager.FetchDomainById(t.DomainId)
 		if err != nil {
@@ -314,6 +317,9 @@ func (t *SAuthToken) GetSimpleUserCred(token string) (mcclient.TokenCredential, 
 		ret.ProjectDomainId = t.DomainId
 		ret.ProjectDomain = domain.Name
 		roles, err = models.AssignmentManager.FetchUserProjectRoles(t.UserId, t.DomainId)
+		if err != nil {
+			return nil, errors.Wrap(err, "AssignmentManager.FetchUserProjectRoles")
+		}
 	}
 	roleStrs := make([]string, len(roles))
 	roleIdStrs := make([]string, len(roles))

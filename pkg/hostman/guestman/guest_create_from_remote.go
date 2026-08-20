@@ -132,7 +132,7 @@ func (m *SGuestManager) GuestCreateFromCloudpods(
 		storageId := disksDesc[i].StorageId
 		storage := storageman.GetManager().GetStorage(storageId)
 		if storage == nil {
-			err = errors.Wrapf(err, "get storage %s", storageId)
+			err = errors.Errorf("get storage %s", storageId)
 			break
 		}
 		//var diskInfo jsonutils.JSONObject

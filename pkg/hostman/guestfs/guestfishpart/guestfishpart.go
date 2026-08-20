@@ -163,11 +163,12 @@ func (d *SGuestfishDiskPartition) Umount() error {
 
 	var tries = 0
 	var err error
+	var output []byte
 	for tries < 10 {
 		tries += 1
-		output, err := procutils.NewCommand("umount", d.GetMountPath()).Output()
+		output, err = procutils.NewCommand("umount", d.GetMountPath()).Output()
 		if err != nil {
-			err = errors.Wrapf(err, "failed umount %s: %s %s", d.GetMountPath(), output, err)
+			err = errors.Wrapf(err, "failed umount %s: %s", d.GetMountPath(), output)
 			time.Sleep(time.Second * 1)
 		} else {
 			d.mounted = false

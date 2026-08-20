@@ -192,6 +192,9 @@ func (shield *SAlertRecordShield) GetMoreDetails(ctx context.Context, out monito
 	// Alert May delete By someone
 	out.AlertName = commonAlert.Name
 	alertDetails, err := commonAlert.GetMoreDetails(ctx, monitor.CommonAlertDetails{})
+	if err != nil {
+		return out, errors.Wrap(err, "GetMoreDetails")
+	}
 	out.CommonAlertDetails = alertDetails
 
 	resources, err := MonitorResourceManager.GetMonitorResources(monitor.MonitorResourceListInput{ResId: []string{shield.ResId}})
