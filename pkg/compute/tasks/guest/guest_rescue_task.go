@@ -49,7 +49,8 @@ func (self *StartRescueTask) StopServer(ctx context.Context, guest *models.SGues
 	db.OpsLog.LogEvent(guest, db.ACT_STOPPING, nil, self.UserCred)
 	guest.SetStatus(ctx, self.UserCred, api.VM_STOPPING, "StopServer")
 	self.SetStage("OnServerStopComplete", nil)
-	guest.StartGuestStopTask(ctx, self.UserCred, 0, true, false, self.GetTaskId())
+	stopTimeout := 0
+	guest.StartGuestStopTask(ctx, self.UserCred, &stopTimeout, true, false, self.GetTaskId())
 }
 
 func (self *StartRescueTask) OnServerStopComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -154,7 +155,8 @@ func (self *StopRescueTask) StopServer(ctx context.Context, guest *models.SGuest
 	db.OpsLog.LogEvent(guest, db.ACT_STOPPING, nil, self.UserCred)
 	guest.SetStatus(ctx, self.UserCred, api.VM_STOPPING, "StopServer")
 	self.SetStage("OnServerStopComplete", nil)
-	guest.StartGuestStopTask(ctx, self.UserCred, 0, true, false, self.GetTaskId())
+	stopTimeout := 0
+	guest.StartGuestStopTask(ctx, self.UserCred, &stopTimeout, true, false, self.GetTaskId())
 }
 
 func (self *StopRescueTask) OnServerStopComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {

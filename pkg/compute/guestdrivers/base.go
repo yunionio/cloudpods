@@ -215,9 +215,12 @@ func (drv *SBaseGuestDriver) StartGuestResetTask(guest *models.SGuest, ctx conte
 	return fmt.Errorf("Not Implement")
 }
 
-func (drv *SBaseGuestDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
+func (drv *SBaseGuestDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, timeout *int, parentTaskId string) error {
 	data := jsonutils.NewDict()
 	data.Set("is_force", jsonutils.NewBool(isForce))
+	if timeout != nil {
+		data.Set("timeout", jsonutils.NewInt(int64(*timeout)))
+	}
 	if err := guest.SetStatus(ctx, userCred, api.VM_STOPPING, ""); err != nil {
 		return err
 	}
