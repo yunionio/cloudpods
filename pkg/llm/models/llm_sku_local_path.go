@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 func isLocalPathSkuCreate(input *api.LLMSkuCreateInput) bool {
@@ -49,6 +51,32 @@ func ValidateLocalPathSkuCreate(input *api.LLMSkuCreateInput) error {
 	}
 	input.Source = api.LLM_MODEL_SOURCE_LOCAL_PATH
 	input.LocalPath = localPath
+	return nil
+}
+
+// validateLocalPathSkuUpdatePreferHosts validates prefer_hosts on SKU update.
+// Omitted PreferHosts (nil) leaves the stored list unchanged. An explicit empty
+// list is rejected for local_path SKUs; non-local_path SKUs may not set the field.
+func validateLocalPathSkuUpdatePreferHosts(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	sku *SLLMSku,
+	input *api.LLMSkuUpdateInput,
+) error {
+	if input == nil || input.PreferHosts == nil {
+		return nil
+	}
+	if sku == nil || !SkuHasLocalHostPathModel(sku) {
+		return errors.Wrap(httperrors.ErrInputParameter, "prefer_hosts can only be updated on local_path SKU")
+	}
+	if len(normalizePreferHostInputs(input.PreferHosts)) == 0 {
+		return errors.Wrap(httperrors.ErrMissingParameter, "prefer_hosts is required for local_path source")
+	}
+	resolved, err := resolvePreferHosts(ctx, userCred, input.PreferHosts)
+	if err != nil {
+		return err
+	}
+	input.PreferHosts = resolved
 	return nil
 }
 

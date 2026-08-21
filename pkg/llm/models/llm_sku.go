@@ -573,6 +573,10 @@ func (sku *SLLMSku) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		}
 	}
 
+	if err := validateLocalPathSkuUpdatePreferHosts(ctx, userCred, sku, &input); err != nil {
+		return input, err
+	}
+
 	if sku.LLMSpec == nil {
 		return input, nil
 	}

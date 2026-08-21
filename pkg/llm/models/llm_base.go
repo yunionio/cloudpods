@@ -730,6 +730,48 @@ func AppendLLMSkuVolumeMounts(containers []*computeapi.PodContainerCreateInput, 
 	}
 }
 
+// AppendLLMSkuEnvs merges SKU envs into the primary container (index 0).
+// Same-key SKU values override driver defaults. Empty keys are ignored.
+func AppendLLMSkuEnvs(containers []*computeapi.PodContainerCreateInput, skuBase *SLLMSkuBase) {
+	if skuBase == nil || skuBase.Envs == nil || skuBase.Envs.IsZero() {
+		return
+	}
+	if len(containers) == 0 || containers[0] == nil {
+		return
+	}
+	containers[0].Envs = mergeContainerEnvs(containers[0].Envs, *skuBase.Envs)
+}
+
+func mergeContainerEnvs(existing []*apis.ContainerKeyValue, skuEnvs api.Envs) []*apis.ContainerKeyValue {
+	indexByKey := make(map[string]int, len(existing))
+	out := make([]*apis.ContainerKeyValue, 0, len(existing)+len(skuEnvs))
+	for _, e := range existing {
+		if e == nil {
+			continue
+		}
+		key := strings.TrimSpace(e.Key)
+		if key == "" {
+			continue
+		}
+		indexByKey[key] = len(out)
+		out = append(out, e)
+	}
+	for _, e := range skuEnvs {
+		key := strings.TrimSpace(e.Key)
+		if key == "" {
+			continue
+		}
+		kv := &apis.ContainerKeyValue{Key: key, Value: e.Value}
+		if idx, ok := indexByKey[key]; ok {
+			out[idx] = kv
+			continue
+		}
+		indexByKey[key] = len(out)
+		out = append(out, kv)
+	}
+	return out
+}
+
 // 取消自动删除
 func (llm *SLLMBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
