@@ -237,6 +237,10 @@ func (s *SKVMGuestInstance) isDisableAutoMergeSnapshots() bool {
 	return s.Desc.Metadata[api.VM_METADATA_DISABLE_AUTO_MERGE_SNAPSHOT] == "true"
 }
 
+func (s *SKVMGuestInstance) isDaemonGuestManualStop() bool {
+	return s.Desc.Metadata[api.DAEMON_GUEST_MANUAL_STOP] == "true"
+}
+
 func (s *SKVMGuestInstance) getMachine() string {
 	machine := s.Desc.Machine
 	if machine == "" {
@@ -856,6 +860,9 @@ func (s *SKVMGuestInstance) gpusHasVga() bool {
 	manager := s.manager.GetHost().GetIsolatedDeviceManager()
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
+		if dev == nil {
+			continue
+		}
 		if dev.GetDeviceType() == api.GPU_VGA_TYPE {
 			return true
 		}
@@ -867,6 +874,9 @@ func (s *SKVMGuestInstance) hasGPU() bool {
 	manager := s.manager.GetHost().GetIsolatedDeviceManager()
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
+		if dev == nil {
+			continue
+		}
 		if dev.GetDeviceType() == api.GPU_VGA_TYPE || dev.GetDeviceType() == api.GPU_HPC_TYPE {
 			return true
 		}
