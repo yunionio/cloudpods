@@ -251,6 +251,9 @@ type LLMSkuUpdateInput struct {
 	ModelScopeModelId   *string `json:"model_scope_model_id,omitempty"`
 	ModelScopeFilePath  *string `json:"model_scope_file_path,omitempty"`
 	LocalPath           *string `json:"local_path,omitempty"`
+	// PreferHosts updates SKU prefer_hosts. Omitted means unchanged; an explicit
+	// value is required for local_path SKUs and rejected otherwise.
+	PreferHosts []string `json:"prefer_hosts"`
 	// Model categories
 	Categories *[]string `json:"categories,omitempty"`
 	// Inference backend version and parameters

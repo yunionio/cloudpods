@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"testing"
 
 	"yunion.io/x/onecloud/pkg/apis/llm"
@@ -221,5 +222,56 @@ func TestValidateRequireMountedModelsSkipsLocalPathSku(t *testing.T) {
 	sku.HostPaths = &hostPaths
 	if err := ValidateRequireMountedModels(string(llm.LLM_CONTAINER_VLLM), nil, nil, sku); err != nil {
 		t.Fatalf("expected mounted_models not required for local_path sku, got %v", err)
+	}
+}
+
+func localPathSkuForPreferHostsUpdate() *SLLMSku {
+	hostPaths := llm.HostPaths{
+		{
+			Type: "directory",
+			Path: "/data/models/Qwen3-8B",
+			Containers: llm.ContainerHostPathRelations{
+				"0": {MountPath: "/data/models/huggingface/Qwen3-8B"},
+			},
+		},
+	}
+	sku := &SLLMSku{
+		LLMType:     string(llm.LLM_CONTAINER_VLLM),
+		Source:      llm.LLM_MODEL_SOURCE_LOCAL_PATH,
+		LocalPath:   "/data/models/Qwen3-8B",
+		PreferHosts: []string{"host-1"},
+	}
+	sku.HostPaths = &hostPaths
+	return sku
+}
+
+func TestValidateLocalPathSkuUpdatePreferHostsOmitted(t *testing.T) {
+	sku := localPathSkuForPreferHostsUpdate()
+	input := &llm.LLMSkuUpdateInput{}
+	if err := validateLocalPathSkuUpdatePreferHosts(context.Background(), nil, sku, input); err != nil {
+		t.Fatalf("expected omitted prefer_hosts to skip, got %v", err)
+	}
+	if input.PreferHosts != nil {
+		t.Fatalf("expected prefer_hosts to stay omitted, got %v", input.PreferHosts)
+	}
+}
+
+func TestValidateLocalPathSkuUpdatePreferHostsEmptyRejected(t *testing.T) {
+	sku := localPathSkuForPreferHostsUpdate()
+	input := &llm.LLMSkuUpdateInput{PreferHosts: []string{}}
+	if err := validateLocalPathSkuUpdatePreferHosts(context.Background(), nil, sku, input); err == nil {
+		t.Fatal("expected error when prefer_hosts is empty")
+	}
+	input.PreferHosts = []string{"  ", ""}
+	if err := validateLocalPathSkuUpdatePreferHosts(context.Background(), nil, sku, input); err == nil {
+		t.Fatal("expected error when prefer_hosts is whitespace only")
+	}
+}
+
+func TestValidateLocalPathSkuUpdatePreferHostsRejectedOnNonLocalPath(t *testing.T) {
+	sku := &SLLMSku{LLMType: string(llm.LLM_CONTAINER_VLLM)}
+	input := &llm.LLMSkuUpdateInput{PreferHosts: []string{"host-1"}}
+	if err := validateLocalPathSkuUpdatePreferHosts(context.Background(), nil, sku, input); err == nil {
+		t.Fatal("expected error when prefer_hosts is set on non local_path sku")
 	}
 }
