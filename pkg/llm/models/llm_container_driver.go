@@ -163,6 +163,7 @@ func GetDriverPodContainers(ctx context.Context, drv ILLMContainerDriver, llm *S
 			llmBase = &llm.SLLMBase
 		}
 		AppendLLMSkuVolumeMounts(containers, llmBase, &sku.SLLMSkuBase, nil)
+		AppendLLMSkuEnvs(containers, &sku.SLLMSkuBase)
 	}
 	return containers
 }
