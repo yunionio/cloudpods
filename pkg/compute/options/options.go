@@ -99,7 +99,7 @@ type ComputeOptions struct {
 	DefaultDiskCacheMode string `help:"default kvm disk cache mode" choices:"writeback|none|writethrough" default:"none"`
 
 	WindowsGuestStopTimeout int `help:"windows guest stop timeout" default:"120"`
-	LinuxGuestStopTimeout   int `help:"linux stop timeout" default:"30"`
+	LinuxGuestStopTimeout   int `help:"linux stop timeout" default:"60"`
 
 	SystemAdminQuotaCheck         bool `help:"Enable quota check for system admin, default False" default:"false"`
 	CloudaccountHealthStatusCheck bool `help:"Enable cloudaccount health status check, default True" default:"true"`
