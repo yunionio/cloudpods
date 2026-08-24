@@ -32,6 +32,7 @@ import (
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -348,6 +349,36 @@ func diskResize(ctx context.Context, userCred mcclient.TokenCredential, storage 
 			input, ok := params.(*storageman.SDiskResizeInput)
 			if !ok {
 				return nil, hostutils.ParamsError
+			}
+
+			if input.GuestDesc != nil {
+				disks := input.GuestDesc.Disks
+				var diskPaths = make([]string, len(disks))
+				for i := range disks {
+					diskPath := disks[i].Path
+					diskPaths[i] = diskPath
+					// GetDiskByPath will probe disks
+					disk, err := storageman.GetManager().GetDiskByPath(diskPath)
+					if err != nil {
+						return nil, errors.Wrapf(err, "GetDiskByPath(%s)", diskPath)
+					}
+					disks[i].Path = disk.GetPath()
+				}
+				defer func() {
+					for i := range diskPaths {
+						diskPath := diskPaths[i]
+						disks[i].Path = diskPath
+						disk, e := storageman.GetManager().GetDiskByPath(diskPath)
+						if e != nil {
+							log.Errorf("failed get disk bypath %s %s", diskPath, e)
+						}
+						if utils.IsInStringArray(disk.GetType(), []string{compute.STORAGE_SLVM, compute.STORAGE_CLVM}) {
+							if errDeactive := lvmutils.LVDeactivate(diskPath); err != nil {
+								log.Errorf("failed deactive disk %s: %s", diskPath, errDeactive)
+							}
+						}
+					}
+				}()
 			}
 			return disk.Resize(ctx, input)
 		}
