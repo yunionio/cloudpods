@@ -74,7 +74,7 @@ func (account *SCloudaccount) PrepareEsxiHostNetwork(ctx context.Context, userCr
 		accessIp := iHosts[i].GetAccessIp()
 		hostNics, err := iHosts[i].GetIHostNics()
 		if err != nil {
-			return errors.Wrapf(err, "iHosts[%d].GetIHostNics()", i)
+			return errors.Wrapf(err, "iHosts(%s,%s).GetIHostNics()", iHosts[i].GetName(), iHosts[i].GetId())
 		}
 		findAccessIp := false
 		for _, hn := range hostNics {
@@ -145,7 +145,7 @@ func fetchOnpremiseZoneIds(onPremiseNets []SNetwork) ([]string, error) {
 	for i := range onPremiseNets {
 		zone, err := onPremiseNets[i].GetZone()
 		if err != nil {
-			return nil, errors.Wrapf(err, "onPremiseNets[%d].GetZone", i)
+			return nil, errors.Wrapf(err, "onPremiseNets(%s,%s).GetZone()", onPremiseNets[i].GetName(), onPremiseNets[i].GetId())
 		}
 		if !utils.IsInArray(zone.Id, zoneIds) {
 			zoneIds = append(zoneIds, zone.Id)
