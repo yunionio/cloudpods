@@ -2181,12 +2181,14 @@ func (img *SImage) Pipeline(ctx context.Context, userCred mcclient.TokenCredenti
 		if err == nil {
 			kwargs.Set("os_type", jsonutils.NewString(osType.Value))
 		}
-		notifyclient.SystemNotifyWithCtx(ctx, notify.NotifyPriorityNormal, notifyclient.IMAGE_ACTIVED, kwargs)
-		notifyclient.NotifyImportantWithCtx(ctx, []string{userCred.GetUserId()}, false, notifyclient.IMAGE_ACTIVED, kwargs)
-		notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
-			Obj:    img,
-			Action: notifyclient.ActionCreate,
-		})
+		if !skipProbe {
+			notifyclient.SystemNotifyWithCtx(ctx, notify.NotifyPriorityNormal, notifyclient.IMAGE_ACTIVED, kwargs)
+			notifyclient.NotifyImportantWithCtx(ctx, []string{userCred.GetUserId()}, false, notifyclient.IMAGE_ACTIVED, kwargs)
+			notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
+				Obj:    img,
+				Action: notifyclient.ActionCreate,
+			})
+		}
 	}
 	return nil
 }
