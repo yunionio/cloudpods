@@ -1958,7 +1958,7 @@ func (manager *SGuestManager) validateCreateData(
 			input.Machine = api.VM_MACHINE_TYPE_Q35
 		}
 
-		if imageDiskFormat != imageapi.IMAGE_DISK_FORMAT_ISO {
+		if imageDiskFormat != "" && imageDiskFormat != imageapi.IMAGE_DISK_FORMAT_ISO {
 			var imgSupportUEFI *bool
 			var imgSupportBIOS *bool
 			if desc, ok := imgProperties[imageapi.IMAGE_UEFI_SUPPORT]; ok {
