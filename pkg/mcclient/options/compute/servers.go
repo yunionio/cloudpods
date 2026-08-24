@@ -304,7 +304,7 @@ type ServerCreateCommonConfig struct {
 		--disk 'size=40g,image=<id>,backend=cloud_essd'
 		--disk 'size=500M'
 		--disk 'snapshot_id=1ceb8c6d-6571-451d-8957-4bd3a871af85'
-	" nargs:"+" mcp:"true"`
+	" mcp:"true"`
 	DiskSchedtag []string `help:"Disk schedtag description, e.g. '0:<tag>:<strategy>'"`
 }
 
