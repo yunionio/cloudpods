@@ -41,7 +41,8 @@ type IsolateDeviceDetails struct {
 	AllocatedCount  int
 
 	// 云主机名称
-	Guest []string `json:"guest"`
+	Guest    []string `json:"guest"`
+	GuestIds []string `json:"guest_ids"`
 	// 云主机状态
 	GuestStatus []string `json:"guest_status"`
 }

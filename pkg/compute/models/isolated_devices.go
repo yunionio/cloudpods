@@ -1592,12 +1592,14 @@ func (manager *SIsolatedDeviceManager) FetchCustomizeColumns(
 		nguests := guestIds[i]
 		if len(nguests) > 0 {
 			rows[i].Guest = make([]string, len(nguests))
+			rows[i].GuestIds = make([]string, len(nguests))
 			rows[i].GuestStatus = make([]string, len(nguests))
 		}
 
 		for j := range nguests {
 			if guest, ok := guests[nguests[j]]; ok {
 				rows[i].Guest[j] = guest.Name
+				rows[i].GuestIds[j] = guest.Id
 				rows[i].GuestStatus[j] = guest.Status
 			}
 		}
