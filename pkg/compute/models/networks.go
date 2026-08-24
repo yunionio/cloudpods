@@ -904,7 +904,7 @@ func (snet *SNetwork) isAddress6Used(ctx context.Context, address string) (bool,
 
 func (manager *SNetworkManager) fetchAllOnpremiseNetworks(serverType string, isPublic tristate.TriState) ([]SNetwork, error) {
 	q := manager.Query()
-	wires := WireManager.Query().SubQuery()
+	wires := WireManager.Query().NotEquals("id", api.DEFAULT_HOST_LOCAL_WIRE_ID).SubQuery()
 	q = q.Join(wires, sqlchemy.Equals(q.Field("wire_id"), wires.Field("id")))
 	q = q.Filter(sqlchemy.Equals(wires.Field("vpc_id"), api.DEFAULT_VPC_ID))
 	if len(serverType) > 0 {
