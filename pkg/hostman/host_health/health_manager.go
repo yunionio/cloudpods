@@ -15,13 +15,19 @@
 package host_health
 
 import (
+	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -46,7 +52,7 @@ type SHostHealthManager struct {
 	hostId string
 	status StatusManager
 
-	masterNodesIps []string
+	detectIps []string
 }
 
 type StatusManager struct {
@@ -92,7 +98,14 @@ func InitHostHealthManager(hostId string) (*SHostHealthManager, error) {
 	} else if len(masterNodesIps) == 0 {
 		return nil, errors.Errorf("failed get k8s master nodes")
 	}
-	m.masterNodesIps = masterNodesIps
+	m.detectIps = masterNodesIps
+	gateway, err := m.getDefaultGateWay()
+	if err != nil {
+		return nil, errors.Wrap(err, "getDefaultGateWay")
+	}
+	m.detectIps = append(m.detectIps, gateway)
+
+	log.Infof("detect ips %s", m.detectIps)
 
 	var dialTimeout, requestTimeout = 3, 2
 	cfg, err := NewEtcdOptions(
@@ -184,7 +197,7 @@ func (m *SHostHealthManager) OnKeepaliveFailure() {
 }
 
 func (m *SHostHealthManager) networkAvailable() bool {
-	res, err := misc.Ping(m.masterNodesIps, 3, 10, false)
+	res, err := misc.Ping(m.detectIps, 3, 10, false)
 	if err != nil {
 		log.Errorf("failed ping master nodes %s", res)
 		return true
@@ -197,8 +210,50 @@ func (m *SHostHealthManager) networkAvailable() bool {
 	return false
 }
 
+func (m *SHostHealthManager) getDefaultGateWay() (string, error) {
+	file, err := os.Open("/proc/net/route")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) < 8 {
+			continue
+		}
+		if fields[0] == "Iface" {
+			continue
+		}
+		destBytes, err := hex.DecodeString(fields[1])
+		if err != nil || len(destBytes) != 4 {
+			continue
+		}
+		// little end to big end
+		destination := net.IPv4(destBytes[3], destBytes[2], destBytes[1], destBytes[0])
+		if !destination.Equal(net.IPv4zero) {
+			continue
+		}
+
+		gwBytes, err := hex.DecodeString(fields[2])
+		if err != nil || len(gwBytes) != 4 {
+			continue
+		}
+		// little end to big end
+		gateway := net.IPv4(gwBytes[3], gwBytes[2], gwBytes[1], gwBytes[0])
+		if !gateway.Equal(net.IPv4zero) {
+			return gateway.String(), nil
+		}
+	}
+	return "", scanner.Err()
+}
+
 func (m *SHostHealthManager) masterNodesInternalIps() ([]string, error) {
-	result, err := modules.Hosts.Get(hostutils.GetComputeSession(context.Background()), "k8s-master-node-ips", nil)
+	params := jsonutils.NewDict()
+	params.Set("kvm_hosts", jsonutils.JSONTrue)
+	result, err := modules.Hosts.Get(hostutils.GetComputeSession(context.Background()), "k8s-master-node-ips", params)
 	if err != nil {
 		return nil, err
 	}
