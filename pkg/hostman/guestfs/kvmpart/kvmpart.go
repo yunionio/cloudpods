@@ -56,7 +56,7 @@ func NewKVMGuestDiskPartition(devPath, sourceDev string, isLVM bool) *SKVMGuestD
 	res.fs = res.getFsFormat()
 	res.sourceDev = sourceDev
 	res.IsLVMPart = isLVM
-	fileutils2.CleanFailedMountpoints()
+	//fileutils2.CleanFailedMountpoints()
 	mountPath := fmt.Sprintf("/tmp/%s", strings.Replace(devPath, "/", "_", -1))
 	res.SLocalGuestFS = NewLocalGuestFS(mountPath)
 	return res
