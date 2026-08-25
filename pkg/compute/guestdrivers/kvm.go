@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
-	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -262,11 +261,7 @@ func (self *SKVMGuestDriver) RequestStopOnHost(ctx context.Context, guest *model
 	params := task.GetParams()
 	timeout, err := params.Int("timeout")
 	if err != nil {
-		if guest.OsType == osprofile.OS_TYPE_WINDOWS {
-			timeout = int64(options.Options.WindowsGuestStopTimeout)
-		} else {
-			timeout = int64(options.Options.LinuxGuestStopTimeout)
-		}
+		timeout = int64(options.Options.DefaultGuestStopTimeout)
 	}
 	isForce, _ := params.Bool("is_force")
 	if isForce {
