@@ -797,6 +797,10 @@ func (image *SCachedimage) getValidStoragecache() []SStoragecache {
 
 func (image *SCachedimage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	db.SharedResourceManager.CleanModelShares(ctx, userCred, image.GetISharableVirtualModel())
+	// glance 缓存（无 external_id）软删，便于再次从 glance 同步时恢复；公有云/私有云镜像物理删除
+	if len(image.ExternalId) == 0 {
+		return db.DeleteModel(ctx, userCred, image)
+	}
 	return db.RealDeleteModel(ctx, userCred, image)
 }
 
