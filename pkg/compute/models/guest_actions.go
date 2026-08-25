@@ -1428,10 +1428,7 @@ func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.To
 	if timeoutSecs != nil {
 		params.Add(jsonutils.NewInt(int64(*timeoutSecs)), "timeout")
 	} else {
-		timeout := options.Options.LinuxGuestStopTimeout
-		if self.OsType == osprofile.OS_TYPE_WINDOWS {
-			timeout = options.Options.WindowsGuestStopTimeout
-		}
+		timeout := options.Options.DefaultGuestStopTimeout
 		params.Add(jsonutils.NewInt(int64(timeout)), "timeout")
 	}
 	params.Add(jsonutils.NewBool(stopCharging), "stop_charging")
