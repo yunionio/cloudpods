@@ -381,7 +381,7 @@ func (h *SHostInfo) parseConfig() error {
 	if mem < 64 { // MB
 		return fmt.Errorf("Not enough memory!")
 	}
-	if len(options.HostOptions.Networks) == 0 {
+	if len(options.HostOptions.Networks) == 0 && len(options.HostOptions.ListenInterface) == 0 {
 		netConf, err := h.generateLocalNetworkConfig()
 		if err != nil {
 			return errors.Wrap(err, "generateLocalNetworkConfig")
