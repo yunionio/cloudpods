@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -103,6 +104,9 @@ type SKVMInstanceRuntime struct {
 	StartupTask *SGuestResumeTask
 	MigrateTask *SGuestLiveMigrateTask
 
+	stopLock sync.Mutex
+	StopTask *SGuestStopTask
+
 	pciUninitialized bool
 	pciAddrs         *desc.SGuestPCIAddresses
 }
@@ -132,6 +136,19 @@ func NewKVMGuestInstance(id string, manager *SGuestManager) *SKVMGuestInstance {
 		sBaseGuestInstance: newBaseGuestInstance(id, manager, api.HYPERVISOR_KVM),
 		archMan:            arch.NewArch(qemuArch),
 	}
+}
+
+func (s *SKVMGuestInstance) SetStopTask(task *SGuestStopTask) {
+	s.stopLock.Lock()
+	defer s.stopLock.Unlock()
+
+	s.StopTask = task
+}
+
+func (s *SKVMGuestInstance) GetStopTask() *SGuestStopTask {
+	s.stopLock.Lock()
+	defer s.stopLock.Unlock()
+	return s.StopTask
 }
 
 // update guest runtime desc from source desc
@@ -1656,6 +1673,7 @@ func (s *SKVMGuestInstance) guestRun(ctx context.Context) {
 func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
 	log.Errorf("Guest %s on Monitor Disconnect reason: %v", s.Id, err)
 	s.CleanStartupTask()
+	s.detachStopTask()
 	s.scriptStop()
 	s.SyncStatus(fmt.Sprintf("monitor disconnect %v", err))
 	if s.guestAgent != nil {
@@ -1790,6 +1808,11 @@ func (s *SKVMGuestInstance) CleanStartupTask() {
 	} else {
 		log.Infof("[%s] Clean startup task ... no task", s.GetId())
 	}
+}
+
+func (s *SKVMGuestInstance) detachStopTask() {
+	log.Infof("[%s] detachStopTask", s.GetId())
+	s.SetStopTask(nil)
 }
 
 func (s *SKVMGuestInstance) onMonitorTimeout(ctx context.Context, err error) {
@@ -2107,6 +2130,7 @@ func (s *SKVMGuestInstance) ForceStop() bool {
 
 func (s *SKVMGuestInstance) ExitCleanup(clear bool) {
 	s.cleanupKickstartMonitor()
+	s.detachStopTask()
 	if clear {
 		pid := s.GetPid()
 		if pid > 0 {
@@ -2341,7 +2365,17 @@ func (s *SKVMGuestInstance) ExecStopTask(ctx context.Context, params interface{}
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	NewGuestStopTask(s, ctx, input.Timeout, input.IsForce).Start()
+	s.stopLock.Lock()
+	defer s.stopLock.Unlock()
+	if s.StopTask != nil {
+		if !input.IsForce {
+			return nil, errors.Errorf("guest %s is stopping", s.GetId())
+		}
+		s.StopTask.StopNow(ctx)
+	} else {
+		s.StopTask = NewGuestStopTask(s, ctx, input.Timeout, input.IsForce)
+		s.StopTask.Start()
+	}
 	return nil, nil
 }
 
