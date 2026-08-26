@@ -21,27 +21,58 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
-type DockerInfo struct {
+const containerdRootDir = "/var/lib/containerd"
+
+type RuntimeInfo struct {
+	RootDir string
+}
+
+type dockerInfo struct {
 	ID            string `json:"ID"`
 	Driver        string `json:"Driver"`
 	DockerRootDir string `json:"DockerRootDir"`
 }
 
-func GetDockerInfoByRemote() (*DockerInfo, error) {
+func getDockerRuntimeInfoByRemote() (*RuntimeInfo, error) {
 	content, err := procutils.NewRemoteCommandAsFarAsPossible("docker", "info", "--format", "{{json .}}").Output()
 	if err != nil {
 		return nil, errors.Wrap(err, "Run command 'docker info'")
 	}
+	return parseDockerRuntimeInfo(content)
+}
 
+func parseDockerRuntimeInfo(content []byte) (*RuntimeInfo, error) {
 	obj, err := jsonutils.Parse(content)
 	if err != nil {
 		return nil, errors.Wrap(err, "Parse docker info to json")
 	}
 
-	info := new(DockerInfo)
+	info := new(dockerInfo)
 	if err := obj.Unmarshal(info); err != nil {
 		return nil, errors.Wrap(err, "Unmarshal docker info")
 	}
+	if len(info.DockerRootDir) == 0 {
+		return nil, errors.Error("docker info returned an empty root directory")
+	}
 
-	return info, nil
+	return &RuntimeInfo{RootDir: info.DockerRootDir}, nil
+}
+
+func getContainerdRuntimeInfoByRemote() (*RuntimeInfo, error) {
+	if err := procutils.NewRemoteCommandAsFarAsPossible("test", "-d", containerdRootDir).Run(); err != nil {
+		return nil, errors.Wrap(err, "Find containerd root directory")
+	}
+	return &RuntimeInfo{RootDir: containerdRootDir}, nil
+}
+
+func GetContainerRuntimeInfoByRemote() (*RuntimeInfo, error) {
+	dockerInfo, dockerErr := getDockerRuntimeInfoByRemote()
+	if dockerErr == nil {
+		return dockerInfo, nil
+	}
+	containerdInfo, containerdErr := getContainerdRuntimeInfoByRemote()
+	if containerdErr == nil {
+		return containerdInfo, nil
+	}
+	return nil, errors.Wrapf(containerdErr, "Get container runtime info (docker: %v)", dockerErr)
 }

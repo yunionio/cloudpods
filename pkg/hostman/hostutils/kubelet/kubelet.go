@@ -41,7 +41,7 @@ type KubeletConfig interface {
 // kubeletConfig implements KubeletRunDirectory interface.
 type kubeletConfig struct {
 	config         jsonutils.JSONObject
-	dockerInfo     *DockerInfo
+	runtimeInfo    *RuntimeInfo
 	evictionConfig eviction.Config
 	nodeFsDevice   string
 	imageFsDevice  string
@@ -55,15 +55,15 @@ func NewKubeletConfigByDirectory(dir string) (KubeletConfig, error) {
 		return nil, errors.Wrapf(err, "Read config file %s", configFile)
 	}
 
-	dockerInfo, err := GetDockerInfoByRemote()
+	runtimeInfo, err := GetContainerRuntimeInfoByRemote()
 	if err != nil {
-		return nil, errors.Wrap(err, "Get docker info")
+		return nil, errors.Wrap(err, "Get container runtime info")
 	}
 
-	return newKubeletConfig(content, dockerInfo)
+	return newKubeletConfig(content, runtimeInfo)
 }
 
-func newKubeletConfig(yamlConfig []byte, dockerInfo *DockerInfo) (KubeletConfig, error) {
+func newKubeletConfig(yamlConfig []byte, runtimeInfo *RuntimeInfo) (KubeletConfig, error) {
 	obj, err := jsonutils.ParseYAML(string(yamlConfig))
 	if err != nil {
 		return nil, errors.Wrapf(err, "Parse yaml content %s", yamlConfig)
@@ -74,7 +74,7 @@ func newKubeletConfig(yamlConfig []byte, dockerInfo *DockerInfo) (KubeletConfig,
 		return nil, errors.Wrap(err, "New eviction config")
 	}
 
-	imageFsDev, err := GetDirectoryMountDevice(dockerInfo.DockerRootDir)
+	imageFsDev, err := GetDirectoryMountDevice(runtimeInfo.RootDir)
 	if err != nil {
 		return nil, errors.Wrap(err, "Find docker root directory device")
 	}
@@ -86,7 +86,7 @@ func newKubeletConfig(yamlConfig []byte, dockerInfo *DockerInfo) (KubeletConfig,
 
 	k := &kubeletConfig{
 		config:         obj,
-		dockerInfo:     dockerInfo,
+		runtimeInfo:    runtimeInfo,
 		evictionConfig: evictionConfig,
 		nodeFsDevice:   nodeFsDev,
 		imageFsDevice:  imageFsDev,
@@ -116,7 +116,7 @@ func (k *kubeletConfig) HasDedicatedImageFs() bool {
 }
 
 func (k *kubeletConfig) GetImageFs() string {
-	return k.dockerInfo.DockerRootDir
+	return k.runtimeInfo.RootDir
 }
 
 func (k *kubeletConfig) GetEvictionConfig() eviction.Config {
