@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -36,7 +35,6 @@ type DiskResetTask struct {
 
 func init() {
 	taskman.RegisterTask(DiskResetTask{})
-	taskman.RegisterTask(DiskCleanUpSnapshotsTask{})
 }
 
 func (self *DiskResetTask) getSnapshot() (*models.SSnapshot, error) {
@@ -177,70 +175,4 @@ func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.
 
 	disk.SetStatus(ctx, self.UserCred, api.DISK_READY, "")
 	self.TaskCompleted(ctx, disk, nil)
-}
-
-type DiskCleanUpSnapshotsTask struct {
-	SDiskBaseTask
-}
-
-func (self *DiskCleanUpSnapshotsTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	disk := obj.(*models.SDisk)
-	self.StartCleanUpSnapshots(ctx, disk)
-}
-
-func (self *DiskCleanUpSnapshotsTask) StartCleanUpSnapshots(ctx context.Context, disk *models.SDisk) {
-	db.OpsLog.LogEvent(disk, db.ACT_DISK_CLEAN_UP_SNAPSHOTS,
-		fmt.Sprintf("start clean up disk snapshots: %s", self.Params.String()), self.UserCred)
-	var host *models.SHost
-	guests := disk.GetGuests()
-	if len(guests) == 1 {
-		host, _ = guests[0].GetHost()
-	} else {
-		self.SetStageFailed(ctx, jsonutils.NewString("Disk can't get guest"))
-		return
-	}
-	self.SetStage("OnCleanUpSnapshots", nil)
-	driver, err := host.GetHostDriver()
-	if err != nil {
-		self.SetStageFailed(ctx, jsonutils.NewString(errors.Wrapf(err, "GetHostDriver").Error()))
-		return
-	}
-	err = driver.RequestCleanUpDiskSnapshots(ctx, host, disk, self.Params, self)
-	if err != nil {
-		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
-	}
-}
-
-func (self *DiskCleanUpSnapshotsTask) OnCleanUpSnapshots(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	convertSnapshots, _ := self.Params.GetArray("convert_snapshots")
-	for i := 0; i < len(convertSnapshots); i++ {
-		snapshot_id, _ := convertSnapshots[i].GetString()
-		iSnapshot, err := models.SnapshotManager.FetchById(snapshot_id)
-		if err != nil {
-			log.Errorf("OnCleanUpSnapshots Fetch snapshot by id(%s) error:%s", snapshot_id, err.Error())
-			continue
-		}
-		snapshot := iSnapshot.(*models.SSnapshot)
-		db.Update(snapshot, func() error {
-			snapshot.OutOfChain = true
-			return nil
-		})
-	}
-	deleteSnapshots, _ := self.Params.GetArray("delete_snapshots")
-	for i := 0; i < len(deleteSnapshots); i++ {
-		snapshot_id, _ := deleteSnapshots[i].GetString()
-		iSnapshot, err := models.SnapshotManager.FetchById(snapshot_id)
-		if err != nil {
-			log.Errorf("OnCleanUpSnapshots Fetch snapshot by id(%s) error:%s", snapshot_id, err.Error())
-			continue
-		}
-		snapshot := iSnapshot.(*models.SSnapshot)
-		snapshot.RealDelete(ctx, self.UserCred)
-	}
-	self.SetStageComplete(ctx, nil)
-}
-
-func (self *DiskCleanUpSnapshotsTask) OnCleanUpSnapshotsFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	db.OpsLog.LogEvent(disk, db.ACT_DISK_CLEAN_UP_SNAPSHOTS_FAIL, data, self.UserCred)
-	self.SetStageFailed(ctx, data)
 }

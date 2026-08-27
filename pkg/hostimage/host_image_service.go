@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strings"
 
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/jsonutils"
@@ -117,7 +118,11 @@ func getSnapshotPath(diskId, snapshotId string) string {
 		}
 	}
 	for _, vg := range HostImageOptions.LVMVolumeGroups {
-		diskPath := path.Join("/dev", vg, "snap_"+snapshotId)
+		snapshotName := "snap_" + snapshotId
+		if snapshotId == "snap_base" || strings.HasSuffix(snapshotId, "_snap_base") {
+			snapshotName = snapshotId
+		}
+		diskPath := path.Join("/dev", vg, snapshotName)
 		if _, err := procutils.RemoteStat(diskPath); err == nil {
 			return diskPath
 		}

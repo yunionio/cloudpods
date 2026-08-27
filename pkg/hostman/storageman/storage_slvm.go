@@ -146,34 +146,9 @@ func (s *SSLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (
 		return nil, hostutils.ParamsError
 	}
 
-	if input.BlockStream {
-		diskLvPath := path.Join("/dev", s.GetPath(), input.DiskId)
-		err := lvmutils.LVActive(diskLvPath, false, s.Lvmlockd())
-		if err != nil {
-			return nil, errors.Wrap(err, "lvactive exclusive")
-		}
-
-		err = ConvertLVMDisk(s.GetPath(), input.DiskId, input.EncryptInfo)
-		if err != nil {
-			return nil, err
-		}
-
-	} else if len(input.ConvertSnapshot) > 0 {
-		convertSnapshotName := "snap_" + input.ConvertSnapshot
-		convertSnapshotPath := path.Join("/dev", s.GetPath(), convertSnapshotName)
-		err := lvmutils.LVActive(convertSnapshotPath, false, s.Lvmlockd())
-		if err != nil {
-			return nil, errors.Wrap(err, "lvactive exclusive")
-		}
-
-		if err := ConvertLVMDisk(s.GetPath(), convertSnapshotName, input.EncryptInfo); err != nil {
-			return nil, err
-		}
-	}
-
-	snapName := "snap_" + input.SnapshotId
-	snapId := path.Join("/dev", s.GetPath(), snapName)
-	err := lvmutils.LvRemove(snapId)
+	err := deleteLVMSnapshotByBackingChain(path.Join("/dev", s.GetPath()), "snap_"+input.SnapshotId,
+		prefixSnapshotIds(input.SnapshotIds),
+		path.Join("/dev", s.GetPath(), input.DiskId), input.EncryptInfo, s.Lvmlockd())
 	if err != nil {
 		return nil, err
 	}
