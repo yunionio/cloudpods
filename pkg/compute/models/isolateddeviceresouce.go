@@ -82,6 +82,7 @@ func (manager *SIsolatedDeviceResourceBaseManager) FetchCustomizeColumns(
 		rows[i].SharableResourceBaseInfo = devRows[i].SharableResourceBaseInfo
 		rows[i].HostResourceInfo = devRows[i].HostResourceInfo
 		rows[i].Guest = devRows[i].Guest
+		rows[i].GuestIds = devRows[i].GuestIds
 		rows[i].GuestStatus = devRows[i].GuestStatus
 		rows[i].Vendor = devRows[i].Vendor
 		rows[i].MemoryAllocated = devRows[i].MemoryAllocated
