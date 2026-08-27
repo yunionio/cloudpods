@@ -40,7 +40,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/losetup"
 	"yunion.io/x/onecloud/pkg/util/mountutils"
@@ -131,12 +130,23 @@ func (d *SLocalDisk) UmountFuseImage() {
 func (d *SLocalDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	p := params.(api.DiskDeleteInput)
 	dpath := d.GetPath()
+	backingPath := ""
+	if fileutils2.Exists(dpath) {
+		img, err := qemuimg.NewQemuImage(dpath)
+		if err != nil {
+			return nil, errors.Wrap(err, "probe disk before delete")
+		}
+		backingPath = img.BackFilePath
+	}
 	if err := d.cleanLoopDevice(dpath); err != nil {
 		return nil, errors.Wrapf(err, "clean loop device")
 	}
 	log.Infof("Delete guest disk %s", dpath)
 	if err := d.Storage.DeleteDiskfile(dpath, p.SkipRecycle != nil && *p.SkipRecycle); err != nil {
 		return nil, err
+	}
+	if err := cleanupLocalSnapshotBase(d.GetSnapshotDir(), dpath, backingPath, p.SkipRecycle != nil && *p.SkipRecycle, d.Storage.DeleteDiskfile); err != nil {
+		return nil, errors.Wrap(err, "cleanup snapshot base")
 	}
 	d.UmountFuseImage()
 	if p.EsxiFlatFilePath != "" {
@@ -538,9 +548,78 @@ func (d *SLocalDisk) ConvertSnapshotRelyOnReloadDisk(convertSnapshotId string, e
 	return nil, nil
 }
 
-func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, blockStream bool, encryptInfo apis.SEncryptInfo) error {
+func (d *SLocalDisk) ConvertSnapshots(snapshotPaths []string, encryptInfo apis.SEncryptInfo) error {
+	var children = make([]*qemuimg.SQemuImage, len(snapshotPaths))
+	for i := range snapshotPaths {
+		child, err := qemuimg.NewQemuImage(snapshotPaths[i])
+		if err != nil {
+			return errors.Wrap(err, "probe snapshot child")
+		}
+		if encryptInfo.Key != "" {
+			child.SetPassword(encryptInfo.Key)
+		}
+		children[i] = child
+	}
+	for _, child := range children {
+		childTmpPath := fmt.Sprintf("%s.tmp", child.Path)
+		log.Infof("convert local snapshot source=%s target=%s", child.Path, childTmpPath)
+		err := child.Convert2Qcow2To(childTmpPath, true, encryptInfo.Key, qemuimg.EncryptFormatLuks, encryptInfo.Alg)
+		if err != nil {
+			if e := procutils.NewCommand("rm", "-f", childTmpPath).Run(); e != nil {
+				log.Errorf("failed delete child tmp convert path %s: %s", childTmpPath, e)
+			}
+			return errors.Wrapf(err, "convert child path %s", childTmpPath)
+		}
+		log.Infof("convert local snapshot mv source=%s target=%s", childTmpPath, child.Path)
+		if out, err := procutils.NewCommand("mv", "-f", childTmpPath, child.Path).Output(); err != nil {
+			if e := procutils.NewCommand("rm", "-f", childTmpPath).Run(); e != nil {
+				log.Errorf("failed delete child tmp convert path %s: %s", childTmpPath, e)
+			}
+			return errors.Wrapf(err, "failed mv %s to %s: %s", childTmpPath, child.Path, out)
+		}
+	}
+	return nil
+}
+
+func (d *SLocalDisk) RebaseDiskSnapshots(parent string, children []string, encryptInfo apis.SEncryptInfo, unsafeRebase bool) error {
+	if len(children) == 0 {
+		return nil
+	}
+	var childrenImg = make([]*qemuimg.SQemuImage, len(children))
+	for i := range children {
+		child, err := qemuimg.NewQemuImage(children[i])
+		if err != nil {
+			return errors.Wrap(err, "probe snapshot child")
+		}
+		if encryptInfo.Key != "" {
+			child.SetPassword(encryptInfo.Key)
+		}
+		childrenImg[i] = child
+	}
+	for _, child := range childrenImg {
+		if err := child.Rebase(parent, unsafeRebase); err != nil {
+			return wrapSnapshotOperationCheckError(err, "rebase snapshot child", encryptInfo, child.Path)
+		}
+		log.Infof("rebased snapshot %s to parent %s", child.Path, parent)
+	}
+	return nil
+}
+
+func (d *SLocalDisk) RenameImage(source, target string) error {
+	if out, err := procutils.NewCommand("mv", "-f", source, target).Output(); err != nil {
+		return errors.Wrapf(err, "failed mv %s to %s: %s", source, target, out)
+	}
+	return nil
+}
+
+func (d *SLocalDisk) DeleteSnapshot(snapshotId string, snapshotIds []string, encryptInfo apis.SEncryptInfo) error {
 	snapshotDir := d.GetSnapshotDir()
-	return DeleteLocalSnapshot(snapshotDir, snapshotId, d.getPath(), convertSnapshot, blockStream)
+	snapshotPath := d.GetSnapshotPath(snapshotId)
+	if !fileutils2.Exists(snapshotPath) {
+		return nil
+	}
+
+	return DeleteLocalSnapshot(snapshotDir, snapshotId, snapshotIds, d.getPath(), encryptInfo, d.GetStorage())
 }
 
 func (d *SLocalDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -567,11 +646,6 @@ func (d *SLocalDisk) ResetFromSnapshot(ctx context.Context, params interface{}) 
 		return nil, hostutils.ParamsError
 	}
 
-	outOfChain, err := resetParams.Input.Bool("out_of_chain")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("out_of_chain")
-	}
-
 	snapshotDir := d.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, resetParams.SnapshotId)
 
@@ -586,10 +660,10 @@ func (d *SLocalDisk) ResetFromSnapshot(ctx context.Context, params interface{}) 
 		}
 	}
 
-	return d.resetFromSnapshot(snapshotPath, outOfChain, encryptInfo)
+	return d.resetFromSnapshot(snapshotPath, encryptInfo)
 }
 
-func (d *SLocalDisk) resetFromSnapshot(snapshotPath string, outOfChain bool, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
+func (d *SLocalDisk) resetFromSnapshot(snapshotPath string, encryptInfo *apis.SEncryptInfo) (jsonutils.JSONObject, error) {
 	img, err := qemuimg.NewQemuImage(d.GetPath())
 	if err != nil {
 		return nil, err
@@ -601,34 +675,25 @@ func (d *SLocalDisk) resetFromSnapshot(snapshotPath string, outOfChain bool, enc
 		err = errors.Wrapf(err, "mv disk to tmp failed: %s", output)
 		return nil, err
 	}
-	if !outOfChain {
-		img, err := qemuimg.NewQemuImage(d.GetPath())
-		if err != nil {
-			err = errors.Wrap(err, "new qemu img")
-			procutils.NewCommand("mv", "-f", diskTmpPath, d.GetPath()).Run()
-			return nil, err
-		}
-		var (
-			encKey string
-			encAlg seclib2.TSymEncAlg
-			encFmt qemuimg.TEncryptFormat
-		)
-		if encryptInfo != nil {
-			encKey = encryptInfo.Key
-			encFmt = qemuimg.EncryptFormatLuks
-			encAlg = encryptInfo.Alg
-		}
-		if err := img.CreateQcow2(diskSizeMB, false, snapshotPath, encKey, encFmt, encAlg); err != nil {
-			err = errors.Wrap(err, "qemu-img create disk by snapshot")
-			procutils.NewCommand("mv", "-f", diskTmpPath, d.GetPath()).Run()
-			return nil, err
-		}
-	} else {
-		if output, err := procutils.NewCommand("cp", "-f", snapshotPath, d.GetPath()).Output(); err != nil {
-			err = errors.Wrapf(err, "cp snapshot to disk %s", output)
-			procutils.NewCommand("mv", "-f", diskTmpPath, d.GetPath()).Run()
-			return nil, err
-		}
+	var (
+		encKey string
+		encAlg seclib2.TSymEncAlg
+		encFmt qemuimg.TEncryptFormat
+	)
+	if encryptInfo != nil {
+		encKey = encryptInfo.Key
+		encFmt = qemuimg.EncryptFormatLuks
+		encAlg = encryptInfo.Alg
+	}
+	img, err = qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		return nil, err
+	}
+
+	if err := img.CreateQcow2(diskSizeMB, false, snapshotPath, encKey, encFmt, encAlg); err != nil {
+		err = errors.Wrap(err, "qemu-img create disk by snapshot")
+		procutils.NewCommand("mv", "-f", diskTmpPath, d.GetPath()).Run()
+		return nil, err
 	}
 
 	output, err := procutils.NewCommand("rm", "-f", diskTmpPath).Output()
