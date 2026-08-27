@@ -37,7 +37,7 @@ func GetRootfsDrivers() []newRootFsDriverFunc {
 
 func Init(cloudrootDir string) error {
 	linuxFsDrivers := []newRootFsDriverFunc{
-		NewFangdeRootFs, NewUnionOSRootFs,
+		NewOpenRuyiRootFs, NewFangdeRootFs, NewUnionOSRootFs,
 		NewAnolisRootFs, NewRockyRootFs, NewOpenCloudOsRootFs, NewAlmaLinuxRootFs,
 		NewOpenKylinRootfs, NewUOSDesktopRootfs,
 		NewGalaxyKylinRootFs, NewNeoKylinRootFs,
