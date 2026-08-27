@@ -893,14 +893,19 @@ func (self *SDisk) GetSnapshotFuseUrl() (string, error) {
 
 func (self *SDisk) GetSnapshotCount() (int, error) {
 	q := SnapshotManager.Query()
-	return q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), self.Id),
-		sqlchemy.Equals(q.Field("fake_deleted"), false))).CountWithError()
+	return q.Filter(sqlchemy.Equals(q.Field("disk_id"), self.Id)).CountWithError()
 }
 
 func (self *SDisk) GetManualSnapshotCount() (int, error) {
 	return SnapshotManager.Query().
-		Equals("disk_id", self.Id).Equals("fake_deleted", false).
+		Equals("disk_id", self.Id).
 		Equals("created_by", api.SNAPSHOT_MANUAL).CountWithError()
+}
+
+func (self *SDisk) GetAutoSnapshotCount() (int, error) {
+	return SnapshotManager.Query().
+		Equals("disk_id", self.Id).
+		Equals("created_by", api.SNAPSHOT_AUTO).CountWithError()
 }
 
 func (self *SDisk) getDiskAllocateFromBackupInput(ctx context.Context, backupId string) (*api.DiskAllocateFromBackupInput, error) {
@@ -985,36 +990,6 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 		return driver.RequestRebuildDiskOnStorage(ctx, host, storage, self, task, input)
 	}
 	return driver.RequestAllocateDiskOnStorage(ctx, userCred, host, storage, self, task, input)
-}
-
-// make snapshot after reset out of chain
-func (self *SDisk) CleanUpDiskSnapshots(ctx context.Context, userCred mcclient.TokenCredential, snapshot *SSnapshot) error {
-	dest := make([]SSnapshot, 0)
-	query := SnapshotManager.Query()
-	query.Filter(sqlchemy.Equals(query.Field("disk_id"), self.Id)).
-		GT("created_at", snapshot.CreatedAt).Asc("created_at").All(&dest)
-	if len(dest) == 0 {
-		return nil
-	}
-	convertSnapshots := jsonutils.NewArray()
-	deleteSnapshots := jsonutils.NewArray()
-	for i := 0; i < len(dest); i++ {
-		if !dest[i].FakeDeleted && !dest[i].OutOfChain {
-			convertSnapshots.Add(jsonutils.NewString(dest[i].Id))
-		} else if dest[i].FakeDeleted {
-			deleteSnapshots.Add(jsonutils.NewString(dest[i].Id))
-		}
-	}
-	params := jsonutils.NewDict()
-	params.Set("convert_snapshots", convertSnapshots)
-	params.Set("delete_snapshots", deleteSnapshots)
-	task, err := taskman.TaskManager.NewTask(ctx, "DiskCleanUpSnapshotsTask", self, userCred, params, "", "", nil)
-	if err != nil {
-		return err
-	} else {
-		task.ScheduleRun(nil)
-	}
-	return nil
 }
 
 func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.DiskResetInput) (jsonutils.JSONObject, error) {
@@ -3018,6 +2993,19 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 			log.Errorf("get disk error: %v", err)
 			continue
 		}
+		snapCnt, err := disk.GetAutoSnapshotCount()
+		if err != nil {
+			log.Errorf("failed get snapshot count: %v", err)
+			continue
+		}
+		if snapCnt > options.Options.RetentionCountLimit {
+			msg := fmt.Sprintf("disk %s auto snapshot count %d more than retention count limit %d", disk.GetId(), snapCnt, options.Options.RetentionCountLimit)
+			log.Errorf("auto snapshot %s error: %v", disk.Name, msg)
+			db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SNAPSHOT_FAIL, msg, userCred)
+			notifyclient.NotifySystemErrorWithCtx(ctx, disk.Id, disk.Name, db.ACT_DISK_AUTO_SNAPSHOT_FAIL, msg)
+			continue
+		}
+
 		if guest := disk.GetGuest(); guest != nil {
 			if dps, ok := guestDps[guest.Id]; ok {
 				guestDps[guest.Id] = append(dps, disks[i])
@@ -3101,12 +3089,6 @@ func (self *SDisk) CreateSnapshotAuto(
 
 	// inherit encrypt_key_id
 	snapshot.EncryptKeyId = self.EncryptKeyId
-
-	driver, err := storage.GetRegionDriver()
-	if err != nil {
-		return nil, errors.Wrapf(err, "GetRegionDriver")
-	}
-	snapshot.OutOfChain = driver.SnapshotIsOutOfChain(self)
 	snapshot.VirtualSize = self.DiskSize
 	snapshot.DiskType = self.DiskType
 	snapshot.Location = ""
@@ -3218,7 +3200,7 @@ func (self *SDisk) UpdataSnapshotsBackingDisk(backingDiskId string) error {
 func (self *SDisk) GetSnapshotsNotInInstanceSnapshot() ([]SSnapshot, error) {
 	snapshots := make([]SSnapshot, 0)
 	sq := InstanceSnapshotJointManager.Query("snapshot_id").SubQuery()
-	q := SnapshotManager.Query().IsFalse("fake_deleted").Equals("disk_id", self.Id)
+	q := SnapshotManager.Query().Equals("disk_id", self.Id)
 	q = q.LeftJoin(sq, sqlchemy.Equals(q.Field("id"), sq.Field("snapshot_id"))).
 		Filter(sqlchemy.IsNull(sq.Field("snapshot_id")))
 	err := db.FetchModelObjects(SnapshotManager, q, &snapshots)
