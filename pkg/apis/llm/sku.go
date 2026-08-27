@@ -261,9 +261,13 @@ type LLMSkuUpdateInput struct {
 	BackendParameters *[]string `json:"backend_parameters,omitempty"`
 }
 
-// type LLMModelCloneInput struct {
-// 	Name string `json:"name"`
-// }
+// LLMSkuCloneInput is the body for POST /llm_skus/{id}/clone.
+// Specs are copied from the source SKU; the caller supplies a new name.
+type LLMSkuCloneInput struct {
+	Name         string `json:"name"`
+	GenerateName string `json:"generate_name"`
+	Description  string `json:"description"`
+}
 
 // type LLMModelSyncImageRequestTaskInput struct {
 // 	Request bool `json:"request"`

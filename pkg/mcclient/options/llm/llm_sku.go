@@ -246,6 +246,34 @@ func (o *LLMSkuUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	return dict, nil
 }
 
+type LLMSkuCloneOptions struct {
+	options.BaseIdOptions
+	NAME         string `help:"name of the cloned sku"`
+	GenerateName string `help:"generate name with auto suffix on conflict" json:"generate_name"`
+	Description  string `help:"description of the cloned sku"`
+}
+
+func (o *LLMSkuCloneOptions) Params() (jsonutils.JSONObject, error) {
+	name := strings.TrimSpace(o.NAME)
+	generateName := strings.TrimSpace(o.GenerateName)
+	if name == "" && generateName == "" {
+		return nil, errors.Error("name is required")
+	}
+	dict := jsonutils.NewDict()
+	if name != "" {
+		dict.Set("name", jsonutils.NewString(name))
+	}
+	if generateName != "" {
+		dict.Set("generate_name", jsonutils.NewString(generateName))
+	} else if name != "" {
+		dict.Set("generate_name", jsonutils.NewString(name))
+	}
+	if strings.TrimSpace(o.Description) != "" {
+		dict.Set("description", jsonutils.NewString(o.Description))
+	}
+	return dict, nil
+}
+
 type LLMSkuSchedulableCheckOptions struct {
 	options.BaseIdOptions
 }
