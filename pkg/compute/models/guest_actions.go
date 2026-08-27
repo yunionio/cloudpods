@@ -2428,12 +2428,11 @@ func (self *SGuest) DetachIsolatedDevices(ctx context.Context, userCred mcclient
 }
 
 // 卸载透传设备
-func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ServerDetachIsolatedDeviceInput) (jsonutils.JSONObject, error) {
 	if self.Hypervisor != api.HYPERVISOR_KVM && self.Hypervisor != api.HYPERVISOR_POD {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
 	}
-	forceDetach := jsonutils.QueryBoolean(data, "is_force", false)
-	if !forceDetach {
+	if !input.IsForce {
 		if !utils.IsInStringArray(self.GetStatus(), []string{api.VM_READY, api.VM_RUNNING}) ||
 			(self.Hypervisor == api.HYPERVISOR_POD && self.GetStatus() != api.VM_READY) {
 			msg := fmt.Sprintf("Can't detach isolated device when guest is %s", self.GetStatus())
@@ -2448,46 +2447,49 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		}
 	}
 
-	var detachAllDevice = jsonutils.QueryBoolean(data, "detach_all", false)
 	devs := make([]SGuestIsolatedDevice, 0)
-	if !detachAllDevice {
-		device, err := data.GetString("device")
-		if err != nil {
-			msg := "Missing isolated device"
-			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-			return nil, httperrors.NewBadRequestError("%s", msg)
+	if !input.DetachAll {
+		for i := range input.Devices {
+			device := input.Devices[i].Device
+			if input.Devices[i].Index == nil {
+				msg := "Missing isolated device index"
+				logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+				return nil, httperrors.NewBadRequestError("%s", msg)
+			}
+			index := *input.Devices[i].Index
+			iDev, err := IsolatedDeviceManager.FetchByIdOrName(ctx, userCred, device)
+			if err != nil {
+				msgFmt := "Isolated device %s not found"
+				msg := fmt.Sprintf(msgFmt, device)
+				logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+				return nil, httperrors.NewBadRequestError(msgFmt, device)
+			}
+			dev := iDev.(*SIsolatedDevice)
+			gdev, err := dev.GetGuestIsolatedDevice(self.Id, index)
+			if err != nil {
+				msg := err.Error()
+				logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+				return nil, httperrors.NewBadRequestError("%s", msg)
+			}
+			devs = append(devs, *gdev)
 		}
-		index, err := data.Int("index")
-		if err != nil {
-			msg := "Missing isolated device index"
-			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-			return nil, httperrors.NewBadRequestError("%s", msg)
-		}
-		iDev, err := IsolatedDeviceManager.FetchByIdOrName(ctx, userCred, device)
-		if err != nil {
-			msgFmt := "Isolated device %s not found"
-			msg := fmt.Sprintf(msgFmt, device)
-			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-			return nil, httperrors.NewBadRequestError(msgFmt, device)
-		}
-		dev := iDev.(*SIsolatedDevice)
-		gdev, err := dev.GetGuestIsolatedDevice(self.Id, int(index))
+
+	} else {
+		var err error
+		devs, err = self.GetGuestIsolatedDevices()
 		if err != nil {
 			msg := err.Error()
 			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
 			return nil, httperrors.NewBadRequestError("%s", msg)
 		}
-		devs = append(devs, *gdev)
-	} else {
-		devs, _ = self.GetGuestIsolatedDevices()
 	}
 	if err := self.DetachIsolatedDevices(ctx, userCred, devs); err != nil {
 		return nil, err
 	}
-	if forceDetach {
+	if input.IsForce {
 		return nil, nil
 	}
-	return nil, self.StartIsolatedDevicesSyncTask(ctx, userCred, jsonutils.QueryBoolean(data, "auto_start", false), "")
+	return nil, self.StartIsolatedDevicesSyncTask(ctx, userCred, input.AutoStart, "")
 }
 
 func (self *SGuest) startDetachIsolateDeviceWithoutNic(ctx context.Context, userCred mcclient.TokenCredential, device string, index int) error {

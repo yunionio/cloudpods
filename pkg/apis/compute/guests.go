@@ -1622,6 +1622,17 @@ type ServerAttachIsolatedDeviceInput struct {
 	Model  string `json:"model"`
 }
 
+type ServerDetachIsolatedDeviceInputBase struct {
+	Device string `json:"device"`
+	Index  *int   `json:"index"`
+}
+type ServerDetachIsolatedDeviceInput struct {
+	Devices   []ServerDetachIsolatedDeviceInputBase `json:"devices"`
+	IsForce   bool                                  `json:"is_force"`
+	DetachAll bool                                  `json:"detach_all"`
+	AutoStart bool                                  `json:"auto_start"`
+}
+
 type ServerChangeBillingTypeInput struct {
 	// 仅在虚拟机开机或关机状态下调用
 	// enmu: [postpaid, prepaid]
