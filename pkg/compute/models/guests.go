@@ -4691,7 +4691,7 @@ func usageTotalGuestResourceCount(
 	policyResult rbacutils.SPolicyResult,
 ) map[string]SGuestCountStat {
 	countStat := make(map[string]SGuestCountStat)
-	for _, arch := range []string{apis.OS_ARCH_ALL, apis.OS_ARCH_X86_64, apis.OS_ARCH_AARCH64, apis.OS_ARCH_RISCV64} {
+	for _, arch := range []string{apis.OS_ARCH_ALL, apis.OS_ARCH_X86_64, apis.OS_ARCH_AARCH64} {
 		allStat := usageTotalGuestResourceCountByArch(
 			ctx, scope, ownerId, rangeObjs, status,
 			hypervisors, includeSystem, pendingDelete,
