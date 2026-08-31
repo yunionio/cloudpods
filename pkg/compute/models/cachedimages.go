@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/image"
+	"yunion.io/x/onecloud/pkg/util/hashcache"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -50,6 +51,10 @@ type SCachedimageManager struct {
 }
 
 var CachedimageManager *SCachedimageManager
+
+const cachedimageStorageFilterIdLimit = 500
+
+var cachedimageStorageFilterIdsCache = hashcache.NewCache(256, 5*time.Minute)
 
 func init() {
 	CachedimageManager = &SCachedimageManager{
@@ -884,7 +889,121 @@ func (image *SCachedimage) GetCloudprovider() (*SCloudprovider, error) {
 	return cloudprovider, nil
 }
 
-// 缓存镜像列表
+type sCachedimageStorageFilterCacheKey struct {
+	Valid           bool     `json:"valid"`
+	CloudproviderId []string `json:"cloudprovider_id,omitempty"`
+	CloudEnv        string   `json:"cloud_env,omitempty"`
+	HostSchedtagId  string   `json:"host_schedtag_id,omitempty"`
+	ZoneId          string   `json:"zone_id,omitempty"`
+	CloudregionId   []string `json:"cloudregion_id,omitempty"`
+}
+
+func cachedimageStorageFilterCacheKey(query api.CachedimageListInput) string {
+	key := sCachedimageStorageFilterCacheKey{
+		Valid:           query.Valid,
+		CloudproviderId: query.CloudproviderId,
+		CloudEnv:        query.CloudEnv,
+		HostSchedtagId:  query.HostSchedtagId,
+		ZoneId:          query.ZoneId,
+		CloudregionId:   query.CloudregionId,
+	}
+	return jsonutils.Marshal(key).String()
+}
+
+func (manager *SCachedimageManager) buildStorageCachedImagesQuery(query api.CachedimageListInput) *sqlchemy.SQuery {
+	storagecachedImages := StoragecachedimageManager.Query("cachedimage_id").Equals("status", api.CACHED_IMAGE_STATUS_ACTIVE)
+	storagecachedImages = storagecachedImages.Snapshot()
+
+	storagesQ := StorageManager.Query("storagecache_id")
+	storagesQ = storagesQ.Snapshot()
+	if query.Valid {
+		storagesQ = storagesQ.In("status", []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}).IsTrue("enabled")
+	}
+	if len(query.CloudproviderId) > 0 {
+		storagesQ = storagesQ.In("manager_id", query.CloudproviderId)
+	}
+	if len(query.CloudEnv) > 0 {
+		switch query.CloudEnv {
+		case api.CLOUD_ENV_PUBLIC_CLOUD:
+			pubQ := CloudproviderManager.GetPublicProviderIdsQuery()
+			storagesQ = storagesQ.In("manager_id", pubQ)
+		case api.CLOUD_ENV_PRIVATE_CLOUD:
+			privQ := CloudproviderManager.GetPrivateProviderIdsQuery()
+			storagesQ = storagesQ.In("manager_id", privQ)
+		case api.CLOUD_ENV_ON_PREMISE:
+			storagesQ = storagesQ.IsNullOrEmpty("manager_id")
+		case api.CLOUD_ENV_PRIVATE_ON_PREMISE:
+			privQ := CloudproviderManager.GetPrivateProviderIdsQuery()
+			storagesQ = storagesQ.Filter(
+				sqlchemy.OR(
+					sqlchemy.In(storagesQ.Field("manager_id"), privQ),
+					sqlchemy.IsNullOrEmpty(storagesQ.Field("manager_id")),
+				),
+			)
+		}
+	}
+	if len(query.HostSchedtagId) > 0 {
+		hostschedtags := HostschedtagManager.Query("host_id").Equals("schedtag_id", query.HostSchedtagId)
+		hoststorages := HoststorageManager.Query("storage_id").In("host_id", hostschedtags.Distinct().SubQuery())
+		storagesQ = storagesQ.In("id", hoststorages.Distinct().SubQuery())
+	}
+
+	zonesQ := ZoneManager.Query("id")
+	zonesQ = zonesQ.Snapshot()
+	if len(query.ZoneId) > 0 {
+		zonesQ = zonesQ.Equals("id", query.ZoneId)
+	}
+	if len(query.CloudregionId) > 0 {
+		zonesQ = zonesQ.In("cloudregion_id", query.CloudregionId)
+	}
+	if zonesQ.IsAltered() {
+		storagesQ = storagesQ.Filter(
+			sqlchemy.In(storagesQ.Field("zone_id"), zonesQ.Distinct().SubQuery()),
+		)
+	}
+
+	if storagesQ.IsAltered() {
+		storagecachedImages = storagecachedImages.Filter(
+			sqlchemy.In(storagecachedImages.Field("storagecache_id"), storagesQ.Distinct().SubQuery()),
+		)
+	}
+
+	return storagecachedImages
+}
+
+func (manager *SCachedimageManager) fetchStorageCachedImageIds(query api.CachedimageListInput, storagecachedImages *sqlchemy.SQuery) ([]string, error) {
+	cacheKey := cachedimageStorageFilterCacheKey(query)
+	if cached := cachedimageStorageFilterIdsCache.AtomicGet(cacheKey); cached != nil {
+		return cached.([]string), nil
+	}
+
+	ids, err := db.FetchIds(storagecachedImages.Distinct())
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchIds storage cachedimage ids")
+	}
+	cachedimageStorageFilterIdsCache.AtomicSet(cacheKey, ids)
+	return ids, nil
+}
+
+func (manager *SCachedimageManager) filterByStorage(
+	q *sqlchemy.SQuery,
+	query api.CachedimageListInput,
+) (*sqlchemy.SQuery, error) {
+	storagecachedImages := manager.buildStorageCachedImagesQuery(query)
+	if !storagecachedImages.IsAltered() {
+		return q, nil
+	}
+
+	ids, err := manager.fetchStorageCachedImageIds(query, storagecachedImages)
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) <= cachedimageStorageFilterIdLimit {
+		return q.In("id", ids), nil
+	}
+	return q.In("id", storagecachedImages.Distinct().SubQuery()), nil
+}
+
 func (manager *SCachedimageManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
@@ -892,6 +1011,12 @@ func (manager *SCachedimageManager) ListItemFilter(
 	query api.CachedimageListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
+
+	q, err = manager.filterByStorage(q, query)
+	if err != nil {
+		return nil, err
+	}
+
 	q, err = manager.SSharableBaseResourceManager.ListItemFilter(ctx, q, userCred, query.SharableResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrapf(err, "SSharableBaseResourceManager.ListItemFilter")
@@ -905,69 +1030,6 @@ func (manager *SCachedimageManager) ListItemFilter(
 	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
-	}
-
-	{
-		storagecachedImages := StoragecachedimageManager.Query("cachedimage_id").Equals("status", api.CACHED_IMAGE_STATUS_ACTIVE) // .SubQuery()
-		storagecachedImages = storagecachedImages.Snapshot()
-
-		storagesQ := StorageManager.Query("storagecache_id")
-		storagesQ = storagesQ.Snapshot()
-		if query.Valid {
-			storagesQ = storagesQ.In("status", []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}).IsTrue("enabled")
-		}
-		if len(query.CloudproviderId) > 0 {
-			storagesQ = storagesQ.In("manager_id", query.CloudproviderId)
-		}
-		if len(query.CloudEnv) > 0 {
-			switch query.CloudEnv {
-			case api.CLOUD_ENV_PUBLIC_CLOUD:
-				pubQ := CloudproviderManager.GetPublicProviderIdsQuery()
-				storagesQ = storagesQ.In("manager_id", pubQ)
-			case api.CLOUD_ENV_PRIVATE_CLOUD:
-				privQ := CloudproviderManager.GetPrivateProviderIdsQuery()
-				storagesQ = storagesQ.In("manager_id", privQ)
-			case api.CLOUD_ENV_ON_PREMISE:
-				storagesQ = storagesQ.IsNullOrEmpty("manager_id")
-			case api.CLOUD_ENV_PRIVATE_ON_PREMISE:
-				privQ := CloudproviderManager.GetPrivateProviderIdsQuery()
-				storagesQ = storagesQ.Filter(
-					sqlchemy.OR(
-						sqlchemy.In(storagesQ.Field("manager_id"), privQ),
-						sqlchemy.IsNullOrEmpty(storagesQ.Field("manager_id")),
-					),
-				)
-			}
-		}
-		if len(query.HostSchedtagId) > 0 {
-			hostschedtags := HostschedtagManager.Query("host_id").Equals("schedtag_id", query.HostSchedtagId)
-			hoststorages := HoststorageManager.Query("storage_id").In("host_id", hostschedtags.Distinct().SubQuery())
-			storagesQ = storagesQ.In("id", hoststorages.Distinct().SubQuery())
-		}
-
-		zonesQ := ZoneManager.Query("id")
-		zonesQ = zonesQ.Snapshot()
-		if len(query.ZoneId) > 0 {
-			zonesQ = zonesQ.Equals("id", query.ZoneId)
-		}
-		if len(query.CloudregionId) > 0 {
-			zonesQ = zonesQ.In("cloudregion_id", query.CloudregionId)
-		}
-		if zonesQ.IsAltered() {
-			storagesQ = storagesQ.Filter(
-				sqlchemy.In(storagesQ.Field("zone_id"), zonesQ.Distinct().SubQuery()),
-			)
-		}
-
-		if storagesQ.IsAltered() {
-			storagecachedImages = storagecachedImages.Filter(
-				sqlchemy.In(storagecachedImages.Field("storagecache_id"), storagesQ.Distinct().SubQuery()),
-			)
-		}
-
-		if storagecachedImages.IsAltered() {
-			q = q.In("id", storagecachedImages.Distinct().SubQuery())
-		}
 	}
 
 	if len(query.ImageType) > 0 {
