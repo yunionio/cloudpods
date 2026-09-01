@@ -324,6 +324,31 @@ func (man *isolatedDeviceManager) probeContainerHygonDCUs(enable, enableHami boo
 	log.Infof("==== hygon dcu probe finished: total %d devices", len(devs))
 }
 
+func (man *isolatedDeviceManager) probeContainerIluvatarGPUs(enable bool) {
+	if !enable {
+		log.Infof("iluvatar gpu probe skipped: enable_container_iluvatar_gpu=false")
+		return
+	}
+	devman, err := GetContainerDeviceManager(ContainerDeviceTypeIluvatarGpu)
+	if err != nil {
+		log.Errorf("no container device manager %s found: %v", ContainerDeviceTypeIluvatarGpu, err)
+		return
+	}
+	devs, err := devman.ProbeDevices()
+	if err != nil {
+		log.Warningf("Probe container iluvatar gpu devices: %v", err)
+		return
+	}
+	if len(devs) == 0 {
+		log.Infof("iluvatar gpu probe finished: no devices found")
+		return
+	}
+	for idx, dev := range devs {
+		man.devices = append(man.devices, dev)
+		log.Infof("Add Container iluvatar GPU device: %d => %#v", idx, dev)
+	}
+}
+
 func (man *isolatedDeviceManager) probeGPUS(skipGPUs bool, amdVgpuPFs, nvidiaVgpuPFs []string, enableWhitelist bool, whitelistModels []IsolatedDeviceModel) {
 	if skipGPUs {
 		return
@@ -498,6 +523,7 @@ type SIsolatedDeviceProbeOptions struct {
 	EnableContainerAscendNpuHAMI bool
 	EnableContainerHygonDCU      bool
 	EnableContainerHygonDCUHAMI  bool
+	EnableContainerIluvatarGPU   bool
 	EnableWhitelist              bool
 
 	SriovNics, OvsOffloadNics []HostNic
@@ -515,6 +541,7 @@ func (man *isolatedDeviceManager) ProbePCIDevices(opts *SIsolatedDeviceProbeOpti
 		man.probeContainerNvidiaGPUs(opts.EnableCudaHAMI, opts.EnableCudaMps)
 		man.probeContainerAscendNPUs(opts.EnableContainerAscendNpu, opts.EnableContainerAscendNpuHAMI)
 		man.probeContainerHygonDCUs(opts.EnableContainerHygonDCU, opts.EnableContainerHygonDCUHAMI)
+		man.probeContainerIluvatarGPUs(opts.EnableContainerIluvatarGPU)
 	} else {
 		log.Infof("==== ProbePCIDevices: not container host, hygon container probe will NOT run (use host_type=container for hygon dcu)")
 		devModels, err := man.getCustomIsolatedDeviceModels()

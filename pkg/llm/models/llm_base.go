@@ -403,6 +403,23 @@ func HasHygonDevices(llm *SLLM, sku *SLLMSku) bool {
 	return false
 }
 
+// HasIluvatarDevices reports whether effective devices include Iluvatar GPU.
+func HasIluvatarDevices(llm *SLLM, sku *SLLMSku) bool {
+	devs := GetEffectiveDevices(llm, sku)
+	if devs == nil {
+		return false
+	}
+	for _, d := range *devs {
+		if strings.EqualFold(d.Vendor, "ILUVATAR") {
+			return true
+		}
+		if d.DevType == computeapi.CONTAINER_DEV_ILUVATAR_GPU {
+			return true
+		}
+	}
+	return false
+}
+
 // GetEffectiveHostPaths returns the host_paths to apply with llm's override taking priority over sku.
 func GetEffectiveHostPaths(llm *SLLM, sku *SLLMSku) *api.HostPaths {
 	var llmBase *SLLMBase
