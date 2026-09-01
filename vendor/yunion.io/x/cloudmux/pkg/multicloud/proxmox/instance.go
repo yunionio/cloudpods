@@ -370,6 +370,26 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	return ret, nil
 }
 
+func (self *SInstance) getNetTags() string {
+	info := make([]string, 0)
+	for _, nicConf := range self.QemuNetworks {
+		info = append(info, nicConf.MacAddr, nicConf.NicId)
+		if len(nicConf.IpAddr) > 0 {
+			info = append(info, nicConf.IpAddr)
+		}
+	}
+	return strings.Join(info, "/")
+}
+
+func (self *SInstance) GetSysTags() map[string]string {
+	meta := map[string]string{}
+	networks := self.getNetTags()
+	if len(networks) > 0 {
+		meta["networks"] = networks
+	}
+	return meta
+}
+
 func (self *SInstance) GetInstanceType() string {
 	return fmt.Sprintf("ecs.g1.c%dm%d", self.GetVcpuCount(), self.GetVmemSizeMB()/1024)
 }
