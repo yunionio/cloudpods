@@ -27,7 +27,7 @@ type CloudproviderListOptions struct {
 
 	HasObjectStorage bool     `help:"filter cloudproviders that has object storage" negative:"no-object-storage"`
 	Capability       []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
-	Cloudregion      string   `help:"filter cloudproviders by cloudregion"`
+	Cloudregion      []string `help:"filter cloudproviders by cloudregion id or name" json:"cloudregion_id"`
 
 	ReadOnly *bool `help:"filter read only account" negative:"no-read-only"`
 

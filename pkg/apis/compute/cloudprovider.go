@@ -249,7 +249,7 @@ type CloudproviderListInput struct {
 
 	UsableResourceListInput
 
-	CloudregionResourceInput
+	CloudregionResourceListInput
 
 	ZoneResourceInput
 
