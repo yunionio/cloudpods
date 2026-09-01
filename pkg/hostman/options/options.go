@@ -288,6 +288,10 @@ type SHostOptions struct {
 	HygonVdevConfDir            string `help:"hygon vdcu config directory" default:"/etc/vdev"`
 	HygonVgpuCacheDir           string `help:"hygon vgpu vdev cache directory" default:"/usr/local/vgpu/dcu"`
 
+	EnableContainerIluvatarGPU bool   `help:"enable container iluvatar gpu" default:"true"`
+	IluvatarCorexHome          string `help:"iluvatar corex home" default:"/usr/local/corex-4.4.0"`
+	IluvatarIxsmiPath          string `help:"iluvatar ixsmi path" default:"/usr/local/corex-4.4.0/bin/ixsmi"`
+
 	EnableDirtyRecoverySeconds int  `help:"Seconds to delay enable dirty guests recovery feature, default 15 minutes" default:"900"`
 	EnableContainerCniPortmap  bool `help:"Use container cni portmap plugin" default:"false"`
 	DisableReconcileContainer  bool `help:"disable reconcile container" default:"false"`

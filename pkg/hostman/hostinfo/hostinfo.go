@@ -2362,6 +2362,7 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		EnableContainerAscendNpuHAMI: options.HostOptions.EnableContainerAscendNPUHami,
 		EnableContainerHygonDCU:      options.HostOptions.EnableContainerHygonDCU,
 		EnableContainerHygonDCUHAMI:  options.HostOptions.EnableContainerHygonDCUHami,
+		EnableContainerIluvatarGPU:   options.HostOptions.EnableContainerIluvatarGPU,
 		EnableWhitelist:              options.HostOptions.EnableIsolatedDeviceWhitelist,
 		SriovNics:                    sriovNics,
 		OvsOffloadNics:               offloadNics,
@@ -2691,12 +2692,16 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 	hasNetint := false
 	hasVasmi := false
 	hasHygon := false
+	hasIluvatar := false
 	hasNvidiasmi := false
 	hasNpusmi := false
 	for _, dev := range devs {
 		vendorId := strings.Split(dev.GetVendorDeviceId(), ":")[0]
 		if vendorId == api.HYGON_VENDOR_ID {
 			hasHygon = true
+		}
+		if vendorId == api.ILUVATAR_VENDOR_ID {
+			hasIluvatar = true
 		}
 		if !utils.IsInStringArray(dev.GetSharingMode(), api.VIRTUAL_SHARING_MODES) {
 			continue
@@ -2742,6 +2747,20 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 	if hasHygon {
 		conf[system_service.TELEGRAF_INPUT_HYSMI] = map[string]interface{}{
 			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: options.HostOptions.HygonHySmiPath,
+		}
+	}
+	if hasIluvatar {
+		corexHome := options.HostOptions.IluvatarCorexHome
+		if corexHome == "" {
+			corexHome = "/usr/local/corex-4.4.0"
+		}
+		ixsmiPath := options.HostOptions.IluvatarIxsmiPath
+		if ixsmiPath == "" {
+			ixsmiPath = path.Join(corexHome, "bin", "ixsmi")
+		}
+		conf[system_service.TELEGRAF_INPUT_IXSMI] = map[string]interface{}{
+			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: ixsmiPath,
+			system_service.TELEGRAF_INPUT_CONF_LIB_PATH: path.Join(corexHome, "lib64"),
 		}
 	}
 	if hasNvidiasmi {

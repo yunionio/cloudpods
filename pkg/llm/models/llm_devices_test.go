@@ -63,3 +63,49 @@ func TestHasHygonDevices(t *testing.T) {
 		t.Fatal("expected normalized GPU+HYGON vendor sku to be detected as Hygon")
 	}
 }
+
+func TestHasIluvatarDevices(t *testing.T) {
+	iluvatarSku := &SLLMSku{
+		SLLMSkuBase: SLLMSkuBase{
+			Devices: &api.Devices{
+				{DevType: computeapi.CONTAINER_DEV_ILUVATAR_GPU},
+			},
+		},
+	}
+	if !HasIluvatarDevices(nil, iluvatarSku) {
+		t.Fatal("expected Iluvatar GPU sku to be detected")
+	}
+
+	nvSku := &SLLMSku{
+		SLLMSkuBase: SLLMSkuBase{
+			Devices: &api.Devices{
+				{DevType: computeapi.CONTAINER_DEV_NVIDIA_GPU},
+			},
+		},
+	}
+	if HasIluvatarDevices(nil, nvSku) {
+		t.Fatal("expected NVIDIA sku not to be detected as Iluvatar")
+	}
+
+	llm := &SLLM{
+		SLLMBase: SLLMBase{
+			Devices: &api.Devices{
+				{DevType: computeapi.CONTAINER_DEV_ILUVATAR_GPU},
+			},
+		},
+	}
+	if !HasIluvatarDevices(llm, nvSku) {
+		t.Fatal("expected llm device override to win over sku")
+	}
+
+	normalizedSku := &SLLMSku{
+		SLLMSkuBase: SLLMSkuBase{
+			Devices: &api.Devices{
+				{DevType: computeapi.GPU_TYPE, Vendor: "ILUVATAR", Model: "BI-V150S"},
+			},
+		},
+	}
+	if !HasIluvatarDevices(nil, normalizedSku) {
+		t.Fatal("expected normalized GPU+ILUVATAR vendor sku to be detected as Iluvatar")
+	}
+}
