@@ -61,7 +61,10 @@ func (svm *SVirtualMachine) GetSysTags() map[string]string {
 	for i := 3; i < len(paths); i++ {
 		meta[fmt.Sprintf("folder_%d", i-3)] = paths[i]
 	}
-	meta["networks"] = svm.getNetTags()
+	networks := svm.getNetTags()
+	if len(networks) > 0 {
+		meta["networks"] = networks
+	}
 	// meta["datacenter"] = svm.GetDatacenterPathString()
 	rp, _ := svm.getResourcePool()
 	if rp != nil {
