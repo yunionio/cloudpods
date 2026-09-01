@@ -11,7 +11,6 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/apigateway/options"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -22,12 +21,7 @@ import (
 )
 
 func mcpServersConfigHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	serviceName := "mcp-server"
-	url, err := auth.GetPublicServiceURL(serviceName, options.Options.Region, "", httputils.GET)
-	if err != nil {
-		log.Warningf("GetPublicServiceURL for %s failed: %v", serviceName, err)
-	}
-	sseURL := fmt.Sprintf("%s/sse", url)
+	sseURL := fmt.Sprintf("%s/api/s/mcp-server/sse", options.Options.ApiServer)
 
 	responseType := r.URL.Query().Get("type")
 	switch responseType {
@@ -35,6 +29,11 @@ func mcpServersConfigHandler(ctx context.Context, w http.ResponseWriter, r *http
 		// Claude 仅支持单个自定义 header，使用 X-API-Key。填写方式：
 		// base64(ak:sk)：`echo -n "你的AK:你的SK" | base64`，将输出填入
 		cmd := fmt.Sprintf("claude mcp add --transport sse %s --header \"X-API-Key: <填写 token 或 base64(AK:SK)>\"", sseURL)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write([]byte(cmd))
+		return
+	case "openclaw":
+		cmd := fmt.Sprintf("openclaw mcp add --transport sse %s --header \"X-API-Key: <填写 token 或 base64(AK:SK)>\"", sseURL)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write([]byte(cmd))
 		return
