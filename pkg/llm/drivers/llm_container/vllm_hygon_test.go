@@ -82,3 +82,51 @@ func TestVLLMGetContainerSpecNvidiaNoHygonRuntime(t *testing.T) {
 		t.Fatalf("args should not source dtk env for nvidia, got %#v", spec.Args)
 	}
 }
+
+func TestVLLMGetContainerSpecIluvatarRuntime(t *testing.T) {
+	v := newVLLM().(*vllm)
+	hostPaths := api.HostPaths{
+		{
+			Type: "directory",
+			Path: "/data/model/Qwen3.5-122B-A10B-w4a8",
+			Containers: api.ContainerHostPathRelations{
+				"0": {MountPath: "/data/model/Qwen3.5-122B-A10B-w4a8"},
+			},
+		},
+	}
+	sku := &models.SLLMSku{
+		SLLMSkuBase: models.SLLMSkuBase{
+			Devices: &api.Devices{
+				{DevType: computeapi.CONTAINER_DEV_ILUVATAR_GPU},
+				{DevType: computeapi.CONTAINER_DEV_ILUVATAR_GPU},
+				{DevType: computeapi.CONTAINER_DEV_ILUVATAR_GPU},
+				{DevType: computeapi.CONTAINER_DEV_ILUVATAR_GPU},
+			},
+		},
+		LLMType:   string(api.LLM_CONTAINER_VLLM),
+		Source:    api.LLM_MODEL_SOURCE_LOCAL_PATH,
+		LocalPath: "/data/model/Qwen3.5-122B-A10B-w4a8",
+	}
+	sku.HostPaths = &hostPaths
+	image := &models.SLLMImage{}
+	out := v.GetContainerSpec(context.Background(), nil, image, sku, nil, nil, "")
+	if out == nil {
+		t.Fatal("expected container spec")
+	}
+	spec := &out.ContainerSpec
+	if spec.Capabilities != nil {
+		t.Fatalf("expected nil capabilities for iluvatar, got %#v", spec.Capabilities)
+	}
+	if spec.SecurityContext != nil {
+		t.Fatalf("expected nil security context for iluvatar, got %#v", spec.SecurityContext)
+	}
+	if len(spec.Command) != 2 || spec.Command[0] != "/bin/bash" || spec.Command[1] != "-c" {
+		t.Fatalf("command = %#v, want [/bin/bash -c]", spec.Command)
+	}
+	if len(spec.Args) > 0 && strings.Contains(spec.Args[0], "/opt/dtk/env.sh") {
+		t.Fatalf("args should not source dtk env for iluvatar, got %#v", spec.Args)
+	}
+	if len(spec.Args) == 0 || !strings.Contains(spec.Args[0], "--tensor-parallel-size 4") {
+		t.Fatalf("args = %#v, want tensor-parallel-size 4", spec.Args)
+	}
+}
