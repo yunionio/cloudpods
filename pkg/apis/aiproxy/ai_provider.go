@@ -186,3 +186,12 @@ type AiProviderTestConnectivityOutput struct {
 	ModelsSource string                    `json:"models_source"`
 	Models       []AiProviderUpstreamModel `json:"models"`
 }
+
+// AiProviderSetModelsInput imports selected catalog models for an existing provider.
+// Existing model_key rows are skipped; nothing is deleted.
+type AiProviderSetModelsInput struct {
+	ModelKeys []string `json:"model_keys"`
+}
+
+// AiProviderInstanceTestConnectivityInput is the empty body for instance test-connectivity.
+type AiProviderInstanceTestConnectivityInput struct{}

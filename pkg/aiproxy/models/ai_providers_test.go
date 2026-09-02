@@ -126,3 +126,34 @@ func TestDeleteAiModelsByProviderIdRequiresProviderId(t *testing.T) {
 		t.Fatal("expected error for empty provider id")
 	}
 }
+
+func TestResolveProviderSecretForConnectivityEmptyId(t *testing.T) {
+	_, err := resolveProviderSecretForConnectivity(&SAiProvider{})
+	if err == nil {
+		t.Fatal("expected error for empty provider id")
+	}
+}
+
+func TestPerformSetModelsRequiresModelKeys(t *testing.T) {
+	p := &SAiProvider{}
+	_, err := p.PerformSetModels(context.Background(), nil, nil, api.AiProviderSetModelsInput{})
+	if err == nil {
+		t.Fatal("expected error for empty model_keys")
+	}
+}
+
+func TestCreateSelectedProviderModelsNilProvider(t *testing.T) {
+	if err := createSelectedProviderModels(context.Background(), nil, nil, nil, []string{"gpt-4"}); err != nil {
+		t.Fatalf("nil provider should no-op: %v", err)
+	}
+}
+
+func TestNormalizeProviderModelKeys(t *testing.T) {
+	got, err := normalizeProviderModelKeys([]string{" gpt-4 ", "gpt-4", "deepseek-v4-pro"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %v, want 2 unique keys", got)
+	}
+}
