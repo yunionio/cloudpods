@@ -20,11 +20,19 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/aiproxy"
 )
 
+const (
+	catalogContextWindow1M    = 1_000_000
+	catalogContextWindow1050K = 1_050_000
+	catalogContextWindow2M    = 2_000_000
+)
+
 // catalogSeedModel is a known upstream model id for built-in provider_key values.
 // ModelKey is the id sent to the upstream API (no "provider/" prefix).
+// ContextWindow is 0 when unknown.
 type catalogSeedModel struct {
-	ModelKey    string
-	Description string
+	ModelKey      string
+	Description   string
+	ContextWindow int
 }
 
 // catalogSeedModelsForProvider returns known public model ids for a provider_key.
@@ -34,8 +42,8 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 	switch providerKey {
 	case api.ProviderKeyAnthropic:
 		return []catalogSeedModel{
-			{ModelKey: "claude-opus-4-20250514", Description: "Anthropic Claude Opus 4"},
-			{ModelKey: "claude-sonnet-4-20250514", Description: "Anthropic Claude Sonnet 4"},
+			{ModelKey: "claude-opus-4-20250514", Description: "Anthropic Claude Opus 4", ContextWindow: catalogContextWindow1M},
+			{ModelKey: "claude-sonnet-4-20250514", Description: "Anthropic Claude Sonnet 4", ContextWindow: catalogContextWindow1M},
 			{ModelKey: "claude-3-7-sonnet-20250219", Description: "Anthropic Claude 3.7 Sonnet"},
 			{ModelKey: "claude-3-5-sonnet-20241022", Description: "Anthropic Claude 3.5 Sonnet"},
 			{ModelKey: "claude-3-5-haiku-20241022", Description: "Anthropic Claude 3.5 Haiku"},
@@ -85,8 +93,8 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 	// 	}
 	case api.ProviderKeyDeepseek:
 		return []catalogSeedModel{
-			{ModelKey: "deepseek-v4-flash", Description: "DeepSeek-V4-Flash; 1M context; high concurrency (2500); cost-efficient default"},
-			{ModelKey: "deepseek-v4-pro", Description: "DeepSeek-V4-Pro; 1M context; frontier reasoning/coding/agents (500 concurrency)"},
+			{ModelKey: "deepseek-v4-flash", Description: "DeepSeek-V4-Flash; 1M context; high concurrency (2500); cost-efficient default", ContextWindow: catalogContextWindow1M},
+			{ModelKey: "deepseek-v4-pro", Description: "DeepSeek-V4-Pro; 1M context; frontier reasoning/coding/agents (500 concurrency)", ContextWindow: catalogContextWindow1M},
 		}
 	// disabled: uncommon provider
 	// case api.ProviderKeyElevenlabs:
@@ -106,11 +114,11 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 	// 	}
 	case api.ProviderKeyGemini:
 		return []catalogSeedModel{
-			{ModelKey: "gemini-2.0-flash", Description: "Google Gemini 2.0 Flash"},
-			{ModelKey: "gemini-2.0-flash-lite", Description: "Google Gemini 2.0 Flash-Lite"},
-			{ModelKey: "gemini-1.5-pro", Description: "Google Gemini 1.5 Pro"},
-			{ModelKey: "gemini-1.5-flash", Description: "Google Gemini 1.5 Flash"},
-			{ModelKey: "gemini-1.5-flash-8b", Description: "Google Gemini 1.5 Flash 8B"},
+			{ModelKey: "gemini-2.0-flash", Description: "Google Gemini 2.0 Flash", ContextWindow: catalogContextWindow1M},
+			{ModelKey: "gemini-2.0-flash-lite", Description: "Google Gemini 2.0 Flash-Lite", ContextWindow: catalogContextWindow1M},
+			{ModelKey: "gemini-1.5-pro", Description: "Google Gemini 1.5 Pro", ContextWindow: catalogContextWindow2M},
+			{ModelKey: "gemini-1.5-flash", Description: "Google Gemini 1.5 Flash", ContextWindow: catalogContextWindow1M},
+			{ModelKey: "gemini-1.5-flash-8b", Description: "Google Gemini 1.5 Flash 8B", ContextWindow: catalogContextWindow1M},
 			{ModelKey: "gemini-embedding-001", Description: "Google Gemini Embedding 001"},
 		}
 	case api.ProviderKeyGroq:
@@ -175,9 +183,9 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 			{ModelKey: "gpt-5.2", Description: "OpenAI GPT-5.2"},
 			{ModelKey: "gpt-5.2-pro", Description: "OpenAI GPT-5.2 pro"},
 			{ModelKey: "gpt-5.2-codex", Description: "OpenAI GPT-5.2 Codex"},
-			{ModelKey: "gpt-4.1", Description: "OpenAI GPT-4.1"},
-			{ModelKey: "gpt-4.1-mini", Description: "OpenAI GPT-4.1 mini"},
-			{ModelKey: "gpt-4.1-nano", Description: "OpenAI GPT-4.1 nano"},
+			{ModelKey: "gpt-4.1", Description: "OpenAI GPT-4.1", ContextWindow: catalogContextWindow1M},
+			{ModelKey: "gpt-4.1-mini", Description: "OpenAI GPT-4.1 mini", ContextWindow: catalogContextWindow1M},
+			{ModelKey: "gpt-4.1-nano", Description: "OpenAI GPT-4.1 nano", ContextWindow: catalogContextWindow1M},
 			{ModelKey: "gpt-4o", Description: "OpenAI GPT-4o"},
 			{ModelKey: "gpt-4o-mini", Description: "OpenAI GPT-4o mini"},
 			{ModelKey: "chatgpt-4o-latest", Description: "OpenAI ChatGPT-4o latest"},
@@ -200,7 +208,7 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 			{ModelKey: "openai/gpt-4o-mini", Description: "OpenRouter OpenAI GPT-4o mini"},
 			{ModelKey: "anthropic/claude-3.5-sonnet", Description: "OpenRouter Claude 3.5 Sonnet"},
 			{ModelKey: "anthropic/claude-3.5-haiku", Description: "OpenRouter Claude 3.5 Haiku"},
-			{ModelKey: "google/gemini-2.0-flash-001", Description: "OpenRouter Gemini 2.0 Flash"},
+			{ModelKey: "google/gemini-2.0-flash-001", Description: "OpenRouter Gemini 2.0 Flash", ContextWindow: catalogContextWindow1M},
 			{ModelKey: "meta-llama/llama-3.3-70b-instruct", Description: "OpenRouter Llama 3.3 70B Instruct"},
 			{ModelKey: "mistralai/mistral-large", Description: "OpenRouter Mistral Large"},
 		}
@@ -306,9 +314,9 @@ func baiduErnieSeedModels() []catalogSeedModel {
 
 func xiaomiMimoSeedModels() []catalogSeedModel {
 	return []catalogSeedModel{
-		{ModelKey: "mimo-v2.5-pro", Description: "Xiaomi MiMo 2.5 Pro (flagship text)"},
+		{ModelKey: "mimo-v2.5-pro", Description: "Xiaomi MiMo 2.5 Pro (flagship text)", ContextWindow: catalogContextWindow1M},
 		{ModelKey: "mimo-v2-pro", Description: "Xiaomi MiMo 2 Pro"},
-		{ModelKey: "mimo-v2.5", Description: "Xiaomi MiMo 2.5 (multimodal text)"},
+		{ModelKey: "mimo-v2.5", Description: "Xiaomi MiMo 2.5 (multimodal text)", ContextWindow: catalogContextWindow1M},
 		{ModelKey: "mimo-v2-omni", Description: "Xiaomi MiMo 2 Omni (multimodal)"},
 		{ModelKey: "mimo-v2-flash", Description: "Xiaomi MiMo 2 Flash (fast)"},
 	}
@@ -327,6 +335,7 @@ var catalogSeedProviderKeys = []string{
 	api.ProviderKeyOpenrouter,
 	api.ProviderKeyXiaomi,
 	api.ProviderKeyMoonshot,
+	api.ProviderKeyZhipu,
 }
 
 // CatalogSeedDescription returns a known description for modelKey from built-in seed catalogs.
@@ -343,6 +352,77 @@ func CatalogSeedDescription(modelKey string) string {
 		}
 	}
 	return ""
+}
+
+// extraCatalogContextWindows covers official 1M+ models that are not yet in seed lists.
+// Keys are lowercase model ids (and last-path-segment aliases).
+var extraCatalogContextWindows = map[string]int{
+	"deepseek-chat":         catalogContextWindow1M,
+	"deepseek-reasoner":     catalogContextWindow1M,
+	"glm-5.3":               catalogContextWindow1M,
+	"glm-5.3-flash":         catalogContextWindow1M,
+	"kimi-k3":               catalogContextWindow1M,
+	"gpt-5.4":               catalogContextWindow1050K,
+	"gpt-5.4-pro":           catalogContextWindow1050K,
+	"gpt-5.6":               catalogContextWindow1050K,
+	"gpt-5.6-sol":           catalogContextWindow1050K,
+	"gpt-5.6-terra":         catalogContextWindow1050K,
+	"gpt-5.6-luna":          catalogContextWindow1050K,
+	"gemini-2.5-pro":        catalogContextWindow1M,
+	"gemini-2.5-flash":      catalogContextWindow1M,
+	"gemini-2.5-flash-lite": catalogContextWindow1M,
+	"gemini-2.0-flash-001":  catalogContextWindow1M,
+	"claude-opus-5":         catalogContextWindow1M,
+	"claude-sonnet-5":       catalogContextWindow1M,
+	"claude-fable-5":        catalogContextWindow1M,
+	"claude-fable-5-1":      catalogContextWindow1M,
+}
+
+func catalogModelKeyLeaf(modelKey string) string {
+	modelKey = strings.TrimSpace(modelKey)
+	if i := strings.LastIndex(modelKey, "/"); i >= 0 {
+		return modelKey[i+1:]
+	}
+	return modelKey
+}
+
+func extraCatalogContextWindow(modelKey string) int {
+	if n, ok := extraCatalogContextWindows[strings.ToLower(strings.TrimSpace(modelKey))]; ok {
+		return n
+	}
+	return 0
+}
+
+// CatalogContextWindow returns the known context window for modelKey from the
+// built-in catalog (seed rows plus extra official ids not yet seeded). 0 means unknown.
+func CatalogContextWindow(modelKey string) int {
+	modelKey = strings.TrimSpace(modelKey)
+	if modelKey == "" {
+		return 0
+	}
+	if n := extraCatalogContextWindow(modelKey); n > 0 {
+		return n
+	}
+	leaf := catalogModelKeyLeaf(modelKey)
+	if leaf != modelKey {
+		if n := extraCatalogContextWindow(leaf); n > 0 {
+			return n
+		}
+	}
+	for _, providerKey := range catalogSeedProviderKeys {
+		for _, item := range catalogSeedModelsForProvider(providerKey) {
+			if item.ContextWindow <= 0 {
+				continue
+			}
+			if strings.EqualFold(item.ModelKey, modelKey) {
+				return item.ContextWindow
+			}
+			if strings.EqualFold(catalogModelKeyLeaf(item.ModelKey), leaf) {
+				return item.ContextWindow
+			}
+		}
+	}
+	return 0
 }
 
 func moonshotKimiSeedModels() []catalogSeedModel {
@@ -363,7 +443,7 @@ func moonshotKimiSeedModels() []catalogSeedModel {
 
 func zhipuGLMSeedModels() []catalogSeedModel {
 	return []catalogSeedModel{
-		{ModelKey: "glm-5.2", Description: "Z.AI GLM-5.2 flagship; 1M context; long-horizon agents"},
+		{ModelKey: "glm-5.2", Description: "Z.AI GLM-5.2 flagship; 1M context; long-horizon agents", ContextWindow: catalogContextWindow1M},
 		{ModelKey: "glm-5.1", Description: "Z.AI GLM-5.1; long-horizon tasks"},
 		{ModelKey: "glm-5-turbo", Description: "Z.AI GLM-5-Turbo; cost-efficient"},
 		{ModelKey: "glm-4.7", Description: "Z.AI GLM-4.7; general chat and coding"},
