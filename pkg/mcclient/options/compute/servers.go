@@ -1027,12 +1027,13 @@ func (o *ServerKickstartCompleteOptions) Params() (jsonutils.JSONObject, error) 
 	return options.StructToParams(o)
 }
 
+// ServerMonitorOptions 不注册为 MCP tool（无 mcp-desc tag）：向虚机发送任意
+// HMP/QMP 命令（如 pmemsave/migrate）超出"监控"语义，经 LLM 通道可被提示注入
+// 无感知触发，禁止 AI 调用。仅保留 climc 命令行与受控 API 使用。
 type ServerMonitorOptions struct {
-	_ struct{} `mcp-desc:"【QEMU Monitor，不是监控指标】向虚机发送 HMP/QMP。查 CPU/内存等指标请用 climc_monitor_unifiedmonitor_query"`
-
 	ServerIdOptions
 
-	Qmp     bool   `help:"Use qmp protocol, default is hmp" mcp:"true"`
+	Qmp     bool   `help:"Use qmp protocol, default is hmp"`
 	COMMAND string `help:"Qemu Monitor command to send"`
 }
 
