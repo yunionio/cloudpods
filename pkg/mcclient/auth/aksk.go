@@ -16,6 +16,7 @@ package auth
 
 import (
 	"net/http"
+	"time"
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/cache"
@@ -23,6 +24,41 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
+
+// maxSignatureSkew is the maximal clock skew accepted for a signed request,
+// the same window AWS uses: requests signed earlier can not be replayed
+// indefinitely.
+const maxSignatureSkew = 15 * time.Minute
+
+// checkRequestFreshness rejects replayed signatures: a signed request is only
+// accepted within 15 minutes of its signing time.
+func checkRequestFreshness(req http.Request) error {
+	dateStr := req.Header.Get("x-amz-date")
+	if len(dateStr) > 0 {
+		signTime, err := time.Parse("20060102T150405Z", dateStr)
+		if err != nil {
+			return errors.Wrap(err, "invalid x-amz-date")
+		}
+		return checkTimeSkew(signTime)
+	}
+	dateStr = req.Header.Get("Date")
+	if len(dateStr) > 0 {
+		signTime, err := http.ParseTime(dateStr)
+		if err != nil {
+			return errors.Wrap(err, "invalid Date header")
+		}
+		return checkTimeSkew(signTime)
+	}
+	return errors.Error("missing signing date")
+}
+
+func checkTimeSkew(signTime time.Time) error {
+	skew := time.Since(signTime)
+	if skew > maxSignatureSkew || skew < -maxSignatureSkew {
+		return errors.Errorf("request signature expired, signed at %s", signTime)
+	}
+	return nil
+}
 
 type sAccessKeyCache struct {
 	*cache.LRUCache
@@ -63,6 +99,9 @@ func (c *sAccessKeyCache) Verify(cli *mcclient.Client, req http.Request, virtual
 	aksk, err := s3auth.DecodeAccessKeyRequest(req, virtualHost)
 	if err != nil {
 		return nil, errors.Wrap(err, "s3auth.DecodeAccessKeyRequestV2")
+	}
+	if err := checkRequestFreshness(req); err != nil {
+		return nil, errors.Wrap(err, "checkRequestFreshness")
 	}
 
 	token, found := c.getToken(aksk.GetAccessKey())
