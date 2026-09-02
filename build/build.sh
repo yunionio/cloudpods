@@ -79,6 +79,8 @@ echo "# Yunion RPM spec
 %global pkgname yunion-$PKG
 %global homedir /var/run/%{owner}
 %global use_systemd $SERVICE
+%global debug_package %{nil}
+%global __strip /usr/bin/eu-strip
 
 Name: %{pkgname}
 Version: $VERSION
