@@ -244,8 +244,14 @@ func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 			return
 		}
 	} else {
-		// directly ssh IP should be deprecated gradually
-		sshConnInfo.IP = idStr
+		// directly ssh IP: only allow ips belonging to hosts or servers
+		// accessible by the user, so the console can not be used to dial
+		// arbitrary internal addresses
+		err = session.ResolveSSHIPPortByIp(ctx, env.ClientSessin, idStr, sshConnInfo.Port, &sshConnInfo)
+		if err != nil {
+			httperrors.GeneralServerError(ctx, w, err)
+			return
+		}
 	}
 	s := session.NewSshSession(ctx, env.ClientSessin, sshConnInfo)
 	handleSshSession(ctx, s, w)
