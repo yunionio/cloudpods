@@ -62,9 +62,9 @@ func initHandlers(app *appsrv.Application) {
 	app.AddHandler("POST", ApiPathPrefix+"ssh/<ip>", auth.Authenticate(handleSshShell))
 	app.AddHandler("POST", ApiPathPrefix+"server/<id>", auth.Authenticate(handleServerRemoteConsole))
 	app.AddHandler("POST", ApiPathPrefix+"server-rdp/<id>", auth.Authenticate(handleServerRemoteRDPConsole))
-	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/list", server.HandleSftpList)
-	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/download", server.HandleSftpDownload)
-	app.AddHandler("POST", ApiPathPrefix+"sftp/<session-id>/upload", server.HandleSftpUpload)
+	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/list", server.AuthenticateSftp(server.HandleSftpList))
+	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/download", server.AuthenticateSftp(server.HandleSftpDownload))
+	app.AddHandler("POST", ApiPathPrefix+"sftp/<session-id>/upload", server.AuthenticateSftp(server.HandleSftpUpload))
 
 	for _, man := range []db.IModelManager{
 		models.GetCommandLogManager(),
