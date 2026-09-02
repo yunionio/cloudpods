@@ -187,6 +187,7 @@ func (manager *SAiModelManager) FetchCustomizeColumns(
 	for i := range objs {
 		rows[i].VirtualResourceDetails = baseRows[i]
 		m := objs[i].(*SAiModel)
+		rows[i].ContextWindow = CatalogContextWindow(m.ModelKey)
 		providerIds[i] = m.AiProviderId
 		if vid := strings.TrimSpace(m.VisualProviderId); vid != "" {
 			visualProviderIds = append(visualProviderIds, vid)
