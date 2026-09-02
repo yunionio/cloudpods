@@ -90,6 +90,12 @@ func (man *SSessionManager) Get(accessToken string) (*SSession, bool) {
 		return nil, false
 	}
 	s := obj.(*SSession)
+	// the presented token must be exactly the one issued for this session,
+	// so sessions can not be taken over by any other token
+	if s.AccessToken != accessToken {
+		log.Errorf("access token mismatch for session %s", s.Id)
+		return nil, false
+	}
 	protocol := s.GetProtocol()
 	if protocol != SPICE && time.Since(s.AccessedAt) < AccessInterval {
 		if !(protocol == WS && o.Options.KeepWebsocketSession) {
