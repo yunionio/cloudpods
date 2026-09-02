@@ -419,12 +419,24 @@ func (d *QemuKvmDriver) sshRun(cmd string) ([]string, error) {
 	return d.sshClient.Run(cmd)
 }
 
+// singleQuote escapes s so that it can be safely embedded as one shell word
+// wrapped in single quotes: the remote shell then receives exactly s and
+// cannot interpret any of it as shell syntax.
+func singleQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// buildSshFilePutContentCmd builds the command writing content to filePath on
+// the remote shell. The heredoc delimiter is quoted, so the content stays
+// literal data and shell expansions ($(...), backticks, $VAR) inside it are
+// not evaluated.
+func buildSshFilePutContentCmd(filePath, content string) string {
+	return fmt.Sprintf("cat << 'EOF' > %s\n%s\nEOF", filePath, content)
+}
+
 func (d *QemuKvmDriver) sshFilePutContent(params interface{}, filePath string) error {
 	jcontent := jsonutils.Marshal(params).String()
-	jcontent = strings.ReplaceAll(jcontent, "`", "\\`")
-	cmd := fmt.Sprintf(`cat << EOF > %s
-%s
-EOF`, filePath, jcontent)
+	cmd := buildSshFilePutContentCmd(filePath, jcontent)
 	out, err := d.sshRun(cmd)
 	if err != nil {
 		return errors.Wrapf(err, "sshFilePutContent %s", out)
@@ -483,7 +495,7 @@ func (d *QemuKvmDriver) ResizeFs(req *apis.ResizeFsParams) (*apis.Empty, error) 
 	}()
 
 	params, _ := json.Marshal(req)
-	cmd := fmt.Sprintf("%s --deploy-action resize_fs --deploy-params '%s'", DEPLOYER_BIN, params)
+	cmd := fmt.Sprintf("%s --deploy-action resize_fs --deploy-params %s", DEPLOYER_BIN, singleQuote(string(params)))
 	out, err := d.sshRun(cmd)
 	if err != nil {
 		return nil, errors.Wrapf(err, "run resize_fs failed %s", out)
@@ -508,7 +520,7 @@ func (d *QemuKvmDriver) FormatFs(req *apis.FormatFsParams) (*apis.Empty, error) 
 	}()
 
 	params, _ := json.Marshal(req)
-	cmd := fmt.Sprintf("%s --deploy-action format_fs --deploy-params '%s'", DEPLOYER_BIN, params)
+	cmd := fmt.Sprintf("%s --deploy-action format_fs --deploy-params %s", DEPLOYER_BIN, singleQuote(string(params)))
 	out, err := d.sshRun(cmd)
 	if err != nil {
 		return nil, errors.Wrapf(err, "run format_fs failed %s", out)
@@ -533,7 +545,7 @@ func (d *QemuKvmDriver) SaveToGlance(req *apis.SaveToGlanceParams) (*apis.SaveTo
 	}()
 
 	params, _ := json.Marshal(req)
-	cmd := fmt.Sprintf("%s --deploy-action save_to_glance --deploy-params '%s'", DEPLOYER_BIN, params)
+	cmd := fmt.Sprintf("%s --deploy-action save_to_glance --deploy-params %s", DEPLOYER_BIN, singleQuote(string(params)))
 	out, err := d.sshRun(cmd)
 	if err != nil {
 		return nil, errors.Wrapf(err, "run save_to_glance failed %s", out)
@@ -570,7 +582,7 @@ func (d *QemuKvmDriver) ProbeImageInfo(req *apis.ProbeImageInfoPramas) (*apis.Im
 	}()
 
 	params, _ := json.Marshal(req)
-	cmd := fmt.Sprintf("%s --deploy-action probe_image_info --deploy-params '%s'", DEPLOYER_BIN, params)
+	cmd := fmt.Sprintf("%s --deploy-action probe_image_info --deploy-params %s", DEPLOYER_BIN, singleQuote(string(params)))
 	out, err := d.sshRun(cmd)
 	if err != nil {
 		return nil, errors.Wrapf(err, "run probe_image_info failed %s", out)
