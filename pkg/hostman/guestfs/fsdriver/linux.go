@@ -234,10 +234,10 @@ func (l *sLinuxRootFs) checkInputPasswd(rootFs IDiskPartition, config *pwquality
 
 	err := config.Validate(password, account)
 	if err != nil && errors.Cause(err) == pwquality.ErrPasswordTooWeak {
-		log.Infof("password %s too weak, try regenerate password", password)
+		log.Infof("password too weak, try regenerate password")
 		npassword := config.GeneratePassword(seclib2.RandomPassword2)
 		if len(npassword) > 0 {
-			log.Infof("regenerate password %s", npassword)
+			log.Infof("regenerate password (not logged)")
 			password = npassword
 		}
 	}

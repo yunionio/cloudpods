@@ -857,7 +857,7 @@ func processToolCalls(
 			arguments = make(map[string]interface{})
 		}
 
-		log.Infof("Calling tool: %s with arguments: %v", toolName, arguments)
+		log.Infof("Calling tool: %s", toolName)
 
 		// 独立超时 + WithoutCancel：避免父请求短 deadline（如 60s）掐断公有云 create 等待
 		toolCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), mcpToolCallTimeout())

@@ -334,7 +334,9 @@ func (c *MCPClient) sendRequest(ctx context.Context, req mcp.JSONRPCRequest) (*r
 	}
 
 	reqBody := jsonutils.Marshal(req)
-	log.Infof("MCP request: %s", reqBody.String())
+	// log the method only, tool parameters may contain sensitive data
+	method, _ := reqBody.GetString("method")
+	log.Infof("MCP request: %s", method)
 
 	cli := auth.Client()
 	if cli == nil {
