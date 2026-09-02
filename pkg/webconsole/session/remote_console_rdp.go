@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/stringutils"
 
 	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/webconsole"
@@ -42,11 +43,14 @@ type RemoteRDPConsoleInfo struct {
 	Width  int
 	Height int
 	Dpi    int
-	s      *mcclient.ClientSession
+	// id uniquely identifies the console session, so sessions of
+	// different users can not shadow each other
+	id string
+	s  *mcclient.ClientSession
 }
 
 func NewRemoteRDPConsoleInfoByCloud(ctx context.Context, s *mcclient.ClientSession, serverId string, query jsonutils.JSONObject) (*RemoteRDPConsoleInfo, error) {
-	info := &RemoteRDPConsoleInfo{s: s}
+	info := &RemoteRDPConsoleInfo{s: s, id: stringutils.UUID4()}
 	if !gotypes.IsNil(query) {
 		err := query.Unmarshal(&info)
 		if err != nil {
@@ -119,7 +123,7 @@ func (info *RemoteRDPConsoleInfo) GetPassword() string {
 }
 
 func (info *RemoteRDPConsoleInfo) GetId() string {
-	return ""
+	return info.id
 }
 
 func (info *RemoteRDPConsoleInfo) GetRecordObject() *recorder.Object {
