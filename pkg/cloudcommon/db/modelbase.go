@@ -412,19 +412,17 @@ func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, 
 	if !ok {
 		im = manager
 	}
-	fn, err := query.GetArray("field")
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("missing field")
-	}
+	fn, _ := query.GetArray("field")
 	efs, _ := query.GetArray("extra_field")
 	fields := make([]string, len(fn))
 
 	// validate field
 	for i, f := range fn {
-		fields[i], err = f.GetString()
+		fs, err := f.GetString()
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("can't get string field")
 		}
+		fields[i] = fs
 		var hasField = false
 		for _, field := range manager.getTable().Fields() {
 			if field.Name() == fields[i] {
@@ -438,7 +436,7 @@ func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, 
 	}
 
 	q := im.Query()
-	q, err = ListItemQueryFilters(im, ctx, q, userCred, query, policy.PolicyActionList)
+	q, err := ListItemQueryFilters(im, ctx, q, userCred, query, policy.PolicyActionList)
 	if err != nil {
 		return nil, err
 	}
