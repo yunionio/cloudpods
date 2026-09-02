@@ -17,6 +17,7 @@ package aiproxy
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	apmodules "yunion.io/x/onecloud/pkg/mcclient/modules/aiproxy"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 	apoptions "yunion.io/x/onecloud/pkg/mcclient/options/aiproxy"
 )
 
@@ -28,5 +29,7 @@ func init() {
 	cmd.Update(new(apoptions.AiProviderUpdateOptions))
 	cmd.Delete(new(apoptions.AiProviderDeleteOptions))
 	cmd.PerformClass("test-connectivity", new(apoptions.AiProviderTestConnectivityOptions))
+	cmd.Perform("test-connectivity", new(options.BaseIdOptions))
+	cmd.Perform("set-models", new(apoptions.AiProviderSetModelsOptions))
 	registerEnableDisable(cmd)
 }

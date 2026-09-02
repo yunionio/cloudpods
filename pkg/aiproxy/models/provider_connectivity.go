@@ -194,6 +194,54 @@ func providerUpstreamModels(modelKeys []string) []api.AiProviderUpstreamModel {
 	return out
 }
 
+func connectivityTestOutput(modelKeys []string, fromCatalog bool) api.AiProviderTestConnectivityOutput {
+	out := api.AiProviderTestConnectivityOutput{Ok: true}
+	if fromCatalog {
+		out.Message = "connectivity test passed (catalog models)"
+		out.ModelsSource = api.AiProviderModelsSourceCatalog
+	} else {
+		out.Message = "connectivity test passed"
+		out.ModelsSource = api.AiProviderModelsSourceUpstream
+	}
+	out.Models = providerUpstreamModels(modelKeys)
+	return out
+}
+
+// resolveProviderSecretForConnectivity picks an enabled ai_key secret without model-key filtering.
+func resolveProviderSecretForConnectivity(prov *SAiProvider) (string, error) {
+	if prov == nil {
+		return "", errors.Wrap(httperrors.ErrInvalidStatus, "ai_provider is nil")
+	}
+	pid := strings.TrimSpace(prov.Id)
+	if pid == "" {
+		return "", errors.Wrap(httperrors.ErrInvalidStatus, "ai_provider id is empty")
+	}
+	keys := make([]SAiKey, 0, 32)
+	q := AiKeyManager.Query().Equals("ai_provider_id", pid).Equals("enabled", true)
+	if err := q.All(&keys); err != nil {
+		return "", errors.Wrap(err, "list ai_key for provider")
+	}
+	candidates := make([]*SAiKey, 0, len(keys))
+	for i := range keys {
+		k := &keys[i]
+		if strings.TrimSpace(k.GetSecret()) == "" {
+			continue
+		}
+		if baseAiKeyWeight(k) <= 0 {
+			continue
+		}
+		candidates = append(candidates, k)
+	}
+	if len(candidates) == 0 {
+		return "", errors.Wrap(httperrors.ErrInvalidStatus, "add an enabled ai_key with secret for this provider")
+	}
+	chosen := pickWeightedAiKey(candidates)
+	if chosen == nil {
+		return "", errors.Wrap(httperrors.ErrInvalidStatus, "failed to pick ai_key")
+	}
+	return strings.TrimSpace(chosen.GetSecret()), nil
+}
+
 // PerformTestConnectivity probes upstream list-models without persisting an ai_provider row.
 func (manager *SAiProviderManager) PerformTestConnectivity(
 	ctx context.Context,
@@ -206,14 +254,24 @@ func (manager *SAiProviderManager) PerformTestConnectivity(
 	if err != nil {
 		return out, err
 	}
-	out.Ok = true
-	if fromCatalog {
-		out.Message = "connectivity test passed (catalog models)"
-		out.ModelsSource = api.AiProviderModelsSourceCatalog
-	} else {
-		out.Message = "connectivity test passed"
-		out.ModelsSource = api.AiProviderModelsSourceUpstream
+	return connectivityTestOutput(modelKeys, fromCatalog), nil
+}
+
+// PerformTestConnectivity lists upstream models using a stored enabled ai_key.
+func (p *SAiProvider) PerformTestConnectivity(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.AiProviderInstanceTestConnectivityInput,
+) (api.AiProviderTestConnectivityOutput, error) {
+	out := api.AiProviderTestConnectivityOutput{}
+	secret, err := resolveProviderSecretForConnectivity(p)
+	if err != nil {
+		return out, err
 	}
-	out.Models = providerUpstreamModels(modelKeys)
-	return out, nil
+	modelKeys, fromCatalog, err := listProviderModels(ctx, p.ProviderKey, secret, p.Config, providerTestConnectivityTimeout)
+	if err != nil {
+		return out, err
+	}
+	return connectivityTestOutput(modelKeys, fromCatalog), nil
 }
