@@ -41,7 +41,7 @@ const serverInstructionsTemplate = `%s MCP（climc tools）使用规则：
       - net 可省略自动调度。工具会 forecast→创建并等待 running/ready；若返回 wait_pending，用 climc_server_show 续查，勿重复创建。
       - 若 final_status 含 fail：结果中会带 fail_reason 与 fail_diagnostics.action_logs（平台操作日志）；也可 climc_action_show type=server id=<id> fail=true。
 3. 启停/重启/删除/重置密码/改配/挂盘/绑 EIP：climc_server_list 定位 id 后立刻调用对应操作工具。删除时若锁定会自动解锁。
-4. 监控指标用 climc_monitor_unifiedmonitor_query；climc_server_monitor 是 QEMU HMP/QMP，不是指标。
+4. 监控指标用 climc_monitor_unifiedmonitor_query。
 5. 缺参只追问真正缺失项；已有 id 直接下一步。
 `
 
