@@ -73,24 +73,22 @@ func (manager *SFernetKeyManager) InitializeData() error {
 	}
 	keys.TokenKeysManager.SetKeys(fkeys)
 
-	if options.Options.SetupCredentialKeys {
-		fkeys, err := manager.getKeys(api.FernetKeyForToken)
+	// credentials must never be encrypted with a predictable key: always use
+	// dedicated randomly generated keys. Legacy blobs encrypted with the
+	// all-zero key or the token keys are migrated lazily on decrypt
+	// (see keys.DecryptCredentialBlob).
+	fkeys, err = manager.getKeys(api.FernetKeyForCredential)
+	if err != nil {
+		return errors.Wrap(err, "manager.getKeys")
+	}
+	if len(fkeys) == 0 {
+		fkeys, err = manager.setupKeys(api.FernetKeyForCredential, "")
 		if err != nil {
-			return errors.Wrap(err, "manager.getKeys")
-		}
-		if len(fkeys) == 0 {
-			fkeys, err = manager.setupKeys(api.FernetKeyForCredential, "")
-			if err != nil {
-				return errors.Wrap(err, "manager.setupKeys")
-			}
-		}
-		keys.CredentialKeyManager.SetKeys(fkeys)
-	} else {
-		err = keys.CredentialKeyManager.InitEmpty()
-		if err != nil {
-			return errors.Wrap(err, "keys.TokenKeysManager.InitEmpty")
+			return errors.Wrap(err, "manager.setupKeys")
 		}
 	}
+	keys.CredentialKeyManager.SetKeys(fkeys)
+	keys.InitLegacyCredentialKeys()
 	return nil
 }
 

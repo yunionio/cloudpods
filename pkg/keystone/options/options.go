@@ -27,7 +27,7 @@ type SKeystoneOptions struct {
 
 	TokenExpirationSeconds int    `default:"86400" help:"token expiration seconds" token:"expiration"`
 	FernetKeyRepository    string `help:"fernet key repo directory" token:"key_repository" default:"/etc/yunion/keystone/fernet-keys"`
-	SetupCredentialKeys    bool   `help:"setup standalone fernet keys for credentials" token:"setup_credential_key" default:"false" json:",allowfalse"`
+	SetupCredentialKeys    bool   `help:"setup standalone fernet keys for credentials(deprecated, credential keys are always standalone now)" token:"setup_credential_key" default:"false" json:",allowfalse"`
 
 	BootstrapAdminUserPassword string `help:"bootstreap sysadmin user password" default:"sysadmin"`
 	ResetAdminUserPassword     bool   `help:"reset sysadmin password if exists and this option is true" json:",allowfalse"`

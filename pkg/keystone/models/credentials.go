@@ -226,7 +226,29 @@ func credentialExtra(cred *SCredential, out api.CredentialDetails) api.Credentia
 }
 
 func (cred *SCredential) getBlob() []byte {
-	return keys.CredentialKeyManager.Decrypt([]byte(cred.EncryptedBlob))
+	blob, legacy := keys.DecryptCredentialBlob([]byte(cred.EncryptedBlob))
+	if legacy && len(blob) > 0 {
+		cred.migrateEncryptedBlob(blob)
+	}
+	return blob
+}
+
+// migrateEncryptedBlob re-encrypts a blob that was encrypted with a legacy
+// (predictable) key using the dedicated credential keys.
+func (cred *SCredential) migrateEncryptedBlob(blob []byte) {
+	blobEnc, err := keys.CredentialKeyManager.Encrypt(blob)
+	if err != nil {
+		log.Errorf("migrate credential %s blob: encrypt: %v", cred.Id, err)
+		return
+	}
+	_, err = db.Update(cred, func() error {
+		cred.EncryptedBlob = string(blobEnc)
+		cred.KeyHash = keys.CredentialKeyManager.PrimaryKeyHash()
+		return nil
+	})
+	if err != nil {
+		log.Errorf("migrate credential %s blob: update: %v", cred.Id, err)
+	}
 }
 
 func (cred *SCredential) GetAccessKeySecret() (*api.SAccessKeySecretBlob, error) {
