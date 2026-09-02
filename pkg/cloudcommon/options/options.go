@@ -65,7 +65,7 @@ type BaseOptions struct {
 	LogVerboseLevel    int    `help:"log verbosity level" default:"0"`
 	LogFilePrefix      string `help:"prefix of log files"`
 
-	CorsHosts []string `help:"List of hostname that allow CORS"`
+	CorsHosts []string `help:"List of hostname that allow CORS, credentials are only honored for explicitly listed origins"`
 	TempPath  string   `help:"Path for store temp file, at least 40G space" default:"/opt/yunion/tmp"`
 
 	ApplicationID      string `help:"Application ID"`
