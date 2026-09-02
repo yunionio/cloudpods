@@ -16,16 +16,12 @@ package webconsole
 
 import (
 	"fmt"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
 var (
@@ -70,58 +66,11 @@ func (m WebConsoleManager) DoK8sShellConnect(s *mcclient.ClientSession, id strin
 }
 
 func (m WebConsoleManager) DoCloudShell(s *mcclient.ClientSession, _ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	adminSession := auth.GetAdminSession(s.GetContext(), s.GetRegion())
-
-	query := jsonutils.NewDict()
-	query.Add(jsonutils.JSONTrue, "system")
-	query.Add(jsonutils.NewString("system"), "scope")
-	query.Add(jsonutils.NewString("system-default"), "name")
-	clusters, err := k8s.KubeClusters.List(adminSession, query)
-
-	climcSshConnect := func(s *mcclient.ClientSession, hostname string) (jsonutils.JSONObject, error) {
-		if hostname == "" {
-			hostname = "climc"
-		}
-		// maybe running in docker compose environment, so try to use ssh way
-		if data, err := m.DoClimcSshConnect(s, hostname, 22); err != nil {
-			return nil, errors.Wrap(err, "DoClimcSshConnect")
-		} else {
-			return data, nil
-		}
+	if data, err := m.DoClimcSshConnect(s); err != nil {
+		return nil, errors.Wrap(err, "DoClimcSshConnect")
+	} else {
+		return data, nil
 	}
-	if err != nil {
-		if errors.Cause(err) == errors.ErrNotFound && strings.Contains(err.Error(), "No such service k8s") {
-			return climcSshConnect(s, "")
-		}
-		return nil, errors.Wrap(err, "KubeClusters")
-	}
-	if len(clusters.Data) == 0 {
-		return climcSshConnect(s, "")
-	}
-	clusterId, _ := clusters.Data[0].GetString("id")
-	if len(clusterId) == 0 {
-		return nil, httperrors.NewNotFoundError("cluster system-default no id")
-	}
-
-	query = jsonutils.NewDict()
-	query.Add(jsonutils.NewString(clusterId), "cluster")
-	query.Add(jsonutils.NewString("onecloud"), "namespace")
-	query.Add(jsonutils.NewString("climc"), "search")
-	query.Add(jsonutils.JSONTrue, "details")
-	pods, err := k8s.Pods.List(adminSession, query)
-	if err != nil {
-		return nil, errors.Wrap(err, "Pods")
-	}
-	if len(pods.Data) == 0 {
-		return nil, httperrors.NewNotFoundError("pod climc not found")
-	}
-	pod := pods.Data[0]
-	podIP, _ := pod.GetString("podIP")
-	if len(podIP) == 0 {
-		return nil, httperrors.NewNotFoundError("podIP not found from: %s", pod.String())
-	}
-
-	return climcSshConnect(adminSession, podIP)
 }
 
 func (m WebConsoleManager) DoK8sLogConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -144,12 +93,10 @@ func (m WebConsoleManager) DoServerRDPConnect(s *mcclient.ClientSession, id stri
 	return m.DoConnect(s, "server-rdp", id, "", params)
 }
 
-func (m WebConsoleManager) DoClimcSshConnect(s *mcclient.ClientSession, ip string, port int) (jsonutils.JSONObject, error) {
+func (m WebConsoleManager) DoClimcSshConnect(s *mcclient.ClientSession) (jsonutils.JSONObject, error) {
 	data := jsonutils.Marshal(map[string]interface{}{
 		"username":      "root",
 		"keep_username": true,
-		"ip_addr":       ip,
-		"port":          port,
 		"name":          "climc",
 	})
 	body := jsonutils.NewDict()
