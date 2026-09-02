@@ -922,6 +922,9 @@ func (manager *SCachedimageManager) buildStorageCachedImagesQuery(query api.Cach
 	if len(query.CloudproviderId) > 0 {
 		storagesQ = storagesQ.In("manager_id", query.CloudproviderId)
 	}
+	if len(query.ZoneId) > 0 {
+		storagesQ = storagesQ.Equals("zone_id", query.ZoneId)
+	}
 	if len(query.CloudEnv) > 0 {
 		switch query.CloudEnv {
 		case api.CLOUD_ENV_PUBLIC_CLOUD:
@@ -950,9 +953,6 @@ func (manager *SCachedimageManager) buildStorageCachedImagesQuery(query api.Cach
 
 	zonesQ := ZoneManager.Query("id")
 	zonesQ = zonesQ.Snapshot()
-	if len(query.ZoneId) > 0 {
-		zonesQ = zonesQ.Equals("id", query.ZoneId)
-	}
 	if len(query.CloudregionId) > 0 {
 		zonesQ = zonesQ.In("cloudregion_id", query.CloudregionId)
 	}
