@@ -33,4 +33,6 @@ type SRegionsReponse struct {
 	EncryptPasswd bool `json:"encrypt_passwd"`
 
 	ApiServer string `json:"api_server,allowempty"`
+
+	CorsHosts []string `json:"cors_hosts,allowempty"`
 }
