@@ -86,6 +86,21 @@ func (o *AiProviderTestConnectivityOptions) Params() (jsonutils.JSONObject, erro
 	return params, nil
 }
 
+type AiProviderSetModelsOptions struct {
+	options.BaseIdOptions
+	ModelKeys []string `help:"model keys to import" json:"model_keys"`
+}
+
+func (o *AiProviderSetModelsOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	arr := jsonutils.NewArray()
+	for _, k := range o.ModelKeys {
+		arr.Add(jsonutils.NewString(k))
+	}
+	params.Set("model_keys", arr)
+	return params, nil
+}
+
 type AiProviderUpdateOptions struct {
 	ID              string `help:"ID or name" json:"-"`
 	Name            string `json:"name,omitempty"`

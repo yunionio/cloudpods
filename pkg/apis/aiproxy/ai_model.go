@@ -63,6 +63,7 @@ type AiModelDetails struct {
 	VisualModelKey     string          `json:"visual_model_key"`
 	VisualActive       bool            `json:"visual_active"`
 	Config             *SAiModelConfig `json:"config"`
+	ContextWindow      int             `json:"context_window,omitempty"`
 }
 
 // SAiModelConfig stores per-model extension settings.

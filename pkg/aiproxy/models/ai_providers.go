@@ -127,6 +127,26 @@ func (p *SAiProvider) PerformDisable(ctx context.Context, userCred mcclient.Toke
 	return nil, nil
 }
 
+// PerformSetModels imports selected catalog models. Existing model_key rows are skipped.
+func (p *SAiProvider) PerformSetModels(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.AiProviderSetModelsInput,
+) (jsonutils.JSONObject, error) {
+	modelKeys, err := normalizeProviderModelKeys(input.ModelKeys)
+	if err != nil {
+		return nil, err
+	}
+	if len(modelKeys) == 0 {
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "model_keys is required")
+	}
+	if err := createSelectedProviderModels(ctx, userCred, p.GetOwnerId(), p, modelKeys); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
 func (manager *SAiProviderManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
