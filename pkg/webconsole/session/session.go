@@ -93,7 +93,7 @@ func (man *SSessionManager) Get(accessToken string) (*SSession, bool) {
 	protocol := s.GetProtocol()
 	if protocol != SPICE && time.Since(s.AccessedAt) < AccessInterval {
 		if !(protocol == WS && o.Options.KeepWebsocketSession) {
-			log.Warningf("Protol: %q, Token: %s, Session: %s can't be accessed during %s, last accessed at: %s", s.GetProtocol(), accessToken, s.Id, AccessInterval, s.AccessedAt)
+			log.Warningf("Protol: %q, Token: %s, Session: %s can't be accessed during %s, last accessed at: %s", s.GetProtocol(), utils.TruncateString(accessToken, 16), s.Id, AccessInterval, s.AccessedAt)
 			return nil, false
 		}
 	}
