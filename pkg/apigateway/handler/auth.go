@@ -155,6 +155,7 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 		Idps:              []agapi.SIdp{},
 		EncryptPasswd:     true,
 		ApiServer:         options.Options.ApiServer,
+		CorsHosts:         options.Options.CorsHosts,
 	}
 
 	s := auth.GetAdminSession(ctx, regions[0])
