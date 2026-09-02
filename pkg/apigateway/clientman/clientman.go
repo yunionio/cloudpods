@@ -18,12 +18,15 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"os"
+	"path/filepath"
 
-	"github.com/pkg/errors"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apigateway/options"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
+
+const sessionKeySize = 32
 
 func InitClient() error {
 	if options.Options.EnableSsl {
@@ -36,9 +39,45 @@ func InitClient() error {
 			return errors.Wrap(err, "decodePrivateKey")
 		}
 		setPrivateKey(privateKey)
+	} else {
+		key, err := loadOrCreateSessionKey(options.Options.SessionKeyFile)
+		if err != nil {
+			return errors.Wrap(err, "loadOrCreateSessionKey")
+		}
+		setSessionKey(key)
 	}
 
 	return nil
+}
+
+// loadOrCreateSessionKey returns the persistent key protecting session
+// cookies when SSL is not enabled. The key is generated on first start and
+// must be shared across apigateway instances.
+func loadOrCreateSessionKey(path string) ([]byte, error) {
+	if len(path) == 0 {
+		return nil, errors.Error("empty session key file path")
+	}
+	keyBytes, err := os.ReadFile(path)
+	if err == nil {
+		if len(keyBytes) != sessionKeySize {
+			return nil, errors.Errorf("invalid session key file %s", path)
+		}
+		return keyBytes, nil
+	}
+	if !os.IsNotExist(err) {
+		return nil, errors.Wrapf(err, "os.ReadFile %s", path)
+	}
+	key := make([]byte, sessionKeySize)
+	if _, err := rand.Read(key); err != nil {
+		return nil, errors.Wrap(err, "rand.Read")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, errors.Wrap(err, "MkdirAll")
+	}
+	if err := os.WriteFile(path, key, 0600); err != nil {
+		return nil, errors.Wrapf(err, "os.WriteFile %s", path)
+	}
+	return key, nil
 }
 
 func SetupTest() {

@@ -40,6 +40,8 @@ type GatewayOptions struct {
 
 	SessionLevelAuthCookie bool `default:"false" help:"YunionAuth cookie is valid during a browser session"`
 
+	SessionKeyFile string `help:"path to the session cookie protection key file, auto generated if missing, must be shared across apigateway instances" default:"/etc/yunion/apigateway/session.key"`
+
 	// 上报非敏感基础信息，帮助软件更加完善
 	DisableReporting bool `default:"false" help:"Reporting data every 24 hours, report data incloud version, os, platform and usages"`
 

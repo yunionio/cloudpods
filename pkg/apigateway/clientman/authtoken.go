@@ -16,12 +16,13 @@ package clientman
 
 import (
 	"bytes"
-	"compress/flate"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/binary"
-	"io"
 	"math/rand"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/pquerna/otp/totp"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apigateway/options"
@@ -46,10 +48,17 @@ const (
 
 var (
 	privateKey *rsa.PrivateKey
+	// sessionKey protects session cookies with AES-256-GCM when SSL is not
+	// enabled, so flags and tokens in the cookie can not be forged
+	sessionKey []byte
 )
 
 func setPrivateKey(key *rsa.PrivateKey) {
 	privateKey = key
+}
+
+func setSessionKey(key []byte) {
+	sessionKey = key
 }
 
 type SAuthToken struct {
@@ -98,9 +107,12 @@ func (t SAuthToken) Encode() string {
 	encBytes := t.encodeBytes()
 	if privateKey != nil {
 		return EncryptString(encBytes)
-	} else {
-		return compressString(encBytes)
 	}
+	if sessionKey != nil {
+		return encryptSessionString(encBytes)
+	}
+	log.Errorf("clientman: session key not initialized")
+	return ""
 }
 
 func Decode(t string) (*SAuthToken, error) {
@@ -112,9 +124,9 @@ func Decode(t string) (*SAuthToken, error) {
 			return nil, errors.Wrap(err, "decryptString")
 		}
 	} else {
-		tBytes, err = decompressString(t)
+		tBytes, err = decryptSessionString(t)
 		if err != nil {
-			return nil, errors.Wrap(err, "decompressString")
+			return nil, errors.Wrap(err, "decryptSessionString")
 		}
 	}
 	return decodeBytes(tBytes)
@@ -152,36 +164,55 @@ func decodeBytes(tt []byte) (*SAuthToken, error) {
 	return &ret, nil
 }
 
-func compressString(in []byte) string {
-	buf := new(bytes.Buffer)
-	compressor, _ := flate.NewWriter(buf, 9)
-	compressor.Write(in)
-	compressor.Close()
-	return base64.URLEncoding.EncodeToString(buf.Bytes())
-}
-
 func EncryptString(in []byte) string {
 	enc, _ := jwe.Encrypt(in, jwa.RSA1_5, &privateKey.PublicKey, jwa.A128GCM, jwa.Deflate)
 	return string(enc)
 }
 
-func decompressString(in string) ([]byte, error) {
-	inBytes, err := base64.URLEncoding.DecodeString(in)
+func DecryptString(in string) ([]byte, error) {
+	return jwe.Decrypt([]byte(in), jwa.RSA1_5, privateKey)
+}
+
+// encryptSessionString protects the cookie payload with AES-256-GCM when SSL
+// is not enabled, so flags and tokens in the cookie can not be forged.
+func encryptSessionString(in []byte) string {
+	block, err := aes.NewCipher(sessionKey)
+	if err != nil {
+		log.Errorf("clientman: aes.NewCipher: %v", err)
+		return ""
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		log.Errorf("clientman: cipher.NewGCM: %v", err)
+		return ""
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := cryptorand.Read(nonce); err != nil {
+		log.Errorf("clientman: rand nonce: %v", err)
+		return ""
+	}
+	out := gcm.Seal(nonce, nonce, in, nil)
+	return base64.URLEncoding.EncodeToString(out)
+}
+
+func decryptSessionString(in string) ([]byte, error) {
+	raw, err := base64.URLEncoding.DecodeString(in)
 	if err != nil {
 		return nil, errors.Wrap(err, "base64.URLEncoding.DecodeString")
 	}
-	buf := new(bytes.Buffer)
-	decompressor := flate.NewReader(bytes.NewReader(inBytes))
-	_, err = io.Copy(buf, decompressor)
+	block, err := aes.NewCipher(sessionKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "decompress")
+		return nil, errors.Wrap(err, "aes.NewCipher")
 	}
-	decompressor.Close()
-	return buf.Bytes(), nil
-}
-
-func DecryptString(in string) ([]byte, error) {
-	return jwe.Decrypt([]byte(in), jwa.RSA1_5, privateKey)
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, errors.Wrap(err, "cipher.NewGCM")
+	}
+	if len(raw) < gcm.NonceSize() {
+		return nil, errors.Error("ciphertext too short")
+	}
+	nonce, ciphertext := raw[:gcm.NonceSize()], raw[gcm.NonceSize():]
+	return gcm.Open(nil, nonce, ciphertext, nil)
 }
 
 func (t SAuthToken) GetToken(ctx context.Context) (mcclient.TokenCredential, error) {
