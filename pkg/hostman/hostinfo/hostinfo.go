@@ -2363,6 +2363,7 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		EnableContainerHygonDCU:      options.HostOptions.EnableContainerHygonDCU,
 		EnableContainerHygonDCUHAMI:  options.HostOptions.EnableContainerHygonDCUHami,
 		EnableContainerIluvatarGPU:   options.HostOptions.EnableContainerIluvatarGPU,
+		EnableContainerTHeadPPU:      options.HostOptions.EnableContainerTHeadPPU,
 		EnableWhitelist:              options.HostOptions.EnableIsolatedDeviceWhitelist,
 		SriovNics:                    sriovNics,
 		OvsOffloadNics:               offloadNics,
@@ -2693,6 +2694,7 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 	hasVasmi := false
 	hasHygon := false
 	hasIluvatar := false
+	hasTHead := false
 	hasNvidiasmi := false
 	hasNpusmi := false
 	for _, dev := range devs {
@@ -2702,6 +2704,9 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 		}
 		if vendorId == api.ILUVATAR_VENDOR_ID {
 			hasIluvatar = true
+		}
+		if vendorId == api.THEAD_VENDOR_ID {
+			hasTHead = true
 		}
 		if !utils.IsInStringArray(dev.GetSharingMode(), api.VIRTUAL_SHARING_MODES) {
 			continue
@@ -2761,6 +2766,24 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 		conf[system_service.TELEGRAF_INPUT_IXSMI] = map[string]interface{}{
 			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: ixsmiPath,
 			system_service.TELEGRAF_INPUT_CONF_LIB_PATH: path.Join(corexHome, "lib64"),
+		}
+	}
+	if hasTHead {
+		sdkHome := options.HostOptions.THeadPpuSdkHome
+		if sdkHome == "" {
+			sdkHome = "/usr/local/PPU_SDK"
+		}
+		libPath := path.Join(sdkHome, "lib64")
+		if !fileutils2.Exists(libPath) && fileutils2.Exists(path.Join(sdkHome, "lib")) {
+			libPath = path.Join(sdkHome, "lib")
+		}
+		smiPath := options.HostOptions.THeadPpuSmiPath
+		if smiPath == "" {
+			smiPath = "/usr/local/bin/ppu-smi"
+		}
+		conf[system_service.TELEGRAF_INPUT_PPUSMI] = map[string]interface{}{
+			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: smiPath,
+			system_service.TELEGRAF_INPUT_CONF_LIB_PATH: libPath,
 		}
 	}
 	if hasNvidiasmi {
