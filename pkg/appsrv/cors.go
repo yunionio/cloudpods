@@ -138,6 +138,9 @@ type CorsOptions struct {
 	ExposedHeaders []string
 	// AllowCredentials indicates whether the request can include user credentials like
 	// cookies, HTTP authentication or client side SSL certificates.
+	// Credentials are only honored for explicitly listed origins: when AllowedOrigins
+	// is empty or contains "*", echoing any origin with credentials would allow any
+	// website to make credentialed requests.
 	AllowCredentials bool
 	// MaxAge indicates how long (in seconds) the results of a preflight request
 	// can be cached
@@ -213,6 +216,13 @@ func NewCors(options CorsOptions) *Cors {
 				c.allowedOrigins = append(c.allowedOrigins, origin)
 			}
 		}
+	}
+
+	// Credentials with a wildcard/unset origin allowlist would let any
+	// website send authenticated cross-origin requests, so credentials are
+	// only honored for explicitly listed origins
+	if c.allowedOriginsAll {
+		c.allowCredentials = false
 	}
 
 	// Allowed Headers
