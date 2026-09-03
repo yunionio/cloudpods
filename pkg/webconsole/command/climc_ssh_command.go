@@ -16,9 +16,9 @@ package command
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
@@ -27,6 +27,44 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/webconsole/helper"
 )
+
+var (
+	usernameRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
+	envKeyRe   = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+)
+
+// shellQuote quotes s as a single POSIX shell word, so that it stays literal
+// data when interpreted by the remote shell.
+func shellQuote(s string) string {
+	if s == "" {
+		return "''"
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// buildRemoteCmd builds the command executed by the remote shell. Every
+// interpolated value is passed through shellQuote so it cannot escape into
+// shell syntax (command injection).
+func buildRemoteCmd(env map[string]string, cmd string, args []string) (string, error) {
+	parts := make([]string, 0, len(env)+1)
+	for k, v := range env {
+		if !envKeyRe.MatchString(k) {
+			return "", fmt.Errorf("invalid env key %q", k)
+		}
+		parts = append(parts, fmt.Sprintf("export %s=%s", k, shellQuote(v)))
+	}
+	if cmd != "" {
+		tokens := append([]string{cmd}, args...)
+		quoted := make([]string, len(tokens))
+		for i, token := range tokens {
+			quoted[i] = shellQuote(token)
+		}
+		parts = append(parts, strings.Join(quoted, " "))
+	} else {
+		parts = append(parts, "exec bash")
+	}
+	return strings.Join(parts, " && "), nil
+}
 
 type ClimcSshCommand struct {
 	*BaseCommand
@@ -37,31 +75,36 @@ type ClimcSshCommand struct {
 }
 
 func NewClimcSshCommand(info *webconsole.ClimcSshInfo, s *mcclient.ClientSession) (*ClimcSshCommand, error) {
-	if info.IpAddr == "" {
-		return nil, fmt.Errorf("Empty host ip address")
-	}
 	if info.Username == "" {
 		return nil, fmt.Errorf("Empty username")
 	}
-	privateKey, err := helper.GetValidPrivateKey(info.IpAddr, 22, info.Username, "")
+	if !usernameRe.MatchString(info.Username) {
+		return nil, fmt.Errorf("Invalid username %q", info.Username)
+	}
+	targetIp := helper.FetchClimcTargetIp()
+	privateKey, err := helper.GetValidPrivateKey(targetIp, 22, info.Username, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "get cloud admin private key")
 	}
-	file, err := ioutil.TempFile("", fmt.Sprintf("id_rsa.%s.", info.IpAddr))
+	file, err := os.CreateTemp("", fmt.Sprintf("id_rsa.%s.", targetIp))
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
 	filename := file.Name()
-	{
+	err = func() error {
+		defer file.Close()
 		err = os.Chmod(filename, 0600)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		_, err = file.Write([]byte(privateKey))
 		if err != nil {
-			return nil, err
+			return err
 		}
+		return nil
+	}()
+	if err != nil {
+		return nil, err
 	}
 	env := map[string]string{
 		"OS_AUTH_TOKEN":           s.GetToken().GetTokenString(),
@@ -69,29 +112,30 @@ func NewClimcSshCommand(info *webconsole.ClimcSshInfo, s *mcclient.ClientSession
 		"OS_PROJECT_DOMAIN":       s.GetProjectDomain(),
 		"YUNION_USE_CACHED_TOKEN": "false",
 		"OS_TRY_TERM_WIDTH":       "false",
+		"GOMAXPROCS":              "2",
+		"OS_USERNAME":             "",
+		"OS_PASSWORD":             "",
+		"OS_DOMAIN_NAME":          "",
+		"OS_ACCESS_KEY":           "",
+		"OS_SECRET_KEY":           "",
 	}
 	if len(info.Env) != 0 {
 		env = info.Env
 	}
-	envCmd := ""
-	for k, v := range env {
-		envCmd = fmt.Sprintf("%s export %s=%s", envCmd, k, v)
+	remoteCmd, err := buildRemoteCmd(env, info.Command, info.Args)
+	if err != nil {
+		return nil, err
 	}
-	execCmd := "exec bash"
-	if info.Command != "" {
-		execCmd = info.Command
-		execCmd = fmt.Sprintf("%s %s", execCmd, strings.Join(info.Args, " "))
-	}
+	// argv is passed directly to ssh without a shell, so user input cannot
+	// escape into local command execution
 	sshArgs := []string{
 		"-t", // force pseudo-terminal allocation
 		"-o", "StrictHostKeyChecking=no",
 		"-i", filename,
-		fmt.Sprintf("%s@%s", info.Username, info.IpAddr),
-		fmt.Sprintf("'%s && %s'", envCmd, execCmd),
+		fmt.Sprintf("%s@%s", info.Username, targetIp),
+		remoteCmd,
 	}
-	sshCmd := fmt.Sprintf("ssh %s", strings.Join(sshArgs, " "))
-	args := []string{"-c", sshCmd}
-	bCmd := NewBaseCommand(s, "bash", args...)
+	bCmd := NewBaseCommand(s, "ssh", sshArgs...)
 	cmd := &ClimcSshCommand{
 		BaseCommand: bCmd,
 		Info:        info,
