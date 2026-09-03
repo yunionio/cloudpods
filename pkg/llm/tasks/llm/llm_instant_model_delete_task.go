@@ -136,6 +136,7 @@ func (task *LLMInstantModelDeleteTask) OnImageDeleteCompleteFailed(ctx context.C
 }
 
 func (task *LLMInstantModelDeleteTask) OnImageDeleteComplete(ctx context.Context, model *models.SInstantModel, body jsonutils.JSONObject) {
+	model.CleanupImportCacheBestEffort(ctx, task.GetUserCred())
 	err := model.RealDelete(ctx, task.GetUserCred())
 	if err != nil {
 		task.taskFailed(ctx, model, err)

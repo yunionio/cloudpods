@@ -90,6 +90,9 @@ type MountedByLLMInfo struct {
 type InstantModelSyncstatusInput struct {
 }
 
+type InstantModelResumeImportInput struct {
+}
+
 // InstantModelVramRequirement reports the heuristic VRAM needed to run this
 // model, mirroring GPUStack's `estimate_model_vram`. Returns
 // `vram_required_mb=0` when `weight_size_bytes` is unknown — callers should
