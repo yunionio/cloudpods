@@ -152,7 +152,9 @@ func (vd *NbdkitDisk) ExecProg() error {
 		args = append(args, fmt.Sprintf("password=%s", vd.Passwd))
 	}
 	cmd := NewCommand("nbdkit", args...)
-	log.Debugf("command to mount: %s", cmd)
+	// mask the password in the log, do not print it verbatim
+	safeCmd := strings.Replace(cmd.String(), "password="+vd.Passwd, "password=******", 1)
+	log.Debugf("command to mount: %s", safeCmd)
 	vd.Proc = cmd
 	vd.NbdURI = ""
 	err := vd.Proc.Start()
