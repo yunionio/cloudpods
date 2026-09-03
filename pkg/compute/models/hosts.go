@@ -3074,6 +3074,23 @@ func (hh *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredent
 
 func (hh *SHost) getNetworkOfIPOnHost(ctx context.Context, ipAddr string) (*SNetwork, error) {
 	netInterfaces := hh.GetHostNetInterfaces()
+	// VMware: only associate networks under wires of the same manager_id
+	if hh.HostType == api.HOST_TYPE_ESXI {
+		if len(hh.ManagerId) == 0 {
+			return nil, fmt.Errorf("ESXi host %s has empty manager_id, cannot resolve network for IP %s", hh.Id, ipAddr)
+		}
+		for _, netInterface := range netInterfaces {
+			wire := netInterface.GetWire()
+			if wire == nil || wire.ManagerId != hh.ManagerId {
+				continue
+			}
+			network, err := netInterface.GetCandidateNetworkForIp(ctx, nil, nil, rbacscope.ScopeNone, ipAddr)
+			if err == nil && network != nil {
+				return network, nil
+			}
+		}
+		return nil, fmt.Errorf("IP %s not reachable on ESXi host %s under manager %s", ipAddr, hh.Id, hh.ManagerId)
+	}
 	for _, netInterface := range netInterfaces {
 		network, err := netInterface.GetCandidateNetworkForIp(ctx, nil, nil, rbacscope.ScopeNone, ipAddr)
 		if err == nil && network != nil {
