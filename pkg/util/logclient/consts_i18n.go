@@ -1477,6 +1477,11 @@ func init() {
 		CN("保存镜像"),
 	)
 
+	o.Set(ACT_RESUME_IMPORT, i18n.NewTableEntry().
+		EN("Resume Import").
+		CN("继续导入"),
+	)
+
 	o.Set(ACT_CLOUD_SYNC, i18n.NewTableEntry().
 		EN("Sync Cloud Resource").
 		CN("同步云资源"),

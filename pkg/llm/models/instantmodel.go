@@ -811,6 +811,8 @@ func (model *SInstantModel) CustomizeDelete(ctx context.Context, userCred mcclie
 }
 
 func (model *SInstantModel) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, parentTaskId string) error {
+	// Abort in-flight import/download before marking deleting so the worker exits promptly.
+	CancelInstantModelImport(model.GetId())
 	model.SetStatus(ctx, userCred, commonapis.STATUS_DELETING, "")
 	params := jsonutils.NewDict()
 	if query != nil && jsonutils.QueryBoolean(query, "purge", false) {
@@ -1117,7 +1119,13 @@ func (man *SInstantModelManager) DoImportWithParent(
 	return tempModel, nil
 }
 
+const instantModelImportInputMetadataKey = "import_input"
+
 func (model *SInstantModel) startImportTask(ctx context.Context, userCred mcclient.TokenCredential, input apis.InstantModelImportInput, parentTaskId string) error {
+	if err := model.SetMetadata(ctx, instantModelImportInputMetadataKey, jsonutils.Marshal(input), userCred); err != nil {
+		return errors.Wrap(err, "SetMetadata import_input")
+	}
+
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.Marshal(input), "import_input")
 
@@ -1128,6 +1136,66 @@ func (model *SInstantModel) startImportTask(ctx context.Context, userCred mcclie
 	task.ScheduleRun(nil)
 
 	return nil
+}
+
+func (model *SInstantModel) resolveImportInput(ctx context.Context, userCred mcclient.TokenCredential) (apis.InstantModelImportInput, error) {
+	input := apis.InstantModelImportInput{}
+	if meta := model.GetMetadataJson(ctx, instantModelImportInputMetadataKey, userCred); meta != nil {
+		if err := meta.Unmarshal(&input); err != nil {
+			return input, errors.Wrap(err, "unmarshal import_input metadata")
+		}
+		if strings.TrimSpace(input.ModelName) != "" && input.LlmType != "" {
+			return input, nil
+		}
+	}
+	// Fallback for records imported before metadata persistence.
+	input = apis.InstantModelImportInput{
+		ModelName: model.ModelName,
+		ModelTag:  model.ModelTag,
+		LlmType:   apis.LLMContainerType(model.LlmType),
+		Source:    defaultInstantModelSource(model.Source),
+		RepoId:    model.ModelName,
+		Revision:  model.ModelTag,
+	}
+	if strings.TrimSpace(input.ModelName) == "" || input.LlmType == "" {
+		return input, httperrors.NewInvalidStatusError("cannot resume import: missing model_name or llm_type")
+	}
+	return input, nil
+}
+
+func (model *SInstantModel) PerformResumeImport(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.InstantModelResumeImportInput,
+) (jsonutils.JSONObject, error) {
+	if model.Status != imageapi.IMAGE_STATUS_KILLED {
+		return nil, httperrors.NewInvalidStatusError("can only resume import when status is killed, current: %s", model.Status)
+	}
+
+	importInput, err := model.resolveImportInput(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "resolveImportInput")
+	}
+
+	if err := model.SetStatus(ctx, userCred, imageapi.IMAGE_STATUS_QUEUED, "resume import"); err != nil {
+		return nil, errors.Wrap(err, "SetStatus queued")
+	}
+	if err := model.SetProgress(0); err != nil {
+		log.Warningf("PerformResumeImport: reset progress for %s: %s", model.Id, err)
+	}
+
+	if err := model.startImportTask(ctx, userCred, importInput, ""); err != nil {
+		_ = model.SetStatus(ctx, userCred, imageapi.IMAGE_STATUS_KILLED, err.Error())
+		db.OpsLog.LogEvent(model, logclient.ACT_RESUME_IMPORT, err, userCred)
+		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_RESUME_IMPORT, err, userCred, false)
+		return nil, errors.Wrap(err, "startImportTask")
+	}
+
+	notes := fmt.Sprintf("resume import %s:%s", importInput.ModelName, importInput.ModelTag)
+	db.OpsLog.LogEvent(model, logclient.ACT_RESUME_IMPORT, notes, userCred)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_RESUME_IMPORT, notes, userCred, true)
+	return nil, nil
 }
 
 func getInstantModelImportWorkDir(root string, input apis.InstantModelImportInput) (string, error) {
@@ -1182,6 +1250,12 @@ func sanitizeInstantModelImportCacheComponent(s string) string {
 }
 
 func (model *SInstantModel) updateImportStatus(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
+	if err := ctx.Err(); err != nil {
+		return errors.Wrap(err, "import cancelled")
+	}
+	if model.Status == commonapis.STATUS_DELETING || model.Deleted || model.PendingDeleted {
+		return errors.Errorf("import cancelled: model is deleting")
+	}
 	if model.Status == status {
 		return nil
 	}
@@ -1205,6 +1279,9 @@ func (model *SInstantModel) updateImportStatus(ctx context.Context, userCred mcc
 }
 
 func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.TokenCredential, s *mcclient.ClientSession, input apis.InstantModelImportInput) (tmpDir string, err error) {
+	ctx, endImport := model.beginImportContext(ctx)
+	defer endImport()
+
 	progress := newInstantModelImportProgressUpdater(model)
 	progress.set(0, true)
 
@@ -1233,6 +1310,10 @@ func (model *SInstantModel) DoImport(ctx context.Context, userCred mcclient.Toke
 	modelId, mounts, err := drv.DownloadModel(ctx, userCred, nil, tmpDir, input, progress.setDownloadProgress)
 	if err != nil {
 		err = errors.Wrap(err, "DownloadModel")
+		return
+	}
+	if err = ctx.Err(); err != nil {
+		err = errors.Wrap(err, "import cancelled")
 		return
 	}
 	progress.set(apis.InstantModelImportDownloadProgressEnd, true)
@@ -1483,10 +1564,16 @@ func (model *SInstantModel) GetDetailsVramRequirement(
 
 func (model *SInstantModel) CleanupImportTmpDir(ctx context.Context, userCred mcclient.TokenCredential, tmpDir string) error {
 	// sync image status
-	err := model.syncImageStatus(ctx, userCred)
-	if err != nil {
-		return errors.Wrap(err, "syncImageStatus")
+	if len(model.ImageId) > 0 {
+		err := model.syncImageStatus(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "syncImageStatus")
+		}
 	}
+	return removeImportWorkDir(tmpDir)
+}
+
+func removeImportWorkDir(tmpDir string) error {
 	if tmpDir == "" {
 		return nil
 	}
@@ -1495,6 +1582,23 @@ func (model *SInstantModel) CleanupImportTmpDir(ctx context.Context, userCred mc
 		return errors.Wrapf(err, "Failed to remove tmpDir %s", tmpDir)
 	}
 	return nil
+}
+
+// CleanupImportCacheBestEffort removes the import work directory for this model if resolvable.
+func (model *SInstantModel) CleanupImportCacheBestEffort(ctx context.Context, userCred mcclient.TokenCredential) {
+	input, err := model.resolveImportInput(ctx, userCred)
+	if err != nil {
+		log.Warningf("CleanupImportCacheBestEffort %s: resolveImportInput: %s", model.Id, err)
+		return
+	}
+	tmpDir, err := getInstantModelImportWorkDir(options.Options.LLMWorkingDirectory, input)
+	if err != nil {
+		log.Warningf("CleanupImportCacheBestEffort %s: get work dir: %s", model.Id, err)
+		return
+	}
+	if err := removeImportWorkDir(tmpDir); err != nil {
+		log.Warningf("CleanupImportCacheBestEffort %s: %s", model.Id, err)
+	}
 }
 
 // GetOllamaRegistryYAML returns the Ollama registry YAML content
