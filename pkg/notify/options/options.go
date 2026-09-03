@@ -34,6 +34,7 @@ type NotifyOption struct {
 
 	VerifyExpireInterval int `help:"expire interval of verify message; minutes" default:"2"`
 	VerifyValidInterval  int `help:"valid interval of verify message; miniutes" default:"20"`
+	VerifyMaxAttempts    int `help:"maximal failed attempts before a verification code is invalidated" default:"5"`
 
 	SyncReceiverIntervalMinutes int  `help:"interval to sync receivers from keystone, in minutes" default:"30"`
 	EnableWatchUser             bool `help:"use etcd to watch user" default:"false"`
