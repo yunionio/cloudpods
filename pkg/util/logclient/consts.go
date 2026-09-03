@@ -321,4 +321,6 @@ const (
 
 	ACT_REGISTER_AIPROXY   = "register_aiproxy"
 	ACT_UNREGISTER_AIPROXY = "unregister_aiproxy"
+
+	ACT_RESUME_IMPORT = "resume_import"
 )
