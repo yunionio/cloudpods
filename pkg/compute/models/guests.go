@@ -4358,13 +4358,22 @@ func (self *SGuest) SyncVMNics(
 			ip := commonext[i].GetIP()
 			ip6 := commonext[i].GetIP6()
 			if len(ip) > 0 {
-				if !network.Contains(ip) {
+				needRebind := network == nil || !network.Contains(ip)
+				// ESXi: force rebind if current network is not under the same manager wire
+				if !needRebind && host.HostType == api.HOST_TYPE_ESXI {
+					wire, _ := network.GetWire()
+					if wire == nil || wire.ManagerId != host.ManagerId {
+						needRebind = true
+					}
+				}
+				if needRebind {
 					localNet, err := getCloudNicNetwork(ctx, commonext[i], host, ipList, i)
 					if err != nil {
 						return errors.Wrapf(err, "getCloudNicNetwork")
 					}
 					commondb[i].NetworkId = localNet.Id
 					commondb[i].IpAddr = ip
+					commondb[i].Ip6Addr = ip6
 				} else {
 					commondb[i].IpAddr = ip
 					commondb[i].Ip6Addr = ip6
