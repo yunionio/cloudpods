@@ -15,7 +15,6 @@
 package webconsole
 
 type ClimcSshInfo struct {
-	IpAddr      string                `json:"ip_addr"`
 	Username    string                `json:"username"`
 	Command     string                `json:"command"`
 	Args        []string              `json:"args"`
