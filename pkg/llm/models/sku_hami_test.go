@@ -91,6 +91,13 @@ func TestNormalizeLLMSkuDeviceLegacyTypes(t *testing.T) {
 			wantVendor:      "ILUVATAR",
 		},
 		{
+			name:            "THEAD_PPU",
+			in:              api.Device{DevType: computeapi.CONTAINER_DEV_THEAD_PPU},
+			wantDevType:     computeapi.GPU_TYPE,
+			wantSharingMode: computeapi.DEVICE_SHARING_MODE_EXCLUSIVE,
+			wantVendor:      "THEAD",
+		},
+		{
 			name:            "ILUVATAR vendor preserved and canonicalized",
 			in:              api.Device{DevType: computeapi.GPU_TYPE, Vendor: "iluvatar", Model: "BI-V150S"},
 			wantDevType:     computeapi.GPU_TYPE,
