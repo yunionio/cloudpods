@@ -160,6 +160,7 @@ func init() {
 	cmd.Perform("add-network-secgroup", new(options.ServerNetworkSecGroupsOptions))
 	cmd.Perform("revoke-network-secgroup", new(options.ServerNetworkSecGroupsOptions))
 	cmd.Perform("change-disk-driver", new(options.ServerChangeDiskDriverOptions))
+	cmd.Perform("set-iso", new(options.ServerSetIsoOptions))
 
 	cmd.GetProperty(&options.ServerStatusStatisticsOptions{})
 	cmd.GetProperty(&options.ServerProjectStatisticsOptions{})

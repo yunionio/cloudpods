@@ -89,6 +89,7 @@ type ScheduleInput struct {
 	CpuMode         string `json:"cpu_mode"`
 	OsArch          string `json:"os_arch"`
 	ResetCpuNumaPin bool   `json:"reset_cpu_numa_pin"`
+	QemuVersion     string `json:"qemu_version"`
 
 	ExtraCpuCount   int           `json:"extra_cpu_count"`
 	CpuNumaPin      []SCpuNumaPin `json:"cpu_numa_pin"`

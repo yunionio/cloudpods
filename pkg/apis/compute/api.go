@@ -413,7 +413,10 @@ type ServerConfigs struct {
 	// default: kvm
 	Hypervisor string `json:"hypervisor"`
 
-	// swagger:ignore
+	// specific qemu version, eg: 4.2.0, 10.0.7
+	QemuVersion string `json:"qemu_version"`
+
+	// swagger: ignore
 	Provider string `json:"provider"`
 
 	// 包年包月资源池

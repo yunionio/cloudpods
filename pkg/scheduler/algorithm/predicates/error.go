@@ -46,6 +46,7 @@ const (
 	ErrPrepaidHostOccupied                    = `prepaid host occupied`
 	ErrHostCpuArchitectureNotMatch            = `host cpu architecture not match`
 	ErrHostKvmVcpuMaxNotEnough                = `host kvm vcpu max not enough`
+	ErrHostQemuVersionNotMatch                = `host qemu version not match`
 
 	ErrUnknown = `unknown error`
 )
