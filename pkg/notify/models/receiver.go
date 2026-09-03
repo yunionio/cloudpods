@@ -849,6 +849,19 @@ func (r *SReceiver) PerformVerify(ctx context.Context, userCred mcclient.TokenCr
 		return nil, httperrors.NewForbiddenError("The validation expires, please retrieve the verification code again")
 	}
 	if verification.Token != input.Token {
+		_, err := db.Update(verification, func() error {
+			verification.FailedCount += 1
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "update failed count")
+		}
+		if verification.FailedCount >= options.Options.VerifyMaxAttempts {
+			if err := verification.Delete(ctx, userCred); err != nil {
+				log.Errorf("delete verification %s after too many failed attempts: %v", verification.Id, err)
+			}
+			return nil, errors.Wrap(httperrors.ErrTooManyRequests, "too many failed attempts, please request a new verification code")
+		}
 		return nil, httperrors.NewInputParameterError("wrong token")
 	}
 	_, err = db.Update(r, func() error {
@@ -862,7 +875,14 @@ func (r *SReceiver) PerformVerify(ctx context.Context, userCred mcclient.TokenCr
 		}
 		return nil
 	})
-	return nil, err
+	if err != nil {
+		return nil, err
+	}
+	// the code is single use, remove it so it can not be replayed
+	if err := verification.Delete(ctx, userCred); err != nil {
+		log.Errorf("delete verification %s after verified: %v", verification.Id, err)
+	}
+	return nil, nil
 }
 
 func (r *SReceiver) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
