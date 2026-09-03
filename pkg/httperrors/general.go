@@ -15,6 +15,8 @@
 package httperrors
 
 import (
+	"database/sql"
+
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 )
@@ -31,6 +33,9 @@ func NewGeneralError(err error) *httputils.JSONClientError {
 		return httputils.NewJsonClientError(code, string(nerr), "%s", err.Error())
 	default:
 		root := errors.Cause(err)
+		if root == sql.ErrNoRows {
+			return NewNotFoundError("%s", err.Error())
+		}
 		switch nerr := root.(type) {
 		case *httputils.JSONClientError:
 			nerr.Details = err.Error()
