@@ -3326,6 +3326,13 @@ func (hh *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredent
 func (hh *SHost) getNetworkOfIPOnHost(ctx context.Context, ipAddr string) (*SNetwork, error) {
 	netInterfaces := hh.GetHostNetInterfaces()
 	for _, netInterface := range netInterfaces {
+		if hh.HostType == api.HOST_TYPE_ESXI {
+			if wire := netInterface.GetWire(); wire != nil {
+				if wire.GetProviderName() != api.CLOUD_PROVIDER_VMWARE {
+					continue
+				}
+			}
+		}
 		network, err := netInterface.GetCandidateNetworkForIp(ctx, nil, nil, rbacscope.ScopeNone, ipAddr)
 		if err == nil && network != nil {
 			return network, nil
