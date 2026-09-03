@@ -691,3 +691,10 @@ func (w *SWindowsRootFs) DeployTelegraf(config string) (bool, error) {
 func (w *SWindowsRootFs) ConfigSshd(loginAccount, loginPassword string, sshPort int) error {
 	return nil
 }
+
+func (w *SWindowsRootFs) IsWindowsVirtioNetSupport(part IDiskPartition) bool {
+	confPath := part.GetLocalPath("/windows/system32/config", true)
+	tool := winutils.NewWinRegTool(confPath)
+	tool.CheckPath()
+	return tool.IsNetKVMInstalled()
+}

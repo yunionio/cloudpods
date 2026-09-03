@@ -353,6 +353,8 @@ const (
 
 	VM_METADATA_ENABLE_TPM = "enable_tpm"
 
+	VM_METADATA_QEMU_VERSION = "qemu_version"
+
 	VM_METADATA_RELEASED_DEVICES = "released_devices"
 
 	VM_METADATA_CPU_NUMA_PIN      = "__cpu_numa_pin"

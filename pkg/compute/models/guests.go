@@ -2069,6 +2069,13 @@ func (manager *SGuestManager) validateCreateData(
 			osType = osProf.OSType
 			input.OsType = osType
 		}
+		if imgIsWindows {
+			netDriver := api.NETWORK_DRIVER_E1000
+			if hasVirtioNetDrvier := imgProperties[imageapi.IMAGE_WIN_VIRTIO_NET] == "true"; hasVirtioNetDrvier {
+				netDriver = api.NETWORK_DRIVER_VIRTIO
+			}
+			osProf.NetDriver = netDriver
+		}
 		input.OsProfile = jsonutils.Marshal(osProf)
 	}
 
@@ -2932,6 +2939,9 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 	matcherJson, _ := data.Get(api.BAREMETAL_SERVER_METATA_ROOT_DISK_MATCHER)
 	if matcherJson != nil {
 		guest.SetMetadata(ctx, api.BAREMETAL_SERVER_METATA_ROOT_DISK_MATCHER, matcherJson, userCred)
+	}
+	if qemuVersion, _ := data.GetString(api.VM_METADATA_QEMU_VERSION); qemuVersion != "" {
+		guest.SetMetadata(ctx, api.VM_METADATA_QEMU_VERSION, qemuVersion, userCred)
 	}
 
 	userData, _ := data.GetString("user_data")

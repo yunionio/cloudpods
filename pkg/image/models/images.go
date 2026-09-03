@@ -1833,6 +1833,9 @@ func (image *SImage) updateImageInfo(
 	imageProperties.Set(api.IMAGE_IS_LVM_PARTITION, jsonutils.NewBool(imageInfo.IsLvmPartition))
 	imageProperties.Set(api.IMAGE_IS_READONLY, jsonutils.NewBool(imageInfo.IsReadonly))
 	imageProperties.Set(api.IMAGE_INSTALLED_CLOUDINIT, jsonutils.NewBool(imageInfo.IsInstalledCloudInit))
+	if imageInfo.IsWindowsVirtioNetSupport {
+		imageProperties.Set(api.IMAGE_WIN_VIRTIO_NET, jsonutils.JSONTrue)
+	}
 
 	return ImagePropertyManager.SaveProperties(ctx, userCred, image.Id, imageProperties)
 }

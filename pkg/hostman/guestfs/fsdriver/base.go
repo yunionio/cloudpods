@@ -160,6 +160,10 @@ func (l *sGuestRootFsDriver) MountProcfs() bool {
 	return false
 }
 
+func (l *sGuestRootFsDriver) IsWindowsVirtioNetSupport(IDiskPartition) bool {
+	return false
+}
+
 const (
 	modeAuthorizedKeysRWX = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
 	modeAuthorizedKeysRW  = syscall.S_IRUSR | syscall.S_IWUSR
