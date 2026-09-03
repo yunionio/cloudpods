@@ -234,7 +234,7 @@ func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context,
 
 	// validate reserverd resource
 	// inject default reserverd resource for gpu:
-	if host.HostType == api.HOST_TYPE_KVM && input.SharingMode == api.DEVICE_SHARING_MODE_EXCLUSIVE && input.DevType == api.GPU_TYPE {
+	if host.HostType == api.HOST_TYPE_HYPERVISOR && input.SharingMode == api.DEVICE_SHARING_MODE_EXCLUSIVE && input.DevType == api.GPU_TYPE {
 		defaultCPU := 8        // 8
 		defaultMem := 8192     // 8g
 		defaultStore := 102400 // 100g
@@ -2502,7 +2502,7 @@ func (dev *SIsolatedDevice) IsKvmExclusiveGPU() bool {
 		return false
 	}
 	host := dev.GetHost()
-	if host.HostType != api.HOST_TYPE_KVM {
+	if host.HostType != api.HOST_TYPE_HYPERVISOR {
 		return false
 	}
 	return true
