@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/cache"
 	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/syncman"
@@ -123,7 +124,7 @@ func (c *TokenCacheVerify) Verify(ctx context.Context, cli *mcclient.Client, adm
 			return cred, nil
 		} else {
 			c.DeleteToken(token)
-			log.Infof("Remove expired cache token: %s", token)
+			log.Infof("Remove expired cache token: %s", utils.TruncateString(token, 16))
 		}
 	}
 
