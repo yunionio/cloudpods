@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apigateway/clientman"
 	"yunion.io/x/onecloud/pkg/apigateway/options"
@@ -396,7 +397,7 @@ func handleOIDCUserInfo(ctx context.Context, w http.ResponseWriter, req *http.Re
 	}
 	token, err := decodeOIDCClientToken(tokenHdr)
 	if err != nil {
-		log.Errorf("decodeOIDCClientToken %s fail %s", tokenHdr, err)
+		log.Errorf("decodeOIDCClientToken %s fail %s", utils.TruncateString(tokenHdr, 16), err)
 		httperrors.InvalidCredentialError(ctx, w, "Token in header invalid")
 		return
 	}

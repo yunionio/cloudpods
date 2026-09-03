@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	identity_api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -334,7 +335,7 @@ func (manager *SPolicyManager) allowWithoutCache(policies rbacutils.TPolicySet, 
 			user = userCred.GetUserName()
 			token = userCred.GetTokenString()
 		}
-		log.Warningf("no policies fetched for scope %s user %s token %s key %s", scope, user, token, policyKey(userCred))
+		log.Warningf("no policies fetched for scope %s user %s token %s key %s", scope, user, utils.TruncateString(token, 16), policyKey(userCred))
 	} else {
 		matchRules = policies.GetMatchRules(service, resource, action, extra...)
 		if consts.IsRbacDebug() {
