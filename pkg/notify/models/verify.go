@@ -16,9 +16,10 @@ package models
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"database/sql"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"time"
 
 	"yunion.io/x/pkg/errors"
@@ -53,14 +54,20 @@ type SVerification struct {
 	ReceiverId  string `width:"128" nullable:"false"`
 	ContactType string `width:"16" nullable:"false"`
 	Token       string `width:"200" nullable:"false"`
+
+	FailedCount int `default:"0" nullable:"false"`
 }
 
 var ErrVerifyFrequently = errors.Wrap(httperrors.ErrTooManyRequests, "Send validation messages too frequently")
 
-func (vm *SVerificationManager) generateVerifyToken() string {
-	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	token := fmt.Sprintf("%06v", rnd.Int31n(1000000))
-	return token
+// generateVerifyToken generates a cryptographically secure 6-digit
+// verification code.
+func (vm *SVerificationManager) generateVerifyToken() (string, error) {
+	n, err := cryptorand.Int(cryptorand.Reader, big.NewInt(1000000))
+	if err != nil {
+		return "", errors.Wrap(err, "cryptorand.Int")
+	}
+	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
 func (vm *SVerificationManager) Create(ctx context.Context, receiverId, contactType string) (*SVerification, error) {
@@ -70,12 +77,16 @@ func (vm *SVerificationManager) Create(ctx context.Context, receiverId, contactT
 		return nil, err
 	}
 	if ret == nil {
+		token, err := vm.generateVerifyToken()
+		if err != nil {
+			return nil, err
+		}
 		ret = &SVerification{
 			ReceiverId:  receiverId,
 			ContactType: contactType,
-			Token:       vm.generateVerifyToken(),
+			Token:       token,
 		}
-		err := vm.TableSpec().Insert(ctx, ret)
+		err = vm.TableSpec().Insert(ctx, ret)
 		if err != nil {
 			return nil, err
 		}
@@ -84,10 +95,15 @@ func (vm *SVerificationManager) Create(ctx context.Context, receiverId, contactT
 		if now.Before(ret.CreatedAt.Add(time.Duration(options.Options.VerifyExpireInterval) * time.Minute)) {
 			return nil, ErrVerifyFrequently
 		}
-		_, err := db.Update(ret, func() error {
-			ret.Token = vm.generateVerifyToken()
+		token, err := vm.generateVerifyToken()
+		if err != nil {
+			return nil, err
+		}
+		_, err = db.Update(ret, func() error {
+			ret.Token = token
 			ret.CreatedAt = now
 			ret.UpdatedAt = now
+			ret.FailedCount = 0
 			return nil
 		})
 		if err != nil {
