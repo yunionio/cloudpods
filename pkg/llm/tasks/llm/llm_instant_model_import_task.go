@@ -6,12 +6,14 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	commonapis "yunion.io/x/onecloud/pkg/apis"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	apis "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/llm/models"
 	"yunion.io/x/onecloud/pkg/llm/options"
+	"yunion.io/x/onecloud/pkg/llm/tasks/worker"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -25,9 +27,18 @@ func init() {
 }
 
 func (task *LLMInstantModelImportTask) taskFailed(ctx context.Context, model *models.SInstantModel, err string) {
-	model.SetStatus(ctx, task.UserCred, imageapi.IMAGE_STATUS_KILLED, err)
-	db.OpsLog.LogEvent(model, db.ACT_CREATE, err, task.UserCred)
-	logclient.AddActionLogWithStartable(task, model, logclient.ACT_CREATE, err, task.UserCred, false)
+	// Deleting: do not overwrite status with killed; download was cancelled by delete.
+	if model.Status == commonapis.STATUS_DELETING || model.Deleted || model.PendingDeleted {
+		task.SetStageFailed(ctx, jsonutils.NewString(err))
+		return
+	}
+	notes := err
+	if notes != "" {
+		notes = notes + "; resume with resume-import to continue download"
+	}
+	model.SetStatus(ctx, task.UserCred, imageapi.IMAGE_STATUS_KILLED, notes)
+	db.OpsLog.LogEvent(model, db.ACT_CREATE, notes, task.UserCred)
+	logclient.AddActionLogWithStartable(task, model, logclient.ACT_CREATE, notes, task.UserCred, false)
 	task.SetStageFailed(ctx, jsonutils.NewString(err))
 }
 
@@ -43,35 +54,39 @@ func (task *LLMInstantModelImportTask) OnInit(ctx context.Context, obj db.IStand
 
 	task.SetStage("OnImportComplete", nil)
 	s := auth.GetAdminSession(ctx, options.Options.Region)
-	var fileDir string
-	// err = s.WithTaskCallback(task.GetId(), func() error {
-	// 	fileDir, err = model.DoImport(ctx, task.UserCred, s, input)
-	// 	// 将 fileDir 存储到 task.Params 中，以便后续阶段可以访问
-	// 	if fileDir != "" {
-	// 		task.Params.Set("file_dir", jsonutils.NewString(fileDir))
-	// 	}
-	// 	return err
-	// })
-	fileDir, err = model.DoImport(ctx, task.UserCred, s, input)
-	// 将 fileDir 存储到 task.Params 中，以便后续阶段可以访问
-	if fileDir != "" {
-		task.Params.Set("file_dir", jsonutils.NewString(fileDir))
-	}
-	if err != nil {
-		task.OnImportCompleteFailed(ctx, model, jsonutils.NewString(err.Error()))
-		return
-	}
-	task.OnImportComplete(ctx, model, nil)
+	// Run DoImport off the object lock so Delete API is not blocked by long downloads.
+	worker.ImportTaskRun(task, func() (jsonutils.JSONObject, error) {
+		fileDir, err := model.DoImport(ctx, task.UserCred, s, input)
+		result := jsonutils.NewDict()
+		if fileDir != "" {
+			result.Set("file_dir", jsonutils.NewString(fileDir))
+		}
+		if err != nil {
+			return result, err
+		}
+		return result, nil
+	})
 }
 
 func (task *LLMInstantModelImportTask) OnImportComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	model := obj.(*models.SInstantModel)
 
-	// 确保删除 fileDir
-	if fileDirObj, err := task.Params.Get("file_dir"); err == nil {
-		if fileDir, _ := fileDirObj.GetString(); fileDir != "" {
-			model.CleanupImportTmpDir(ctx, task.GetUserCred(), fileDir)
+	if model.Status == commonapis.STATUS_DELETING || model.Deleted || model.PendingDeleted {
+		task.SetStageComplete(ctx, nil)
+		return
+	}
+
+	fileDir := ""
+	if body != nil {
+		fileDir, _ = body.GetString("file_dir")
+	}
+	if fileDir == "" {
+		if fileDirObj, err := task.Params.Get("file_dir"); err == nil {
+			fileDir, _ = fileDirObj.GetString()
 		}
+	}
+	if fileDir != "" {
+		model.CleanupImportTmpDir(ctx, task.GetUserCred(), fileDir)
 	}
 
 	// Best-effort: estimate the model's weight-file size for downstream
@@ -130,6 +145,9 @@ func fetchWeightSizeForImport(ctx context.Context, input apis.InstantModelImport
 
 func (task *LLMInstantModelImportTask) OnImportCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	model := obj.(*models.SInstantModel)
-
-	task.taskFailed(ctx, model, err.String())
+	reason, _ := err.GetString("__reason__")
+	if reason == "" {
+		reason = err.String()
+	}
+	task.taskFailed(ctx, model, reason)
 }
