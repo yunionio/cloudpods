@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/version"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -32,6 +33,16 @@ import (
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
+
+// validateNbdDiskId restricts the disk id to a plain UUID: it is
+// interpolated into qemu-nbd arguments and pid file paths and must never
+// contain shell metacharacters or path separators.
+func validateNbdDiskId(diskId string) error {
+	if !regutils.MatchUUIDExact(diskId) {
+		return errors.Errorf("invalid disk_id %q, expected UUID", diskId)
+	}
+	return nil
+}
 
 var EXPORT_NBD_BASE_PORT = 7777
 var LAST_USED_NBD_SERVER_PORT = 0
@@ -90,6 +101,9 @@ func (m *SNbdExportManager) getQemuNbdVersion() (string, error) {
 }
 
 func (m *SNbdExportManager) QemuNbdStartExport(imageInfo qemuimg.SImageInfo, diskId string) (int, error) {
+	if err := validateNbdDiskId(diskId); err != nil {
+		return -1, err
+	}
 	m.portsLock.Lock()
 	defer m.portsLock.Unlock()
 
@@ -119,16 +133,20 @@ func (m *SNbdExportManager) QemuNbdStartExport(imageInfo qemuimg.SImageInfo, dis
 	if version.GE(nbdVer, "4.0.0") {
 		cmd = append(cmd, "--fork")
 	}
-	cmdStr := strings.Join(cmd, " ")
-	err = procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", cmdStr).Run()
+	// argv is passed directly to qemu-nbd without a shell, so nothing in the
+	// arguments (e.g. the disk id) can be interpreted as shell syntax
+	err = procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Run()
 	if err != nil {
-		log.Errorf("qemu-nbd connect failed %s %s", err.Error())
+		log.Errorf("qemu-nbd connect failed %s", err.Error())
 		return -1, errors.Wrapf(err, "qemu-nbd connect failed")
 	}
 	return nbdPort, nil
 }
 
 func (m *SNbdExportManager) QemuNbdCloseExport(diskId string) error {
+	if err := validateNbdDiskId(diskId); err != nil {
+		return err
+	}
 	pidFilePath := path.Join(HostImageOptions.HostImageNbdPidDir, fmt.Sprintf("nbd_%s.pid", diskId))
 	if !m.nbdProcessExist(diskId) {
 		if fileutils2.Exists(pidFilePath) {
@@ -156,7 +174,16 @@ func (m *SNbdExportManager) QemuNbdCloseExport(diskId string) error {
 	return nil
 }
 
+// nbdProcessExist checks whether the qemu-nbd process recorded in the pid
+// file for diskId is still alive, without spawning a shell.
 func (m *SNbdExportManager) nbdProcessExist(diskId string) bool {
-	return procutils.NewRemoteCommandAsFarAsPossible("sh", "-c",
-		fmt.Sprintf("ps -ef | grep [q]emu-nbd | grep %s", diskId)).Run() == nil
+	pidFilePath := path.Join(HostImageOptions.HostImageNbdPidDir, fmt.Sprintf("nbd_%s.pid", diskId))
+	if !fileutils2.Exists(pidFilePath) {
+		return false
+	}
+	pid, err := fileutils2.FileGetIntContent(pidFilePath)
+	if err != nil || pid <= 0 {
+		return false
+	}
+	return procutils.NewRemoteCommandAsFarAsPossible("kill", "-0", strconv.Itoa(pid)).Run() == nil
 }
