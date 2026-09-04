@@ -112,7 +112,7 @@ func (s *WebsocketServer) initWs(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return errors.Wrapf(err, "new sftp client")
 	}
-	addSftpClient(s.Session.Id, s.sftp)
+	addSftpClient(s.Session.Id, s.Session.GetClientSession().GetUserId(), s.sftp)
 
 	s.session, err = s.conn.NewSession()
 	if err != nil {

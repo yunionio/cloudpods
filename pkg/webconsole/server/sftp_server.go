@@ -34,21 +34,28 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 const (
 	SESSION_ID = "<session-id>"
 )
 
+type sftpClientEntry struct {
+	client  *sftp.Client
+	ownerId string
+}
+
 var (
 	sftpMux     = sync.Mutex{}
-	sftpClients = make(map[string]*sftp.Client)
+	sftpClients = make(map[string]*sftpClientEntry)
 )
 
-func addSftpClient(sId string, client *sftp.Client) {
+func addSftpClient(sId, ownerId string, client *sftp.Client) {
 	sftpMux.Lock()
 	defer sftpMux.Unlock()
-	sftpClients[sId] = client
+	sftpClients[sId] = &sftpClientEntry{client: client, ownerId: ownerId}
 }
 
 func delSftpClient(sId string) {
@@ -57,14 +64,19 @@ func delSftpClient(sId string) {
 	delete(sftpClients, sId)
 }
 
-func getSftpClient(sId string) (*sftp.Client, error) {
+// getSftpClient returns the sftp client of the session if it belongs to the
+// requesting user
+func getSftpClient(sId string, userCred mcclient.TokenCredential) (*sftp.Client, error) {
 	sftpMux.Lock()
 	defer sftpMux.Unlock()
-	client, ok := sftpClients[sId]
+	entry, ok := sftpClients[sId]
 	if !ok {
 		return nil, errors.Wrapf(cloudprovider.ErrNotFound, "%s", sId)
 	}
-	return client, nil
+	if userCred == nil || entry.ownerId != userCred.GetUserId() {
+		return nil, httperrors.NewForbiddenError("sftp session %s does not belong to current user", sId)
+	}
+	return entry.client, nil
 }
 
 type sLinkFile struct {
@@ -121,8 +133,9 @@ func HandleSftpList(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		dir, _ = query.GetString("path")
 	}
 	sId := params[SESSION_ID]
+	userCred := auth.FetchUserCredential(ctx, nil)
 	files, err := func() (Files, error) {
-		client, err := getSftpClient(sId)
+		client, err := getSftpClient(sId, userCred)
 		if err != nil {
 			return nil, errors.Wrapf(err, "getSftpClient")
 		}
@@ -179,9 +192,10 @@ func HandleSftpUpload(ctx context.Context, w http.ResponseWriter, r *http.Reques
 		dir, _ = query.GetString("path")
 	}
 	sId := params[SESSION_ID]
+	userCred := auth.FetchUserCredential(ctx, nil)
 
 	err := func() error {
-		sftp, err := getSftpClient(sId)
+		sftp, err := getSftpClient(sId, userCred)
 		if err != nil {
 			return errors.Wrapf(err, "getSftpClient")
 		}
@@ -228,9 +242,10 @@ func HandleSftpDownload(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 	dir, _ := query.GetString("path")
 	sId := params[SESSION_ID]
+	userCred := auth.FetchUserCredential(ctx, nil)
 
 	err := func() error {
-		sftp, err := getSftpClient(sId)
+		sftp, err := getSftpClient(sId, userCred)
 		if err != nil {
 			return errors.Wrapf(err, "getSftpClient")
 		}
