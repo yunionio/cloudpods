@@ -84,7 +84,7 @@ func (man *SLLMSkuBaseManager) ValidateCreateData(ctx context.Context, userCred 
 	return input, nil
 }
 
-// normalizeLLMSkuDevices maps legacy NVIDIA_* / HYGON_* / ASCEND_* DevTypes onto
+// normalizeLLMSkuDevices maps NVIDIA_* / HYGON_* / ASCEND_* / ILUVATAR_* / THEAD_* DevTypes onto
 // GPU|NPU + SharingMode, and defaults empty DevType/SharingMode appropriately.
 func normalizeLLMSkuDevices(devices *api.Devices) error {
 	if devices == nil || len(*devices) == 0 {
@@ -158,6 +158,16 @@ func normalizeLLMSkuDevice(dev *api.Device) {
 		if dev.SharingMode == "" {
 			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_HAMI
 		}
+	case computeapi.CONTAINER_DEV_ILUVATAR_GPU:
+		dev.DevType = computeapi.GPU_TYPE
+		if dev.SharingMode == "" {
+			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_EXCLUSIVE
+		}
+	case computeapi.CONTAINER_DEV_THEAD_PPU:
+		dev.DevType = computeapi.GPU_TYPE
+		if dev.SharingMode == "" {
+			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_EXCLUSIVE
+		}
 	}
 	if dev.SharingMode == "" {
 		dev.SharingMode = computeapi.DEVICE_SHARING_MODE_HAMI
@@ -171,6 +181,10 @@ func normalizeLLMSkuDevice(dev *api.Device) {
 			dev.Vendor = "NVIDIA"
 		case computeapi.CONTAINER_DEV_ASCEND_NPU, computeapi.CONTAINER_DEV_ASCEND_NPU_HAMI:
 			dev.Vendor = "ASCEND"
+		case computeapi.CONTAINER_DEV_ILUVATAR_GPU:
+			dev.Vendor = "ILUVATAR"
+		case computeapi.CONTAINER_DEV_THEAD_PPU:
+			dev.Vendor = "THEAD"
 		}
 	}
 	dev.Vendor = canonicalizeLLMDeviceVendor(dev.Vendor)

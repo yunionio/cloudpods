@@ -38,8 +38,11 @@ const (
 	TELEGRAF_INPUT_NETDEV              = "ni_rsrc_mon"
 	TELEGRAF_INPUT_VASMI               = "vasmi"
 	TELEGRAF_INPUT_HYSMI               = "hysmi"
+	TELEGRAF_INPUT_IXSMI               = "ixsmi"
+	TELEGRAF_INPUT_PPUSMI              = "ppusmi"
 	TELEGRAF_INPUT_NVIDIASMI           = "nvidia-smi"
 	TELEGRAF_INPUT_NPUSMI              = "npu-smi"
+	TELEGRAF_INPUT_CONF_LIB_PATH       = "lib_path"
 )
 
 type STelegraf struct {
@@ -343,6 +346,26 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		hysmiMap, _ := hysmi.(map[string]interface{})
 		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_HYSMI)
 		conf += fmt.Sprintf("  bin_path = \"%s\"\n", hysmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
+		conf += "\n"
+	}
+
+	if ixsmi, ok := kwargs[TELEGRAF_INPUT_IXSMI]; ok {
+		ixsmiMap, _ := ixsmi.(map[string]interface{})
+		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_IXSMI)
+		conf += fmt.Sprintf("  bin_path = \"%s\"\n", ixsmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
+		if libPath, _ := ixsmiMap[TELEGRAF_INPUT_CONF_LIB_PATH].(string); libPath != "" {
+			conf += fmt.Sprintf("  lib_path = \"%s\"\n", libPath)
+		}
+		conf += "\n"
+	}
+
+	if ppusmi, ok := kwargs[TELEGRAF_INPUT_PPUSMI]; ok {
+		ppusmiMap, _ := ppusmi.(map[string]interface{})
+		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_PPUSMI)
+		conf += fmt.Sprintf("  bin_path = \"%s\"\n", ppusmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
+		if libPath, _ := ppusmiMap[TELEGRAF_INPUT_CONF_LIB_PATH].(string); libPath != "" {
+			conf += fmt.Sprintf("  lib_path = \"%s\"\n", libPath)
+		}
 		conf += "\n"
 	}
 

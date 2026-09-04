@@ -430,6 +430,8 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	modelPath := models.PickContainerModelMountPath(models.CollectContainerModelMountPaths(llm, sku), preferred)
 	hasMountedModels := modelPath != "" || len(postOverlays) > 0 || models.SkuHasLocalHostPathModel(sku)
 	hygon := models.HasHygonDevices(llm, sku)
+	iluvatar := models.HasIluvatarDevices(llm, sku)
+	thead := models.HasTHeadDevices(llm, sku)
 	startScript := buildVLLMEntrypointScript(modelPath, tensorParallelSize, backendParameters, effSpec, hygon)
 	envs := []*commonapi.ContainerKeyValue{
 		{
@@ -462,7 +464,7 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 			Envs:              envs,
 		},
 	}
-	if hygon {
+	if hygon || iluvatar || thead {
 		spec.Command = []string{"/bin/bash", "-c"}
 	}
 	if hasMountedModels {
