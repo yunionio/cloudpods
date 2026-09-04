@@ -93,6 +93,11 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 		body, _ = body.Get("webconsole")
 	}
 
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
+	if userCred == nil {
+		return nil, httperrors.NewUnauthorizedError("No token founded")
+	}
+
 	k8sReq := webconsole_api.SK8sRequest{}
 	err := body.Unmarshal(&k8sReq)
 	if err != nil {
@@ -106,10 +111,12 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 		k8sReq.Namespace = "default"
 	}
 	podName := params["<podName>"]
-	adminSession := auth.GetAdminSession(ctx, o.Options.Region)
+	// use the user's own session instead of the admin session, so the RBAC
+	// policy and owner scope of the target cluster are enforced
+	session := auth.Client().NewSession(ctx, o.Options.Region, "", "internal", userCred)
 
 	data := jsonutils.NewDict()
-	ret, err := k8s.KubeClusters.GetSpecific(adminSession, k8sReq.Cluster, "kubeconfig", data)
+	ret, err := k8s.KubeClusters.GetSpecific(session, k8sReq.Cluster, "kubeconfig", data)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +132,7 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 	f.WriteString(conf)
 
 	return &command.K8sEnv{
-		Session:    adminSession,
+		Session:    session,
 		Cluster:    k8sReq.Cluster,
 		Namespace:  k8sReq.Namespace,
 		Pod:        podName,
