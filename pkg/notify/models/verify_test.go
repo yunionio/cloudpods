@@ -19,8 +19,9 @@ import (
 )
 
 func TestGenerateVerifyToken(t *testing.T) {
+	const draws = 200
 	seen := map[string]bool{}
-	for i := 0; i < 200; i++ {
+	for i := 0; i < draws; i++ {
 		token, err := VerificationManager.generateVerifyToken()
 		if err != nil {
 			t.Fatalf("generateVerifyToken: %v", err)
@@ -33,9 +34,12 @@ func TestGenerateVerifyToken(t *testing.T) {
 				t.Fatalf("token %q contains non-digit", token)
 			}
 		}
-		if seen[token] {
-			t.Fatalf("duplicate token %q generated within 200 draws", token)
-		}
 		seen[token] = true
+	}
+	// 6-digit codes have only 1e6 values; uniqueness of 200 draws is not
+	// guaranteed (birthday paradox ~2%). The RNG must still not collapse
+	// to a constant sequence.
+	if len(seen) < 2 {
+		t.Fatalf("generateVerifyToken produced only %d distinct value(s) in %d draws", len(seen), draws)
 	}
 }
