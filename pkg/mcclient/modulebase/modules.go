@@ -294,7 +294,9 @@ func registerAllJointModules() {
 func _getModule(session *mcclient.ClientSession, name string) (IBaseManager, error) {
 	mods, ok := modules[name]
 	if !ok {
-		return nil, fmt.Errorf("No such module %s", name)
+		// unknown module means the request URL does not exist: a client
+		// error (404), not a server error
+		return nil, errors.Wrapf(errors.ErrNotFound, "No such module %s", name)
 	}
 
 	if len(mods) == 1 {
