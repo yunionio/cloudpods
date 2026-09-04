@@ -154,6 +154,20 @@ func runtimeHasExplicitTokenLimit(sku *SLLMSku) bool {
 	}
 }
 
+// skuHasExplicitGpuMemoryUtilization reports whether the SKU already sets the
+// backend GPU memory fraction (vLLM gpu-memory-utilization / SGLang mem-fraction-static)
+// via backend_parameters or type-specific customized args.
+func skuHasExplicitGpuMemoryUtilization(sku *SLLMSku) bool {
+	if sku == nil {
+		return false
+	}
+	key, ok := gpuMemoryUtilizationRuntimeArgKey(sku.LLMType)
+	if !ok {
+		return false
+	}
+	return runtimeHasExplicitArg(sku, []string{key})
+}
+
 func runtimeHasExplicitArg(sku *SLLMSku, keys []string) bool {
 	if sku == nil {
 		return false
@@ -562,6 +576,11 @@ func BuildDeploymentResolvedGpuMemoryLLMSpec(ctx context.Context, userCred mccli
 	}
 	if deploy.GpuMemoryUtilization != nil {
 		return buildDeploymentGpuMemoryLLMSpec(deploy, sku)
+	}
+	if skuHasExplicitGpuMemoryUtilization(sku) {
+		key, _ := gpuMemoryUtilizationRuntimeArgKey(sku.LLMType)
+		log.Infof("skip auto gpu_memory_utilization: sku=%s already has explicit %s", sku.Id, key)
+		return nil, nil
 	}
 	if !skuCanAutoGpuMemoryUtilization(sku) {
 		return nil, nil

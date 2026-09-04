@@ -40,8 +40,10 @@ func GetLLMPodCreateInput(
 	containers := GetDriverPodContainers(ctx, lcd, llm, llmImage, sku, nil, nil, "")
 
 	data.Pod = &computeapi.PodCreateInput{
-		HostIPC:    true,
-		Containers: containers,
+		HostIPC:                  true,
+		Containers:               containers,
+		DisableCgroupCpuLimit:    sku == nil || !skuCgroupLimitEnabled(sku.EnableCgroupCpu),
+		DisableCgroupMemoryLimit: sku == nil || !skuCgroupLimitEnabled(sku.EnableCgroupMemory),
 	}
 
 	return data, nil

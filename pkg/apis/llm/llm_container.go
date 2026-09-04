@@ -37,6 +37,11 @@ var (
 		string(LLM_CONTAINER_COMFYUI),
 		string(LLM_CONTAINER_OPENCLAW),
 	)
+	LLM_INFERENCE_TYPES = sets.NewString(
+		string(LLM_CONTAINER_OLLAMA),
+		string(LLM_CONTAINER_VLLM),
+		string(LLM_CONTAINER_SGLANG),
+	)
 )
 
 func IsLLMContainerType(t string) bool {
@@ -45,6 +50,10 @@ func IsLLMContainerType(t string) bool {
 
 func IsLLMInstantModelType(t string) bool {
 	return LLM_INSTANT_MODEL_TYPES.Has(t)
+}
+
+func IsLLMInferenceType(t string) bool {
+	return LLM_INFERENCE_TYPES.Has(t)
 }
 
 func GetLLMInstantModelContainerType(t LLMContainerType) LLMContainerType {
