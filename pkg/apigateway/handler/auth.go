@@ -552,7 +552,7 @@ func saveCookie(w http.ResponseWriter, name, val, domain string, expire time.Tim
 		valenc = val
 	}
 	// log.Printf("Set coookie: %s - %s\n", val, valenc)
-	cookie := &http.Cookie{Name: name, Value: valenc, Path: "/", Expires: expire, MaxAge: maxAge, HttpOnly: false}
+	cookie := &http.Cookie{Name: name, Value: valenc, Path: "/", Expires: expire, MaxAge: maxAge, HttpOnly: true}
 
 	if len(domain) > 0 {
 		cookie.Domain = domain
@@ -587,7 +587,7 @@ func getCookie2(r *http.Request, name string, base64 bool) string {
 }
 
 func clearCookie(w http.ResponseWriter, name string, domain string) {
-	cookie := &http.Cookie{Name: name, Expires: time.Now(), Path: "/", MaxAge: -1, HttpOnly: false}
+	cookie := &http.Cookie{Name: name, Expires: time.Now(), Path: "/", MaxAge: -1, HttpOnly: true}
 	if len(domain) > 0 {
 		cookie.Domain = domain
 	}

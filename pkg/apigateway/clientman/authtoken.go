@@ -16,12 +16,10 @@ package clientman
 
 import (
 	"bytes"
-	"compress/flate"
 	"context"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/binary"
-	"io"
 	"math/rand"
 	"time"
 
@@ -31,6 +29,7 @@ import (
 	"github.com/pquerna/otp/totp"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apigateway/options"
@@ -96,26 +95,21 @@ func (t SAuthToken) encodeBytes() []byte {
 
 func (t SAuthToken) Encode() string {
 	encBytes := t.encodeBytes()
-	if privateKey != nil {
-		return EncryptString(encBytes)
-	} else {
-		return compressString(encBytes)
+	if privateKey == nil {
+		// never emit an unprotected cookie
+		log.Errorf("clientman: private key not initialized, refuse to encode cookie")
+		return ""
 	}
+	return EncryptString(encBytes)
 }
 
 func Decode(t string) (*SAuthToken, error) {
-	var tBytes []byte
-	var err error
-	if privateKey != nil {
-		tBytes, err = DecryptString(t)
-		if err != nil {
-			return nil, errors.Wrap(err, "decryptString")
-		}
-	} else {
-		tBytes, err = decompressString(t)
-		if err != nil {
-			return nil, errors.Wrap(err, "decompressString")
-		}
+	if privateKey == nil {
+		return nil, errors.Error("private key not initialized")
+	}
+	tBytes, err := DecryptString(t)
+	if err != nil {
+		return nil, errors.Wrap(err, "decryptString")
 	}
 	return decodeBytes(tBytes)
 }
@@ -152,32 +146,9 @@ func decodeBytes(tt []byte) (*SAuthToken, error) {
 	return &ret, nil
 }
 
-func compressString(in []byte) string {
-	buf := new(bytes.Buffer)
-	compressor, _ := flate.NewWriter(buf, 9)
-	compressor.Write(in)
-	compressor.Close()
-	return base64.URLEncoding.EncodeToString(buf.Bytes())
-}
-
 func EncryptString(in []byte) string {
 	enc, _ := jwe.Encrypt(in, jwa.RSA1_5, &privateKey.PublicKey, jwa.A128GCM, jwa.Deflate)
 	return string(enc)
-}
-
-func decompressString(in string) ([]byte, error) {
-	inBytes, err := base64.URLEncoding.DecodeString(in)
-	if err != nil {
-		return nil, errors.Wrap(err, "base64.URLEncoding.DecodeString")
-	}
-	buf := new(bytes.Buffer)
-	decompressor := flate.NewReader(bytes.NewReader(inBytes))
-	_, err = io.Copy(buf, decompressor)
-	if err != nil {
-		return nil, errors.Wrap(err, "decompress")
-	}
-	decompressor.Close()
-	return buf.Bytes(), nil
 }
 
 func DecryptString(in string) ([]byte, error) {

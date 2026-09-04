@@ -19,25 +19,31 @@ import (
 	"crypto/rsa"
 	"os"
 
-	"github.com/pkg/errors"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apigateway/options"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
+// InitClient loads the private key used to encrypt and authenticate session
+// cookies. The key is required unconditionally: previously it was only
+// loaded when SSL was enabled, and without it the cookie was only
+// compressed, so its content (keystone token, TOTP flags, retry counters)
+// could be forged. Deployments not serving TLS must still provide
+// ssl_keyfile for cookie protection.
 func InitClient() error {
-	if options.Options.EnableSsl {
-		privData, err := os.ReadFile(options.Options.SslKeyfile)
-		if err != nil {
-			return errors.Wrapf(err, "os.ReadFile %s", options.Options.SslKeyfile)
-		}
-		privateKey, err := seclib2.DecodePrivateKey(privData)
-		if err != nil {
-			return errors.Wrap(err, "decodePrivateKey")
-		}
-		setPrivateKey(privateKey)
+	if len(options.Options.SslKeyfile) == 0 {
+		return errors.Error("ssl_keyfile is required for session cookie encryption")
 	}
-
+	privData, err := os.ReadFile(options.Options.SslKeyfile)
+	if err != nil {
+		return errors.Wrapf(err, "os.ReadFile %s", options.Options.SslKeyfile)
+	}
+	privateKey, err := seclib2.DecodePrivateKey(privData)
+	if err != nil {
+		return errors.Wrap(err, "decodePrivateKey")
+	}
+	setPrivateKey(privateKey)
 	return nil
 }
 
