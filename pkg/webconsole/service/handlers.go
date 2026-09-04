@@ -63,8 +63,8 @@ const (
 func initHandlers(app *appsrv.Application, isSlave bool) {
 	app_common.ExportOptionsHandler(app, &o.Options)
 
-	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/list", server.HandleSftpList)
-	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/download", server.HandleSftpDownload)
+	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/list", server.AuthenticateSftp(server.HandleSftpList))
+	app.AddHandler("GET", ApiPathPrefix+"sftp/<session-id>/download", server.AuthenticateSftp(server.HandleSftpDownload))
 
 	if !isSlave {
 		app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/shell", auth.Authenticate(handleK8sShell))
@@ -75,7 +75,7 @@ func initHandlers(app *appsrv.Application, isSlave bool) {
 		app.AddHandler("POST", ApiPathPrefix+"server/<id>", auth.Authenticate(handleServerRemoteConsole))
 		app.AddHandler("POST", ApiPathPrefix+"adb/<id>/shell", auth.Authenticate(handleAdbShell))
 		app.AddHandler("POST", ApiPathPrefix+"server-rdp/<id>", auth.Authenticate(handleServerRemoteRDPConsole))
-		app.AddHandler("POST", ApiPathPrefix+"sftp/<session-id>/upload", server.HandleSftpUpload)
+		app.AddHandler("POST", ApiPathPrefix+"sftp/<session-id>/upload", server.AuthenticateSftp(server.HandleSftpUpload))
 	}
 
 	for _, man := range []db.IModelManager{
