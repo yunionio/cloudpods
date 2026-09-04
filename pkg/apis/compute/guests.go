@@ -517,6 +517,19 @@ type ConvertToKvmInput struct {
 	// dest guest network configs
 	Networks []*NetworkConfig `json:"networks"`
 
+	// dest guest disk storage configs; length must equal guest disks when set
+	// support per-disk backend/storage/medium/schedtags; overrides DiskBackend/PreferStorage/DiskSchedtags
+	Disks []*DiskConfig `json:"disks"`
+
+	// Prefer disk backend for all disks, e.g. local/lvm/slvm/nfs/rbd
+	DiskBackend string `json:"disk_backend"`
+
+	// Prefer storage id or name for all disks
+	PreferStorage string `json:"prefer_storage"`
+
+	// Prefer disk schedtags for all disks
+	DiskSchedtags []*SchedtagConfig `json:"disk_schedtags"`
+
 	// deploy telegraf after convert
 	DeployTelegraf bool `json:"deploy_telegraf"`
 }

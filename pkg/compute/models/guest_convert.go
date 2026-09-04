@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -168,6 +169,77 @@ func (self *SGuest) StartConvertToKvmTask(
 	}
 }
 
+// applyConvertDiskConfigs applies target storage preference for convert-to-kvm.
+// Priority: per-disk Disks configs > DiskBackend / PreferStorage / DiskSchedtags for all disks.
+// When nothing is specified, disks keep cleared Backend/Storage (scheduler default, usually local).
+func applyConvertDiskConfigs(ctx context.Context, userCred mcclient.TokenCredential, disks []*api.DiskConfig, data *api.ConvertToKvmInput) error {
+	if data == nil || len(disks) == 0 {
+		return nil
+	}
+
+	preferStorageId := ""
+	if len(data.PreferStorage) > 0 {
+		storageObj, err := StorageManager.FetchByIdOrName(ctx, userCred, data.PreferStorage)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return httperrors.NewResourceNotFoundError2(StorageManager.Keyword(), data.PreferStorage)
+			}
+			return errors.Wrapf(err, "StorageManager.FetchByIdOrName %s", data.PreferStorage)
+		}
+		preferStorageId = storageObj.GetId()
+	}
+
+	if data.Disks != nil {
+		if len(data.Disks) != len(disks) {
+			return httperrors.NewInputParameterError("input disk configs length must equal guest disks length")
+		}
+		for i := range disks {
+			if len(data.Disks[i].Backend) > 0 {
+				disks[i].Backend = data.Disks[i].Backend
+			} else if len(data.DiskBackend) > 0 {
+				disks[i].Backend = data.DiskBackend
+			}
+			if len(data.Disks[i].Storage) > 0 {
+				storageObj, err := StorageManager.FetchByIdOrName(ctx, userCred, data.Disks[i].Storage)
+				if err != nil {
+					if errors.Cause(err) == sql.ErrNoRows {
+						return httperrors.NewResourceNotFoundError2(StorageManager.Keyword(), data.Disks[i].Storage)
+					}
+					return errors.Wrapf(err, "StorageManager.FetchByIdOrName %s", data.Disks[i].Storage)
+				}
+				disks[i].Storage = storageObj.GetId()
+			} else if len(preferStorageId) > 0 {
+				disks[i].Storage = preferStorageId
+			}
+			if len(data.Disks[i].Medium) > 0 {
+				disks[i].Medium = data.Disks[i].Medium
+			}
+			if data.Disks[i].Schedtags != nil {
+				disks[i].Schedtags = data.Disks[i].Schedtags
+			} else if data.DiskSchedtags != nil {
+				disks[i].Schedtags = data.DiskSchedtags
+			}
+		}
+		return nil
+	}
+
+	if len(data.DiskBackend) == 0 && len(preferStorageId) == 0 && data.DiskSchedtags == nil {
+		return nil
+	}
+	for i := range disks {
+		if len(data.DiskBackend) > 0 {
+			disks[i].Backend = data.DiskBackend
+		}
+		if len(preferStorageId) > 0 {
+			disks[i].Storage = preferStorageId
+		}
+		if data.DiskSchedtags != nil {
+			disks[i].Schedtags = data.DiskSchedtags
+		}
+	}
+	return nil
+}
+
 func (self *SGuest) createConvertedServer(ctx context.Context, userCred mcclient.TokenCredential, data *api.ConvertToKvmInput) (*SGuest, *api.ServerCreateInput, error) {
 	// set guest pending usage
 	pendingUsage, pendingRegionUsage, err := self.getGuestUsage(1)
@@ -213,6 +285,7 @@ func (self *SGuest) createConvertedServer(ctx context.Context, userCred mcclient
 			createInput.Disks[i].Format = ""
 			createInput.Disks[i].Backend = ""
 			createInput.Disks[i].Medium = ""
+			createInput.Disks[i].Storage = ""
 		}
 		gns, err := self.GetNetworks("")
 		if err != nil {
@@ -232,6 +305,12 @@ func (self *SGuest) createConvertedServer(ctx context.Context, userCred mcclient
 		createInput.Disks[0].ImageId = ""
 	}
 
+	err = applyConvertDiskConfigs(ctx, userCred, createInput.Disks, data)
+	if err != nil {
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
+		return nil, nil, errors.Wrap(err, "applyConvertDiskConfigs")
+	}
+
 	if data.Networks != nil && len(data.Networks) != len(createInput.Networks) {
 		return nil, nil, httperrors.NewInputParameterError("input network configs length  must equal guestnetworks length")
 	}
@@ -249,11 +328,20 @@ func (self *SGuest) createConvertedServer(ctx context.Context, userCred mcclient
 	}
 
 	schedDesc := self.ToSchedDesc()
+	// convert creates a new guest; do not treat as migrate (HostId would force shared
+	// backends to require an existing storage_id accessible on the candidate host)
+	schedDesc.HostId = ""
 	schedDesc.PreferHost = data.PreferHost
 	for i := range schedDesc.Disks {
 		schedDesc.Disks[i].Backend = ""
 		schedDesc.Disks[i].Medium = ""
 		schedDesc.Disks[i].Storage = ""
+		schedDesc.Disks[i].DiskId = ""
+	}
+	err = applyConvertDiskConfigs(ctx, userCred, schedDesc.Disks, data)
+	if err != nil {
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
+		return nil, nil, errors.Wrap(err, "applyConvertDiskConfigs schedDesc")
 	}
 	schedDesc.Networks = data.Networks
 	schedDesc.Hypervisor = api.HYPERVISOR_KVM

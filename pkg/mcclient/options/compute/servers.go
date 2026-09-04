@@ -123,7 +123,9 @@ type ServerSSHLoginOptions struct {
 type ServerConvertToKvmOptions struct {
 	ServerIdsOptions
 
-	PreferHost string `help:"Prefer host id or name" json:"prefer_host"`
+	PreferHost    string `help:"Prefer host id or name" json:"prefer_host"`
+	DiskBackend   string `help:"Prefer disk backend for all disks, e.g. local/lvm/slvm/nfs/rbd" json:"disk_backend"`
+	PreferStorage string `help:"Prefer storage id or name for all disks" json:"prefer_storage"`
 }
 
 func (o *ServerConvertToKvmOptions) Params() (jsonutils.JSONObject, error) {
