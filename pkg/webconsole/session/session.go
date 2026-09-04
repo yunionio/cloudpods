@@ -16,8 +16,9 @@ package session
 
 import (
 	"context"
+	cryptorand "crypto/rand"
+	"encoding/base64"
 	"fmt"
-	"math/rand"
 	"net/url"
 	"path/filepath"
 	"reflect"
@@ -43,7 +44,16 @@ var (
 
 func init() {
 	Manager = NewSessionManager()
-	AES_KEY = fmt.Sprintf("webconsole-%f", rand.Float32())
+	// the key encrypts all console session tokens of this process; it must
+	// be cryptographically unpredictable (previously it was derived from
+	// rand.Float32 with only ~24 bits of entropy and could be brute forced
+	// offline to forge session tokens). Sessions live in process memory
+	// only, so a per-process random key is sufficient.
+	keyBytes := make([]byte, 32)
+	if _, err := cryptorand.Read(keyBytes); err != nil {
+		log.Fatalf("generate session key: %v", err)
+	}
+	AES_KEY = base64.URLEncoding.EncodeToString(keyBytes)
 }
 
 type SSessionManager struct {
