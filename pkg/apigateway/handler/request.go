@@ -143,7 +143,9 @@ func (req Request) findMod(resKey string) (modulebase.Manager, error) {
 	resName := req.params[resKey]
 	module, err := modulebase.GetModule(req.session, resName)
 	if err != nil {
-		return nil, errors.Errorf("found module by %s: %v", resName, err)
+		// preserve the error chain, so unknown modules (cause
+		// errors.ErrNotFound) are reported as 404 instead of 500
+		return nil, errors.Wrapf(err, "found module by %s", resName)
 	}
 	if module == nil {
 		return nil, httperrors.NewNotFoundError("resource %s module not exists", resName)
