@@ -162,6 +162,11 @@ type LLMSKuBaseCreateInput struct {
 	Memory    int `json:"memory"`
 	Bandwidth int `json:"bandwidth"`
 
+	// EnableCgroupCpu enables CPU CFS quota on the pod/container. Inference SKUs default to false.
+	EnableCgroupCpu *bool `json:"enable_cgroup_cpu"`
+	// EnableCgroupMemory enables memory hard limit on the pod/container. Inference SKUs default to false.
+	EnableCgroupMemory *bool `json:"enable_cgroup_memory"`
+
 	Volumes      *Volumes          `json:"volumes"`
 	HostPaths    *HostPaths        `json:"host_paths"`
 	PortMappings *PortMappings     `json:"port_mappings"`
@@ -175,6 +180,9 @@ type LLMSkuBaseUpdateInput struct {
 
 	Cpu    *int `json:"cpu"`
 	Memory *int `json:"memory"`
+
+	EnableCgroupCpu    *bool `json:"enable_cgroup_cpu"`
+	EnableCgroupMemory *bool `json:"enable_cgroup_memory"`
 
 	// RequstSyncImage *bool `json:"request_sync_image"`
 

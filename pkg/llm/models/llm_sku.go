@@ -230,6 +230,30 @@ func (manager *SLLMSkuManager) FetchCustomizeColumns(
 	return res
 }
 
+func boolPtr(v bool) *bool {
+	return &v
+}
+
+func skuCgroupLimitEnabled(enabled *bool) bool {
+	if enabled == nil {
+		return true
+	}
+	return *enabled
+}
+
+func applySkuCgroupLimitDefaults(input *api.LLMSkuCreateInput) {
+	if input == nil {
+		return
+	}
+	def := !api.IsLLMInferenceType(input.LLMType)
+	if input.EnableCgroupCpu == nil {
+		input.EnableCgroupCpu = boolPtr(def)
+	}
+	if input.EnableCgroupMemory == nil {
+		input.EnableCgroupMemory = boolPtr(def)
+	}
+}
+
 func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.LLMSkuCreateInput) (*api.LLMSkuCreateInput, error) {
 	var err error
 	input.LLMSKuBaseCreateInput, err = man.SLLMSkuBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.LLMSKuBaseCreateInput)
@@ -239,6 +263,7 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 	if !api.IsLLMContainerType(input.LLMType) && input.LLMType != string(api.LLM_CONTAINER_DIFY) {
 		return input, errors.Wrap(httperrors.ErrInputParameter, "llm_type must be one of "+strings.Join(api.LLM_CONTAINER_TYPES.List(), ","))
 	}
+	applySkuCgroupLimitDefaults(input)
 
 	drv, err := GetLLMContainerDriverWithError(api.LLMContainerType(input.LLMType))
 	if err != nil {
