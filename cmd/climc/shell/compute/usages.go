@@ -31,17 +31,19 @@ import (
 )
 
 type GeneralUsageOptions struct {
-	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv|aliyun|azure|aws|huawei|qcloud|openstack|ucloud|zstack|google|ctyun|cnware"`
-	Provider []string `help:"Provider" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|VolcEngine|ZStack|Google|Ctyun|CNWare"`
-	Brand    []string `help:"Brands" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|VolcEngine|ZStack|Google|Ctyun|CNWare"`
-	Project  string   `help:"show usage of specified project"`
+	_ struct{} `mcp-desc:"资源用量汇总（usages/general-usage）。报表「资源概览」用本工具，不要用各资源 list 凑。项目级传 project=项目名/id；域级传 project-domain；平台级 scope=system。返回 servers/rds/cache/loadbalancer/buckets/eip/snapshot/vpcs/networks/ports 及 running_servers、disks.attached 等"`
 
-	ProjectDomain string `help:"show usage of specified domain"`
+	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv|aliyun|azure|aws|huawei|qcloud|openstack|ucloud|zstack|google|ctyun|cnware" mcp:"true"`
+	Provider []string `help:"Provider" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|VolcEngine|ZStack|Google|Ctyun|CNWare" mcp:"true"`
+	Brand    []string `help:"Brands" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|VolcEngine|ZStack|Google|Ctyun|CNWare" mcp:"true"`
+	Project  string   `help:"show usage of specified project" mcp:"true"`
 
-	CloudEnv string `help:"show usage of specified cloudenv" choices:"public|private|onpremise"`
-	Scope    string `help:"show usage of specified privilege scope" choices:"system|domain|project"`
+	ProjectDomain string `help:"show usage of specified domain" mcp:"true"`
 
-	Refresh bool `help:"force refresh usage statistics"`
+	CloudEnv string `help:"show usage of specified cloudenv" choices:"public|private|onpremise" mcp:"true"`
+	Scope    string `help:"show usage of specified privilege scope" choices:"system|domain|project" mcp:"true"`
+
+	Refresh bool `help:"force refresh usage statistics" mcp:"true"`
 }
 
 func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {

@@ -111,17 +111,19 @@ type LoadbalancerPurgeOptions struct {
 }
 
 type LoadbalancerListOptions struct {
+	_ struct{} `mcp-desc:"列出负载均衡（lb）。可用 search/cloudregion/address-type 过滤"`
+
 	options.BaseListOptions
 
-	Address      string
-	AddressType  string `choices:"intranet|internet"`
-	NetworkType  string `choices:"classic|vpc"`
-	Network      string
+	Address      string `mcp:"true"`
+	AddressType  string `choices:"intranet|internet" mcp:"true"`
+	NetworkType  string `choices:"classic|vpc" mcp:"true"`
+	Network      string `mcp:"true"`
 	BackendGroup string
-	Cloudregion  string
-	Zone         string
+	Cloudregion  string `mcp:"true"`
+	Zone         string `mcp:"true"`
 	Cluster      string `json:"cluster_id"`
-	SecgroupId   string
+	SecgroupId   string `mcp:"true"`
 }
 
 func (opts *LoadbalancerListOptions) Params() (jsonutils.JSONObject, error) {

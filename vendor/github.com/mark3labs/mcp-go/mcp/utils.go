@@ -8,54 +8,66 @@ import (
 )
 
 // ClientRequest types
-var _ ClientRequest = &PingRequest{}
-var _ ClientRequest = &InitializeRequest{}
-var _ ClientRequest = &CompleteRequest{}
-var _ ClientRequest = &SetLevelRequest{}
-var _ ClientRequest = &GetPromptRequest{}
-var _ ClientRequest = &ListPromptsRequest{}
-var _ ClientRequest = &ListResourcesRequest{}
-var _ ClientRequest = &ReadResourceRequest{}
-var _ ClientRequest = &SubscribeRequest{}
-var _ ClientRequest = &UnsubscribeRequest{}
-var _ ClientRequest = &CallToolRequest{}
-var _ ClientRequest = &ListToolsRequest{}
+var (
+	_ ClientRequest = (*PingRequest)(nil)
+	_ ClientRequest = (*InitializeRequest)(nil)
+	_ ClientRequest = (*CompleteRequest)(nil)
+	_ ClientRequest = (*SetLevelRequest)(nil)
+	_ ClientRequest = (*GetPromptRequest)(nil)
+	_ ClientRequest = (*ListPromptsRequest)(nil)
+	_ ClientRequest = (*ListResourcesRequest)(nil)
+	_ ClientRequest = (*ReadResourceRequest)(nil)
+	_ ClientRequest = (*SubscribeRequest)(nil)
+	_ ClientRequest = (*UnsubscribeRequest)(nil)
+	_ ClientRequest = (*CallToolRequest)(nil)
+	_ ClientRequest = (*ListToolsRequest)(nil)
+)
 
 // ClientNotification types
-var _ ClientNotification = &CancelledNotification{}
-var _ ClientNotification = &ProgressNotification{}
-var _ ClientNotification = &InitializedNotification{}
-var _ ClientNotification = &RootsListChangedNotification{}
+var (
+	_ ClientNotification = (*CancelledNotification)(nil)
+	_ ClientNotification = (*ProgressNotification)(nil)
+	_ ClientNotification = (*InitializedNotification)(nil)
+	_ ClientNotification = (*RootsListChangedNotification)(nil)
+)
 
 // ClientResult types
-var _ ClientResult = &EmptyResult{}
-var _ ClientResult = &CreateMessageResult{}
-var _ ClientResult = &ListRootsResult{}
+var (
+	_ ClientResult = (*EmptyResult)(nil)
+	_ ClientResult = (*CreateMessageResult)(nil)
+	_ ClientResult = (*ListRootsResult)(nil)
+)
 
 // ServerRequest types
-var _ ServerRequest = &PingRequest{}
-var _ ServerRequest = &CreateMessageRequest{}
-var _ ServerRequest = &ListRootsRequest{}
+var (
+	_ ServerRequest = (*PingRequest)(nil)
+	_ ServerRequest = (*CreateMessageRequest)(nil)
+	_ ServerRequest = (*ListRootsRequest)(nil)
+)
 
 // ServerNotification types
-var _ ServerNotification = &CancelledNotification{}
-var _ ServerNotification = &ProgressNotification{}
-var _ ServerNotification = &LoggingMessageNotification{}
-var _ ServerNotification = &ResourceUpdatedNotification{}
-var _ ServerNotification = &ResourceListChangedNotification{}
-var _ ServerNotification = &ToolListChangedNotification{}
-var _ ServerNotification = &PromptListChangedNotification{}
+var (
+	_ ServerNotification = (*CancelledNotification)(nil)
+	_ ServerNotification = (*ProgressNotification)(nil)
+	_ ServerNotification = (*LoggingMessageNotification)(nil)
+	_ ServerNotification = (*ResourceUpdatedNotification)(nil)
+	_ ServerNotification = (*ResourceListChangedNotification)(nil)
+	_ ServerNotification = (*ToolListChangedNotification)(nil)
+	_ ServerNotification = (*PromptListChangedNotification)(nil)
+)
 
 // ServerResult types
-var _ ServerResult = &EmptyResult{}
-var _ ServerResult = &InitializeResult{}
-var _ ServerResult = &CompleteResult{}
-var _ ServerResult = &GetPromptResult{}
-var _ ServerResult = &ListPromptsResult{}
-var _ ServerResult = &ListResourcesResult{}
-var _ ServerResult = &ReadResourceResult{}
-var _ ServerResult = &CallToolResult{}
-var _ ServerResult = &ListToolsResult{}
+var (
+	_ ServerResult = (*EmptyResult)(nil)
+	_ ServerResult = (*InitializeResult)(nil)
+	_ ServerResult = (*CompleteResult)(nil)
+	_ ServerResult = (*GetPromptResult)(nil)
+	_ ServerResult = (*ListPromptsResult)(nil)
+	_ ServerResult = (*ListResourcesResult)(nil)
+	_ ServerResult = (*ReadResourceResult)(nil)
+	_ ServerResult = (*CallToolResult)(nil)
+	_ ServerResult = (*ListToolsResult)(nil)
+)
 
 // Helper functions for type assertions
 
@@ -100,12 +112,34 @@ func AsBlobResourceContents(content any) (*BlobResourceContents, bool) {
 
 // Helper function for JSON-RPC
 
-// NewJSONRPCResponse creates a new JSONRPCResponse with the given id and result
+// NewJSONRPCResponse creates a new JSONRPCResponse with the given id and result.
+// NOTE: This function expects a Result struct, but JSONRPCResponse.Result is typed as `any`.
+// The Result struct wraps the actual result data with optional metadata.
+// For direct result assignment, use NewJSONRPCResultResponse instead.
 func NewJSONRPCResponse(id RequestId, result Result) JSONRPCResponse {
 	return JSONRPCResponse{
 		JSONRPC: JSONRPC_VERSION,
 		ID:      id,
 		Result:  result,
+	}
+}
+
+// NewJSONRPCResultResponse creates a new JSONRPCResponse with the given id and result.
+// This function accepts any type for the result, matching the JSONRPCResponse.Result field type.
+func NewJSONRPCResultResponse(id RequestId, result any) JSONRPCResponse {
+	return JSONRPCResponse{
+		JSONRPC: JSONRPC_VERSION,
+		ID:      id,
+		Result:  result,
+	}
+}
+
+// NewJSONRPCErrorDetails creates a new JSONRPCErrorDetails with the given code, message, and data.
+func NewJSONRPCErrorDetails(code int, message string, data any) JSONRPCErrorDetails {
+	return JSONRPCErrorDetails{
+		Code:    code,
+		Message: message,
+		Data:    data,
 	}
 }
 
@@ -119,15 +153,7 @@ func NewJSONRPCError(
 	return JSONRPCError{
 		JSONRPC: JSONRPC_VERSION,
 		ID:      id,
-		Error: struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-			Data    any    `json:"data,omitempty"`
-		}{
-			Code:    code,
-			Message: message,
-			Data:    data,
-		},
+		Error:   NewJSONRPCErrorDetails(code, message, data),
 	}
 }
 
@@ -253,6 +279,24 @@ func NewToolResultText(text string) *CallToolResult {
 	}
 }
 
+// NewToolResultJSON creates a new CallToolResult with a JSON content.
+func NewToolResultJSON[T any](data T) (*CallToolResult, error) {
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal JSON: %w", err)
+	}
+
+	return &CallToolResult{
+		Content: []Content{
+			TextContent{
+				Type: ContentTypeText,
+				Text: string(b),
+			},
+		},
+		StructuredContent: data,
+	}, nil
+}
+
 // NewToolResultStructured creates a new CallToolResult with structured content.
 // It includes both the structured content and a text representation for backward compatibility.
 func NewToolResultStructured(structured any, fallbackText string) *CallToolResult {
@@ -309,7 +353,7 @@ func NewToolResultImage(text, imageData, mimeType string) *CallToolResult {
 }
 
 // NewToolResultAudio creates a new CallToolResult with both text and audio content
-func NewToolResultAudio(text, imageData, mimeType string) *CallToolResult {
+func NewToolResultAudio(text, audioData, mimeType string) *CallToolResult {
 	return &CallToolResult{
 		Content: []Content{
 			TextContent{
@@ -318,7 +362,7 @@ func NewToolResultAudio(text, imageData, mimeType string) *CallToolResult {
 			},
 			AudioContent{
 				Type:     ContentTypeAudio,
-				Data:     imageData,
+				Data:     audioData,
 				MIMEType: mimeType,
 			},
 		},
@@ -492,6 +536,42 @@ func ExtractString(data map[string]any, key string) string {
 	return ""
 }
 
+// ParseAnnotations parses priority, audience, and lastModified fields from the provided map
+// and returns an Annotations struct populated with any valid values found.
+// If data is nil, ParseAnnotations returns nil. Priority is set when a numeric value can be
+// parsed and is stored as a *float64. Audience is populated from string values and includes
+// only RoleUser and RoleAssistant entries. LastModified is set when the value is a string.
+func ParseAnnotations(data map[string]any) *Annotations {
+	if data == nil {
+		return nil
+	}
+	annotations := &Annotations{}
+	if value, ok := data["priority"]; ok {
+		if value != nil {
+			if priority, err := cast.ToFloat64E(value); err == nil {
+				annotations.Priority = &priority
+			}
+		}
+	}
+
+	if value, ok := data["audience"]; ok {
+		for _, a := range cast.ToStringSlice(value) {
+			a := Role(a)
+			if a == RoleUser || a == RoleAssistant {
+				annotations.Audience = append(annotations.Audience, a)
+			}
+		}
+	}
+
+	if value, ok := data["lastModified"]; ok {
+		if str, ok := value.(string); ok {
+			annotations.LastModified = str
+		}
+	}
+	return annotations
+
+}
+
 func ExtractMap(data map[string]any, key string) map[string]any {
 	if value, ok := data[key]; ok {
 		if m, ok := value.(map[string]any); ok {
@@ -501,13 +581,29 @@ func ExtractMap(data map[string]any, key string) map[string]any {
 	return nil
 }
 
+// ParseContent parses a generic map into a strongly-typed Content value.
+// It extracts annotations and _meta fields from the map and sets them on
+// the returned content type.
 func ParseContent(contentMap map[string]any) (Content, error) {
 	contentType := ExtractString(contentMap, "type")
+
+	var annotations *Annotations
+	if annotationsMap := ExtractMap(contentMap, "annotations"); annotationsMap != nil {
+		annotations = ParseAnnotations(annotationsMap)
+	}
+
+	var meta *Meta
+	if metaMap := ExtractMap(contentMap, "_meta"); metaMap != nil {
+		meta = NewMetaFromMap(metaMap)
+	}
 
 	switch contentType {
 	case ContentTypeText:
 		text := ExtractString(contentMap, "text")
-		return NewTextContent(text), nil
+		c := NewTextContent(text)
+		c.Annotations = annotations
+		c.Meta = meta
+		return c, nil
 
 	case ContentTypeImage:
 		data := ExtractString(contentMap, "data")
@@ -515,7 +611,10 @@ func ParseContent(contentMap map[string]any) (Content, error) {
 		if data == "" || mimeType == "" {
 			return nil, fmt.Errorf("image data or mimeType is missing")
 		}
-		return NewImageContent(data, mimeType), nil
+		c := NewImageContent(data, mimeType)
+		c.Annotations = annotations
+		c.Meta = meta
+		return c, nil
 
 	case ContentTypeAudio:
 		data := ExtractString(contentMap, "data")
@@ -523,7 +622,10 @@ func ParseContent(contentMap map[string]any) (Content, error) {
 		if data == "" || mimeType == "" {
 			return nil, fmt.Errorf("audio data or mimeType is missing")
 		}
-		return NewAudioContent(data, mimeType), nil
+		c := NewAudioContent(data, mimeType)
+		c.Annotations = annotations
+		c.Meta = meta
+		return c, nil
 
 	case ContentTypeLink:
 		uri := ExtractString(contentMap, "uri")
@@ -533,7 +635,9 @@ func ParseContent(contentMap map[string]any) (Content, error) {
 		if uri == "" || name == "" {
 			return nil, fmt.Errorf("resource_link uri or name is missing")
 		}
-		return NewResourceLink(uri, name, description, mimeType), nil
+		c := NewResourceLink(uri, name, description, mimeType)
+		c.Annotations = annotations
+		return c, nil
 
 	case ContentTypeResource:
 		resourceMap := ExtractMap(contentMap, "resource")
@@ -546,7 +650,10 @@ func ParseContent(contentMap map[string]any) (Content, error) {
 			return nil, err
 		}
 
-		return NewEmbeddedResource(resourceContents), nil
+		c := NewEmbeddedResource(resourceContents)
+		c.Annotations = annotations
+		c.Meta = meta
+		return c, nil
 	}
 
 	return nil, fmt.Errorf("unsupported content type: %s", contentType)
@@ -687,8 +794,15 @@ func ParseResourceContents(contentMap map[string]any) (ResourceContents, error) 
 
 	mimeType := ExtractString(contentMap, "mimeType")
 
+	meta := ExtractMap(contentMap, "_meta")
+
+	if _, present := contentMap["_meta"]; present && meta == nil {
+		return nil, fmt.Errorf("_meta must be an object")
+	}
+
 	if text := ExtractString(contentMap, "text"); text != "" {
 		return TextResourceContents{
+			Meta:     meta,
 			URI:      uri,
 			MIMEType: mimeType,
 			Text:     text,
@@ -697,6 +811,7 @@ func ParseResourceContents(contentMap map[string]any) (ResourceContents, error) 
 
 	if blob := ExtractString(contentMap, "blob"); blob != "" {
 		return BlobResourceContents{
+			Meta:     meta,
 			URI:      uri,
 			MIMEType: mimeType,
 			Blob:     blob,
@@ -860,4 +975,225 @@ func ParseStringMap(request CallToolRequest, key string, defaultValue map[string
 // ToBoolPtr returns a pointer to the given boolean value
 func ToBoolPtr(b bool) *bool {
 	return &b
+}
+
+// ToInt64Ptr returns a pointer to the given int64 value
+func ToInt64Ptr(i int64) *int64 {
+	return &i
+}
+
+// GetTextFromContent extracts text from a Content interface that might be a TextContent struct
+// or a map[string]any that was unmarshaled from JSON. This is useful when dealing with content
+// that comes from different transport layers that may handle JSON differently.
+//
+// This function uses fallback behavior for non-text content - it returns a string representation
+// via fmt.Sprintf for any content that cannot be extracted as text. This is a lossy operation
+// intended for convenience in logging and display scenarios.
+//
+// For strict type validation, use ParseContent() instead, which returns an error for invalid content.
+func GetTextFromContent(content any) string {
+	switch c := content.(type) {
+	case TextContent:
+		return c.Text
+	case map[string]any:
+		// Handle JSON unmarshaled content
+		if contentType, exists := c["type"]; exists && contentType == "text" {
+			if text, exists := c["text"].(string); exists {
+				return text
+			}
+		}
+		return fmt.Sprintf("%v", content)
+	case string:
+		return c
+	default:
+		return fmt.Sprintf("%v", content)
+	}
+}
+
+// jsonToTask convert json content to GetTaskResult structure
+func jsonToTask(jsonContent map[string]any, result *GetTaskResult) {
+	taskId, ok := jsonContent["taskId"]
+	if ok {
+		if taskIdStr, ok := taskId.(string); ok {
+			result.TaskId = taskIdStr
+		}
+	}
+
+	taskStatus, ok := jsonContent["status"]
+	if ok {
+		if taskStatusStr, ok := taskStatus.(string); ok {
+			result.Status = TaskStatus(taskStatusStr)
+		}
+	}
+
+	taskStatusMessage, ok := jsonContent["statusMessage"]
+	if ok {
+		if taskStatusMessageStr, ok := taskStatusMessage.(string); ok {
+			result.StatusMessage = taskStatusMessageStr
+		}
+	}
+
+	createdAt, ok := jsonContent["createdAt"]
+	if ok {
+		if createdAtStr, ok := createdAt.(string); ok {
+			result.CreatedAt = createdAtStr
+		}
+	}
+
+	lastUpdatedAt, ok := jsonContent["lastUpdatedAt"]
+	if ok {
+		if lastUpdatedAtStr, ok := lastUpdatedAt.(string); ok {
+			result.LastUpdatedAt = lastUpdatedAtStr
+		}
+	}
+
+	ttl, ok := jsonContent["ttl"]
+	if ok {
+		if ttlFloat, ok := ttl.(float64); ok {
+			ttlInt64 := int64(ttlFloat)
+			result.TTL = &ttlInt64
+		}
+	}
+
+	pollInterval, ok := jsonContent["pollInterval"]
+	if ok {
+		if pollIntervalFloat64, ok := pollInterval.(float64); ok {
+			pollIntervalInt := int64(pollIntervalFloat64)
+			result.PollInterval = &pollIntervalInt
+		}
+	}
+}
+
+// ParseCancelTaskResult parses a JSON message and converts it to a CancelTaskResult.
+func ParseCancelTaskResult(rawMessage *json.RawMessage) (*CancelTaskResult, error) {
+	if rawMessage == nil {
+		return nil, fmt.Errorf("response is nil")
+	}
+
+	var jsonContent map[string]any
+	if err := json.Unmarshal(*rawMessage, &jsonContent); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	convertResult := GetTaskResult{}
+	jsonToTask(jsonContent, &convertResult)
+	cancelResult := CancelTaskResult(convertResult)
+
+	meta, ok := jsonContent["_meta"]
+	if ok {
+		if metaMap, ok := meta.(map[string]any); ok {
+			cancelResult.Meta = NewMetaFromMap(metaMap)
+		}
+	}
+
+	return &cancelResult, nil
+}
+
+// ParseListTasksResult parses a JSON message and converts it to a ListTasksResult.
+func ParseListTasksResult(rawMessage *json.RawMessage) (*ListTasksResult, error) {
+	if rawMessage == nil {
+		return nil, fmt.Errorf("response is nil")
+	}
+
+	var jsonContent map[string]any
+	if err := json.Unmarshal(*rawMessage, &jsonContent); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	listTasksResult := ListTasksResult{}
+
+	meta, ok := jsonContent["_meta"]
+	if ok {
+		if metaMap, ok := meta.(map[string]any); ok {
+			listTasksResult.Meta = NewMetaFromMap(metaMap)
+		}
+	}
+
+	tasks, ok := jsonContent["tasks"]
+	if ok {
+		if taskArr, ok := tasks.([]any); ok {
+			for _, task := range taskArr {
+				if taskJsonContent, ok := task.(map[string]any); ok {
+					getTaskResult := GetTaskResult{}
+					jsonToTask(taskJsonContent, &getTaskResult)
+					listTasksResult.Tasks = append(listTasksResult.Tasks, getTaskResult.Task)
+				}
+			}
+		}
+	}
+
+	nextCursor, ok := jsonContent["nextCursor"]
+	if ok {
+		if cursorStr, ok := nextCursor.(string); ok {
+			listTasksResult.NextCursor = Cursor(cursorStr)
+		}
+	}
+
+	return &listTasksResult, nil
+}
+
+// ParseTaskResultResult parses a JSON message and converts it to a TaskResultResult.
+func ParseTaskResultResult(rawMessage *json.RawMessage) (*TaskResultResult, error) {
+	if rawMessage == nil {
+		return nil, fmt.Errorf("response is nil")
+	}
+
+	var jsonContent map[string]any
+	if err := json.Unmarshal(*rawMessage, &jsonContent); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	resultResult := TaskResultResult{}
+	meta, ok := jsonContent["_meta"]
+	if ok {
+		if metaMap, ok := meta.(map[string]any); ok {
+			resultResult.Meta = NewMetaFromMap(metaMap)
+		}
+	}
+
+	result, ok := jsonContent["result"]
+	if ok {
+		if resultMap, ok := result.(map[string]any); ok {
+			if isError, ok := resultMap["isError"].(bool); ok {
+				resultResult.IsError = isError
+			}
+			if contents, ok := resultMap["content"].([]any); ok {
+				for _, content := range contents {
+					if contentMap, ok := content.(map[string]any); ok {
+						parsedContent, err := ParseContent(contentMap)
+						if err != nil {
+							return nil, err
+						}
+						resultResult.Content = append(resultResult.Content, parsedContent)
+					}
+				}
+			}
+		}
+	}
+
+	return &resultResult, nil
+}
+
+// ParseGetTaskResult parses a JSON message and converts it to a GetTaskResult.
+func ParseGetTaskResult(rawMessage *json.RawMessage) (*GetTaskResult, error) {
+	if rawMessage == nil {
+		return nil, fmt.Errorf("response is nil")
+	}
+
+	var jsonContent map[string]any
+	if err := json.Unmarshal(*rawMessage, &jsonContent); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	result := GetTaskResult{}
+	meta, ok := jsonContent["_meta"]
+	if ok {
+		if metaMap, ok := meta.(map[string]any); ok {
+			result.Meta = NewMetaFromMap(metaMap)
+		}
+	}
+
+	jsonToTask(jsonContent, &result)
+
+	return &result, nil
 }
