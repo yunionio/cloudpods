@@ -61,3 +61,45 @@ func TestBuildDeploymentResolvedGpuMemoryLLMSpecSkipsExplicitSkuArg(t *testing.T
 		t.Fatalf("expected nil spec when SKU already sets gpu-memory-utilization, got %#v", spec)
 	}
 }
+
+func TestApplyResolvedGpuMemoryLLMSpecStripsStaleAutoArg(t *testing.T) {
+	current := &api.LLMSpec{
+		Vllm: &api.LLMSpecVllm{
+			PreferredModel: "qwen",
+			CustomizedArgs: []*api.VllmCustomizedArg{
+				{Key: "gpu-memory-utilization", Value: "0.98"},
+				{Key: "max-model-len", Value: "4096"},
+			},
+		},
+	}
+	got := applyResolvedGpuMemoryLLMSpec(current, nil, string(api.LLM_CONTAINER_VLLM))
+	if got == nil || got.Vllm == nil {
+		t.Fatal("expected remaining spec after stripping gpu util")
+	}
+	if got.Vllm.PreferredModel != "qwen" {
+		t.Fatalf("preferred model: %q", got.Vllm.PreferredModel)
+	}
+	if len(got.Vllm.CustomizedArgs) != 1 || got.Vllm.CustomizedArgs[0].Key != "max-model-len" {
+		t.Fatalf("customized args after strip: %#v", got.Vllm.CustomizedArgs)
+	}
+}
+
+func TestApplyResolvedGpuMemoryLLMSpecWritesResolvedArg(t *testing.T) {
+	current := &api.LLMSpec{
+		Vllm: &api.LLMSpecVllm{
+			CustomizedArgs: []*api.VllmCustomizedArg{{Key: "gpu-memory-utilization", Value: "0.98"}},
+		},
+	}
+	resolved := &api.LLMSpec{
+		Vllm: &api.LLMSpecVllm{
+			CustomizedArgs: []*api.VllmCustomizedArg{{Key: "gpu-memory-utilization", Value: "0.9"}},
+		},
+	}
+	got := applyResolvedGpuMemoryLLMSpec(current, resolved, string(api.LLM_CONTAINER_VLLM))
+	if got == nil || got.Vllm == nil || len(got.Vllm.CustomizedArgs) != 1 {
+		t.Fatalf("unexpected spec: %#v", got)
+	}
+	if got.Vllm.CustomizedArgs[0].Value != "0.9" {
+		t.Fatalf("expected resolved 0.9, got %q", got.Vllm.CustomizedArgs[0].Value)
+	}
+}
