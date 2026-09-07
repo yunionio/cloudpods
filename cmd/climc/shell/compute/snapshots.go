@@ -24,16 +24,18 @@ import (
 
 func init() {
 	type SnapshotsListOptions struct {
+		_ struct{} `mcp-desc:"列出磁盘快照。可用 disk/server/disk-type 过滤"`
+
 		options.BaseListOptions
 
-		Disk        string `help:"Disk snapshots" json:"disk_id"`
-		FakeDeleted bool   `help:"Show fake deleted snapshot or not"`
+		Disk        string `help:"Disk snapshots" json:"disk_id" mcp:"true"`
+		FakeDeleted bool   `help:"Show fake deleted snapshot or not" mcp:"true"`
 		Local       *bool  `help:"Show local snapshots"`
 		Share       *bool  `help:"Show shared snapshots"`
-		DiskType    string `help:"Filter by disk type" choices:"sys|data"`
-		Server      string `help:"Filter by server" json:"server_id"`
-		Unused      bool
-		StorageId   string `help:"Filter by storage id"`
+		DiskType    string `help:"Filter by disk type" choices:"sys|data" mcp:"true"`
+		Server      string `help:"Filter by server" json:"server_id" mcp:"true"`
+		Unused      bool   `mcp:"true"`
+		StorageId   string `help:"Filter by storage id" mcp:"true"`
 
 		OrderByGuest    string
 		OrderByDiskName string

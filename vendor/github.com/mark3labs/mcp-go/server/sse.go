@@ -29,6 +29,8 @@ type sseSession struct {
 	initialized         atomic.Bool
 	loggingLevel        atomic.Value
 	tools               sync.Map     // stores session-specific tools
+	resources           sync.Map     // stores session-specific resources
+	resourceTemplates   sync.Map     // stores session-specific resource templates
 	clientInfo          atomic.Value // stores session-specific client info
 	clientCapabilities  atomic.Value // stores session-specific client capabilities
 }
@@ -44,6 +46,11 @@ type SSEContextFunc func(ctx context.Context, r *http.Request) context.Context
 // using a reverse proxy or when the base path is dynamically generated. The
 // function should return the base path (e.g., "/mcp/tenant123").
 type DynamicBasePathFunc func(r *http.Request, sessionID string) string
+
+// SessionIDGenFunc is a function that produces a session ID for a new SSE connection.
+// It receives the request context and the HTTP request, and should return a session
+// identifier (string) or an error.
+type SessionIDGenFunc func(ctx context.Context, r *http.Request) (string, error)
 
 func (s *sseSession) SessionID() string {
 	return s.sessionID
@@ -73,6 +80,48 @@ func (s *sseSession) GetLogLevel() mcp.LoggingLevel {
 		return mcp.LoggingLevelError
 	}
 	return level.(mcp.LoggingLevel)
+}
+
+func (s *sseSession) GetSessionResources() map[string]ServerResource {
+	resources := make(map[string]ServerResource)
+	s.resources.Range(func(key, value any) bool {
+		if resource, ok := value.(ServerResource); ok {
+			resources[key.(string)] = resource
+		}
+		return true
+	})
+	return resources
+}
+
+func (s *sseSession) SetSessionResources(resources map[string]ServerResource) {
+	// Clear existing resources
+	s.resources.Clear()
+
+	// Set new resources
+	for name, resource := range resources {
+		s.resources.Store(name, resource)
+	}
+}
+
+func (s *sseSession) GetSessionResourceTemplates() map[string]ServerResourceTemplate {
+	templates := make(map[string]ServerResourceTemplate)
+	s.resourceTemplates.Range(func(key, value any) bool {
+		if template, ok := value.(ServerResourceTemplate); ok {
+			templates[key.(string)] = template
+		}
+		return true
+	})
+	return templates
+}
+
+func (s *sseSession) SetSessionResourceTemplates(templates map[string]ServerResourceTemplate) {
+	// Clear existing templates
+	s.resourceTemplates.Clear()
+
+	// Set new templates
+	for uriTemplate, template := range templates {
+		s.resourceTemplates.Store(uriTemplate, template)
+	}
 }
 
 func (s *sseSession) GetSessionTools() map[string]ServerTool {
@@ -123,10 +172,12 @@ func (s *sseSession) GetClientCapabilities() mcp.ClientCapabilities {
 }
 
 var (
-	_ ClientSession         = (*sseSession)(nil)
-	_ SessionWithTools      = (*sseSession)(nil)
-	_ SessionWithLogging    = (*sseSession)(nil)
-	_ SessionWithClientInfo = (*sseSession)(nil)
+	_ ClientSession                = (*sseSession)(nil)
+	_ SessionWithTools             = (*sseSession)(nil)
+	_ SessionWithResources         = (*sseSession)(nil)
+	_ SessionWithResourceTemplates = (*sseSession)(nil)
+	_ SessionWithLogging           = (*sseSession)(nil)
+	_ SessionWithClientInfo        = (*sseSession)(nil)
 )
 
 // SSEServer implements a Server-Sent Events (SSE) based MCP server.
@@ -143,6 +194,7 @@ type SSEServer struct {
 	srv                          *http.Server
 	contextFunc                  SSEContextFunc
 	dynamicBasePathFunc          DynamicBasePathFunc
+	sessionIDGenFunc             SessionIDGenFunc
 
 	keepAlive         bool
 	keepAliveInterval time.Duration
@@ -271,6 +323,15 @@ func WithSSEContextFunc(fn SSEContextFunc) SSEOption {
 	}
 }
 
+// WithSessionIDGenerator sets a custom session ID generator. If fn == nil the call is ignored.
+func WithSessionIDGenerator(fn SessionIDGenFunc) SSEOption {
+	return func(s *SSEServer) {
+		if fn != nil {
+			s.sessionIDGenFunc = fn
+		}
+	}
+}
+
 // NewSSEServer creates a new SSE server instance with the given MCP server and options.
 func NewSSEServer(server *MCPServer, opts ...SSEOption) *SSEServer {
 	s := &SSEServer{
@@ -280,6 +341,9 @@ func NewSSEServer(server *MCPServer, opts ...SSEOption) *SSEServer {
 		useFullURLForMessageEndpoint: true,
 		keepAlive:                    false,
 		keepAliveInterval:            10 * time.Second,
+		sessionIDGenFunc: func(ctx context.Context, r *http.Request) (string, error) {
+			return uuid.New().String(), nil
+		},
 	}
 
 	// Apply all options
@@ -361,7 +425,16 @@ func (s *SSEServer) handleSSE(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID := uuid.New().String()
+	sessionID, err := s.sessionIDGenFunc(r.Context(), r)
+	if err != nil {
+		http.Error(w, "Failed to create session ID", http.StatusInternalServerError)
+		return
+	}
+	if sessionID == "" {
+		http.Error(w, "Failed to create session ID", http.StatusInternalServerError)
+		return
+	}
+
 	session := &sseSession{
 		done:                make(chan struct{}),
 		eventQueue:          make(chan string, 100), // Buffer for events

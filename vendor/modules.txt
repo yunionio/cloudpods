@@ -472,9 +472,6 @@ github.com/boombuler/barcode/utils
 # github.com/bradfitz/iter v0.0.0-20191230175014-e8f45d346db8
 ## explicit; go 1.11
 github.com/bradfitz/iter
-# github.com/buger/jsonparser v1.1.1
-## explicit; go 1.13
-github.com/buger/jsonparser
 # github.com/c-bata/go-prompt v0.2.4
 ## explicit
 github.com/c-bata/go-prompt
@@ -943,8 +940,8 @@ github.com/google/gnostic/extensions
 github.com/google/gnostic/jsonschema
 github.com/google/gnostic/openapiv2
 github.com/google/gnostic/openapiv3
-# github.com/google/go-cmp v0.6.0
-## explicit; go 1.13
+# github.com/google/go-cmp v0.7.0
+## explicit; go 1.21
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
@@ -961,6 +958,9 @@ github.com/google/gofuzz/bytesource
 ## explicit; go 1.12
 github.com/google/gopacket
 github.com/google/gopacket/layers
+# github.com/google/jsonschema-go v0.4.2
+## explicit; go 1.23.0
+github.com/google/jsonschema-go/jsonschema
 # github.com/google/s2a-go v0.1.7
 ## explicit; go 1.19
 github.com/google/s2a-go
@@ -1062,9 +1062,6 @@ github.com/influxdata/promql/v2/util/strutil
 ## explicit; go 1.13
 github.com/infobloxopen/go-trees/iptree
 github.com/infobloxopen/go-trees/numtree
-# github.com/invopop/jsonschema v0.13.0
-## explicit; go 1.18
-github.com/invopop/jsonschema
 # github.com/jaypipes/ghw v0.11.0
 ## explicit; go 1.18
 github.com/jaypipes/ghw/pkg/context
@@ -1230,8 +1227,8 @@ github.com/mailru/easyjson
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
-# github.com/mark3labs/mcp-go v0.39.1
-## explicit; go 1.23
+# github.com/mark3labs/mcp-go v0.48.0
+## explicit; go 1.23.0
 github.com/mark3labs/mcp-go/mcp
 github.com/mark3labs/mcp-go/server
 github.com/mark3labs/mcp-go/util
@@ -1769,9 +1766,6 @@ github.com/volcengine/ve-tos-golang-sdk/v2/tos/enum
 # github.com/volcengine/volc-sdk-golang v1.0.23
 ## explicit; go 1.14
 github.com/volcengine/volc-sdk-golang/base
-# github.com/wk8/go-ordered-map/v2 v2.1.8
-## explicit; go 1.18
-github.com/wk8/go-ordered-map/v2
 # github.com/xuri/efp v0.0.0-20220603152613-6918739fd470
 ## explicit; go 1.11
 github.com/xuri/efp
