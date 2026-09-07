@@ -34,14 +34,16 @@ type SLLMSkuBaseManager struct {
 type SLLMSkuBase struct {
 	db.SSharableVirtualResourceBase
 
-	Bandwidth    int               `nullable:"false" default:"0" create:"optional" list:"user" update:"user"`
-	Cpu          int               `nullable:"false" default:"1" create:"optional" list:"user" update:"user"`
-	Memory       int               `nullable:"false" default:"512" create:"optional" list:"user" update:"user"`
-	Volumes      *api.Volumes      `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
-	HostPaths    *api.HostPaths    `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
-	PortMappings *api.PortMappings `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
-	Devices      *api.Devices      `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
-	Envs         *api.Envs         `charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
+	Bandwidth          int               `nullable:"false" default:"0" create:"optional" list:"user" update:"user"`
+	Cpu                int               `nullable:"false" default:"1" create:"optional" list:"user" update:"user"`
+	Memory             int               `nullable:"false" default:"512" create:"optional" list:"user" update:"user"`
+	EnableCgroupCpu    *bool             `default:"true" create:"optional" list:"user" update:"user"`
+	EnableCgroupMemory *bool             `default:"true" create:"optional" list:"user" update:"user"`
+	Volumes            *api.Volumes      `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
+	HostPaths          *api.HostPaths    `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
+	PortMappings       *api.PortMappings `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
+	Devices            *api.Devices      `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user" create:"optional"`
+	Envs               *api.Envs         `charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
 	// Properties
 	Properties map[string]string `charset:"utf8" nullable:"true" list:"user" update:"user" create:"optional"`
 }
