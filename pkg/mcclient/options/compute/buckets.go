@@ -23,6 +23,8 @@ import (
 )
 
 type BucketListOptions struct {
+	_ struct{} `mcp-desc:"列出对象存储 Bucket。可用 search/provider 过滤"`
+
 	options.BaseListOptions
 	DistinctField string `help:"query specified distinct field"`
 }
