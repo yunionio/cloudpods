@@ -434,6 +434,9 @@ func (model *SLLMDeployment) RealDelete(ctx context.Context, userCred mcclient.T
 type SyncReadyReplicasOptions struct {
 	// SkipAiproxySync avoids scheduling LLMAiproxySyncTask (e.g. create task uses a child sync instead).
 	SkipAiproxySync bool
+	// ForceHealthStatus applies replica-health status even when the current
+	// value would otherwise be protected (e.g. restarting after the restart task).
+	ForceHealthStatus bool
 }
 
 // SyncReadyReplicas recomputes ReadyReplicas from SLLM instances, persists it
@@ -453,8 +456,10 @@ type SyncReadyReplicasOptions struct {
 // Call after create/scale tasks finish and on every instance status change.
 func (model *SLLMDeployment) SyncReadyReplicas(ctx context.Context, userCred mcclient.TokenCredential, opts ...SyncReadyReplicasOptions) error {
 	skipAiproxySync := false
+	forceHealthStatus := false
 	if len(opts) > 0 {
 		skipAiproxySync = opts[0].SkipAiproxySync
+		forceHealthStatus = opts[0].ForceHealthStatus
 	}
 	var rows []deploymentReplicaStatusRow
 	err := GetLLMManager().Query("status").
@@ -477,7 +482,7 @@ func (model *SLLMDeployment) SyncReadyReplicas(ctx context.Context, userCred mcc
 	if desired == "" {
 		return nil
 	}
-	if !canUpdateReplicaHealthStatus(model.Status, desired) {
+	if !forceHealthStatus && !canUpdateReplicaHealthStatus(model.Status, desired) {
 		return nil
 	}
 	oldStatus := model.Status
@@ -562,10 +567,14 @@ func isDeploymentReplicaFailureStatus(status string) bool {
 }
 
 // canUpdateReplicaHealthStatus reports whether replica-health-driven status can
-// override the current deployment value. Early lifecycle and terminal failure /
-// delete states must not be clobbered, except create_fail and start_fail may
-// recover when replicas are running again.
+// override the current deployment value. Early lifecycle, restarting, and
+// terminal failure / delete states must not be clobbered, except create_fail
+// and start_fail may recover when replicas are running again. Restarting is
+// cleared only by SyncReadyReplicas with ForceHealthStatus after the restart task.
 func canUpdateReplicaHealthStatus(current, desired string) bool {
+	if current == api.LLM_DEPLOYMENT_STATUS_RESTARTING {
+		return false
+	}
 	if current == api.LLM_STATUS_CREATE_FAIL {
 		return desired == api.STATUS_READY || desired == api.LLM_DEPLOYMENT_STATUS_PARTIAL
 	}
@@ -740,7 +749,23 @@ func (model *SLLMDeployment) PerformUnregisterAiproxy(
 }
 
 // canRestartDeploymentStatus reports whether a deployment may be restarted.
-func canRestartDeploymentStatus(status string) bool {
+// force relaxes the allowlist so failed/deploying deployments can still apply SKU updates.
+func canRestartDeploymentStatus(status string, force bool) bool {
+	switch status {
+	case api.LLM_STATUS_DELETING,
+		api.LLM_STATUS_START_DELETE,
+		api.LLM_STATUS_DELETED,
+		api.LLM_STATUS_DELETE_FAILED,
+		"creating",
+		api.LLM_DEPLOYMENT_STATUS_IMPORTING_MODEL,
+		api.LLM_DEPLOYMENT_STATUS_CREATING_SKU,
+		api.LLM_DEPLOYMENT_STATUS_SYNCING,
+		api.LLM_DEPLOYMENT_STATUS_RESTARTING:
+		return false
+	}
+	if force {
+		return true
+	}
 	switch status {
 	case api.STATUS_READY,
 		api.LLM_DEPLOYMENT_STATUS_PARTIAL,
@@ -755,7 +780,10 @@ func (model *SLLMDeployment) ValidateRestartInput(
 	userCred mcclient.TokenCredential,
 	input *api.LLMDeploymentRestartInput,
 ) error {
-	if !canRestartDeploymentStatus(model.Status) {
+	if input == nil {
+		input = &api.LLMDeploymentRestartInput{}
+	}
+	if !canRestartDeploymentStatus(model.Status, input.Force) {
 		return httperrors.NewInvalidStatusError("invalid deployment status %s", model.Status)
 	}
 	var rows []struct {
@@ -769,13 +797,14 @@ func (model *SLLMDeployment) ValidateRestartInput(
 		return httperrors.NewInvalidStatusError("no instances under deployment")
 	}
 	restartable := 0
+	instInput := &api.LLMRestartInput{Force: input.Force}
 	for i := range rows {
 		llmObj, err := GetLLMManager().FetchById(rows[i].Id)
 		if err != nil {
 			continue
 		}
 		llm := llmObj.(*SLLM)
-		if _, err := llm.ValidateRestartInput(ctx, userCred, &api.LLMRestartInput{}); err == nil {
+		if _, err := llm.ValidateRestartInput(ctx, userCred, instInput); err == nil {
 			restartable++
 		}
 	}
@@ -791,17 +820,25 @@ func (model *SLLMDeployment) PerformRestart(
 	query jsonutils.JSONObject,
 	input *api.LLMDeploymentRestartInput,
 ) (jsonutils.JSONObject, error) {
+	if input == nil {
+		input = &api.LLMDeploymentRestartInput{}
+	}
 	if err := model.ValidateRestartInput(ctx, userCred, input); err != nil {
 		return nil, err
 	}
-	if err := model.StartRestartTask(ctx, userCred); err != nil {
+	if err := model.StartRestartTask(ctx, userCred, input.Force); err != nil {
 		return nil, errors.Wrap(err, "StartRestartTask")
 	}
 	return nil, nil
 }
 
-func (model *SLLMDeployment) StartRestartTask(ctx context.Context, userCred mcclient.TokenCredential) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "LLMDeploymentRestartTask", model, userCred, nil, "", "", nil)
+func (model *SLLMDeployment) StartRestartTask(ctx context.Context, userCred mcclient.TokenCredential, force bool) error {
+	model.SetStatus(ctx, userCred, api.LLM_DEPLOYMENT_STATUS_RESTARTING, "")
+	params := jsonutils.NewDict()
+	if force {
+		params.Set("force", jsonutils.JSONTrue)
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMDeploymentRestartTask", model, userCred, params, "", "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask LLMDeploymentRestartTask")
 	}

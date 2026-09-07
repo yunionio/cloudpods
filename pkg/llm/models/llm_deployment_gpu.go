@@ -13,6 +13,7 @@ import (
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/llm/options"
 	"yunion.io/x/onecloud/pkg/llm/utils/vram"
@@ -614,6 +615,152 @@ func BuildDeploymentResolvedGpuMemoryLLMSpec(ctx context.Context, userCred mccli
 	}
 	log.Infof("auto gpu_memory_utilization final: deploy=%s sku=%s utilization=%.2f", deploy.Id, sku.Id, utilization)
 	return buildAutoGpuMemoryUtilizationLLMSpec(sku, utilization)
+}
+
+func cloneLLMSpec(spec *api.LLMSpec) *api.LLMSpec {
+	if spec == nil {
+		return nil
+	}
+	copied := &api.LLMSpec{}
+	if err := jsonutils.Marshal(spec).Unmarshal(copied); err != nil {
+		return spec
+	}
+	return copied
+}
+
+func stripLLMSpecCustomizedArg(spec *api.LLMSpec, llmType string, key string) {
+	if spec == nil || key == "" {
+		return
+	}
+	switch api.LLMContainerType(llmType) {
+	case api.LLM_CONTAINER_VLLM:
+		if spec.Vllm == nil {
+			return
+		}
+		spec.Vllm.CustomizedArgs = filterVllmCustomizedArgs(spec.Vllm.CustomizedArgs, key)
+	case api.LLM_CONTAINER_SGLANG:
+		if spec.SGLang == nil {
+			return
+		}
+		spec.SGLang.CustomizedArgs = filterSGLangCustomizedArgs(spec.SGLang.CustomizedArgs, key)
+	}
+}
+
+func filterVllmCustomizedArgs(args []*api.VllmCustomizedArg, key string) []*api.VllmCustomizedArg {
+	if len(args) == 0 {
+		return args
+	}
+	out := make([]*api.VllmCustomizedArg, 0, len(args))
+	for _, arg := range args {
+		if arg == nil || runtimeArgKeyIn(arg.Key, []string{key}) {
+			continue
+		}
+		out = append(out, arg)
+	}
+	return out
+}
+
+func filterSGLangCustomizedArgs(args []*api.SGLangCustomizedArg, key string) []*api.SGLangCustomizedArg {
+	if len(args) == 0 {
+		return args
+	}
+	out := make([]*api.SGLangCustomizedArg, 0, len(args))
+	for _, arg := range args {
+		if arg == nil || runtimeArgKeyIn(arg.Key, []string{key}) {
+			continue
+		}
+		out = append(out, arg)
+	}
+	return out
+}
+
+func mergeLLMSpecCustomizedArgs(dst *api.LLMSpec, src *api.LLMSpec, llmType string) {
+	if dst == nil || src == nil {
+		return
+	}
+	switch api.LLMContainerType(llmType) {
+	case api.LLM_CONTAINER_VLLM:
+		if src.Vllm == nil {
+			return
+		}
+		if dst.Vllm == nil {
+			dst.Vllm = &api.LLMSpecVllm{}
+		}
+		for _, arg := range src.Vllm.CustomizedArgs {
+			if arg == nil {
+				continue
+			}
+			dst.Vllm.CustomizedArgs = filterVllmCustomizedArgs(dst.Vllm.CustomizedArgs, arg.Key)
+			next := *arg
+			dst.Vllm.CustomizedArgs = append(dst.Vllm.CustomizedArgs, &next)
+		}
+	case api.LLM_CONTAINER_SGLANG:
+		if src.SGLang == nil {
+			return
+		}
+		if dst.SGLang == nil {
+			dst.SGLang = &api.LLMSpecSGLang{}
+		}
+		for _, arg := range src.SGLang.CustomizedArgs {
+			if arg == nil {
+				continue
+			}
+			dst.SGLang.CustomizedArgs = filterSGLangCustomizedArgs(dst.SGLang.CustomizedArgs, arg.Key)
+			next := *arg
+			dst.SGLang.CustomizedArgs = append(dst.SGLang.CustomizedArgs, &next)
+		}
+	}
+}
+
+func applyResolvedGpuMemoryLLMSpec(current *api.LLMSpec, resolved *api.LLMSpec, llmType string) *api.LLMSpec {
+	key, ok := gpuMemoryUtilizationRuntimeArgKey(llmType)
+	if !ok {
+		return current
+	}
+	out := cloneLLMSpec(current)
+	if out == nil {
+		out = &api.LLMSpec{}
+	}
+	stripLLMSpecCustomizedArg(out, llmType, key)
+	if resolved != nil {
+		mergeLLMSpecCustomizedArgs(out, resolved, llmType)
+	}
+	if out.IsZero() {
+		return nil
+	}
+	return out
+}
+
+// RefreshLLMGpuMemorySpecFromDeployment rewrites instance LLMSpec GPU util args from the
+// current deployment+SKU rules so restart applies the latest SKU backend parameters.
+func RefreshLLMGpuMemorySpecFromDeployment(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, sku *SLLMSku) error {
+	if llm == nil || llm.LLMDeploymentId == "" {
+		return nil
+	}
+	depObj, err := GetLLMDeploymentManager().FetchById(llm.LLMDeploymentId)
+	if err != nil {
+		return errors.Wrap(err, "fetch deployment")
+	}
+	deploy := depObj.(*SLLMDeployment)
+	if sku == nil {
+		sku, err = llm.GetLLMSku(llm.LLMSkuId)
+		if err != nil {
+			return errors.Wrap(err, "GetLLMSku")
+		}
+	}
+	resolved, err := BuildDeploymentResolvedGpuMemoryLLMSpec(ctx, userCred, deploy, sku)
+	if err != nil {
+		return err
+	}
+	next := applyResolvedGpuMemoryLLMSpec(llm.LLMSpec, resolved, sku.LLMType)
+	_, err = db.Update(llm, func() error {
+		llm.LLMSpec = next
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "update llm_spec gpu memory args")
+	}
+	return nil
 }
 
 func maxMountedModelVramRequirementMB(sku *SLLMSku) (int64, error) {
