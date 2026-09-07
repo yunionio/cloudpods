@@ -966,6 +966,18 @@ func (svm *SVirtualMachine) getNetTags() string {
 		info = append(info, nicConf.Mac, nicConf.Network)
 		info = append(info, nicConf.IPs...)
 	}
+	if len(info) > 0 {
+		return strings.Join(info, "/")
+	}
+	// guest.net 为空时回退读取虚拟网卡硬件配置
+	for i := range svm.vnics {
+		mac := svm.vnics[i].GetMAC()
+		network := svm.vnics[i].GetNetworkName()
+		if len(mac) == 0 && len(network) == 0 {
+			continue
+		}
+		info = append(info, mac, network)
+	}
 	return strings.Join(info, "/")
 }
 
@@ -978,6 +990,9 @@ type sNicConfig struct {
 func (svm *SVirtualMachine) fetchGuestIps() map[string]sNicConfig {
 	guestIps := make(map[string]sNicConfig)
 	moVM := svm.getVirtualMachine()
+	if moVM.Guest == nil {
+		return guestIps
+	}
 	for _, net := range moVM.Guest.Net {
 		if len(net.Network) == 0 {
 			continue
