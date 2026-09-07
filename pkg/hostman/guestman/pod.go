@@ -1170,7 +1170,7 @@ func (s *sPodGuestInstance) _startPod(ctx context.Context, userCred mcclient.Tok
 		return nil, errors.Wrap(err, "setCRIId")
 	}
 	// set pod cgroup resources
-	if err := s.setPodCgroupResources(criId, s.GetDesc().Mem, s.GetDesc().Cpu); err != nil {
+	if err := s.setPodCgroupResources(criId, s.GetDesc().Mem, s.GetDesc().Cpu, podInput); err != nil {
 		return nil, errors.Wrapf(err, "set pod %s cgroup memMB %d, cpu %d", criId, s.GetDesc().Mem, s.GetDesc().Cpu)
 	}
 
@@ -1184,12 +1184,16 @@ func (s *sPodGuestInstance) _startPod(ctx context.Context, userCred mcclient.Tok
 	}, nil
 }
 
-func (s *sPodGuestInstance) setPodCgroupResources(criId string, memMB int64, cpuCnt int64) error {
-	if err := s.getCGUtil().SetMemoryLimitBytes(criId, memMB*1024*1024); err != nil {
-		return errors.Wrap(err, "set cgroup memory limit")
+func (s *sPodGuestInstance) setPodCgroupResources(criId string, memMB int64, cpuCnt int64, podInput *computeapi.PodCreateInput) error {
+	if podInput == nil || !podInput.DisableCgroupMemoryLimit {
+		if err := s.getCGUtil().SetMemoryLimitBytes(criId, memMB*1024*1024); err != nil {
+			return errors.Wrap(err, "set cgroup memory limit")
+		}
 	}
-	if err := s.getCGUtil().SetCPUCfs(criId, cpuCnt*s.getDefaultCPUPeriod(), s.getDefaultCPUPeriod()); err != nil {
-		return errors.Wrap(err, "set cgroup cfs")
+	if podInput == nil || !podInput.DisableCgroupCpuLimit {
+		if err := s.getCGUtil().SetCPUCfs(criId, cpuCnt*s.getDefaultCPUPeriod(), s.getDefaultCPUPeriod()); err != nil {
+			return errors.Wrap(err, "set cgroup cfs")
+		}
 	}
 	return nil
 }
@@ -2051,6 +2055,21 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 		procMountType = apis.ContainerUnmaskedProcMount
 	}
 
+	cpuQuota := (s.GetDesc().Cpu + int64(extraCpuCount)) * s.getDefaultCPUPeriod()
+	memoryLimitInBytes := s.GetDesc().Mem * 1024 * 1024
+	disableCgroupCpuLimit := spec.DisableCgroupCpuLimit
+	disableCgroupMemoryLimit := spec.DisableCgroupMemoryLimit
+	if podCreateInput, err := s.getPodCreateParams(); err == nil && podCreateInput != nil {
+		disableCgroupCpuLimit = disableCgroupCpuLimit || podCreateInput.DisableCgroupCpuLimit
+		disableCgroupMemoryLimit = disableCgroupMemoryLimit || podCreateInput.DisableCgroupMemoryLimit
+	}
+	if disableCgroupCpuLimit {
+		cpuQuota = 0
+	}
+	if disableCgroupMemoryLimit {
+		memoryLimitInBytes = 0
+	}
+
 	ctrCfg := &runtimeapi.ContainerConfig{
 		Metadata: &runtimeapi.ContainerMetadata{
 			Name:    input.Name,
@@ -2072,9 +2091,9 @@ func (s *sPodGuestInstance) createContainer(ctx context.Context, userCred mcclie
 			Resources: &runtimeapi.LinuxContainerResources{
 				// REF: https://docs.docker.com/config/containers/resource_constraints/#configure-the-default-cfs-scheduler
 				CpuPeriod: s.getDefaultCPUPeriod(),
-				CpuQuota:  (s.GetDesc().Cpu + int64(extraCpuCount)) * s.getDefaultCPUPeriod(),
+				CpuQuota:  cpuQuota,
 				//CpuShares:              defaultCPUPeriod,
-				MemoryLimitInBytes:     s.GetDesc().Mem * 1024 * 1024,
+				MemoryLimitInBytes:     memoryLimitInBytes,
 				OomScoreAdj:            0,
 				CpusetCpus:             cpuSetCpus,
 				CpusetMems:             cpuSetMems,
