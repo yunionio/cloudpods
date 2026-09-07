@@ -292,6 +292,7 @@ func (o *LLMDeploymentUnregisterAiproxyOptions) Params() (jsonutils.JSONObject, 
 
 type LLMDeploymentRestartOptions struct {
 	options.BaseIdOptions
+	Force bool `help:"force restart even if instances are in failed status" json:"force"`
 }
 
 func (o *LLMDeploymentRestartOptions) GetId() string {
@@ -299,7 +300,11 @@ func (o *LLMDeploymentRestartOptions) GetId() string {
 }
 
 func (o *LLMDeploymentRestartOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.NewDict(), nil
+	params := jsonutils.NewDict()
+	if o.Force {
+		params.Set("force", jsonutils.JSONTrue)
+	}
+	return params, nil
 }
 
 type LLMDeploymentSyncstatusOptions struct {
