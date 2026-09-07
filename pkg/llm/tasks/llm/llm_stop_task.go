@@ -56,8 +56,17 @@ func (task *LLMStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, bo
 
 	task.SetStage("OnStopComplete", nil)
 	s := auth.GetSession(ctx, task.UserCred, "")
+	force := jsonutils.QueryBoolean(task.GetParams(), "force", false)
 	err = s.WithTaskCallback(task.GetId(), func() error {
-		_, err = compute.Servers.PerformAction(s, llm.CmpId, "stop", nil)
+		var params jsonutils.JSONObject
+		if force {
+			timeout := 10
+			params = jsonutils.Marshal(computeapi.ServerStopInput{
+				IsForce:     true,
+				TimeoutSecs: &timeout,
+			})
+		}
+		_, err = compute.Servers.PerformAction(s, llm.CmpId, "stop", params)
 		return err
 	})
 	if err != nil {

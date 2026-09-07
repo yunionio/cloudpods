@@ -31,6 +31,9 @@ func init() {
 }
 
 func (task *LLMDeploymentRestartTask) taskFailed(ctx context.Context, model *models.SLLMDeployment, err error) {
+	if syncErr := model.SyncReadyReplicas(ctx, task.UserCred, models.SyncReadyReplicasOptions{ForceHealthStatus: true}); syncErr != nil {
+		log.Warningf("LLMDeploymentRestartTask: SyncReadyReplicas for %s: %s", model.Name, syncErr)
+	}
 	db.OpsLog.LogEvent(model, "restart", err, task.UserCred)
 	logclient.AddActionLogWithStartable(task, model, logclient.ACT_VM_RESTART, err, task.UserCred, false)
 	task.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
@@ -59,7 +62,8 @@ func (task *LLMDeploymentRestartTask) OnInit(ctx context.Context, obj db.IStanda
 			continue
 		}
 		llm := llmObj.(*models.SLLM)
-		taskInput, err := llm.ValidateRestartInput(ctx, task.UserCred, &api.LLMRestartInput{})
+		force := jsonutils.QueryBoolean(task.GetParams(), "force", false)
+		taskInput, err := llm.ValidateRestartInput(ctx, task.UserCred, &api.LLMRestartInput{Force: force})
 		if err != nil {
 			log.Warningf("LLMDeploymentRestartTask: skip instance %s: %s", inst.Id, err)
 			continue
@@ -78,7 +82,7 @@ func (task *LLMDeploymentRestartTask) OnInit(ctx context.Context, obj db.IStanda
 
 func (task *LLMDeploymentRestartTask) OnInstancesRestarted(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	model := obj.(*models.SLLMDeployment)
-	if err := model.SyncReadyReplicas(ctx, task.UserCred); err != nil {
+	if err := model.SyncReadyReplicas(ctx, task.UserCred, models.SyncReadyReplicasOptions{ForceHealthStatus: true}); err != nil {
 		log.Warningf("LLMDeploymentRestartTask: SyncReadyReplicas for %s: %s", model.Name, err)
 	}
 	db.OpsLog.LogEvent(model, "restart", nil, task.UserCred)
@@ -89,7 +93,7 @@ func (task *LLMDeploymentRestartTask) OnInstancesRestarted(ctx context.Context, 
 func (task *LLMDeploymentRestartTask) OnInstancesRestartedFailed(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	model := obj.(*models.SLLMDeployment)
 	log.Warningf("LLMDeploymentRestartTask: some instances failed to restart: %s", body)
-	if err := model.SyncReadyReplicas(ctx, task.UserCred); err != nil {
+	if err := model.SyncReadyReplicas(ctx, task.UserCred, models.SyncReadyReplicasOptions{ForceHealthStatus: true}); err != nil {
 		log.Warningf("LLMDeploymentRestartTask: SyncReadyReplicas for %s: %s", model.Name, err)
 	}
 	db.OpsLog.LogEvent(model, "restart", body, task.UserCred)

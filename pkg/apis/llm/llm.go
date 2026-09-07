@@ -205,6 +205,7 @@ type LLMSyncStatusInput struct {
 }
 
 type LLMRestartInput struct {
+	Force bool `json:"force"`
 }
 
 type LLMRestartTaskInput struct {
@@ -218,6 +219,7 @@ type LLMRestartTaskInput struct {
 
 	RebindVolumeId string
 	OnlyStop       bool
+	Force          bool `json:"force"`
 }
 
 type LLMChangeNetworkInput struct {
