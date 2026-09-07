@@ -639,6 +639,17 @@ func (input *MetricQueryInput) To(to time.Time) *MetricQueryInput {
 	return input
 }
 
+// FromRaw 传相对时间（如 720h）或 now，与控制台 unifiedmonitor 一致。
+func (input *MetricQueryInput) FromRaw(from string) *MetricQueryInput {
+	input.from = from
+	return input
+}
+
+func (input *MetricQueryInput) ToRaw(to string) *MetricQueryInput {
+	input.to = to
+	return input
+}
+
 func (input *MetricQueryInput) Scope(scope string) *MetricQueryInput {
 	input.scope = scope
 	return input

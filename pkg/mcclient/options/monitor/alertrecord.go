@@ -25,16 +25,18 @@ import (
 )
 
 type AlertRecordListOptions struct {
+	_ struct{} `mcp-desc:"列出告警记录。可用 res-types/alerting/level 过滤；告警总数饼图用 climc_monitor_alertrecord_total_alert"`
+
 	options.BaseListOptions
 
-	AlertId   string   `help:"id of alert"`
-	Level     string   `help:"alert level"`
-	State     string   `help:"alert state"`
-	ResTypes  []string `json:"res_types"`
-	ResId     string   `json:"res_id"`
-	ResName   string   `json:"res_name"`
-	Alerting  bool     `json:"alerting"`
-	AlertName string   `json:"alert_name"`
+	AlertId   string   `help:"id of alert" mcp:"true"`
+	Level     string   `help:"alert level" mcp:"true"`
+	State     string   `help:"alert state" mcp:"true"`
+	ResTypes  []string `json:"res_types" mcp:"true"`
+	ResId     string   `json:"res_id" mcp:"true"`
+	ResName   string   `json:"res_name" mcp:"true"`
+	Alerting  bool     `json:"alerting" mcp:"true"`
+	AlertName string   `json:"alert_name" mcp:"true"`
 }
 
 func (o *AlertRecordListOptions) Params() (jsonutils.JSONObject, error) {
@@ -54,6 +56,8 @@ func (o *AlertRecordShowOptions) GetId() string {
 }
 
 type AlertRecordTotalOptions struct {
+	_ struct{} `mcp-desc:"告警总览饼图数据（alertrecords/total-alert）。按资源类型汇总当前告警数。项目/域用 tenant 或 scope"`
+
 	options.BaseListOptions
 }
 
