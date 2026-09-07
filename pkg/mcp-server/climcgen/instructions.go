@@ -41,8 +41,9 @@ const serverInstructionsTemplate = `%s MCP（climc tools）使用规则：
       - net 可省略自动调度。工具会 forecast→创建并等待 running/ready；若返回 wait_pending，用 climc_server_show 续查，勿重复创建。
       - 若 final_status 含 fail：结果中会带 fail_reason 与 fail_diagnostics.action_logs（平台操作日志）；也可 climc_action_show type=server id=<id> fail=true。
 3. 启停/重启/删除/重置密码/改配/挂盘/绑 EIP：climc_server_list 定位 id 后立刻调用对应操作工具。删除时若锁定会自动解锁。
-4. 监控指标用 climc_monitor_unifiedmonitor_query。
-5. 缺参只追问真正缺失项；已有 id 直接下一步。
+4. 监控：指标用 climc_monitor_unifiedmonitor_query；账户余额曲线 database=meter_db measurement=cloudaccount_balance field=balance from=720h to=now interval=24h；告警饼图 climc_monitor_alertrecord_total_alert；告警记录 climc_monitor_alertrecord_list；告警趋势 unifiedmonitor measurement=alert_record_history field=res_num func=sum group-by=res_type from=720h；告警资源 TopN climc_monitor_monitorresource_list。
+5. 资源概览用量用 climc_usage（project=项目名），不要用 list 凑配额。明细：LB climc_lb_list，Bucket climc_bucket_list，快照 climc_snapshot_list。
+6. 缺参只追问真正缺失项；已有 id 直接下一步。
 `
 
 // BuildServerInstructions 用 platformName（BaseOptions.PlatformName）生成 MCP ServerInstructions。

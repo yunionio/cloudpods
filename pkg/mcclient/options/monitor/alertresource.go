@@ -21,8 +21,10 @@ import (
 )
 
 type AlertResourceListOptions struct {
+	_ struct{} `mcp-desc:"列出正在告警的资源。type 可过滤资源类型"`
+
 	options.BaseListOptions
-	Type string `json:"type"`
+	Type string `json:"type" mcp:"true"`
 }
 
 func (o AlertResourceListOptions) Params() (jsonutils.JSONObject, error) {
