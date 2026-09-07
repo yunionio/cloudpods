@@ -63,7 +63,34 @@ func (nic *SVirtualNIC) GetDriver() string {
 }
 
 func (nic *SVirtualNIC) GetMAC() string {
-	return netutils.FormatMacAddr(nic.getVirtualEthernetCard().MacAddress)
+	card := nic.getVirtualEthernetCard()
+	if card == nil {
+		return ""
+	}
+	return netutils.FormatMacAddr(card.MacAddress)
+}
+
+func (nic *SVirtualNIC) GetNetworkName() string {
+	card := nic.getVirtualEthernetCard()
+	if card == nil {
+		return ""
+	}
+	switch bk := card.Backing.(type) {
+	case *types.VirtualEthernetCardNetworkBackingInfo:
+		if len(bk.DeviceName) > 0 {
+			return bk.DeviceName
+		}
+	case *types.VirtualEthernetCardOpaqueNetworkBackingInfo:
+		if len(bk.OpaqueNetworkId) > 0 {
+			return bk.OpaqueNetworkId
+		}
+	}
+	if card.DeviceInfo != nil {
+		if desc := card.DeviceInfo.GetDescription(); desc != nil && len(desc.Summary) > 0 {
+			return desc.Summary
+		}
+	}
+	return ""
 }
 
 func (nic *SVirtualNIC) InClassicNetwork() bool {

@@ -46,4 +46,6 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"eu-central-1":          api.RegionFrankfurt,
 	"cn-wulanchabu":         api.RegionWulanchabu,
 	"cn-guangzhou":          api.RegionGuangzhou,
+	"me-central-1":          api.RegionDubai,
+	"sa-east-1":             api.RegionSaoPaulo,
 }
