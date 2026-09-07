@@ -12,7 +12,9 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-const LLMServiceReadyTimeoutSeconds = 3600
+const LLMServiceReadyTimeoutSeconds = 1800
+
+const llmCrashLoopFailThreshold = 3
 
 var errLLMServiceProbing = errors.Error("llm service probing")
 
@@ -44,11 +46,29 @@ func IsLLMServiceProbingError(err error) bool {
 	return errors.Cause(err) == errLLMServiceProbing
 }
 
+func isLLMCrashLoopStatus(status string) bool {
+	return status == computeapi.POD_STATUS_CRASH_LOOP_BACK_OFF ||
+		status == computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF
+}
+
 func isLLMServiceFailedContainerStatus(status string) bool {
 	return status == computeapi.CONTAINER_STATUS_PROBE_FAILED ||
 		status == computeapi.CONTAINER_STATUS_NET_FAILED ||
-		status == computeapi.CONTAINER_STATUS_CRASH_LOOP_BACK_OFF ||
 		status == computeapi.CONTAINER_STATUS_EXITED
+}
+
+// crashLoopEpisodeAfter counts crash_loop_back_off episodes, not poll samples.
+// The count increments only when entering crash_loop from a non-crash status.
+// Staying in crash_loop does not increment. Leaving crash_loop keeps the count.
+func crashLoopEpisodeAfter(episodes int, inCrashLoop bool, status string) (int, bool, bool) {
+	if !isLLMCrashLoopStatus(status) {
+		return episodes, false, false
+	}
+	if inCrashLoop {
+		return episodes, true, false
+	}
+	next := episodes + 1
+	return next, true, next >= llmCrashLoopFailThreshold
 }
 
 func (llm *SLLM) WaitServiceReady(ctx context.Context, userCred mcclient.TokenCredential, timeoutSecs int) (*computeapi.SContainer, error) {
@@ -64,7 +84,15 @@ func (llm *SLLM) WaitServiceReadyWithProbingCallback(ctx context.Context, userCr
 	if err != nil {
 		return nil, errors.Wrap(err, "WaitServerStatus")
 	}
-	if server.Status != computeapi.VM_RUNNING {
+	crashLoopEpisodes := 0
+	inCrashLoop := false
+	if isLLMCrashLoopStatus(server.Status) {
+		var failed bool
+		crashLoopEpisodes, inCrashLoop, failed = crashLoopEpisodeAfter(crashLoopEpisodes, inCrashLoop, server.Status)
+		if failed {
+			return nil, errors.Wrapf(errors.ErrInvalidStatus, "server status %s (crash_loop episodes %d)", server.Status, crashLoopEpisodes)
+		}
+	} else if server.Status != computeapi.VM_RUNNING {
 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "server status %s", server.Status)
 	}
 
@@ -84,6 +112,7 @@ func (llm *SLLM) WaitServiceReadyWithProbingCallback(ctx context.Context, userCr
 			return ctr, nil
 		}
 		if ctr.Status == computeapi.CONTAINER_STATUS_PROBING {
+			crashLoopEpisodes, inCrashLoop, _ = crashLoopEpisodeAfter(crashLoopEpisodes, inCrashLoop, ctr.Status)
 			if onProbing != nil && !probingNotified {
 				if err := onProbing(); err != nil {
 					return nil, errors.Wrap(err, "on probing")
@@ -93,6 +122,16 @@ func (llm *SLLM) WaitServiceReadyWithProbingCallback(ctx context.Context, userCr
 			time.Sleep(time.Second)
 			continue
 		}
+		if isLLMCrashLoopStatus(ctr.Status) {
+			var failed bool
+			crashLoopEpisodes, inCrashLoop, failed = crashLoopEpisodeAfter(crashLoopEpisodes, inCrashLoop, ctr.Status)
+			if failed {
+				return nil, errors.Wrapf(errors.ErrInvalidStatus, "container status %s (crash_loop episodes %d)", ctr.Status, crashLoopEpisodes)
+			}
+			time.Sleep(time.Second)
+			continue
+		}
+		crashLoopEpisodes, inCrashLoop, _ = crashLoopEpisodeAfter(crashLoopEpisodes, inCrashLoop, ctr.Status)
 		if isLLMServiceFailedContainerStatus(ctr.Status) {
 			return nil, errors.Wrapf(errors.ErrInvalidStatus, "container status %s", ctr.Status)
 		}

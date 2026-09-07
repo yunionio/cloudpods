@@ -90,6 +90,16 @@ func (task *LLMRestartTask) OnSyncLLMInitStatusCompleteFailed(ctx context.Contex
 	task.taskFailed(ctx, llm, err.String())
 }
 
+func (task *LLMRestartTask) restartForce() bool {
+	params := task.GetParams()
+	if params == nil {
+		return false
+	}
+	input := api.LLMRestartTaskInput{}
+	params.Unmarshal(&input)
+	return input.Force
+}
+
 func (task *LLMRestartTask) OnSyncLLMInitStatusComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	llm := obj.(*models.SLLM)
 
@@ -99,15 +109,27 @@ func (task *LLMRestartTask) OnSyncLLMInitStatusComplete(ctx context.Context, obj
 		return
 	}
 
+	if srv.Status == computeapi.VM_READY {
+		task.OnServerStopComplete(ctx, llm, nil)
+		return
+	}
+
+	force := task.restartForce()
+	if force {
+		task.SetStage("OnServerStopComplete", nil)
+		if err := llm.StartLLMStopTask(ctx, task.UserCred, task.GetTaskId(), true); err != nil {
+			task.taskFailed(ctx, llm, errors.Wrap(err, "StartLLMStopTask").Error())
+		}
+		return
+	}
+
 	switch srv.Status {
 	case computeapi.VM_RUNNING:
 		task.SetStage("OnServerStopComplete", nil)
-		if err := llm.StartLLMStopTask(ctx, task.UserCred, task.GetTaskId()); err != nil {
+		if err := llm.StartLLMStopTask(ctx, task.UserCred, task.GetTaskId(), false); err != nil {
 			task.taskFailed(ctx, llm, errors.Wrap(err, "StartLLMStopTask").Error())
 			return
 		}
-	case computeapi.VM_READY:
-		task.OnServerStopComplete(ctx, llm, nil)
 	default:
 		if strings.Contains(srv.Status, "fail") {
 			task.taskFailed(ctx, llm, errors.Wrap(errors.ErrInvalidStatus, srv.Status).Error())
@@ -147,6 +169,10 @@ func (task *LLMRestartTask) OnServerStopComplete(ctx context.Context, obj db.ISt
 	sku, err := llm.GetLLMSku(skuId)
 	if err != nil {
 		task.taskFailed(ctx, llm, errors.Wrap(err, "GetLLMSku").Error())
+		return
+	}
+	if err := models.RefreshLLMGpuMemorySpecFromDeployment(ctx, task.UserCred, llm, sku); err != nil {
+		task.taskFailed(ctx, llm, errors.Wrap(err, "RefreshLLMGpuMemorySpecFromDeployment").Error())
 		return
 	}
 

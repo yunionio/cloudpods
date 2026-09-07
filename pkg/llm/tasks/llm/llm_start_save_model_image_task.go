@@ -34,7 +34,7 @@ func (task *LLMStartSaveModelImageTask) OnInit(ctx context.Context, obj db.IStan
 
 	// first stop the desktop
 	task.SetStage("OnStopLLMComplete", nil)
-	err := llm.StartLLMStopTask(ctx, task.UserCred, task.GetTaskId())
+	err := llm.StartLLMStopTask(ctx, task.UserCred, task.GetTaskId(), false)
 	if err != nil {
 		task.taskFailed(ctx, llm, err.Error())
 		return

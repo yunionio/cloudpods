@@ -87,6 +87,8 @@ const (
 	LLM_DEPLOYMENT_STATUS_PARTIAL = "partial"
 	// Replica reconcile or syncstatus in progress.
 	LLM_DEPLOYMENT_STATUS_SYNCING = "syncing"
+	// Restart of all replicas in progress.
+	LLM_DEPLOYMENT_STATUS_RESTARTING = "restarting"
 )
 
 // AiproxySyncStatus values stored on SLLMDeployment.AiproxySyncStatus.
@@ -183,6 +185,7 @@ type LLMDeploymentUpdateInput struct {
 }
 
 type LLMDeploymentRestartInput struct {
+	Force bool `json:"force"`
 }
 
 type LLMDeploymentSyncstatusInput struct {
