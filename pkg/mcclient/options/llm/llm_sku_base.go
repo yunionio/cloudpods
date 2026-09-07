@@ -19,6 +19,9 @@ type LLMSkuBaseCreateOptions struct {
 	MEMORY    int `help:"memory size MB"`
 	DISK_SIZE int `help:"disk size MB"`
 
+	EnableCgroupCpu    *bool `help:"enable CPU cgroup CFS quota; inference SKUs default false" json:"enable_cgroup_cpu" token:"enable-cgroup-cpu"`
+	EnableCgroupMemory *bool `help:"enable memory cgroup hard limit; inference SKUs default false" json:"enable_cgroup_memory" token:"enable-cgroup-memory"`
+
 	Bandwidth   int
 	StorageType string
 	// DiskOverlay    string `help:"disk overlay, e.g. /opt/steam-data/base:/opt/steam-data/games"`
@@ -59,13 +62,15 @@ type LLMSkuBaseUpdateOptions struct {
 
 	ID string
 
-	Cpu         *int
-	Memory      *int `help:"memory size MB"`
-	DiskSize    *int `help:"disk size MB"`
-	StorageType string
-	TemplateId  string
-	NoTemplate  bool `json:"-" help:"remove template"`
-	Bandwidth   *int
+	Cpu                *int
+	Memory             *int  `help:"memory size MB"`
+	EnableCgroupCpu    *bool `help:"enable CPU cgroup CFS quota" json:"enable_cgroup_cpu" token:"enable-cgroup-cpu"`
+	EnableCgroupMemory *bool `help:"enable memory cgroup hard limit" json:"enable_cgroup_memory" token:"enable-cgroup-memory"`
+	DiskSize           *int  `help:"disk size MB"`
+	StorageType        string
+	TemplateId         string
+	NoTemplate         bool `json:"-" help:"remove template"`
+	Bandwidth          *int
 	// Dpi          *int
 	// Fps          *int
 	PortMappings []string `help:"port mapping in the format of protocol:port[:prefix][:first_port_offset], e.g. tcp:5555:192.168.0.0/16,10.10.0.0/16:1000"`

@@ -84,6 +84,10 @@ type PodCreateInput struct {
 	HostIPC    bool                       `json:"host_ipc"`
 	//PortMappings    []*PodPortMapping          `json:"port_mappings"`
 	SecurityContext *PodSecurityContext `json:"security_context,omitempty"`
+	// DisableCgroupCpuLimit skips setting CPU CFS quota on the pod sandbox and containers.
+	DisableCgroupCpuLimit bool `json:"disable_cgroup_cpu_limit"`
+	// DisableCgroupMemoryLimit skips setting memory hard limit on the pod sandbox and containers.
+	DisableCgroupMemoryLimit bool `json:"disable_cgroup_memory_limit"`
 }
 
 type PodStartResponse struct {
