@@ -785,7 +785,7 @@ func (llm *SLLM) PerformStop(ctx context.Context, userCred mcclient.TokenCredent
 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "llm id: %s status: %s", llm.Id, llm.Status)
 	}
 	llm.SetStatus(ctx, userCred, computeapi.VM_START_STOP, "perform stop")
-	err := llm.StartLLMStopTask(ctx, userCred, "")
+	err := llm.StartLLMStopTask(ctx, userCred, "", false)
 	if err != nil {
 		return nil, errors.Wrap(err, "StartStopTask")
 	}
@@ -793,6 +793,9 @@ func (llm *SLLM) PerformStop(ctx context.Context, userCred mcclient.TokenCredent
 }
 
 func (llm *SLLM) ValidateRestartInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMRestartInput) (*api.LLMRestartTaskInput, error) {
+	if input == nil {
+		input = &api.LLMRestartInput{}
+	}
 	if len(llm.CmpId) == 0 {
 		return nil, errors.Wrap(errors.ErrInvalidStatus, "empty cmp_id")
 	}
@@ -802,8 +805,10 @@ func (llm *SLLM) ValidateRestartInput(ctx context.Context, userCred mcclient.Tok
 		return nil, errors.Wrap(err, "GetServer")
 	}
 
-	if (llm.Status != api.LLM_STATUS_READY && llm.Status != api.LLM_STATUS_RUNNING) || (srv.Status != computeapi.VM_READY && !utils.IsInArray(srv.Status, computeapi.VM_RUNNING_STATUS)) {
-		return nil, errors.Wrapf(errors.ErrInvalidStatus, "invalid llm status %s", llm.Status)
+	if !input.Force {
+		if (llm.Status != api.LLM_STATUS_READY && llm.Status != api.LLM_STATUS_RUNNING) || (srv.Status != computeapi.VM_READY && !utils.IsInArray(srv.Status, computeapi.VM_RUNNING_STATUS)) {
+			return nil, errors.Wrapf(errors.ErrInvalidStatus, "invalid llm status %s", llm.Status)
+		}
 	}
 
 	sku, err := llm.GetLLMSku(llm.LLMSkuId)
@@ -813,6 +818,7 @@ func (llm *SLLM) ValidateRestartInput(ctx context.Context, userCred mcclient.Tok
 
 	return &api.LLMRestartTaskInput{
 		ImageId: sku.GetLLMImageId(),
+		Force:   input.Force,
 	}, nil
 }
 
@@ -889,8 +895,12 @@ func (llm *SLLM) NotifyRequest(ctx context.Context, userCred mcclient.TokenCrede
 	})
 }
 
-func (llm *SLLM) StartLLMStopTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "LLMStopTask", llm, userCred, nil, parentTaskId, "", nil)
+func (llm *SLLM) StartLLMStopTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, force bool) error {
+	params := jsonutils.NewDict()
+	if force {
+		params.Set("force", jsonutils.JSONTrue)
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMStopTask", llm, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
