@@ -437,25 +437,9 @@ func FetchCheckQueryOwnerScope(
 	} else {
 		ownerId = userCred
 		reqScopeStr, _ := data.GetString("scope")
-		if len(reqScopeStr) > 0 {
-			if reqScopeStr == "max" || reqScopeStr == "maxallowed" {
-				queryScope = allowScope
-			} else {
-				queryScope = rbacscope.String2Scope(reqScopeStr)
-			}
-		} else if data.Contains("admin") {
-			isAdmin := jsonutils.QueryBoolean(data, "admin", false)
-			if isAdmin && allowScope.HigherThan(rbacscope.ScopeProject) {
-				queryScope = allowScope
-			}
-		} else if action == policy.PolicyActionGet {
-			queryScope = allowScope
-		} else {
-			queryScope = resScope
-		}
-		// if resScope.HigherThan(queryScope) {
-		// 	queryScope = resScope
-		// }
+		hasAdmin := data.Contains("admin")
+		isAdmin := hasAdmin && jsonutils.QueryBoolean(data, "admin", false)
+		queryScope = resolveQueryScope(reqScopeStr, hasAdmin, isAdmin, allowScope, resScope, action)
 		requireScope = queryScope
 	}
 	if doCheckRbac && (requireScope.HigherThan(allowScope) || policyTagFilters.Result.IsDeny()) {
@@ -464,6 +448,49 @@ func FetchCheckQueryOwnerScope(
 			requireScope, allowScope, queryScope), policyTagFilters
 	}
 	return ownerId, queryScope, nil, policyTagFilters
+}
+
+// resolveQueryScope computes the scope at which a list/get query is filtered
+// when the request carries no explicit owner (no project_id/domain_id/user_id
+// filter).
+//
+// Semantics:
+//   - an explicit scope=system/domain/project selects that view; the RBAC
+//     caller check (requireScope) enforces the caller is allowed that scope.
+//     Querying a resource below its natural scope (e.g. project scope on a
+//     domain-scoped resource, resolved by custom FilterByOwner overrides) is
+//     a supported feature, so no blanket clamping to resScope is done here.
+//   - scope=max/maxallowed selects the widest scope the caller is allowed.
+//   - admin=true selects the widest allowed scope for callers above project
+//     scope; project-level callers fall back to the default resource view.
+//   - an unset (empty) or none scope, and a user scope on a non user-scoped
+//     resource, fall back to the natural scope of the resource.
+func resolveQueryScope(reqScopeStr string, hasAdmin, isAdmin bool, allowScope, resScope rbacscope.TRbacScope, action string) rbacscope.TRbacScope {
+	var queryScope rbacscope.TRbacScope
+	if len(reqScopeStr) > 0 {
+		if reqScopeStr == "max" || reqScopeStr == "maxallowed" {
+			queryScope = allowScope
+		} else {
+			queryScope = rbacscope.String2Scope(reqScopeStr)
+		}
+	} else if hasAdmin {
+		if isAdmin && allowScope.HigherThan(rbacscope.ScopeProject) {
+			queryScope = allowScope
+		} else {
+			// a project-level caller asking for the admin view (or sending
+			// admin=false) falls back to the default view of the resource
+			queryScope = resScope
+		}
+	} else if action == policy.PolicyActionGet {
+		queryScope = allowScope
+	} else {
+		queryScope = resScope
+	}
+	if queryScope == "" || queryScope == rbacscope.ScopeNone ||
+		(queryScope == rbacscope.ScopeUser && resScope != rbacscope.ScopeUser) {
+		queryScope = resScope
+	}
+	return queryScope
 }
 
 func mapKeys(idMap map[string]string) []string {
