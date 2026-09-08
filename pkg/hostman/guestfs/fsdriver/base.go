@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -59,6 +60,11 @@ func (d *sGuestRootFsDriver) DeployFiles(deploys []*deployapi.DeployContent) err
 		if len(deploy.Path) == 0 {
 			return fmt.Errorf("Deploy file missing param path")
 		}
+		clean, err := fileutils2.CleanGuestDeployPath(deploy.Path)
+		if err != nil {
+			return errors.Wrap(err, "deploy path")
+		}
+		deploy.Path = clean
 		dirname := filepath.Dir(deploy.Path)
 		if !d.GetPartition().Exists(dirname, caseInsensitive) {
 			modeRWXOwner := syscall.S_IRWXU | syscall.S_IRGRP | syscall.S_IXGRP | syscall.S_IROTH | syscall.S_IXOTH
