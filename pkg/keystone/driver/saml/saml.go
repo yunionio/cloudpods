@@ -16,8 +16,10 @@ package saml
 
 import (
 	"context"
+	"crypto/rsa"
 	"encoding/base64"
 	"fmt"
+	"os"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -29,9 +31,11 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/keystone/saml"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/samlutils/sp"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 // SAML 2.0 Service Provider Driver
@@ -125,6 +129,29 @@ func (self *SSAMLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 		return nil, errors.Wrap(httperrors.ErrInvalidCredential, "SAML auth unsuccess")
 	}
 
+	verifyOpts := sp.SAMLVerifyOptions{
+		IdpEntityId:     self.samlConfig.EntityId,
+		SpEntityId:      saml.SAMLInstance().GetEntityId(),
+		VerifySignature: self.samlConfig.VerifySignature != nil && *self.samlConfig.VerifySignature,
+	}
+	if verifyOpts.VerifySignature {
+		certs, err := sp.ParseCertificates(self.samlConfig.SigningCert)
+		if err != nil {
+			return nil, errors.Wrap(httperrors.ErrInvalidCredential, "idp signing certificate")
+		}
+		verifyOpts.Certs = certs
+		if resp.EncryptedAssertion != nil {
+			verifyOpts.DecryptKey, err = loadSPPrivateKey()
+			if err != nil {
+				return nil, errors.Wrap(err, "load SP private key")
+			}
+		}
+	}
+	err = sp.VerifySAMLResponse(samlRespBytes, resp, verifyOpts)
+	if err != nil {
+		return nil, err
+	}
+
 	attrs := resp.FetchAttribtues()
 
 	var domainId, domainName, usrId, usrName string
@@ -168,4 +195,15 @@ func (self *SSAMLDriver) Sync(ctx context.Context) error {
 
 func (self *SSAMLDriver) Probe(ctx context.Context) error {
 	return nil
+}
+
+func loadSPPrivateKey() (*rsa.PrivateKey, error) {
+	if len(options.Options.SslKeyfile) == 0 {
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "Missing ssl-keyfile")
+	}
+	privData, err := os.ReadFile(options.Options.SslKeyfile)
+	if err != nil {
+		return nil, errors.Wrap(err, "ReadFile ssl-keyfile")
+	}
+	return seclib2.DecodePrivateKey(privData)
 }
