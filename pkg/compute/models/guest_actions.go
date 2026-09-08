@@ -872,6 +872,10 @@ func (self *SGuest) PerformDeploy(
 		input.ResetPassword = true
 	}
 
+	if err := ValidateDeployConfigs(input.DeployConfigs); err != nil {
+		return nil, err
+	}
+
 	// 变更密码/密钥时需要Restart才能生效。更新普通字段不需要Restart, Azure需要在运行状态下操作
 	doRestart := false
 	if input.ResetPassword {

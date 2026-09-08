@@ -1565,6 +1565,10 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, err
 	}
 
+	if err := ValidateDeployConfigs(input.DeployConfigs); err != nil {
+		return nil, err
+	}
+
 	if len(input.Metadata) > 20 {
 		return nil, httperrors.NewInputParameterError("metdata must less then 20")
 	}
@@ -5001,6 +5005,9 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 
 	deploys, err := cmdline.FetchDeployConfigsByJSON(params)
 	if err != nil {
+		return nil, err
+	}
+	if err := ValidateDeployConfigs(deploys); err != nil {
 		return nil, err
 	}
 
