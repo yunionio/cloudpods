@@ -34,6 +34,9 @@ type SIdpAttributeOptions struct {
 
 type SSAMLIdpBaseConfigOptions struct {
 	AllowIdpInit *bool `json:"allow_idp_init"`
+	// VerifySignature, when true, checks the SAML response signature with SigningCert.
+	VerifySignature *bool  `json:"verify_signature"`
+	SigningCert     string `json:"signing_cert"`
 }
 
 type SSAMLIdpConfigOptions struct {

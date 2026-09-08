@@ -233,18 +233,26 @@ func (sp *SSAMLSpInstance) processAssertionConsumer(ctx context.Context, w http.
 		return errors.Wrap(err, "saml.UnmarshalResponse")
 	}
 
-	/*_, err = samlutils.ValidateXML(string(samlRespBytes))
-	if err != nil {
-		return errors.Wrap(err, "ValidateXML")
-	}*/
-
 	if !samlResp.IsSuccess() {
 		return errors.Wrapf(httperrors.ErrInvalidCredential, "SAML authenticate fail: %s", samlResp.Status.StatusCode.Value)
 	}
 
 	idp := sp.getIdentityProvider(samlResp.Issuer.Issuer)
+	if idp == nil && samlResp.Assertion != nil {
+		idp = sp.getIdentityProvider(samlResp.Assertion.Issuer.Issuer)
+	}
 	if idp == nil {
 		return errors.Wrapf(httperrors.ErrResourceNotFound, "issuer %s not found", samlResp.Issuer.Issuer)
+	}
+
+	err = VerifySAMLResponse(samlRespBytes, samlResp, SAMLVerifyOptions{
+		IdpEntityId: idp.GetEntityId(),
+		SpEntityId:  sp.saml.GetEntityId(),
+		Recipient:   sp.getAssertionConsumerUrl(),
+		Certs:       idp.GetSigningCerts(),
+	})
+	if err != nil {
+		return err
 	}
 
 	result := SSAMLAssertionConsumeResult{}
