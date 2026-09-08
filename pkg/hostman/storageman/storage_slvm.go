@@ -17,6 +17,7 @@ package storageman
 import (
 	"context"
 	"path"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -25,7 +26,9 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
+	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -159,12 +162,26 @@ func (s *SSLVMStorage) DeleteSnapshot(ctx context.Context, params interface{}) (
 }
 
 func (s *SSLVMStorage) Accessible() error {
-	if err := lvmutils.VgActive(s.Path, true, true); err != nil {
-		log.Warningf("vgactive got %s", err)
+	lvmlockd := system_service.NewBaseSystemService("lvmlockd", nil)
+	if !lvmlockd.IsInstalled() {
+		lvmlockd = system_service.NewBaseSystemService("lvm2-lvmlockd", nil)
 	}
-
-	if err := lvmutils.VgDisplay(s.Path); err != nil {
+	if !lvmlockd.IsActive() {
+		if err := lvmlockd.Start(true); err != nil {
+			log.Errorf("lvmlockd start failed: %s", err)
+			return errors.Wrap(err, "lvmlockd.Start")
+		}
+	}
+	if out, err := lvmutils.VgDisplay(s.Path); err != nil {
 		return err
+	} else if strings.Contains(out, "without a lock") {
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("lvm", "vgchange", "--lock-start", s.Path).Output()
+		if err != nil {
+			return errors.Wrapf(err, "lvmlock vgchange --lock-start %s failed: %s", s.Path, out)
+		}
+	}
+	if err := lvmutils.VgActive(s.Path, true, false); err != nil {
+		log.Warningf("vgactive got %s", err)
 	}
 	return nil
 }
