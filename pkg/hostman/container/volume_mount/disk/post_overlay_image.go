@@ -58,7 +58,10 @@ func (i postOverlayImage) getCachedImagePaths(d diskPostOverlay, pod volume_moun
 	result := make(map[string]string)
 	lowerResult := make(map[string]*apis.HostLowerPath)
 	for hostPathSuffix, ctrPath := range img.PathMap {
-		hostPath := filepath.Join(cachedImgDir, hostPathSuffix)
+		hostPath, err := joinCachedImagePath(cachedImgDir, hostPathSuffix)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "path_map key %s", hostPathSuffix)
+		}
 		result[hostPath] = ctrPath
 		hostLowerPath := hostLowerMap[hostPathSuffix]
 		if hostLowerPath != nil {
@@ -66,6 +69,14 @@ func (i postOverlayImage) getCachedImagePaths(d diskPostOverlay, pod volume_moun
 		}
 	}
 	return result, lowerResult, nil
+}
+
+func joinCachedImagePath(cachedImgDir, imagePath string) (string, error) {
+	rel := strings.TrimPrefix(strings.TrimSpace(imagePath), string(filepath.Separator))
+	if rel == "" || rel == "." {
+		return "", errors.Errorf("empty image path")
+	}
+	return fileutils.JoinInside(cachedImgDir, rel)
 }
 
 // parseColonSeparatedPaths 解析冒号分隔的路径字符串，过滤空字符串并返回路径列表
@@ -121,7 +132,10 @@ func (i postOverlayImage) withAction(
 		if err != nil {
 			return errors.Wrap(err, "get host disk root path")
 		}
-		hostUpperDir = filepath.Join(hostPath, vm.Disk.SubDirectory, config.Disk.SubPath)
+		hostUpperDir, err = fileutils.JoinInsideAll(hostPath, vm.Disk.SubDirectory, config.Disk.SubPath)
+		if err != nil {
+			return errors.Wrap(err, "upper config sub_path")
+		}
 		if !fileutils.Exists(hostUpperDir) {
 			if err := volume_mount.EnsureDir(hostUpperDir); err != nil {
 				return errors.Wrapf(err, "ensure dir %s", hostUpperDir)

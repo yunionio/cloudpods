@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 const (
@@ -70,7 +71,10 @@ func (d disk) GetPostOverlayRootUpperDir(pod volume_mount.IPodInfo, vm *hostapi.
 		if err != nil {
 			return "", errors.Wrap(err, "get host disk root path")
 		}
-		upperDir := filepath.Join(hostPath, vm.Disk.SubDirectory, config.Disk.SubPath)
+		upperDir, err := fileutils2.JoinInsideAll(hostPath, vm.Disk.SubDirectory, config.Disk.SubPath)
+		if err != nil {
+			return "", errors.Wrap(err, "upper config sub_path")
+		}
 		return upperDir, nil
 	}
 	return d.getPostOverlayRootPrefixDir(POST_OVERLAY_PREFIX_UPPER_DIR, pod, vm, ctrId)
@@ -173,9 +177,15 @@ func (d diskPostOverlay) getPostOverlayDirWithPrefix(
 		return "", errors.Wrap(err, "get post overlay root path")
 	}
 
-	workDir := filepath.Join(rootPath, ov.ContainerTargetDir)
+	elem := ov.ContainerTargetDir
 	if ov.FlattenLayers {
-		workDir = filepath.Join(rootPath, strings.ReplaceAll(ov.ContainerTargetDir, "/", "_"))
+		elem = strings.ReplaceAll(ov.ContainerTargetDir, "/", "_")
+	} else {
+		elem = strings.TrimPrefix(elem, string(filepath.Separator))
+	}
+	workDir, err := fileutils2.JoinInside(rootPath, elem)
+	if err != nil {
+		return "", errors.Wrap(err, "container_target_dir")
 	}
 	if ensure {
 		if err := volume_mount.EnsureDir(workDir); err != nil {
@@ -201,7 +211,11 @@ func (d diskPostOverlay) getPostOverlayUpperDir(
 	ensure bool,
 ) (string, error) {
 	if ov.HostUpperDir != "" {
-		return ov.HostUpperDir, nil
+		clean, err := fileutils2.CleanHostBindPath(ov.HostUpperDir)
+		if err != nil {
+			return "", errors.Wrap(err, "host_upper_dir")
+		}
+		return clean, nil
 	}
 	return d.getPostOverlayDirWithPrefix(POST_OVERLAY_PREFIX_UPPER_DIR, pod, ctrId, vm, ov, ensure)
 }
@@ -226,7 +240,11 @@ func (d diskPostOverlay) getPostOverlayMountpoint(pod volume_mount.IPodInfo, ctr
 	}
 	// remove hostPath sub_directory path
 	ctrMountHostPath = strings.TrimSuffix(ctrMountHostPath, vm.Disk.SubDirectory)
-	mergedDir := filepath.Join(ctrMountHostPath, ov.ContainerTargetDir)
+	elem := strings.TrimPrefix(ov.ContainerTargetDir, string(filepath.Separator))
+	mergedDir, err := fileutils2.JoinInside(ctrMountHostPath, elem)
+	if err != nil {
+		return "", errors.Wrap(err, "container_target_dir")
+	}
 	if ensure {
 		if err := volume_mount.EnsureDir(mergedDir); err != nil {
 			return "", errors.Wrap(err, "make merged mountpoint dir")
