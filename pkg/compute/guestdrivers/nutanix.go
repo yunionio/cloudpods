@@ -17,10 +17,8 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
-	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
 
@@ -163,10 +161,6 @@ func (self *SNutanixGuestDriver) ValidateCreateEip(ctx context.Context, userCred
 
 func (self *SNutanixGuestDriver) AllowReconfigGuest() bool {
 	return true
-}
-
-func (self *SNutanixGuestDriver) RequestRenewInstance(ctx context.Context, guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
-	return time.Time{}, nil
 }
 
 func (self *SNutanixGuestDriver) IsSupportEip() bool {
