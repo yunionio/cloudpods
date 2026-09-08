@@ -55,16 +55,6 @@ func (model *SProjectizedResourceBase) GetOwnerId() mcclient.IIdentityProvider {
 func (manager *SProjectizedResourceBaseManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
-		case rbacscope.ScopeProject:
-			q = q.Equals("tenant_id", owner.GetProjectId())
-			if userCred != nil {
-				result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), man.KeywordPlural(), policy.PolicyActionList)
-				if !result.ObjectTags.IsEmpty() {
-					policyTagFilters := tagutils.STagFilters{}
-					policyTagFilters.AddFilters(result.ObjectTags)
-					q = ObjectIdQueryWithTagFiltersOptimized(ctx, q, "id", man.Keyword(), policyTagFilters)
-				}
-			}
 		case rbacscope.ScopeDomain:
 			q = q.Equals("domain_id", owner.GetProjectDomainId())
 			if userCred != nil {
@@ -93,6 +83,18 @@ func (manager *SProjectizedResourceBaseManager) FilterByOwner(ctx context.Contex
 					policyTagFilters.AddFilters(result.ProjectTags)
 					q = ObjectIdQueryWithTagFiltersOptimized(ctx, q, "tenant_id", "project", policyTagFilters)
 				}
+				if !result.ObjectTags.IsEmpty() {
+					policyTagFilters := tagutils.STagFilters{}
+					policyTagFilters.AddFilters(result.ObjectTags)
+					q = ObjectIdQueryWithTagFiltersOptimized(ctx, q, "id", man.Keyword(), policyTagFilters)
+				}
+			}
+		default:
+			// project view, also used when the requested scope has no
+			// dedicated case
+			q = q.Equals("tenant_id", owner.GetProjectId())
+			if userCred != nil {
+				result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), man.KeywordPlural(), policy.PolicyActionList)
 				if !result.ObjectTags.IsEmpty() {
 					policyTagFilters := tagutils.STagFilters{}
 					policyTagFilters.AddFilters(result.ObjectTags)

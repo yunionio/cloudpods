@@ -366,6 +366,9 @@ func (manager *SOpsLogManager) LogSyncUpdate(m IModel, uds sqlchemy.UpdateDiffs,
 
 func (self *SOpsLogManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if ownerId != nil {
+		if scope == "" || scope == rbacscope.ScopeNone {
+			scope = rbacscope.ScopeProject
+		}
 		switch scope {
 		case rbacscope.ScopeUser:
 			if len(ownerId.GetUserId()) > 0 {
