@@ -77,7 +77,35 @@ func (d disk) validateDiskCreateData(ctx context.Context, userCred mcclient.Toke
 			return nil, httperrors.NewInputParameterError("index is less than 0")
 		}
 	}
+	if err := d.validateDiskRelPaths(disk); err != nil {
+		return nil, err
+	}
 	return disk, nil
+}
+
+func (d disk) validateDiskRelPaths(disk *apis.ContainerVolumeMountDisk) error {
+	if disk.SubDirectory != "" {
+		clean, err := models.ValidateRelSubpath(disk.SubDirectory)
+		if err != nil {
+			return err
+		}
+		disk.SubDirectory = clean
+	}
+	if disk.StorageSizeFile != "" {
+		clean, err := models.ValidateRelSubpath(disk.StorageSizeFile)
+		if err != nil {
+			return err
+		}
+		disk.StorageSizeFile = clean
+	}
+	for i, p := range disk.CaseInsensitivePaths {
+		clean, err := models.ValidateRelSubpath(p)
+		if err != nil {
+			return err
+		}
+		disk.CaseInsensitivePaths[i] = clean
+	}
+	return nil
 }
 
 func (d disk) validateCreateData(ctx context.Context, userCred mcclient.TokenCredential, vm *apis.ContainerVolumeMount) (*apis.ContainerVolumeMount, error) {
@@ -238,6 +266,9 @@ func (d disk) ValidatePodCreateData(ctx context.Context, userCred mcclient.Token
 			return httperrors.NewInputParameterError("valid overlay %v", err)
 		}
 	}
+	if err := d.ValidatePostOverlay(ctx, userCred, vm); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -322,9 +353,11 @@ func (d diskOverlayDir) validateCommonCreateData(ctx context.Context, userCred m
 		if ld == "" {
 			return httperrors.NewNotEmptyError("empty %d dir", idx)
 		}
-		if ld == "/" {
-			return httperrors.NewInputParameterError("can't use '/' as lower_dir")
+		clean, err := models.ValidateHostBindPath(userCred, ld)
+		if err != nil {
+			return err
 		}
+		input.LowerDir[idx] = clean
 	}
 	return nil
 }

@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/mountutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -86,10 +87,18 @@ func (d disk) getRuntimeMountHostPath(pod volume_mount.IPodInfo, vm *hostapi.Con
 	}
 	diskInput := vm.Disk
 	if diskInput.SubDirectory != "" {
-		return filepath.Join(hostPath, diskInput.SubDirectory), nil
+		joined, err := fileutils2.JoinInside(hostPath, diskInput.SubDirectory)
+		if err != nil {
+			return "", errors.Wrap(err, "sub_directory")
+		}
+		return joined, nil
 	}
 	if diskInput.StorageSizeFile != "" {
-		return filepath.Join(hostPath, diskInput.StorageSizeFile), nil
+		joined, err := fileutils2.JoinInside(hostPath, diskInput.StorageSizeFile)
+		if err != nil {
+			return "", errors.Wrap(err, "storage_size_file")
+		}
+		return joined, nil
 	}
 	return hostPath, nil
 }
@@ -264,12 +273,18 @@ func (d disk) Mount(pod volume_mount.IPodInfo, ctrId string, vm *hostapi.Contain
 
 	vmDisk := vm.Disk
 	if vmDisk.SubDirectory != "" {
-		subDir := filepath.Join(mntPoint, vmDisk.SubDirectory)
+		subDir, err := fileutils2.JoinInside(mntPoint, vmDisk.SubDirectory)
+		if err != nil {
+			return errors.Wrap(err, "sub_directory")
+		}
 		if err := volume_mount.EnsureDir(subDir); err != nil {
 			return errors.Wrapf(err, "make sub_directory %s inside %s", vmDisk.SubDirectory, mntPoint)
 		}
 		for _, cd := range vmDisk.CaseInsensitivePaths {
-			cdp := filepath.Join(subDir, cd)
+			cdp, err := fileutils2.JoinInside(subDir, cd)
+			if err != nil {
+				return errors.Wrap(err, "case_insensitive_path")
+			}
 			if err := volume_mount.EnsureDir(cdp); err != nil {
 				return errors.Wrapf(err, "make %s inside %s", cdp, vmDisk.SubDirectory)
 			}
@@ -306,11 +321,13 @@ func (d disk) createStorageSizeFile(iDisk storageman.IDisk, mntPoint string, inp
 	if err != nil {
 		return errors.Wrapf(err, "get disk_size from %s", desc.String())
 	}
-	sp := filepath.Join(mntPoint, input.StorageSizeFile)
-	sizeBytes := diskSizeMB * 1024
-	out, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", fmt.Sprintf("echo %d > %s", sizeBytes, sp)).Output()
+	sp, err := fileutils2.JoinInside(mntPoint, input.StorageSizeFile)
 	if err != nil {
-		return errors.Wrapf(err, "write %d to %s: %s", sizeBytes, sp, out)
+		return errors.Wrap(err, "storage_size_file")
+	}
+	sizeBytes := diskSizeMB * 1024
+	if err := volume_mount.WriteFile(sp, fmt.Sprintf("%d\n", sizeBytes)); err != nil {
+		return errors.Wrapf(err, "write %d to %s", sizeBytes, sp)
 	}
 	return nil
 }

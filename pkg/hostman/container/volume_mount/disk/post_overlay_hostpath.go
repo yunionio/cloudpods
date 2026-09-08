@@ -35,6 +35,24 @@ func newPostOverlayHostPath() iDiskPostOverlayDriver {
 	return &postOverlayHostPath{}
 }
 
+func cleanPostOverlayHostPaths(ov *apis.ContainerVolumeMountDiskPostOverlay) error {
+	for i, p := range ov.HostLowerDir {
+		clean, err := fileutils.CleanHostBindPath(p)
+		if err != nil {
+			return errors.Wrapf(err, "host_lower_dir %d", i)
+		}
+		ov.HostLowerDir[i] = clean
+	}
+	if ov.HostUpperDir != "" {
+		clean, err := fileutils.CleanHostBindPath(ov.HostUpperDir)
+		if err != nil {
+			return errors.Wrap(err, "host_upper_dir")
+		}
+		ov.HostUpperDir = clean
+	}
+	return nil
+}
+
 type postOverlayHostPath struct {
 }
 
@@ -154,6 +172,9 @@ func (p postOverlayHostPath) mountSingleFile(singleFilePath string, d diskPostOv
 }
 
 func (p postOverlayHostPath) Mount(d diskPostOverlay, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay) error {
+	if err := cleanPostOverlayHostPaths(ov); err != nil {
+		return err
+	}
 	// 支持单文件挂载
 	singleFilePath := ""
 	if len(ov.HostLowerDir) == 1 && fileutils.IsFile(ov.HostLowerDir[0]) {
@@ -250,6 +271,9 @@ func (p postOverlayHostPath) unmountSingleFile(singleFilePath string, d diskPost
 }
 
 func (p postOverlayHostPath) Unmount(d diskPostOverlay, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount, ov *apis.ContainerVolumeMountDiskPostOverlay, useLazy bool, cleanLayers bool) error {
+	if err := cleanPostOverlayHostPaths(ov); err != nil {
+		return err
+	}
 	// 支持单文件卸载
 	singleFilePath := ""
 	if len(ov.HostLowerDir) == 1 && fileutils.IsFile(ov.HostLowerDir[0]) {
