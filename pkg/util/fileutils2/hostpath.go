@@ -102,11 +102,14 @@ func CleanRelSubpath(p string) (string, error) {
 	if p == "" {
 		return "", errors.Errorf("path is empty")
 	}
+	if strings.ContainsRune(p, 0) {
+		return "", errors.Errorf("path contains NUL")
+	}
 	if filepath.IsAbs(p) {
 		return "", errors.Errorf("path %q must be relative", p)
 	}
 	clean := filepath.Clean(p)
-	if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
 		return "", errors.Errorf("path %q is not allowed", p)
 	}
 	if filepath.IsAbs(clean) {

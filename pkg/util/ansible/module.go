@@ -16,6 +16,7 @@ package ansible
 
 import (
 	"bytes"
+	"strings"
 )
 
 // Module represents name and args of ansible module to execute
@@ -74,9 +75,24 @@ func (i *Inventory) Data() []byte {
 			b.WriteRune(' ')
 			b.WriteString(k)
 			b.WriteRune('=')
-			b.WriteString(v)
+			b.WriteString(quoteInventoryValue(v))
 		}
 		b.WriteRune('\n')
 	}
 	return b.Bytes()
+}
+
+func quoteInventoryValue(v string) string {
+	var b strings.Builder
+	b.Grow(len(v) + 2)
+	b.WriteByte('"')
+	for i := 0; i < len(v); i++ {
+		c := v[i]
+		if c == '\\' || c == '"' {
+			b.WriteByte('\\')
+		}
+		b.WriteByte(c)
+	}
+	b.WriteByte('"')
+	return b.String()
 }

@@ -28,6 +28,11 @@ type AnsiblePlaybookCreateInput struct {
 	Playbook ansible.Playbook
 }
 
+type AnsiblePlaybookListInput struct {
+	apis.VirtualResourceListInput
+	apis.EnabledResourceBaseListInput
+}
+
 type AnsiblePlaybookUpdateInput AnsiblePlaybookCreateInput
 
 type AnsibleHost struct {
