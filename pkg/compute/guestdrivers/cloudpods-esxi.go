@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/billing"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/utils"
@@ -572,10 +571,6 @@ func (self *SCloudpodsESXiGuestDriver) DoGuestCreateDisksTask(ctx context.Contex
 	}
 	subtask.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SCloudpodsESXiGuestDriver) RequestRenewInstance(ctx context.Context, guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
-	return time.Time{}, nil
 }
 
 func (self *SCloudpodsESXiGuestDriver) IsSupportEip() bool {
