@@ -2378,7 +2378,7 @@ func (s *SKVMGuestInstance) ExecStopTask(ctx context.Context, params interface{}
 		s.StopTask.StopNow(ctx)
 	} else {
 		s.StopTask = NewGuestStopTask(s, ctx, input.Timeout, input.IsForce)
-		s.StopTask.Start()
+		go s.StopTask.Start()
 	}
 	return nil, nil
 }
