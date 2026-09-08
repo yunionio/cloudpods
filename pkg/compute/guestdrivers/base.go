@@ -317,7 +317,7 @@ func (drv *SBaseGuestDriver) IsSupportShutdownMode() bool {
 }
 
 func (drv *SBaseGuestDriver) RequestRenewInstance(ctx context.Context, guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
-	return time.Time{}, nil
+	return bc.EndAt(guest.GetExpiredAt()), nil
 }
 
 func (drv *SBaseGuestDriver) IsSupportEip() bool {
