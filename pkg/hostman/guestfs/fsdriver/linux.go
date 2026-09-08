@@ -562,6 +562,9 @@ func (l *sLinuxRootFs) GetArch(rootFs IDiskPartition) string {
 					log.Errorf("readlink of %s: %s", p, err)
 					continue
 				}
+				if mnt := rootFs.GetMountPath(); mnt != "" && !fileutils2.IsPathInside(mnt, rp) {
+					continue
+				}
 				elfHeader, err := elf.Open(rp)
 				if err != nil {
 					log.Errorf("failed read file elf %s: %s", rp, err)
@@ -2462,7 +2465,11 @@ func (d *SCoreOsRootFs) GetLoginAccount(rootFs IDiskPartition, user string, defa
 
 func (d *SCoreOsRootFs) DeployFiles(deploys []*deployapi.DeployContent) error {
 	for _, deploy := range deploys {
-		d.GetConfig().AddWriteFile(deploy.Path, deploy.Content, "", "", false)
+		clean, err := fileutils2.CleanGuestDeployPath(deploy.Path)
+		if err != nil {
+			return errors.Wrap(err, "deploy path")
+		}
+		d.GetConfig().AddWriteFile(clean, deploy.Content, "", "", false)
 	}
 	return nil
 }
