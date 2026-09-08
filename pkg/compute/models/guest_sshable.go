@@ -405,8 +405,14 @@ func (guest *SGuest) PerformMakeSshable(
 	if input.User == "" {
 		return output, httperrors.NewBadRequestError("missing username")
 	}
+	if !ansible.IsValidAnsibleUser(input.User) {
+		return output, httperrors.NewInputParameterError("invalid username")
+	}
 	if input.PrivateKey == "" && input.Password == "" {
 		return output, httperrors.NewBadRequestError("private_key and password cannot both be empty")
+	}
+	if strings.ContainsAny(input.Password, "\x00\r\n") {
+		return output, httperrors.NewInputParameterError("invalid password")
 	}
 
 	_, projectPublicKey, err := sshkeys.GetSshProjectKeypair(ctx, guest.ProjectId)
@@ -496,7 +502,9 @@ func (guest *SGuest) PerformMakeSshable(
 		host.SetVar("ansible_password", input.Password)
 	}
 
-	cliSess := auth.GetSession(ctx, userCred, "")
+	// the playbook content here is server-generated; use the admin session
+	// since ansible playbook creation requires system admin privilege
+	cliSess := auth.GetAdminSession(ctx, "")
 	pbId := ""
 	pbName := "make-sshable-" + guest.Id
 	pbModel, err := ansible_modules.AnsiblePlaybooks.UpdateOrCreatePbModel(

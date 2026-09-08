@@ -26,6 +26,8 @@ import (
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type pbState int
@@ -160,7 +162,11 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 
 	// write out files
 	for name, content := range pb.Files {
-		path := filepath.Join(tmpdir, name)
+		path, err2 := fileutils2.JoinInside(tmpdir, name)
+		if err2 != nil {
+			err = errors.Wrapf(err2, "playbook file %s", name)
+			return
+		}
 		dir := filepath.Dir(path)
 		err = os.MkdirAll(dir, os.FileMode(0700))
 		if err != nil {
