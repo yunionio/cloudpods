@@ -425,6 +425,8 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		}
 		if len(conditions) > 0 {
 			q = q.Filter(sqlchemy.OR(conditions...))
+		} else {
+			q = q.Equals("obj_id", "")
 		}
 	}
 

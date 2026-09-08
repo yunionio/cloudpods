@@ -117,7 +117,7 @@ func (m *SScopedResourceBaseManager) FilterByOwner(ctx context.Context, q *sqlch
 	switch scope {
 	case rbacscope.ScopeDomain:
 		q = q.Equals("domain_id", owner.GetProjectDomainId())
-	case rbacscope.ScopeProject:
+	default:
 		q = q.Equals("tenant_id", owner.GetProjectId())
 	}
 	return q
