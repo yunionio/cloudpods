@@ -423,6 +423,8 @@ type AutoRenewInput struct {
 }
 
 type RenewInput struct {
+	// 续费时长
+	// example: 1d, 1w, 1m
 	Duration string `json:"duration"`
 }
 
