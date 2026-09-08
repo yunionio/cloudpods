@@ -932,6 +932,10 @@ func (self *SGuest) PerformDeploy(
 		input.ResetPassword = true
 	}
 
+	if err := ValidateDeployConfigs(input.DeployConfigs); err != nil {
+		return nil, err
+	}
+
 	driver, err := self.GetDriver()
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetDriver")
