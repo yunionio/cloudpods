@@ -16,6 +16,7 @@ package volume_mount
 
 import (
 	"fmt"
+	"io"
 
 	"yunion.io/x/pkg/errors"
 
@@ -80,6 +81,39 @@ func CopyFile(src, dst string) error {
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("cp", src, dst).Output()
 	if err != nil {
 		return errors.Wrapf(err, "cp %s %s: %s", src, dst, string(out))
+	}
+	return nil
+}
+
+func Chmod(path string, mode string) error {
+	out, err := procutils.NewRemoteCommandAsFarAsPossible("chmod", mode, path).Output()
+	if err != nil {
+		return errors.Wrapf(err, "chmod %s %s: %s", mode, path, string(out))
+	}
+	return nil
+}
+
+func WriteFile(path string, content string) error {
+	cmd := procutils.NewRemoteCommandAsFarAsPossible("tee", path)
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return errors.Wrapf(err, "stdin pipe for tee %s", path)
+	}
+	if err := cmd.Start(); err != nil {
+		stdin.Close()
+		return errors.Wrapf(err, "start tee %s", path)
+	}
+	if _, err := io.WriteString(stdin, content); err != nil {
+		stdin.Close()
+		_ = cmd.Kill()
+		return errors.Wrapf(err, "write tee %s", path)
+	}
+	if err := stdin.Close(); err != nil {
+		_ = cmd.Kill()
+		return errors.Wrapf(err, "close stdin tee %s", path)
+	}
+	if err := cmd.Wait(); err != nil {
+		return errors.Wrapf(err, "tee %s", path)
 	}
 	return nil
 }

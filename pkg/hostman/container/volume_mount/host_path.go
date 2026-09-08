@@ -15,7 +15,7 @@
 package volume_mount
 
 import (
-	"fmt"
+	"os"
 	"path/filepath"
 
 	"yunion.io/x/pkg/errors"
@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -56,6 +57,11 @@ func (h hostLocal) GetRuntimeMountHostPath(pod IPodInfo, ctrId string, vm *hosta
 	if vm.FsUser != nil || vm.FsGroup != nil {
 		return "", httperrors.NewInputParameterError("cannot use fs_user and fs_group for host_local volume")
 	}
+	clean, err := fileutils2.CleanHostBindPath(host.Path)
+	if err != nil {
+		return "", httperrors.NewInputParameterError("%v", err)
+	}
+	host.Path = clean
 	switch host.Type {
 	case "", apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE:
 		return h.getFilePath(host)
@@ -66,89 +72,83 @@ func (h hostLocal) GetRuntimeMountHostPath(pod IPodInfo, ctrId string, vm *hosta
 }
 
 func (h hostLocal) getFilePath(input *apis.ContainerVolumeMountHostPath) (string, error) {
-	if input.Type != apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE {
+	if input.Type != "" && input.Type != apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_FILE {
 		return "", httperrors.NewInputParameterError("unsupported type %q", input.Type)
 	}
-	filePath := input.Path
-
-	// 检查文件是否存在
-	checkCmd := fmt.Sprintf("test -f '%s'", filePath)
-	if _, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", checkCmd).Output(); err != nil {
-		// 文件不存在，需要创建
-		if !input.AutoCreate {
-			return "", errors.Wrapf(err, "file %s does not exist and no auto_create specified", filePath)
-		}
-
-		// 先确保父目录存在
-		parentDirCmd := fmt.Sprintf("mkdir -p '%s'", filepath.Dir(filePath))
-		if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", parentDirCmd).Output(); err != nil {
-			return "", errors.Wrapf(err, "create parent directory for %s: %s", filePath, out)
-		}
-
-		// 创建文件
-		createCmd := fmt.Sprintf("touch '%s'", filePath)
-		if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", createCmd).Output(); err != nil {
-			return "", errors.Wrapf(err, "create file %s: %s", filePath, out)
-		}
-
-		if input.AutoCreateConfig != nil {
-			// 设置权限
-			if input.AutoCreateConfig.Permissions != "" {
-				chmodCmd := fmt.Sprintf("chmod %s '%s'", input.AutoCreateConfig.Permissions, filePath)
-				if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", chmodCmd).Output(); err != nil {
-					return "", errors.Wrapf(err, "chmod %s %s: %s", input.AutoCreateConfig.Permissions, filePath, out)
-				}
-			}
-
-			// 设置所有者
-			if input.AutoCreateConfig.Uid > 0 || input.AutoCreateConfig.Gid > 0 {
-				chownCmd := fmt.Sprintf("chown %d:%d '%s'", input.AutoCreateConfig.Uid, input.AutoCreateConfig.Gid, filePath)
-				if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", chownCmd).Output(); err != nil {
-					return "", errors.Wrapf(err, "chown %d:%d %s: %s", input.AutoCreateConfig.Uid, input.AutoCreateConfig.Gid, filePath, out)
-				}
-			}
-		}
+	if err := h.ensureHostPath(input.Path, false, input); err != nil {
+		return "", err
 	}
-
-	return filePath, nil
+	return input.Path, nil
 }
 
 func (h hostLocal) getDirectoryPath(input *apis.ContainerVolumeMountHostPath) (string, error) {
 	if input.Type != apis.CONTAINER_VOLUME_MOUNT_HOST_PATH_TYPE_DIRECTORY {
 		return "", httperrors.NewInputParameterError("unsupported type %q", input.Type)
 	}
-	dirPath := input.Path
+	if err := h.ensureHostPath(input.Path, true, input); err != nil {
+		return "", err
+	}
+	return input.Path, nil
+}
 
-	// 检查目录是否存在
-	checkCmd := fmt.Sprintf("test -d '%s'", dirPath)
-	if _, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", checkCmd).Output(); err != nil {
+func (h hostLocal) ensureHostPath(path string, isDir bool, input *apis.ContainerVolumeMountHostPath) error {
+	fi, err := procutils.RemoteStat(path)
+	if err != nil {
+		if errors.Cause(err) != os.ErrNotExist {
+			return errors.Wrapf(err, "stat %s", path)
+		}
 		if !input.AutoCreate {
-			return "", errors.Wrapf(err, "dir %s does not exist and no auto_create specified", dirPath)
+			return errors.Wrapf(err, "path %s does not exist and auto_create is not set", path)
 		}
-		// 创建目录
-		createCmd := fmt.Sprintf("mkdir -p '%s'", dirPath)
-		if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", createCmd).Output(); err != nil {
-			return "", errors.Wrapf(err, "create directory %s: %s", dirPath, out)
+		if isDir {
+			if err := EnsureDir(path); err != nil {
+				return err
+			}
+		} else {
+			if err := EnsureDir(filepath.Dir(path)); err != nil {
+				return errors.Wrapf(err, "create parent directory for %s", path)
+			}
+			if err := TouchFile(path); err != nil {
+				return err
+			}
 		}
+		return applyHostPathAutoCreateConfig(path, input.AutoCreateConfig)
+	}
+	if isDir && !fi.IsDir() {
+		return httperrors.NewInputParameterError("%s is not a directory", path)
+	}
+	if !isDir && fi.IsDir() {
+		return httperrors.NewInputParameterError("%s is a directory", path)
+	}
+	return nil
+}
 
-		if input.AutoCreateConfig != nil {
-			// 设置权限
-			if input.AutoCreateConfig.Permissions != "" {
-				chmodCmd := fmt.Sprintf("chmod %s '%s'", input.AutoCreateConfig.Permissions, dirPath)
-				if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", chmodCmd).Output(); err != nil {
-					return "", errors.Wrapf(err, "chmod %s %s: %s", input.AutoCreateConfig.Permissions, dirPath, out)
-				}
-			}
-
-			// 设置所有者
-			if input.AutoCreateConfig.Uid > 0 || input.AutoCreateConfig.Gid > 0 {
-				chownCmd := fmt.Sprintf("chown %d:%d '%s'", input.AutoCreateConfig.Uid, input.AutoCreateConfig.Gid, dirPath)
-				if out, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", chownCmd).Output(); err != nil {
-					return "", errors.Wrapf(err, "chown %d:%d %s: %s", input.AutoCreateConfig.Uid, input.AutoCreateConfig.Gid, dirPath, out)
-				}
-			}
+func applyHostPathAutoCreateConfig(path string, cfg *apis.ContainerVolumeMountHostPathAutoCreateConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	if cfg.Permissions != "" {
+		_, canon, err := fileutils2.ParseUnixFileMode(cfg.Permissions)
+		if err != nil {
+			return errors.Wrap(err, "permissions")
+		}
+		if err := Chmod(path, canon); err != nil {
+			return err
 		}
 	}
-
-	return dirPath, nil
+	if cfg.Uid > 0 || cfg.Gid > 0 {
+		var uid, gid *int64
+		if cfg.Uid > 0 {
+			u := int64(cfg.Uid)
+			uid = &u
+		}
+		if cfg.Gid > 0 {
+			g := int64(cfg.Gid)
+			gid = &g
+		}
+		if err := ChangeDirOwnerDirectly(path, uid, gid); err != nil {
+			return err
+		}
+	}
+	return nil
 }
