@@ -217,6 +217,24 @@ func SharableManagerValidateCreateData(
 func SharableManagerFilterByOwner(ctx context.Context, manager IStandaloneModelManager, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, owner mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		resScope := manager.ResourceScope()
+		// map unrecognized scopes to the resource's default view
+		if scope != rbacscope.ScopeSystem && scope != rbacscope.ScopeDomain &&
+			scope != rbacscope.ScopeProject &&
+			!(scope == rbacscope.ScopeUser && resScope == rbacscope.ScopeUser) {
+			switch resScope {
+			case rbacscope.ScopeUser:
+				scope = rbacscope.ScopeUser
+			case rbacscope.ScopeDomain:
+				scope = rbacscope.ScopeDomain
+			default:
+				scope = rbacscope.ScopeProject
+			}
+		}
+		// domain-level owner has no project id: use the domain view
+		if scope == rbacscope.ScopeProject && len(owner.GetProjectId()) == 0 &&
+			len(owner.GetProjectDomainId()) > 0 {
+			scope = rbacscope.ScopeDomain
+		}
 		if resScope == rbacscope.ScopeUser {
 			targetProjectId := owner.GetProjectId()
 			if len(targetProjectId) == 0 && userCred != nil {
