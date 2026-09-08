@@ -17,6 +17,7 @@ package saml
 import (
 	"context"
 	"net/url"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -27,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/driver/utils"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/samlutils/sp"
 )
 
 type SSAMLDriverClass struct{}
@@ -115,6 +117,15 @@ func (self *SSAMLDriverClass) ValidateConfig(ctx context.Context, userCred mccli
 		}
 		if !unique {
 			return tconf, errors.Wrapf(httperrors.ErrDuplicateResource, "entity_id %s has been registered", conf.EntityId)
+		}
+	}
+	verifySignature := conf.VerifySignature != nil && *conf.VerifySignature
+	if verifySignature && len(strings.TrimSpace(conf.SigningCert)) == 0 {
+		return tconf, errors.Wrap(httperrors.ErrInputParameter, "empty signing_cert")
+	}
+	if len(strings.TrimSpace(conf.SigningCert)) > 0 {
+		if _, err = sp.ParseCertificates(conf.SigningCert); err != nil {
+			return tconf, errors.Wrap(httperrors.ErrInputParameter, "invalid signing_cert")
 		}
 	}
 	conf.SIdpAttributeOptions, err = utils.ValidateConfig(ctx, conf.SIdpAttributeOptions, userCred)
