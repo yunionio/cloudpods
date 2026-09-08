@@ -15,6 +15,7 @@
 package sp
 
 import (
+	"crypto/x509"
 	"net/url"
 
 	"yunion.io/x/pkg/errors"
@@ -26,6 +27,7 @@ import (
 type SSAMLIdentityProvider struct {
 	entityId       string
 	redirectSsoUrl string
+	signingCerts   []x509.Certificate
 }
 
 func NewSAMLIdp(entityId, redirectSsoUrl string) *SSAMLIdentityProvider {
@@ -41,11 +43,21 @@ func NewSAMLIdpFromDescriptor(desc samlutils.EntityDescriptor) (*SSAMLIdentityPr
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "missing IDPSSODescriptor")
 	}
 	redirectSsoUrl := findSSOUrl(desc, samlutils.BINDING_HTTP_REDIRECT)
-	return NewSAMLIdp(entityId, redirectSsoUrl), nil
+	idp := NewSAMLIdp(entityId, redirectSsoUrl)
+	idp.signingCerts = CertificatesFromIdpDescriptor(desc)
+	return idp, nil
 }
 
 func (idp *SSAMLIdentityProvider) GetEntityId() string {
 	return idp.entityId
+}
+
+func (idp *SSAMLIdentityProvider) SetSigningCerts(certs []x509.Certificate) {
+	idp.signingCerts = append([]x509.Certificate{}, certs...)
+}
+
+func (idp *SSAMLIdentityProvider) GetSigningCerts() []x509.Certificate {
+	return idp.signingCerts
 }
 
 func findSSOUrl(desc samlutils.EntityDescriptor, binding string) string {
