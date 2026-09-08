@@ -4967,15 +4967,18 @@ func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient
 }
 
 // 续费
-func (self *SGuest) PerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	durationStr, _ := data.GetString("duration")
-	if len(durationStr) == 0 {
-		return nil, httperrors.NewInputParameterError("missong duration")
+func (self *SGuest) PerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.RenewInput) (jsonutils.JSONObject, error) {
+	if self.BillingType != billing_api.BILLING_TYPE_PREPAID {
+		return nil, httperrors.NewUnsupportOperationError("Only %s guest support renew operation", billing_api.BILLING_TYPE_PREPAID)
 	}
 
-	bc, err := billing.ParseBillingCycle(durationStr)
+	if len(input.Duration) == 0 {
+		return nil, httperrors.NewMissingParameterError("duration")
+	}
+
+	bc, err := billing.ParseBillingCycle(input.Duration)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
+		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", input.Duration, err)
 	}
 
 	driver, err := self.GetDriver()
@@ -4984,10 +4987,10 @@ func (self *SGuest) PerformRenew(ctx context.Context, userCred mcclient.TokenCre
 	}
 
 	if !driver.IsSupportedBillingCycle(bc) {
-		return nil, httperrors.NewInputParameterError("unsupported duration %s", durationStr)
+		return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
 	}
 
-	err = self.startGuestRenewTask(ctx, userCred, durationStr, "")
+	err = self.startGuestRenewTask(ctx, userCred, input.Duration, "")
 	if err != nil {
 		return nil, err
 	}
