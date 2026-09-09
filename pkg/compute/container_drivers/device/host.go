@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 func init() {
@@ -57,6 +58,16 @@ func (h hostDevice) ValidateCreateData(ctx context.Context, userCred mcclient.To
 	if host.ContainerPath == "" {
 		return nil, httperrors.NewNotEmptyError("container_path is empty")
 	}
+	hostPath, err := models.ValidateHostBindPath(userCred, host.HostPath)
+	if err != nil {
+		return nil, err
+	}
+	host.HostPath = hostPath
+	ctrPath, err := fileutils2.CleanHostBindPath(host.ContainerPath)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("container_path: %v", err)
+	}
+	host.ContainerPath = ctrPath
 	if host.Permissions == "" {
 		return nil, httperrors.NewNotEmptyError("permissions is empty")
 	}
