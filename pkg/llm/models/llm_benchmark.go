@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	bench "yunion.io/x/onecloud/pkg/llm/benchmark"
 	"yunion.io/x/onecloud/pkg/llm/options"
@@ -344,6 +345,9 @@ func resolveBenchmarkTarget(ctx context.Context, userCred mcclient.TokenCredenti
 			return nil, nil, errors.Wrap(err, "fetch LLMDeployment")
 		}
 		dep := depObj.(*SLLMDeployment)
+		if err := db.IsObjectRbacAllowed(ctx, dep, userCred, policy.PolicyActionGet); err != nil {
+			return nil, nil, err
+		}
 		llm := &SLLM{}
 		err = GetLLMManager().Query().
 			Equals("llm_deployment_id", dep.Id).
@@ -362,11 +366,10 @@ func resolveBenchmarkTarget(ctx context.Context, userCred mcclient.TokenCredenti
 	if input.LLMId == "" {
 		return nil, nil, errors.Wrap(httperrors.ErrMissingParameter, "llm_id or llm_deployment_id")
 	}
-	llmObj, err := GetLLMManager().FetchByIdOrName(ctx, userCred, input.LLMId)
+	llm, err := FetchAccessibleLLM(ctx, userCred, input.LLMId)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "fetch LLM")
 	}
-	llm := llmObj.(*SLLM)
 	if llm.Status != api.LLM_STATUS_RUNNING {
 		return nil, nil, errors.Wrapf(httperrors.ErrInvalidStatus, "llm %s status is %s", llm.Name, llm.Status)
 	}

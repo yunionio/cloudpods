@@ -230,11 +230,10 @@ func (man *SMCPAgentManager) ValidateCreateData(ctx context.Context, userCred mc
 
 	// 如果提供了 llm_id，则通过 LLM 获取 llm_url 和 model
 	if len(input.LLMId) > 0 {
-		llmObj, err := GetLLMManager().FetchByIdOrName(ctx, userCred, input.LLMId)
+		llm, err := FetchAccessibleLLM(ctx, userCred, input.LLMId)
 		if err != nil {
 			return input, errors.Wrapf(err, "fetch LLM by id %s", input.LLMId)
 		}
-		llm := llmObj.(*SLLM)
 		input.LLMId = llm.Id
 		llmUrl, err := llm.GetLLMAccessUrlInfo(ctx, userCred, query)
 		if err != nil {
@@ -298,11 +297,12 @@ func (man *SMCPAgentManager) ValidateUpdateData(ctx context.Context, userCred mc
 
 	// 如果提供了 llm_id，则通过 LLM 获取 llm_url 和 model
 	if input.LLMId != nil && len(*input.LLMId) > 0 {
-		llmObj, err := GetLLMManager().FetchByIdOrName(ctx, userCred, *input.LLMId)
+		llm, err := FetchAccessibleLLM(ctx, userCred, *input.LLMId)
 		if err != nil {
 			return input, errors.Wrapf(err, "fetch LLM by id %s", *input.LLMId)
 		}
-		llm := llmObj.(*SLLM)
+		llmId := llm.Id
+		input.LLMId = &llmId
 		llmUrl, err := llm.GetLLMAccessUrlInfo(ctx, userCred, query)
 		if err != nil {
 			return input, errors.Wrapf(err, "get LLM URL from LLM %s", *input.LLMId)

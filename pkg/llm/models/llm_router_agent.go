@@ -217,11 +217,10 @@ func resolveRouterAgentLLM(ctx context.Context, userCred mcclient.TokenCredentia
 	if llmId == nil || strings.TrimSpace(*llmId) == "" {
 		return nil
 	}
-	llmObj, err := GetLLMManager().FetchByIdOrName(ctx, userCred, strings.TrimSpace(*llmId))
+	llm, err := FetchAccessibleLLM(ctx, userCred, *llmId)
 	if err != nil {
 		return errors.Wrapf(err, "fetch LLM by id %s", *llmId)
 	}
-	llm := llmObj.(*SLLM)
 	*llmId = llm.Id
 	info, err := llm.GetLLMAccessUrlInfo(ctx, userCred, query)
 	if err != nil {
