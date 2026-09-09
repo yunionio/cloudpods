@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/llm/options"
 	llmutils "yunion.io/x/onecloud/pkg/llm/utils"
@@ -51,6 +52,23 @@ func GetLLMManager() *SLLMManager {
 	}
 	llmManager.SetVirtualObject(llmManager)
 	return llmManager
+}
+
+func requireLLMGetAllowed(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM) error {
+	return db.IsObjectRbacAllowed(ctx, llm, userCred, policy.PolicyActionGet)
+}
+
+// FetchAccessibleLLM fetches an LLM by id or name and requires get permission.
+func FetchAccessibleLLM(ctx context.Context, userCred mcclient.TokenCredential, idStr string) (*SLLM, error) {
+	llmObj, err := GetLLMManager().FetchByIdOrName(ctx, userCred, strings.TrimSpace(idStr))
+	if err != nil {
+		return nil, err
+	}
+	llm := llmObj.(*SLLM)
+	if err := requireLLMGetAllowed(ctx, userCred, llm); err != nil {
+		return nil, err
+	}
+	return llm, nil
 }
 
 type SLLMManager struct {
