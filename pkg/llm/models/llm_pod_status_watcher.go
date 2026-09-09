@@ -27,6 +27,10 @@ func StartLLMPodStatusWatcher(ctx context.Context, region string) {
 		if err := watchMan.For(compute.Servers).AddEventHandler(ctx, handler); err != nil {
 			return errors.Wrap(err, "watch compute servers for llm pod status")
 		}
+		ctrHandler := &llmContainerStatusEventHandler{podHandler: handler}
+		if err := watchMan.For(compute.Containers).AddEventHandler(ctx, ctrHandler); err != nil {
+			return errors.Wrap(err, "watch compute containers for llm pod status")
+		}
 		return nil
 	})
 }
@@ -58,6 +62,13 @@ func (h *llmPodStatusEventHandler) handleServerStatus(ctx context.Context, obj *
 		log.Warningf("LLM pod status watcher: server event missing id: %s", obj.String())
 		return
 	}
+	h.handleByServerId(ctx, serverId)
+}
+
+func (h *llmPodStatusEventHandler) handleByServerId(ctx context.Context, serverId string) {
+	if serverId == "" {
+		return
+	}
 
 	llm, err := fetchLLMByCmpId(serverId)
 	if err != nil {
@@ -87,6 +98,36 @@ func (h *llmPodStatusEventHandler) handleServerStatus(ctx context.Context, obj *
 	if err := llm.SetStatus(ctx, h.userCred, resolved.Status, resolved.Reason); err != nil {
 		log.Warningf("LLM pod status watcher: set llm %s status %s: %s", llm.Name, resolved.Status, err)
 	}
+}
+
+type llmContainerStatusEventHandler struct {
+	podHandler *llmPodStatusEventHandler
+}
+
+func (h *llmContainerStatusEventHandler) OnAdd(obj *jsonutils.JSONDict) {
+	if !containerWatchStatusChanged(nil, obj) {
+		return
+	}
+	h.handleContainerStatus(context.Background(), obj)
+}
+
+func (h *llmContainerStatusEventHandler) OnUpdate(oldObj, newObj *jsonutils.JSONDict) {
+	if !containerWatchStatusChanged(oldObj, newObj) {
+		return
+	}
+	h.handleContainerStatus(context.Background(), newObj)
+}
+
+func (h *llmContainerStatusEventHandler) OnDelete(obj *jsonutils.JSONDict) {
+}
+
+func (h *llmContainerStatusEventHandler) handleContainerStatus(ctx context.Context, obj *jsonutils.JSONDict) {
+	guestId := watchEventStringField(obj, "guest_id")
+	if guestId == "" {
+		log.Warningf("LLM container status watcher: event missing guest_id: %s", obj.String())
+		return
+	}
+	h.podHandler.handleByServerId(ctx, guestId)
 }
 
 func fetchLLMByCmpId(cmpId string) (*SLLM, error) {
@@ -127,6 +168,20 @@ func serverWatchStatusChanged(oldObj *jsonutils.JSONDict, newObj *jsonutils.JSON
 		return true
 	}
 	return watchEventContainerStatusSignature(oldObj) != watchEventContainerStatusSignature(newObj)
+}
+
+func containerWatchStatusChanged(oldObj *jsonutils.JSONDict, newObj *jsonutils.JSONDict) bool {
+	if newObj == nil {
+		return false
+	}
+	newStatus := watchEventStringField(newObj, "status")
+	if newStatus == "" {
+		return false
+	}
+	if oldObj == nil {
+		return true
+	}
+	return watchEventStringField(oldObj, "status") != newStatus
 }
 
 func watchEventStringField(obj *jsonutils.JSONDict, key string) string {
