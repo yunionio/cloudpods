@@ -81,6 +81,9 @@ func NewLosetupCommand() *LosetupCommand {
 }
 
 func parseJsonOutput(content string) (*Devices, error) {
+	if strings.TrimSpace(content) == "" {
+		return &Devices{}, nil
+	}
 	obj, err := jsonutils.ParseString(content)
 	if err != nil {
 		return nil, errors.Wrapf(err, "parse json: %s", content)
@@ -93,20 +96,28 @@ func parseJsonOutput(content string) (*Devices, error) {
 }
 
 func ListDevices() (*Devices, error) {
-	cmd, err := NewLosetupCommand().AddArgs("--json").Run()
+	cmd, err := NewLosetupCommand().AddArgs("--json", "-l").Run()
+	if err == nil {
+		output := cmd.Output()
+		if strings.TrimSpace(output) != "" {
+			devs, parseErr := parseJsonOutput(output)
+			if parseErr == nil {
+				return devs, nil
+			}
+			err = parseErr
+		}
+	}
+
 	errs := make([]error, 0)
 	if err != nil {
 		errs = append(errs, errors.Wrap(err, "list by json"))
-		devs, err2 := listDevicesOldVersion()
-		if err2 != nil {
-			errs = append(errs, errors.Wrap(err, "list by using old way"))
-		} else {
-			return devs, nil
-		}
+	}
+	devs, err2 := listDevicesOldVersion()
+	if err2 != nil {
+		errs = append(errs, errors.Wrap(err2, "list by using old way"))
 		return nil, errors.NewAggregate(errs)
 	}
-	output := cmd.Output()
-	return parseJsonOutput(output)
+	return devs, nil
 }
 
 func listDevicesOldVersion() (*Devices, error) {
