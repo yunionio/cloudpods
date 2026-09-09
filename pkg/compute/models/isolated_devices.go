@@ -1290,7 +1290,9 @@ func (manager *SIsolatedDeviceManager) totalCountQ(
 	hosts := hq.SubQuery()
 	devs := manager.Query().SubQuery()
 	q := devs.Query().Join(hosts, sqlchemy.Equals(devs.Field("host_id"), hosts.Field("id")))
-	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+	// 透传设备 usage 统计全部宿主机（含禁用），与 hosts 而非 enabled_hosts 口径一致。
+	// 禁用宿主机上的 GPU 仍需在 usages/hosts 中展示，调度侧仍只使用启用宿主机。
+	// q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 	if len(devType) != 0 {
 		q = q.Filter(sqlchemy.In(devs.Field("dev_type"), devType))
 	}
