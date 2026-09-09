@@ -98,7 +98,8 @@ type ComputeOptions struct {
 	DefaultDiskDriver    string `help:"default disk driver" choices:"scsi|virtio|ide" default:"scsi"`
 	DefaultDiskCacheMode string `help:"default kvm disk cache mode" choices:"writeback|none|writethrough" default:"none"`
 
-	DefaultGuestStopTimeout int `help:"default guest stop timeout" default:"300"`
+	DefaultGuestStopTimeout      int `help:"default guest stop timeout" default:"300"`
+	DefaultGuestForceStopTimeout int `help:"default guest force stop timeout" default:"30"`
 
 	SystemAdminQuotaCheck         bool `help:"Enable quota check for system admin, default False" default:"false"`
 	CloudaccountHealthStatusCheck bool `help:"Enable cloudaccount health status check, default True" default:"true"`
