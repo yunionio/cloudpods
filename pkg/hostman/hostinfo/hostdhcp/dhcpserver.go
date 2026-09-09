@@ -197,7 +197,7 @@ func getGuestConfig(
 		conf.SubnetMask = net.ParseIP(netutils2.Netlen2Mask(int(masklen)))
 		conf.BroadcastAddr = v4Ip.BroadcastAddr(int8(masklen)).ToBytes()
 
-		if nicdesc.Gateway != "" {
+		if nicdesc.Gateway != "" && nicdesc.IsDefault {
 			conf.Gateway = net.ParseIP(nicdesc.Gateway)
 		}
 	}
@@ -214,7 +214,7 @@ func getGuestConfig(
 		// ipv6
 		conf.ClientIP6 = net.ParseIP(nicdesc.Ip6)
 		conf.PrefixLen6 = uint8(nicdesc.Masklen6)
-		if nicdesc.Gateway6 != "" {
+		if nicdesc.Gateway6 != "" && nicdesc.IsDefault {
 			conf.Gateway6 = net.ParseIP(nicdesc.Gateway6)
 		}
 	}
