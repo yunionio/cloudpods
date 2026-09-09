@@ -25,6 +25,7 @@ import (
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
 	container_storage "yunion.io/x/onecloud/pkg/hostman/container/storage"
 	"yunion.io/x/onecloud/pkg/hostman/container/volume_mount"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/mountutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -55,7 +56,14 @@ func newDiskOverlayDir() iDiskOverlay {
 
 func (dod diskOverlayDir) mount(d disk, pod volume_mount.IPodInfo, ctrId string, vm *hostapi.ContainerVolumeMount) error {
 	vmDisk := vm.Disk
-	lowerDir := vmDisk.Overlay.LowerDir
+	lowerDir := make([]string, 0, len(vmDisk.Overlay.LowerDir))
+	for i, p := range vmDisk.Overlay.LowerDir {
+		clean, err := fileutils2.CleanHostBindPath(p)
+		if err != nil {
+			return errors.Wrapf(err, "overlay lower_dir %d", i)
+		}
+		lowerDir = append(lowerDir, clean)
+	}
 	upperDir, err := d.getRuntimeMountHostPath(pod, vm)
 	if err != nil {
 		return errors.Wrap(err, "getRuntimeMountHostPath")

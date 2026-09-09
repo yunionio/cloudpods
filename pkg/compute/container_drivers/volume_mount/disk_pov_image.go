@@ -16,12 +16,15 @@ package volume_mount
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
+	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -71,15 +74,76 @@ func (p povImage) validateData(ctx context.Context, userCred mcclient.TokenCrede
 	if len(pov.Image.PathMap) == 0 {
 		pov.Image.PathMap = pathMap
 	}
+	if len(pov.Image.PathMap) > 0 {
+		cleanedMap := make(map[string]string, len(pov.Image.PathMap))
+		for k, v := range pov.Image.PathMap {
+			clean, err := cleanPathMapKey(userCred, k)
+			if err != nil {
+				return err
+			}
+			cleanedMap[clean] = v
+		}
+		pov.Image.PathMap = cleanedMap
+	}
 	if len(pov.Image.HostLowerMap) != 0 {
-		for hostPath, _ := range pov.Image.HostLowerMap {
-			_, ok := pov.Image.PathMap[hostPath]
+		cleanedLower := make(map[string]*apis.HostLowerPath, len(pov.Image.HostLowerMap))
+		for hostPath, hlp := range pov.Image.HostLowerMap {
+			clean, err := cleanPathMapKey(userCred, hostPath)
+			if err != nil {
+				return err
+			}
+			_, ok := pov.Image.PathMap[clean]
 			if !ok {
 				return httperrors.NewNotFoundError("host_path %s of host_lower_map doesn't found in path_map", hostPath)
 			}
+			if hlp != nil {
+				pre, err := validateColonSeparatedHostBindPaths(userCred, hlp.PrePath)
+				if err != nil {
+					return err
+				}
+				hlp.PrePath = pre
+				post, err := validateColonSeparatedHostBindPaths(userCred, hlp.PostPath)
+				if err != nil {
+					return err
+				}
+				hlp.PostPath = post
+			}
+			cleanedLower[clean] = hlp
 		}
+		pov.Image.HostLowerMap = cleanedLower
+	}
+	if img.UpperConfig != nil && img.UpperConfig.Disk != nil && img.UpperConfig.Disk.SubPath != "" {
+		clean, err := models.ValidateRelSubpath(img.UpperConfig.Disk.SubPath)
+		if err != nil {
+			return err
+		}
+		img.UpperConfig.Disk.SubPath = clean
 	}
 	return nil
+}
+
+func cleanPathMapKey(userCred mcclient.TokenCredential, k string) (string, error) {
+	rel := strings.TrimPrefix(strings.TrimSpace(k), string(filepath.Separator))
+	return models.ValidateRelSubpath(rel)
+}
+
+func validateColonSeparatedHostBindPaths(userCred mcclient.TokenCredential, pathStr string) (string, error) {
+	if pathStr == "" {
+		return "", nil
+	}
+	parts := strings.Split(pathStr, ":")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		clean, err := models.ValidateHostBindPath(userCred, p)
+		if err != nil {
+			return "", err
+		}
+		out = append(out, clean)
+	}
+	return strings.Join(out, ":"), nil
 }
 
 func (p povImage) getContainerTargetDirs(ov *apis.ContainerVolumeMountDiskPostOverlay) []string {

@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -37,6 +38,18 @@ func (p povHostPath) validateData(ctx context.Context, userCred mcclient.TokenCr
 		if len(hld) == 0 {
 			return httperrors.NewNotEmptyError("host_lower_dir %d is empty", i)
 		}
+		clean, err := models.ValidateHostBindPath(userCred, hld)
+		if err != nil {
+			return err
+		}
+		ov.HostLowerDir[i] = clean
+	}
+	if ov.HostUpperDir != "" {
+		clean, err := models.ValidateHostBindPath(userCred, ov.HostUpperDir)
+		if err != nil {
+			return err
+		}
+		ov.HostUpperDir = clean
 	}
 	if len(ov.ContainerTargetDir) == 0 {
 		return httperrors.NewNotEmptyError("container_target_dir is required")
