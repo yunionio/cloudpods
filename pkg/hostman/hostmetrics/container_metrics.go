@@ -62,6 +62,7 @@ const (
 	NVIDIA_GPU_FRAME_BUFFER   = "frame_buffer"
 	NVIDIA_GPU_CCPM           = "ccpm"
 	NVIDIA_GPU_SM             = "sm"
+	NVIDIA_GPU_MEM            = "mem"
 	NVIDIA_GPU_MEM_UTIL       = "mem_util"
 	NVIDIA_GPU_ENC            = "enc"
 	NVIDIA_GPU_DEC            = "dec"
@@ -249,6 +250,7 @@ func (m PodNvidiaGpuMetrics) ToMap() map[string]interface{} {
 		NVIDIA_GPU_FRAME_BUFFER:   m.Framebuffer,
 		NVIDIA_GPU_CCPM:           m.Ccpm,
 		NVIDIA_GPU_SM:             m.SmUtil,
+		NVIDIA_GPU_MEM:            m.Mem,
 		NVIDIA_GPU_MEM_UTIL:       m.MemUtil,
 		NVIDIA_GPU_ENC:            m.EncUtil,
 		NVIDIA_GPU_DEC:            m.DecUtil,
@@ -890,16 +892,62 @@ func (m *SGuestMonitor) getPodVastaitechGpuMetrics() []*PodVastaitechGpuMetrics 
 	return res
 }
 
-func (m *SGuestMonitor) getPodNvidiaGpuMetrics() []*PodNvidiaGpuMetrics {
-	if len(m.nvidiaGpuMetrics) == 0 {
-		return nil
+type nvidiaGpuAssignedQuota struct {
+	PhysicalIndex int
+	MemTotal      int
+}
+
+type nvidiaGpuAssignInput struct {
+	Id          string
+	MemoryLimit int
+}
+
+func buildNvidiaGpuAssignedQuotas(inputs []nvidiaGpuAssignInput, indexById map[string]int, hostMemMap map[string]int) []nvidiaGpuAssignedQuota {
+	type acc struct {
+		limitSum int
+		limitCnt int
+		hostMem  int
 	}
+	accs := map[int]*acc{}
+	order := make([]int, 0)
+	for _, in := range inputs {
+		idx, ok := indexById[in.Id]
+		if !ok {
+			continue
+		}
+		a, exists := accs[idx]
+		if !exists {
+			a = &acc{hostMem: hostMemMap[strconv.Itoa(idx)]}
+			accs[idx] = a
+			order = append(order, idx)
+		}
+		if in.MemoryLimit > 0 {
+			a.limitSum += in.MemoryLimit
+			a.limitCnt++
+		}
+	}
+	res := make([]nvidiaGpuAssignedQuota, 0, len(order))
+	for _, idx := range order {
+		a := accs[idx]
+		memTotal := a.hostMem
+		if a.limitCnt > 0 {
+			memTotal = a.limitSum
+		}
+		res = append(res, nvidiaGpuAssignedQuota{
+			PhysicalIndex: idx,
+			MemTotal:      memTotal,
+		})
+	}
+	return res
+}
+
+func (m *SGuestMonitor) getPodNvidiaGpuMetrics() []*PodNvidiaGpuMetrics {
 	indexGpuMap := map[int]*PodNvidiaGpuMetrics{}
 	for i := range m.nvidiaGpuMetrics {
 		index := m.nvidiaGpuMetrics[i].Index
 		gms, ok := indexGpuMap[index]
 		if !ok {
-			gms = new(PodNvidiaGpuMetrics)
+			gms = &PodNvidiaGpuMetrics{Index: index}
 		}
 		gms.Framebuffer += m.nvidiaGpuMetrics[i].FB
 		gms.Ccpm += m.nvidiaGpuMetrics[i].Ccpm
@@ -911,17 +959,33 @@ func (m *SGuestMonitor) getPodNvidiaGpuMetrics() []*PodNvidiaGpuMetrics {
 		indexGpuMap[index] = gms
 	}
 
-	indexs := make([]int, 0)
+	assignedMem := map[int]int{}
+	for _, a := range m.nvidiaGpuAssigned {
+		assignedMem[a.PhysicalIndex] = a.MemTotal
+		if _, ok := indexGpuMap[a.PhysicalIndex]; !ok {
+			indexGpuMap[a.PhysicalIndex] = &PodNvidiaGpuMetrics{Index: a.PhysicalIndex}
+		}
+	}
+
+	if len(indexGpuMap) == 0 {
+		return nil
+	}
+
+	indexs := make([]int, 0, len(indexGpuMap))
 	for index, gms := range indexGpuMap {
 		indexs = append(indexs, index)
-		indexStr := strconv.Itoa(index)
-		memSizeTotal, ok := m.nvidiaGpuIndexMemoryMap[indexStr]
+		memSizeTotal, ok := assignedMem[index]
 		if !ok {
-			continue
+			memSizeTotal, ok = m.nvidiaGpuIndexMemoryMap[strconv.Itoa(index)]
+			if !ok {
+				continue
+			}
 		}
 		gms.MemTotal = memSizeTotal
 		gms.Mem = gms.Framebuffer
-		gms.MemUtil = float64(gms.Framebuffer) / float64(gms.MemTotal)
+		if gms.MemTotal > 0 {
+			gms.MemUtil = float64(gms.Framebuffer) / float64(gms.MemTotal)
+		}
 	}
 	sort.Ints(indexs)
 	res := make([]*PodNvidiaGpuMetrics, len(indexs))
