@@ -259,13 +259,16 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mccli
 func (self *SKVMGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask, syncStatus bool) error {
 	body := jsonutils.NewDict()
 	params := task.GetParams()
-	timeout, err := params.Int("timeout")
-	if err != nil {
-		timeout = int64(options.Options.DefaultGuestStopTimeout)
-	}
 	isForce, _ := params.Bool("is_force")
 	if isForce {
 		body.Set("is_force", jsonutils.JSONTrue)
+	}
+	timeout, err := params.Int("timeout")
+	if err != nil {
+		timeout = int64(options.Options.DefaultGuestStopTimeout)
+		if isForce {
+			timeout = int64(options.Options.DefaultGuestForceStopTimeout)
+		}
 	}
 	body.Add(jsonutils.NewInt(timeout), "timeout")
 
