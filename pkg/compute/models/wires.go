@@ -978,6 +978,7 @@ func (swire *SWire) getNetworks(ctx context.Context, userCred mcclient.TokenCred
 func (swire *SWire) getGatewayNetworkQuery(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
 	q := swire.getNetworkQuery(ctx, userCred, ownerId, scope)
 	q = q.Filter(sqlchemy.OR(
+		sqlchemy.In(q.Field("server_type"), []api.TNetworkType{api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_PXE, api.NETWORK_TYPE_IPMI}),
 		sqlchemy.AND(sqlchemy.IsNotNull(q.Field("guest_gateway")), sqlchemy.IsNotEmpty(q.Field("guest_gateway"))),
 		sqlchemy.AND(sqlchemy.IsNotNull(q.Field("guest_gateway6")), sqlchemy.IsNotEmpty(q.Field("guest_gateway6"))),
 	))
