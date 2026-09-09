@@ -87,6 +87,27 @@ func TestResolveLLMStatusFromPod(t *testing.T) {
 			wantStatus:             api.LLM_STATUS_START_FAIL,
 			wantUpdate:             true,
 		},
+		{
+			name:                   "start_start with stale exited is not start_fail",
+			currentStatus:          api.LLM_STATUS_READY,
+			serverStatus:           computeapi.VM_START_START,
+			primaryContainerStatus: computeapi.CONTAINER_STATUS_EXITED,
+			wantUpdate:             false,
+		},
+		{
+			name:                   "starting_container with stale exited is not start_fail",
+			currentStatus:          api.LLM_STATUS_READY,
+			serverStatus:           computeapi.POD_STATUS_STARTING_CONTAINER,
+			primaryContainerStatus: computeapi.CONTAINER_STATUS_EXITED,
+			wantUpdate:             false,
+		},
+		{
+			name:                   "start_start with stale probe_failed is not start_fail",
+			currentStatus:          api.LLM_STATUS_READY,
+			serverStatus:           computeapi.VM_START_START,
+			primaryContainerStatus: computeapi.CONTAINER_STATUS_PROBE_FAILED,
+			wantUpdate:             false,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
