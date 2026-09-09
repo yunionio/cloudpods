@@ -67,6 +67,18 @@ func Test_parseJsonOutput(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name:    "empty string",
+			content: "",
+			want:    &Devices{},
+			wantErr: false,
+		},
+		{
+			name:    "whitespace only",
+			content: " \n\t",
+			want:    &Devices{},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

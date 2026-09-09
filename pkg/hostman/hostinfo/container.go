@@ -17,6 +17,7 @@ package hostinfo
 import (
 	"context"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -96,6 +97,38 @@ func (h *SHostInfo) GetNvidiaGpuIndexMemoryMap() map[string]int {
 		index := iDev.GetNvidiaDevIndex()
 		memSize := iDev.GetMemorySize()
 		res[index] = memSize
+	}
+	return res
+}
+
+func (h *SHostInfo) GetNvidiaGpuIndexByDeviceIds(ids []string) map[string]int {
+	h.HasContainerNvidiaGpu()
+	want := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		if id != "" {
+			want[id] = struct{}{}
+		}
+	}
+	res := map[string]int{}
+	for i := range h.containerNvidiaGpus {
+		iDev := h.containerNvidiaGpus[i]
+		cloudId := iDev.GetCloudId()
+		if _, ok := want[cloudId]; !ok {
+			continue
+		}
+		if _, exists := res[cloudId]; exists {
+			continue
+		}
+		nv, ok := iDev.(INvidiaGpuIndexMemoryInterface)
+		if !ok {
+			continue
+		}
+		idx, err := strconv.Atoi(nv.GetNvidiaDevIndex())
+		if err != nil {
+			log.Errorf("failed parse nvidia gpu index %s: %s", nv.GetNvidiaDevIndex(), err)
+			continue
+		}
+		res[cloudId] = idx
 	}
 	return res
 }

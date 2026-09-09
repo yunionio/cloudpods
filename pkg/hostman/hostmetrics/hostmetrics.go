@@ -65,6 +65,7 @@ type IHostInfo interface {
 	HasContainerVastaitechGpu() bool
 	HasContainerCphAmdGpu() bool
 	GetNvidiaGpuIndexMemoryMap() map[string]int
+	GetNvidiaGpuIndexByDeviceIds(ids []string) map[string]int
 	ReportHostDmesg(data []compute.SKmsgEntry) error
 }
 
@@ -629,6 +630,7 @@ type SGuestMonitor struct {
 	podStat                 *stats.PodStats
 	nvidiaGpuMetrics        []NvidiaGpuProcessMetrics
 	nvidiaGpuIndexMemoryMap map[string]int
+	nvidiaGpuAssigned       []nvidiaGpuAssignedQuota
 	vastaitechGpuMetrics    []VastaitechGpuProcessMetrics
 	cphAmdGpuMetrics        []CphAmdGpuProcessMetrics
 	instance                guestman.GuestRuntimeInstance
@@ -660,6 +662,7 @@ func NewGuestPodMonitor(
 	hasNvGpu := false
 	hasCphAmdGpu := false
 	hasVastaitechGpu := false
+	nvAssignInputs := make([]nvidiaGpuAssignInput, 0)
 	for i := range podDesc.IsolatedDevices {
 		if !utils.IsInStringArray(podDesc.IsolatedDevices[i].SharingMode, compute.VIRTUAL_SHARING_MODES) {
 			continue
@@ -668,6 +671,10 @@ func NewGuestPodMonitor(
 		switch vendorId {
 		case compute.NVIDIA_VENDOR_ID:
 			hasNvGpu = true
+			nvAssignInputs = append(nvAssignInputs, nvidiaGpuAssignInput{
+				Id:          podDesc.IsolatedDevices[i].Id,
+				MemoryLimit: podDesc.IsolatedDevices[i].MemoryLimit,
+			})
 		case compute.AMD_VENDOR_ID:
 			hasCphAmdGpu = true
 		case compute.VASTAITECH_VENDOR_ID:
@@ -678,6 +685,12 @@ func NewGuestPodMonitor(
 	if hasNvGpu {
 		m.nvidiaGpuMetrics = GetPodNvidiaGpuMetrics(nvidiaGpuMetrics, podProcs)
 		m.nvidiaGpuIndexMemoryMap = hostInstance.GetNvidiaGpuIndexMemoryMap()
+		nvDevIds := make([]string, 0, len(nvAssignInputs))
+		for i := range nvAssignInputs {
+			nvDevIds = append(nvDevIds, nvAssignInputs[i].Id)
+		}
+		indexById := hostInstance.GetNvidiaGpuIndexByDeviceIds(nvDevIds)
+		m.nvidiaGpuAssigned = buildNvidiaGpuAssignedQuotas(nvAssignInputs, indexById, m.nvidiaGpuIndexMemoryMap)
 	}
 	if hasVastaitechGpu {
 		m.vastaitechGpuMetrics = GetPodVastaitechGpuMetrics(vastaitechGpuMetrics, podProcs)
