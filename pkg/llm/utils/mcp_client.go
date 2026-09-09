@@ -83,17 +83,24 @@ func NewMCPClient(serverURL string, timeout time.Duration, userCred mcclient.Tok
 	if timeout <= 0 {
 		timeout = 3 * time.Minute
 	}
+	var cred mcclient.TokenCredential
+	if IsTrustedMCPServerURL(serverURL) {
+		cred = userCred
+	}
 	return &MCPClient{
-		serverURL: strings.TrimSuffix(serverURL, "/"),
+		serverURL: strings.TrimSuffix(strings.TrimSpace(serverURL), "/"),
 		client: &http.Client{
 			Timeout: 0,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
 			Transport: &http.Transport{
 				DialContext:           (&net.Dialer{Timeout: 30 * time.Second}).DialContext,
 				ResponseHeaderTimeout: 60 * time.Second,
 			},
 		},
 		requestTimeout: timeout,
-		userCred:       userCred,
+		userCred:       cred,
 		pendingReqs:    make(map[int64]chan *rawMCPResponse),
 	}
 }
@@ -110,8 +117,13 @@ func (c *MCPClient) setAuthHeaders(req *http.Request) {
 
 // connectSSE 连接 SSE 端点并开始事件循环
 func (c *MCPClient) connectSSE(ctx context.Context) error {
-	// 连接 SSE 端点获取 session URL
-	sseURL := c.serverURL + "/sse"
+	if err := ValidateMCPServerURL(c.serverURL); err != nil {
+		return err
+	}
+	sseURL, err := joinMCPEndpoint(c.serverURL, "/sse")
+	if err != nil {
+		return err
+	}
 	req, err := http.NewRequestWithContext(ctx, "GET", sseURL, nil)
 	if err != nil {
 		return errors.Wrap(err, "create SSE request")
@@ -126,9 +138,9 @@ func (c *MCPClient) connectSSE(ctx context.Context) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
-		return errors.Errorf("SSE connection failed with status %d: %s", resp.StatusCode, string(body))
+		return errors.Errorf("SSE connection failed")
 	}
 
 	c.sseBody = resp.Body
@@ -160,7 +172,14 @@ func (c *MCPClient) connectSSE(ctx context.Context) error {
 			dataLines = dataLines[:0]
 			if !foundSession {
 				if strings.Contains(data, "/message") {
-					c.sessionURL = c.serverURL + data
+					sessionURL, err := joinMCPEndpoint(c.serverURL, data)
+					if err != nil {
+						initErr = err
+						foundSession = true
+						close(done)
+						return
+					}
+					c.sessionURL = sessionURL
 					log.Infof("MCP Client initialized with session URL: %s", c.sessionURL)
 					foundSession = true
 					close(done)

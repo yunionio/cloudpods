@@ -129,7 +129,7 @@ type SMCPAgent struct {
 	// Model 使用的模型名称
 	Model string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 	// ApiKey 即在 llm_driver 中需要用到的认证
-	ApiKey string `width:"512" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	ApiKey string `width:"512" charset:"utf8" nullable:"true" create:"optional" update:"user"`
 	// McpServer 即 mcp 服务器的后端地址
 	McpServer string `width:"512" charset:"utf8" nullable:"false" list:"user" create:"optional" update:"user"`
 	// DefaultAgent 是否为默认 Agent，全局仅允许一条为 true
@@ -278,6 +278,9 @@ func (man *SMCPAgentManager) ValidateCreateData(ctx context.Context, userCred mc
 	if len(input.McpServer) == 0 {
 		input.McpServer = options.Options.MCPServerURL
 	}
+	if err := utils.ValidateMCPServerURL(input.McpServer); err != nil {
+		return input, httperrors.NewInputParameterError("%s", err.Error())
+	}
 
 	// 对于 openai 驱动，api_key 是必需的
 	if input.LLMDriver == string(api.LLM_CLIENT_OPENAI) && len(input.ApiKey) == 0 {
@@ -332,6 +335,16 @@ func (man *SMCPAgentManager) ValidateUpdateData(ctx context.Context, userCred mc
 		*input.LLMDriver = strings.ToLower(strings.TrimSpace(*input.LLMDriver))
 		if !api.IsLLMClientType(*input.LLMDriver) {
 			return input, errors.Wrapf(httperrors.ErrInputParameter, "llm_driver must be one of: %s, got: %s", api.LLM_CLIENT_TYPES.List(), *input.LLMDriver)
+		}
+	}
+
+	if input.McpServer != nil {
+		if len(*input.McpServer) == 0 {
+			def := options.Options.MCPServerURL
+			input.McpServer = &def
+		}
+		if err := utils.ValidateMCPServerURL(*input.McpServer); err != nil {
+			return input, httperrors.NewInputParameterError("%s", err.Error())
 		}
 	}
 
@@ -407,10 +420,14 @@ func (mcp *SMCPAgent) GetLLMClientDriver() ILLMClient {
 }
 
 func (mcp *SMCPAgent) GetMcpServerUrl(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
-	if len(mcp.McpServer) > 0 {
-		return mcp.McpServer, nil
+	serverURL := mcp.McpServer
+	if len(serverURL) == 0 {
+		serverURL = options.Options.MCPServerURL
 	}
-	return options.Options.MCPServerURL, nil
+	if err := utils.ValidateMCPServerURL(serverURL); err != nil {
+		return "", err
+	}
+	return serverURL, nil
 }
 
 func (mcp *SMCPAgent) GetDetailsMcpTools(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
