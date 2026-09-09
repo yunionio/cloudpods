@@ -23,6 +23,14 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
+type RolePolicyCreateInput struct {
+	apis.ResourceBaseCreateInput
+
+	RoleId    string `json:"role_id"`
+	ProjectId string `json:"project_id"`
+	PolicyId  string `json:"policy_id"`
+}
+
 type RolePolicyListInput struct {
 	apis.ResourceBaseListInput
 
