@@ -60,5 +60,10 @@ func (h hostLocal) ValidatePodCreateData(ctx context.Context, userCred mcclient.
 	if hp.Path == "" {
 		return httperrors.NewNotEmptyError("path is required")
 	}
-	return nil
+	clean, err := models.ValidateHostBindPath(userCred, hp.Path)
+	if err != nil {
+		return err
+	}
+	hp.Path = clean
+	return models.ValidateHostPathAutoCreate(hp.AutoCreate, hp.AutoCreateConfig)
 }
