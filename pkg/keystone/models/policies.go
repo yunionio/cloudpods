@@ -797,7 +797,6 @@ func (policy *SPolicy) fetchMatchableRoles() ([]SRole, error) {
 
 // 绑定角色
 func (policy *SPolicy) PerformBindRole(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PolicyBindRoleInput) (jsonutils.JSONObject, error) {
-	var projectId string
 	prefList := make([]netutils.IPV4Prefix, 0)
 	for _, ipStr := range input.Ips {
 		pref, err := netutils.NewIPV4Prefix(ipStr)
@@ -806,29 +805,11 @@ func (policy *SPolicy) PerformBindRole(ctx context.Context, userCred mcclient.To
 		}
 		prefList = append(prefList, pref)
 	}
-	if len(input.ProjectId) > 0 {
-		proj, err := ProjectManager.FetchByIdOrName(ctx, userCred, input.ProjectId)
-		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, errors.Wrapf(httperrors.ErrNotFound, "%s %s", ProjectManager.Keyword(), input.ProjectId)
-			} else {
-				return nil, errors.Wrap(err, "ProjectManager.FetchByIdOrName")
-			}
-		}
-		projectId = proj.GetId()
-	}
-	if len(input.RoleId) == 0 {
-		return nil, errors.Wrap(httperrors.ErrInputParameter, "missing role_id")
-	}
-	role, err := RoleManager.FetchByIdOrName(ctx, userCred, input.RoleId)
+	roleId, projectId, policyId, err := normalizeRolePolicyBinding(ctx, userCred, input.RoleId, input.ProjectId, policy.Id)
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, errors.Wrapf(httperrors.ErrNotFound, "%s %s", RoleManager.Keyword(), input.RoleId)
-		} else {
-			return nil, errors.Wrap(err, "RoleManager.FetchByIdOrName")
-		}
+		return nil, err
 	}
-	err = RolePolicyManager.newRecord(ctx, role.GetId(), projectId, policy.Id, tristate.True, prefList, input.ValidSince, input.ValidUntil)
+	err = RolePolicyManager.newRecord(ctx, roleId, projectId, policyId, tristate.True, prefList, input.ValidSince, input.ValidUntil)
 	if err != nil {
 		return nil, errors.Wrap(err, "newRecord")
 	}
