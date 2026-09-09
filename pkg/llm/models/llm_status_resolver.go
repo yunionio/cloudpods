@@ -32,6 +32,12 @@ func resolveLLMStatusFromPod(currentStatus string, serverStatus string, primaryC
 	targetStatus := ""
 	reason := fmt.Sprintf("pod status=%s primary_container_status=%s", serverStatus, primaryContainerStatus)
 
+	// Guest is still starting/stopping; container status is often stale (e.g. exited
+	// from the previous shutdown while pod is start_start). Wait for a terminal state.
+	if isLLMPodTransientStatus(serverStatus) {
+		return llmStatusResolution{}
+	}
+
 	switch {
 	case serverStatus == computeapi.VM_READY:
 		targetStatus = api.LLM_STATUS_READY
@@ -61,6 +67,21 @@ func resolveLLMStatusFromPod(currentStatus string, serverStatus string, primaryC
 		Status: targetStatus,
 		Reason: reason,
 		Update: true,
+	}
+}
+
+func isLLMPodTransientStatus(serverStatus string) bool {
+	switch serverStatus {
+	case computeapi.VM_START_START,
+		computeapi.VM_STARTING,
+		computeapi.POD_STATUS_STARTING_CONTAINER,
+		computeapi.POD_STATUS_CREATING_CONTAINER,
+		computeapi.VM_START_STOP,
+		computeapi.VM_STOPPING,
+		computeapi.POD_STATUS_STOPPING_CONTAINER:
+		return true
+	default:
+		return false
 	}
 }
 
