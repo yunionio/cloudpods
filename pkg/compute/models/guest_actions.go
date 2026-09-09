@@ -1422,13 +1422,14 @@ func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.To
 		self.SetStatus(ctx, userCred, api.VM_START_STOP, "")
 	}
 	params := jsonutils.NewDict()
+	timeout := options.Options.DefaultGuestStopTimeout
 	if isForce {
+		timeout = options.Options.DefaultGuestForceStopTimeout
 		params.Add(jsonutils.NewBool(isForce), "is_force")
 	}
 	if timeoutSecs != nil {
 		params.Add(jsonutils.NewInt(int64(*timeoutSecs)), "timeout")
 	} else {
-		timeout := options.Options.DefaultGuestStopTimeout
 		params.Add(jsonutils.NewInt(int64(timeout)), "timeout")
 	}
 	params.Add(jsonutils.NewBool(stopCharging), "stop_charging")
