@@ -16,6 +16,8 @@ package ansiblev2
 
 import (
 	"testing"
+
+	"yunion.io/x/onecloud/pkg/util/ansible"
 )
 
 func TestPlaybookString(t *testing.T) {
@@ -102,5 +104,21 @@ func TestPlaybookString(t *testing.T) {
 	configureBlock.Name = "Configure wireguard networks"
 	play.Tasks = append(play.Tasks, configureBlock)
 	pb := NewPlaybook(play)
-	t.Logf("\n%s", pb.String())
+	yml := pb.String()
+	t.Logf("\n%s", yml)
+	if err := ansible.ValidatePlaybookYAML(yml); err != nil {
+		t.Fatalf("generated playbook rejected: %v\n%s", err, yml)
+	}
+	inv := NewInventory()
+	h := NewHost()
+	h.Vars = map[string]interface{}{
+		"ansible_user":                 "cloudroot",
+		"ansible_host":                 "10.1.2.3",
+		"ansible_ssh_private_key_file": ".id_rsa",
+		"ansible_become":               "yes",
+	}
+	inv.SetHost("gw1", h)
+	if err := ansible.ValidateInventoryYAML(inv.String()); err != nil {
+		t.Fatalf("generated inventory rejected: %v\n%s", err, inv.String())
+	}
 }

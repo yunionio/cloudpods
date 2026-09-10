@@ -155,7 +155,9 @@ func (proxyendpoint *SProxyEndpoint) remoteConfigure(ctx context.Context, userCr
 		},
 	}
 
-	cliSess := auth.GetSession(ctx, userCred, "")
+	// the playbook content here is server-generated; use the admin session
+	// since ansible playbook creation requires system admin privilege
+	cliSess := auth.GetAdminSession(ctx, "")
 	pbId := ""
 	pbName := "pe-remote-configure-" + proxyendpoint.Name
 	_, err := ansible_modules.AnsiblePlaybooks.UpdateOrCreatePbModel(
