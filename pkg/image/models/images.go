@@ -547,6 +547,9 @@ func (self *SImage) SaveImageFromStream(reader io.Reader, totalSize int64, calCh
 		if err != nil {
 			return errors.Wrapf(err, "NewQemuImage %s", localPath)
 		}
+		if err := img.CheckNoBackingFile(); err != nil {
+			return err
+		}
 		format = string(img.String2ImageFormat())
 		virtualSizeBytes = img.SizeBytes
 
@@ -1187,7 +1190,14 @@ func (self *SImage) GetNewLocation(newLocalPath string) string {
 }
 
 func (self *SImage) getQemuImage() (*qemuimg.SQemuImage, error) {
-	return qemuimg.NewQemuImageWithIOLevel(self.GetLocalLocation(), qemuimg.IONiceIdle)
+	img, err := qemuimg.NewQemuImageWithIOLevel(self.GetLocalLocation(), qemuimg.IONiceIdle)
+	if err != nil {
+		return nil, err
+	}
+	if err := img.CheckNoBackingFile(); err != nil {
+		return nil, err
+	}
+	return img, nil
 }
 
 func (self *SImage) StopTorrents() {
@@ -1745,6 +1755,13 @@ func (image *SImage) doProbeImageInfo(ctx context.Context, userCred mcclient.Tok
 	if len(diskPath) == 0 {
 		return false, errors.Wrap(httperrors.ErrNotFound, "disk file not found")
 	}
+	qimg, err := qemuimg.NewQemuImage(diskPath)
+	if err != nil {
+		return false, errors.Wrap(err, "NewQemuImage")
+	}
+	if err := qimg.CheckNoBackingFile(); err != nil {
+		return false, err
+	}
 	if deployclient.GetDeployClient() == nil {
 		return false, fmt.Errorf("deploy client not init")
 	}
@@ -2196,6 +2213,17 @@ func (img *SImage) cacheToCephStorages(ctx context.Context) {
 		}
 		if cachedRbdimgStorageId == "" {
 			// do cache img to ceph storage
+			if fileutils2.Exists(localPath) {
+				qimg, err := qemuimg.NewQemuImage(localPath)
+				if err != nil {
+					log.Errorf("skip cache img %s: NewQemuImage %s", img.Id, err)
+					return
+				}
+				if err := qimg.CheckNoBackingFile(); err != nil {
+					log.Errorf("skip cache img %s: %s", img.Id, err)
+					return
+				}
+			}
 			for storageId := range storageCachedImages {
 				storageConf := cephStorages.StorageIdConf[storageId]
 				imgTmpName := "image_cache_" + img.Id + ".tmp"
