@@ -193,6 +193,9 @@ func (s *SGuestDHCPServer) getGuestConfig(
 		}
 		route = append(route, []string{"169.254.169.254/32", "0.0.0.0"})
 	}
+	// append link-local route
+	route = append(route, []string{fmt.Sprintf("%s/%d", v4Ip.NetAddr(int8(masklen)).String(), nicdesc.Masklen), "0.0.0.0"})
+
 	route = netutils2.AddNicRoutes(route, nicdesc, mainIp, len(guestNics))
 	conf.Routes = route
 
