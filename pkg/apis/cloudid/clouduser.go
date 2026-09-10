@@ -215,6 +215,13 @@ type ClouduserSyncInput struct {
 type ClouduserUpdateInput struct {
 }
 
+type ClouduserLoginInfo struct {
+	Account  string `json:"account"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Url      string `json:"url"`
+}
+
 type ClouduserResetPasswordInput struct {
 	// 若此参数为空, 默认会生成随机12位密码
 	//
