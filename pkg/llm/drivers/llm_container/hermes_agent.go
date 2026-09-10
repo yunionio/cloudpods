@@ -131,11 +131,10 @@ func resolveHermesAgentSpec(ctx context.Context, userCred mcclient.TokenCredenti
 		return out, nil
 	}
 
-	llmObj, err := models.GetLLMManager().FetchByIdOrName(ctx, userCred, out.LLMId)
+	targetLLM, err := models.FetchAccessibleLLM(ctx, userCred, out.LLMId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "fetch target LLM %s", out.LLMId)
 	}
-	targetLLM := llmObj.(*models.SLLM)
 	targetSku, err := targetLLM.GetLLMSku(targetLLM.LLMSkuId)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetch target LLM SKU")
