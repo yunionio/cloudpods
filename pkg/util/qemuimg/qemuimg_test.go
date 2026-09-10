@@ -184,3 +184,14 @@ func TestParseBackingFile(t *testing.T) {
 		t.Errorf("want: %s got: %s", want, path)
 	}
 }
+
+func TestCheckNoBackingFile(t *testing.T) {
+	img := &SQemuImage{}
+	if err := img.CheckNoBackingFile(); err != nil {
+		t.Fatalf("standalone image: %v", err)
+	}
+	img.BackFilePath = "nbd://127.0.0.1:10809/disk"
+	if err := img.CheckNoBackingFile(); err == nil {
+		t.Fatal("expected error when backing file is set")
+	}
+}

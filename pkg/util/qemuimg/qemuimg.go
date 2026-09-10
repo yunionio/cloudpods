@@ -37,7 +37,8 @@ import (
 )
 
 var (
-	ErrUnsupportedFormat = errors.Error("unsupported format")
+	ErrUnsupportedFormat     = errors.Error("unsupported format")
+	ErrBackingFileNotAllowed = errors.Error("image backing file is not allowed")
 
 	convertWorkInOrder = false
 	convertCoroutines  = 16
@@ -230,7 +231,11 @@ func (img *SQemuImage) parse() error {
 	img.ClusterSize = info.ClusterSize
 	img.Compat = info.FormatSpecific.Data.Compat
 	img.Encrypted = info.Encrypted
-	img.BackFilePath, err = ParseQemuFilepath(info.FullBackingFilename)
+	backing := info.FullBackingFilename
+	if backing == "" {
+		backing = info.BackingFilename
+	}
+	img.BackFilePath, err = ParseQemuFilepath(backing)
 	if err != nil {
 		return errors.Wrap(err, "ParseQemuFilepath")
 	}
@@ -265,6 +270,13 @@ func (img *SQemuImage) IsValid() bool {
 
 func (img *SQemuImage) IsChained() bool {
 	return len(img.BackFilePath) > 0
+}
+
+func (img *SQemuImage) CheckNoBackingFile() error {
+	if img.IsChained() {
+		return ErrBackingFileNotAllowed
+	}
+	return nil
 }
 
 func (img *SQemuImage) GetBackingChain() ([]string, error) {
