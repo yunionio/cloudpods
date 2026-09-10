@@ -15,16 +15,8 @@
 package cloudid
 
 import (
-	"fmt"
-	"net/url"
-	"strings"
-
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -47,59 +39,5 @@ func init() {
 }
 
 func (this *SClouduserManager) GetLoginInfo(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	data, err := this.Get(s, id, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	user := struct {
-		Id          string
-		Name        string
-		Secret      string
-		Provider    string
-		IamLoginUrl string
-	}{}
-
-	err = data.Unmarshal(&user)
-	if err != nil {
-		return nil, errors.Wrap(err, "data.Unmarshal")
-	}
-
-	if len(user.Secret) == 0 {
-		return nil, httperrors.NewNotFoundError("No login secret found")
-	}
-
-	password, err := utils.DescryptAESBase64(user.Id, user.Secret)
-	if err != nil {
-		return nil, errors.Wrap(err, "Descrypt")
-	}
-
-	account := ""
-
-	switch user.Provider {
-	case api.CLOUD_PROVIDER_ALIYUN:
-		suffix := strings.TrimPrefix(user.IamLoginUrl, "https://signin.aliyun.com/")
-		suffix = strings.TrimSuffix(suffix, "/login.htm")
-		if len(suffix) > 0 {
-			user.Name = fmt.Sprintf("%s@%s", user.Name, suffix)
-			account = suffix
-		}
-	case api.CLOUD_PROVIDER_QCLOUD, api.CLOUD_PROVIDER_HUAWEI:
-		u, _ := url.Parse(user.IamLoginUrl)
-		if u != nil {
-			account = u.Query().Get("account")
-		}
-	case api.CLOUD_PROVIDER_AWS:
-		account = strings.TrimPrefix(user.IamLoginUrl, "https://")
-		if info := strings.Split(account, "."); len(info) > 0 {
-			account = info[0]
-		}
-	}
-
-	return jsonutils.Marshal(map[string]string{
-		"account":  account,
-		"username": user.Name,
-		"password": password,
-		"url":      user.IamLoginUrl,
-	}), nil
+	return this.GetSpecific(s, id, "login-info", params)
 }
