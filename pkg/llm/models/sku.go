@@ -86,7 +86,7 @@ func (man *SLLMSkuBaseManager) ValidateCreateData(ctx context.Context, userCred 
 	return input, nil
 }
 
-// normalizeLLMSkuDevices maps NVIDIA_* / HYGON_* / ASCEND_* / ILUVATAR_* / THEAD_* DevTypes onto
+// normalizeLLMSkuDevices maps NVIDIA_* / HYGON_* / ASCEND_* / ILUVATAR_* / THEAD_* / KUNLUNXIN_* DevTypes onto
 // GPU|NPU + SharingMode, and defaults empty DevType/SharingMode appropriately.
 func normalizeLLMSkuDevices(devices *api.Devices) error {
 	if devices == nil || len(*devices) == 0 {
@@ -170,6 +170,11 @@ func normalizeLLMSkuDevice(dev *api.Device) {
 		if dev.SharingMode == "" {
 			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_EXCLUSIVE
 		}
+	case computeapi.CONTAINER_DEV_KUNLUNXIN_XPU:
+		dev.DevType = computeapi.GPU_TYPE
+		if dev.SharingMode == "" {
+			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_EXCLUSIVE
+		}
 	}
 	if dev.SharingMode == "" {
 		dev.SharingMode = computeapi.DEVICE_SHARING_MODE_HAMI
@@ -187,6 +192,8 @@ func normalizeLLMSkuDevice(dev *api.Device) {
 			dev.Vendor = "ILUVATAR"
 		case computeapi.CONTAINER_DEV_THEAD_PPU:
 			dev.Vendor = "THEAD"
+		case computeapi.CONTAINER_DEV_KUNLUNXIN_XPU:
+			dev.Vendor = "KUNLUNXIN"
 		}
 	}
 	dev.Vendor = canonicalizeLLMDeviceVendor(dev.Vendor)

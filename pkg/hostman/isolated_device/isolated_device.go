@@ -374,6 +374,31 @@ func (man *isolatedDeviceManager) probeContainerTHeadPPUs(enable bool) {
 	}
 }
 
+func (man *isolatedDeviceManager) probeContainerKunlunxinXPUs(enable bool) {
+	if !enable {
+		log.Infof("kunlunxin xpu probe skipped: enable_container_kunlunxin_xpu=false")
+		return
+	}
+	devman, err := GetContainerDeviceManager(ContainerDeviceTypeKunlunxinXpu)
+	if err != nil {
+		log.Errorf("no container device manager %s found: %v", ContainerDeviceTypeKunlunxinXpu, err)
+		return
+	}
+	devs, err := devman.ProbeDevices()
+	if err != nil {
+		log.Warningf("Probe container kunlunxin xpu devices: %v", err)
+		return
+	}
+	if len(devs) == 0 {
+		log.Infof("kunlunxin xpu probe finished: no devices found")
+		return
+	}
+	for idx, dev := range devs {
+		man.devices = append(man.devices, dev)
+		log.Infof("Add Container kunlunxin XPU device: %d => %#v", idx, dev)
+	}
+}
+
 func (man *isolatedDeviceManager) probeGPUS(skipGPUs bool, amdVgpuPFs, nvidiaVgpuPFs []string, enableWhitelist bool, whitelistModels []IsolatedDeviceModel) {
 	if skipGPUs {
 		return
@@ -550,6 +575,7 @@ type SIsolatedDeviceProbeOptions struct {
 	EnableContainerHygonDCUHAMI  bool
 	EnableContainerIluvatarGPU   bool
 	EnableContainerTHeadPPU      bool
+	EnableContainerKunlunxinXPU  bool
 	EnableWhitelist              bool
 
 	SriovNics, OvsOffloadNics []HostNic
@@ -569,6 +595,7 @@ func (man *isolatedDeviceManager) ProbePCIDevices(opts *SIsolatedDeviceProbeOpti
 		man.probeContainerHygonDCUs(opts.EnableContainerHygonDCU, opts.EnableContainerHygonDCUHAMI)
 		man.probeContainerIluvatarGPUs(opts.EnableContainerIluvatarGPU)
 		man.probeContainerTHeadPPUs(opts.EnableContainerTHeadPPU)
+		man.probeContainerKunlunxinXPUs(opts.EnableContainerKunlunxinXPU)
 	} else {
 		log.Infof("==== ProbePCIDevices: not container host, hygon container probe will NOT run (use host_type=container for hygon dcu)")
 		devModels, err := man.getCustomIsolatedDeviceModels()
