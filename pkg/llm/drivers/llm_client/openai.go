@@ -29,6 +29,20 @@ func newOpenAI() models.ILLMClient {
 	return new(openai)
 }
 
+func setAiproxyRequestHeaders(ctx context.Context, httpReq *http.Request, mcpAgent *models.SMCPAgent) error {
+	apiKey, err := mcpAgent.GetAiproxyVirtualKey(ctx)
+	if err != nil {
+		return err
+	}
+	if apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	if rid := strings.TrimSpace(mcpAgent.AiproxyRoutingId); rid != "" {
+		httpReq.Header.Set("X-Ai-Routing-Id", rid)
+	}
+	return nil
+}
+
 func (o *openai) GetType() api.LLMClientType {
 	return api.LLM_CLIENT_OPENAI
 }
@@ -283,12 +297,8 @@ func (o *openai) doChatStreamRequest(ctx context.Context, mcpAgent *models.SMCPA
 		return errors.Wrap(err, "create request")
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	apiKey, err := mcpAgent.GetApiKey()
-	if err != nil {
+	if err := setAiproxyRequestHeaders(ctx, httpReq, mcpAgent); err != nil {
 		return err
-	}
-	if apiKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
 	client := &http.Client{
@@ -372,12 +382,8 @@ func (o *openai) doChatRequest(ctx context.Context, mcpAgent *models.SMCPAgent, 
 		return nil, errors.Wrap(err, "create request")
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	apiKey, err := mcpAgent.GetApiKey()
-	if err != nil {
-		return nil, errors.Wrap(err, "get apiKey")
-	}
-	if apiKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	if err := setAiproxyRequestHeaders(ctx, httpReq, mcpAgent); err != nil {
+		return nil, err
 	}
 
 	client := &http.Client{

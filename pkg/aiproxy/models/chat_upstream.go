@@ -191,7 +191,8 @@ func listProjectRoutingsForVirtualKey(ctx context.Context, userCred mcclient.Tok
 
 // pickRoutingForRequest chooses the best matching ai_routing on the current aiproxy instance.
 // Hierarchical refs (routingKey/catalogPart) match only ai_routing.model_key on routeKey.
-// Flat refs: Phase 1 exact ai_routing.model_key match, Phase 2 ai_routing.model_pattern match.
+// Flat refs: Phase 1 exact ai_routing.model_key match, Phase 2 non-empty ai_routing.model_pattern match.
+// Empty model_pattern is not a wildcard; unmatched models return nil (ResolveChatUpstream maps that to ErrNotFound).
 func pickRoutingForRequest(routings []SAiRouting, reqModel, currentNodeId string) (*SAiRouting, error) {
 	ref := parseClientModelRef(reqModel)
 	if ref.hierarchical {
@@ -205,6 +206,9 @@ func pickRoutingForRequest(routings []SAiRouting, reqModel, currentNodeId string
 		return picked, err
 	}
 	return pickRoutingByMatch(routings, reqModel, currentNodeId, func(r *SAiRouting, reqModel string) bool {
+		if strings.TrimSpace(r.ModelPattern) == "" {
+			return false
+		}
 		return modelPatternMatches(r.ModelPattern, reqModel)
 	})
 }
@@ -229,6 +233,33 @@ func pickRoutingByMatch(routings []SAiRouting, reqModel, currentNodeId string, m
 	}
 	if best != nil {
 		return best, nil
+	}
+	if boundElsewhere != nil {
+		return nil, errors.Wrapf(httperrors.ErrForbidden,
+			"ai_routing %q is bound to ai_proxy_node %q; use that instance endpoint",
+			boundElsewhere.Name, boundElsewhere.AiProxyNodeId)
+	}
+	return nil, nil
+}
+
+func pickRoutingById(routings []SAiRouting, routingId, currentNodeId string) (*SAiRouting, error) {
+	routingId = strings.TrimSpace(routingId)
+	if routingId == "" {
+		return nil, nil
+	}
+	var boundElsewhere *SAiRouting
+	for i := range routings {
+		r := &routings[i]
+		if r.Id != routingId {
+			continue
+		}
+		if !proxyNodeScopeMatches(r.AiProxyNodeId, currentNodeId) {
+			if strings.TrimSpace(r.AiProxyNodeId) != "" {
+				boundElsewhere = r
+			}
+			continue
+		}
+		return r, nil
 	}
 	if boundElsewhere != nil {
 		return nil, errors.Wrapf(httperrors.ErrForbidden,
@@ -291,10 +322,10 @@ func resolveCatalogModelFromRouting(
 
 // ResolveChatUpstream resolves upstream URL, API key, and catalog model_key for a chat request:
 //  1. ai_virtual_key (auth + project scope)
-//  2. ai_routing in that project (model_key exact match first, then model_pattern / optional proxy-node scope, priority)
+//  2. optional preferredRoutingId (X-Ai-Routing-Id) pins the ai_routing; otherwise model_key then non-empty model_pattern
 //  3. ai_routing_model -> ai_provider + ai_model
 //  4. ai_key rows for that provider matching the catalog model_key (weight)
-func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential, virtualKey string, body *jsonutils.JSONDict) (*ChatUpstream, error) {
+func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential, virtualKey string, body *jsonutils.JSONDict, preferredRoutingId string) (*ChatUpstream, error) {
 	vk, err := loadEnabledVirtualKey(virtualKey)
 	if err != nil {
 		return nil, err
@@ -309,7 +340,12 @@ func ResolveChatUpstream(ctx context.Context, userCred mcclient.TokenCredential,
 	if err != nil {
 		return nil, err
 	}
-	routing, err := pickRoutingForRequest(routings, reqModel, CurrentProxyNodeId())
+	var routing *SAiRouting
+	if strings.TrimSpace(preferredRoutingId) != "" {
+		routing, err = pickRoutingById(routings, preferredRoutingId, CurrentProxyNodeId())
+	} else {
+		routing, err = pickRoutingForRequest(routings, reqModel, CurrentProxyNodeId())
+	}
 	if err != nil {
 		return nil, err
 	}
