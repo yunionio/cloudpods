@@ -35,6 +35,7 @@ var (
 	}
 	identityUserResources = []string{
 		"credentials",
+		"role_assignments",
 	}
 )
 
