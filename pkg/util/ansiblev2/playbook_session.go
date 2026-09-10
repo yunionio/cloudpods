@@ -29,6 +29,8 @@ import (
 
 	"yunion.io/x/pkg/errors"
 	yerrors "yunion.io/x/pkg/util/errors"
+
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type IPlaybookSession interface {
@@ -145,7 +147,11 @@ func (r runnable) Run(ctx context.Context) (err error) {
 
 	// write out files
 	for name, content := range r.GetFiles() {
-		path := filepath.Join(tmpdir, name)
+		path, err2 := fileutils2.JoinInside(tmpdir, name)
+		if err2 != nil {
+			err = errors.Wrapf(err2, "playbook file %s", name)
+			return
+		}
 		dir := filepath.Dir(path)
 		err = os.MkdirAll(dir, os.FileMode(0700))
 		if err != nil {

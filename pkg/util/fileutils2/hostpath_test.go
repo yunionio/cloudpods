@@ -90,7 +90,14 @@ func TestCleanRelSubpath(t *testing.T) {
 	if got != "foo/bar" {
 		t.Fatalf("got %q", got)
 	}
-	for _, p := range []string{"", "/abs", "../etc", "foo/../../etc", ".."} {
+	got, err = CleanRelSubpath(".id_rsa")
+	if err != nil {
+		t.Fatalf("dotfile: %v", err)
+	}
+	if got != ".id_rsa" {
+		t.Fatalf("got %q", got)
+	}
+	for _, p := range []string{"", "/abs", "../etc", "foo/../../etc", "..", ".", "a\x00b"} {
 		if _, err := CleanRelSubpath(p); err == nil {
 			t.Fatalf("expected error for %q", p)
 		}
@@ -110,6 +117,14 @@ func TestJoinInside(t *testing.T) {
 	}
 	if _, err := JoinInside("/mnt/disk", "/etc"); err == nil {
 		t.Fatal("expected absolute to fail")
+	}
+	base := t.TempDir()
+	got, err = JoinInside(base, "a/b.txt")
+	if err != nil {
+		t.Fatalf("temp base: %v", err)
+	}
+	if !IsPathInside(base, got) {
+		t.Fatalf("escaped: %q", got)
 	}
 	got, err = JoinInsideAll("/mnt/disk", "sub", "dir")
 	if err != nil {
