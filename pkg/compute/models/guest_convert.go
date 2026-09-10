@@ -169,72 +169,108 @@ func (self *SGuest) StartConvertToKvmTask(
 	}
 }
 
+func isConvertSysDisk(disk *api.DiskConfig) bool {
+	if disk.DiskType == api.DISK_TYPE_SYS {
+		return true
+	}
+	if len(disk.DiskType) > 0 {
+		return false
+	}
+	return disk.Index == 0
+}
+
+func fetchPreferStorageId(ctx context.Context, userCred mcclient.TokenCredential, preferStorage string) (string, error) {
+	if len(preferStorage) == 0 {
+		return "", nil
+	}
+	storageObj, err := StorageManager.FetchByIdOrName(ctx, userCred, preferStorage)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return "", httperrors.NewResourceNotFoundError2(StorageManager.Keyword(), preferStorage)
+		}
+		return "", errors.Wrapf(err, "StorageManager.FetchByIdOrName %s", preferStorage)
+	}
+	return storageObj.GetId(), nil
+}
+
+type convertDiskPrefer struct {
+	backend   string
+	storageId string
+	medium    string
+	schedtags []*api.SchedtagConfig
+}
+
+func convertDiskTypePrefer(disk *api.DiskConfig, data *api.ConvertToKvmInput, sysStorageId, dataStorageId string) convertDiskPrefer {
+	if isConvertSysDisk(disk) {
+		return convertDiskPrefer{
+			backend:   data.SysDiskBackend,
+			storageId: sysStorageId,
+			medium:    data.SysDiskMedium,
+			schedtags: data.SysDiskSchedtags,
+		}
+	}
+	return convertDiskPrefer{
+		backend:   data.DataDiskBackend,
+		storageId: dataStorageId,
+		medium:    data.DataDiskMedium,
+		schedtags: data.DataDiskSchedtags,
+	}
+}
+
 // applyConvertDiskConfigs applies target storage preference for convert-to-kvm.
-// Priority: per-disk Disks configs > DiskBackend / PreferStorage / DiskSchedtags for all disks.
+// Priority: per-disk Disks configs > sys/data DiskBackend / PreferStorage / Medium / DiskSchedtags.
 // When nothing is specified, disks keep cleared Backend/Storage (scheduler default, usually local).
 func applyConvertDiskConfigs(ctx context.Context, userCred mcclient.TokenCredential, disks []*api.DiskConfig, data *api.ConvertToKvmInput) error {
 	if data == nil || len(disks) == 0 {
 		return nil
 	}
 
-	preferStorageId := ""
-	if len(data.PreferStorage) > 0 {
-		storageObj, err := StorageManager.FetchByIdOrName(ctx, userCred, data.PreferStorage)
-		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return httperrors.NewResourceNotFoundError2(StorageManager.Keyword(), data.PreferStorage)
-			}
-			return errors.Wrapf(err, "StorageManager.FetchByIdOrName %s", data.PreferStorage)
-		}
-		preferStorageId = storageObj.GetId()
+	if data.Disks != nil && len(data.Disks) != len(disks) {
+		return httperrors.NewInputParameterError("input disk configs length must equal guest disks length")
 	}
 
-	if data.Disks != nil {
-		if len(data.Disks) != len(disks) {
-			return httperrors.NewInputParameterError("input disk configs length must equal guest disks length")
-		}
-		for i := range disks {
-			if len(data.Disks[i].Backend) > 0 {
-				disks[i].Backend = data.Disks[i].Backend
-			} else if len(data.DiskBackend) > 0 {
-				disks[i].Backend = data.DiskBackend
-			}
-			if len(data.Disks[i].Storage) > 0 {
-				storageObj, err := StorageManager.FetchByIdOrName(ctx, userCred, data.Disks[i].Storage)
-				if err != nil {
-					if errors.Cause(err) == sql.ErrNoRows {
-						return httperrors.NewResourceNotFoundError2(StorageManager.Keyword(), data.Disks[i].Storage)
-					}
-					return errors.Wrapf(err, "StorageManager.FetchByIdOrName %s", data.Disks[i].Storage)
-				}
-				disks[i].Storage = storageObj.GetId()
-			} else if len(preferStorageId) > 0 {
-				disks[i].Storage = preferStorageId
-			}
-			if len(data.Disks[i].Medium) > 0 {
-				disks[i].Medium = data.Disks[i].Medium
-			}
-			if data.Disks[i].Schedtags != nil {
-				disks[i].Schedtags = data.Disks[i].Schedtags
-			} else if data.DiskSchedtags != nil {
-				disks[i].Schedtags = data.DiskSchedtags
-			}
-		}
-		return nil
+	sysPreferStorageId, err := fetchPreferStorageId(ctx, userCred, data.SysPreferStorage)
+	if err != nil {
+		return err
+	}
+	dataPreferStorageId, err := fetchPreferStorageId(ctx, userCred, data.DataPreferStorage)
+	if err != nil {
+		return err
 	}
 
-	if len(data.DiskBackend) == 0 && len(preferStorageId) == 0 && data.DiskSchedtags == nil {
-		return nil
-	}
 	for i := range disks {
-		if len(data.DiskBackend) > 0 {
-			disks[i].Backend = data.DiskBackend
+		prefer := convertDiskTypePrefer(disks[i], data, sysPreferStorageId, dataPreferStorageId)
+		var perDisk *api.DiskConfig
+		if data.Disks != nil {
+			perDisk = data.Disks[i]
 		}
-		if len(preferStorageId) > 0 {
-			disks[i].Storage = preferStorageId
+
+		if perDisk != nil && len(perDisk.Backend) > 0 {
+			disks[i].Backend = perDisk.Backend
+		} else if len(prefer.backend) > 0 {
+			disks[i].Backend = prefer.backend
 		}
-		if data.DiskSchedtags != nil {
-			disks[i].Schedtags = data.DiskSchedtags
+
+		if perDisk != nil && len(perDisk.Storage) > 0 {
+			id, err := fetchPreferStorageId(ctx, userCred, perDisk.Storage)
+			if err != nil {
+				return err
+			}
+			disks[i].Storage = id
+		} else if len(prefer.storageId) > 0 {
+			disks[i].Storage = prefer.storageId
+		}
+
+		if perDisk != nil && len(perDisk.Medium) > 0 {
+			disks[i].Medium = perDisk.Medium
+		} else if len(prefer.medium) > 0 {
+			disks[i].Medium = prefer.medium
+		}
+
+		if perDisk != nil && perDisk.Schedtags != nil {
+			disks[i].Schedtags = perDisk.Schedtags
+		} else if prefer.schedtags != nil {
+			disks[i].Schedtags = prefer.schedtags
 		}
 	}
 	return nil
