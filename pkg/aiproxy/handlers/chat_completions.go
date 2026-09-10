@@ -36,6 +36,7 @@ import (
 )
 
 const headerAiVirtualKey = "X-Ai-Virtual-Key"
+const headerAiRoutingId = "X-Ai-Routing-Id"
 
 func extractVirtualKey(r *http.Request) string {
 	if v := strings.TrimSpace(r.Header.Get(headerAiVirtualKey)); v != "" {
@@ -47,6 +48,10 @@ func extractVirtualKey(r *http.Request) string {
 		return strings.TrimSpace(parts[1])
 	}
 	return ""
+}
+
+func extractRoutingId(r *http.Request) string {
+	return strings.TrimSpace(r.Header.Get(headerAiRoutingId))
 }
 
 func upstreamErrorStatusCode(uerr *upstream.Error) int {
@@ -141,7 +146,7 @@ func chatCompletionsHandler(ctx context.Context, w http.ResponseWriter, r *http.
 
 	vk := extractVirtualKey(r)
 	userCred := auth.AdminCredential()
-	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict)
+	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict, extractRoutingId(r))
 	if err != nil {
 		dbg.Error("resolve upstream: %v", err)
 		failAPILogRecord(rec, http.StatusInternalServerError, "resolve_upstream", err)

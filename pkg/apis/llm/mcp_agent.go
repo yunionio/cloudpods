@@ -76,33 +76,39 @@ type MCPAgentListInput struct {
 type MCPAgentCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 
-	LLMId        string `json:"llm_id" help:"LLM 实例 ID，如果提供则自动获取 llm_url"`
-	LLMUrl       string `json:"llm_url" help:"后端大模型的 base 请求地址"`
-	LLMDriver    string `json:"llm_driver" help:"使用的大模型驱动，可以是 ollama 或 openai"`
-	Model        string `json:"model" help:"使用的模型名称"`
-	ApiKey       string `json:"api_key" help:"在 llm_driver 中需要用到的认证"`
-	McpServer    string `json:"mcp_server" help:"mcp 服务器的后端地址"`
-	DefaultAgent *bool  `json:"default_agent,omitempty" help:"set as default MCP agent (only one can be true globally)"`
+	LLMId               string `json:"llm_id" help:"deprecated; ignored"`
+	LLMUrl              string `json:"llm_url" help:"AI 网关 OpenAI 兼容 base 请求地址"`
+	LLMDriver           string `json:"llm_driver" help:"使用的大模型驱动，固定为 openai"`
+	Model               string `json:"model" help:"使用的模型名称"`
+	ApiKey              string `json:"api_key" help:"deprecated; ignored"`
+	McpServer           string `json:"mcp_server" help:"mcp 服务器的后端地址"`
+	AiProxyRoutingId    string `json:"aiproxy_routing_id" help:"关联的 AI 网关路由规则 ID"`
+	AiproxyVirtualKeyId string `json:"aiproxy_virtual_key_id" help:"关联的 AI 网关 API Key ID"`
+	DefaultAgent        *bool  `json:"default_agent,omitempty" help:"set as default MCP agent (only one can be true globally)"`
 }
 
 type MCPAgentUpdateInput struct {
 	apis.SharableVirtualResourceCreateInput
 
-	LLMId        *string `json:"llm_id,omitempty" help:"LLM 实例 ID，如果提供则自动获取 llm_url"`
-	LLMUrl       *string `json:"llm_url,omitempty" help:"后端大模型的 base 请求地址"`
-	LLMDriver    *string `json:"llm_driver,omitempty" help:"使用的大模型驱动，可以是 ollama 或 openai"`
-	Model        *string `json:"model,omitempty" help:"使用的模型名称"`
-	ApiKey       *string `json:"api_key,omitempty" help:"在 llm_driver 中需要用到的认证"`
-	McpServer    *string `json:"mcp_server,omitempty" help:"mcp 服务器的后端地址"`
-	DefaultAgent *bool   `json:"default_agent,omitempty" help:"set as default MCP agent (only one can be true globally)"`
+	LLMId               *string `json:"llm_id,omitempty" help:"deprecated; ignored"`
+	LLMUrl              *string `json:"llm_url,omitempty" help:"AI 网关 OpenAI 兼容 base 请求地址"`
+	LLMDriver           *string `json:"llm_driver,omitempty" help:"使用的大模型驱动，固定为 openai"`
+	Model               *string `json:"model,omitempty" help:"使用的模型名称"`
+	ApiKey              *string `json:"api_key,omitempty" help:"deprecated; ignored"`
+	McpServer           *string `json:"mcp_server,omitempty" help:"mcp 服务器的后端地址"`
+	AiProxyRoutingId    *string `json:"aiproxy_routing_id,omitempty" help:"关联的 AI 网关路由规则 ID"`
+	AiproxyVirtualKeyId *string `json:"aiproxy_virtual_key_id,omitempty" help:"关联的 AI 网关 API Key ID"`
+	DefaultAgent        *bool   `json:"default_agent,omitempty" help:"set as default MCP agent (only one can be true globally)"`
 }
 
 type MCPAgentDetails struct {
 	apis.SharableVirtualResourceDetails
 
-	LLMId        string `json:"llm_id"`
-	LLMName      string `json:"llm_name"`
-	DefaultAgent bool   `json:"default_agent"`
+	LLMId               string `json:"llm_id"`
+	LLMName             string `json:"llm_name"`
+	AiProxyRoutingId    string `json:"aiproxy_routing_id"`
+	AiproxyVirtualKeyId string `json:"aiproxy_virtual_key_id"`
+	DefaultAgent        bool   `json:"default_agent"`
 }
 
 type LLMToolRequestInput struct {
