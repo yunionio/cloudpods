@@ -32,6 +32,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -584,9 +585,26 @@ func AddAdhocHandlers(version string, app *appsrv.Application) {
 }
 
 func roleAssignmentHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
+	if userCred == nil {
+		httperrors.UnauthorizedError(ctx, w, "unauthorized")
+		return
+	}
+	allowScope, policyResult := policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, "role_assignments", policy.PolicyActionList)
+	if policyResult.Result.IsDeny() {
+		httperrors.ForbiddenError(ctx, w, "not allow to list role assignments")
+		return
+	}
+
 	_, query, _ := appsrv.FetchEnv(ctx, w, r)
 	input := api.RoleAssignmentsInput{}
 	err := query.Unmarshal(&input)
+	if err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+
+	restrictDomainId, err := checkRoleAssignmentListInput(allowScope, userCred, &input)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
@@ -607,7 +625,7 @@ func roleAssignmentHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 		offset = *input.Offset
 	}
 
-	results, total, err := AssignmentManager.FetchAll(
+	results, total, err := AssignmentManager.fetchAll(
 		input.User.Id,
 		input.Group.Id,
 		input.Role.Id,
@@ -620,6 +638,7 @@ func roleAssignmentHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 		input.Domains,
 		input.Projects,
 		input.ProjectDomains,
+		restrictDomainId,
 		includeNames, effective, includeSub, includeSystem, includePolicies,
 		limit, offset)
 
@@ -639,6 +658,7 @@ func roleAssignmentHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 func (manager *SAssignmentManager) queryAll(
 	userId, groupId, roleId, domainId, projectId string, projectDomainId string,
 	users, groups, roles, domains, projects, projectDomains []string,
+	restrictDomainId string,
 ) *sqlchemy.SQuery {
 	assigments := manager.Query().SubQuery()
 	q := assigments.Query(
@@ -749,6 +769,13 @@ func (manager *SAssignmentManager) queryAll(
 		))
 		q = q.In("domain_id", subq.SubQuery()).In("type", []string{api.AssignmentUserDomain, api.AssignmentGroupDomain})
 	}
+	if len(restrictDomainId) > 0 {
+		projSubq := ProjectManager.Query("id").Equals("domain_id", restrictDomainId).SubQuery()
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("project_id"), projSubq),
+			sqlchemy.Equals(q.Field("domain_id"), restrictDomainId),
+		))
+	}
 	return q
 }
 
@@ -807,13 +834,27 @@ func (manager *SAssignmentManager) FetchAll(
 	userStrs, groupStrs, roleStrs, domainStrs, projectStrs, projectDomainStrs []string,
 	includeNames, effective, includeSub, includeSystem, includePolicies bool,
 	limit, offset int) ([]api.SRoleAssignment, int64, error) {
+	return manager.fetchAll(
+		userId, groupId, roleId, domainId, projectId, projectDomainId,
+		userStrs, groupStrs, roleStrs, domainStrs, projectStrs, projectDomainStrs,
+		"",
+		includeNames, effective, includeSub, includeSystem, includePolicies,
+		limit, offset)
+}
+
+func (manager *SAssignmentManager) fetchAll(
+	userId, groupId, roleId, domainId, projectId string, projectDomainId string,
+	userStrs, groupStrs, roleStrs, domainStrs, projectStrs, projectDomainStrs []string,
+	restrictDomainId string,
+	includeNames, effective, includeSub, includeSystem, includePolicies bool,
+	limit, offset int) ([]api.SRoleAssignment, int64, error) {
 	var q *sqlchemy.SQuery
 	if effective {
-		usrq := manager.queryAll(userId, "", roleId, domainId, projectId, projectDomainId, userStrs, nil, roleStrs, domainStrs, projectStrs, projectDomainStrs).In("type", []string{api.AssignmentUserProject, api.AssignmentUserDomain})
+		usrq := manager.queryAll(userId, "", roleId, domainId, projectId, projectDomainId, userStrs, nil, roleStrs, domainStrs, projectStrs, projectDomainStrs, restrictDomainId).In("type", []string{api.AssignmentUserProject, api.AssignmentUserDomain})
 
 		memberships := UsergroupManager.Query("user_id", "group_id").SubQuery()
 
-		grpproj := manager.queryAll("", groupId, roleId, domainId, projectId, projectDomainId, nil, groupStrs, roleStrs, domainStrs, projectStrs, projectDomainStrs).In("type", []string{api.AssignmentGroupProject, api.AssignmentGroupDomain}).SubQuery()
+		grpproj := manager.queryAll("", groupId, roleId, domainId, projectId, projectDomainId, nil, groupStrs, roleStrs, domainStrs, projectStrs, projectDomainStrs, restrictDomainId).In("type", []string{api.AssignmentGroupProject, api.AssignmentGroupDomain}).SubQuery()
 		q2 := grpproj.Query(
 			grpproj.Field("type"),
 			memberships.Field("user_id"),
@@ -837,7 +878,7 @@ func (manager *SAssignmentManager) FetchAll(
 
 		q = sqlchemy.Union(usrq, q2).Query().Distinct()
 	} else {
-		q = manager.queryAll(userId, groupId, roleId, domainId, projectId, projectDomainId, userStrs, groupStrs, roleStrs, domainStrs, projectStrs, projectDomainStrs).Distinct()
+		q = manager.queryAll(userId, groupId, roleId, domainId, projectId, projectDomainId, userStrs, groupStrs, roleStrs, domainStrs, projectStrs, projectDomainStrs, restrictDomainId).Distinct()
 	}
 
 	if !includeSystem {
