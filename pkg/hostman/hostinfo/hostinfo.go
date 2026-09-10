@@ -2364,6 +2364,7 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		EnableContainerHygonDCUHAMI:  options.HostOptions.EnableContainerHygonDCUHami,
 		EnableContainerIluvatarGPU:   options.HostOptions.EnableContainerIluvatarGPU,
 		EnableContainerTHeadPPU:      options.HostOptions.EnableContainerTHeadPPU,
+		EnableContainerKunlunxinXPU:  options.HostOptions.EnableContainerKunlunxinXPU,
 		EnableWhitelist:              options.HostOptions.EnableIsolatedDeviceWhitelist,
 		SriovNics:                    sriovNics,
 		OvsOffloadNics:               offloadNics,

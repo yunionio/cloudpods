@@ -296,6 +296,10 @@ type SHostOptions struct {
 	THeadPpuSdkHome         string `help:"t-head ppu sdk home" default:"/usr/local/PPU_SDK"`
 	THeadPpuSmiPath         string `help:"t-head ppu-smi path" default:"/usr/local/bin/ppu-smi"`
 
+	EnableContainerKunlunxinXPU bool   `help:"enable container kunlunxin xpu" default:"true"`
+	KunlunxinXreHome            string `help:"kunlunxin xre home" default:"/usr/local/xpu"`
+	KunlunxinXpuSmiPath         string `help:"kunlunxin xpu-smi path" default:"/usr/local/bin/xpu-smi"`
+
 	EnableDirtyRecoverySeconds int  `help:"Seconds to delay enable dirty guests recovery feature, default 15 minutes" default:"900"`
 	EnableContainerCniPortmap  bool `help:"Use container cni portmap plugin" default:"false"`
 	DisableReconcileContainer  bool `help:"disable reconcile container" default:"false"`

@@ -160,3 +160,33 @@ func TestVLLMGetContainerSpecTHeadRuntime(t *testing.T) {
 		t.Fatalf("args should not source dtk env for t-head, got %#v", spec.Args)
 	}
 }
+
+func TestVLLMGetContainerSpecKunlunxinRuntime(t *testing.T) {
+	v := newVLLM().(*vllm)
+	sku := &models.SLLMSku{
+		SLLMSkuBase: models.SLLMSkuBase{
+			Devices: &api.Devices{
+				{DevType: computeapi.CONTAINER_DEV_KUNLUNXIN_XPU},
+				{DevType: computeapi.CONTAINER_DEV_KUNLUNXIN_XPU},
+			},
+		},
+	}
+	image := &models.SLLMImage{}
+	out := v.GetContainerSpec(context.Background(), nil, image, sku, nil, nil, "")
+	if out == nil {
+		t.Fatal("expected container spec")
+	}
+	spec := &out.ContainerSpec
+	if spec.Capabilities != nil {
+		t.Fatalf("expected nil capabilities for kunlunxin, got %#v", spec.Capabilities)
+	}
+	if spec.SecurityContext != nil {
+		t.Fatalf("expected nil security context for kunlunxin, got %#v", spec.SecurityContext)
+	}
+	if len(spec.Command) != 2 || spec.Command[0] != "/bin/bash" || spec.Command[1] != "-c" {
+		t.Fatalf("command = %#v, want [/bin/bash -c]", spec.Command)
+	}
+	if len(spec.Args) > 0 && strings.Contains(spec.Args[0], "/opt/dtk/env.sh") {
+		t.Fatalf("args should not source dtk env for kunlunxin, got %#v", spec.Args)
+	}
+}
