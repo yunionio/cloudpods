@@ -68,6 +68,12 @@ var (
 					Action:   PolicyActionDelete,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "role_assignments",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{
