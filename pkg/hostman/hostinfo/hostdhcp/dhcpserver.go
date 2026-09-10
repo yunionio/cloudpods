@@ -242,6 +242,7 @@ func getGuestConfig(
 			osName = "Linux"
 		}
 
+		// append default route
 		if conf.Gateway != nil {
 			if !strings.HasPrefix(strings.ToLower(osName), "win") {
 				route4 = append(route4, netutils2.SRouteInfo{
@@ -264,6 +265,18 @@ func getGuestConfig(
 		})*/
 		//}
 	}
+	// append link-local route
+	if conf.ServerIP != nil {
+		route4 = append(route4, netutils2.SRouteInfo{
+			SPrefixInfo: netutils2.SPrefixInfo{
+				Prefix:    conf.ServerIP,
+				PrefixLen: uint8(nicdesc.Masklen),
+			},
+			// link-local route gateway IP is the nic IP
+			Gateway: net.ParseIP("0.0.0.0"),
+		})
+	}
+
 	route4, route6 = netutils2.AddNicRoutes(route4, route6, nicdesc, mainIp, mainIp6, len(guestNics))
 
 	conf.Routes = route4
