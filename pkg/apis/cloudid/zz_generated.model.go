@@ -109,7 +109,7 @@ type SClouduser struct {
 	apis.SExternalizedResourceBase
 	SCloudaccountResourceBase
 	SCloudproviderResourceBase
-	Secret string `json:"secret"`
+	Secret string `json:"-"`
 	// 是否可以控制台登录
 	IsConsoleLogin *bool `json:"is_console_login,omitempty"`
 	// 手机号码
