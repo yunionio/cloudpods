@@ -518,17 +518,26 @@ type ConvertToKvmInput struct {
 	Networks []*NetworkConfig `json:"networks"`
 
 	// dest guest disk storage configs; length must equal guest disks when set
-	// support per-disk backend/storage/medium/schedtags; overrides DiskBackend/PreferStorage/DiskSchedtags
+	// support per-disk backend/storage/medium/schedtags; overrides sys/data disk prefers
 	Disks []*DiskConfig `json:"disks"`
 
-	// Prefer disk backend for all disks, e.g. local/lvm/slvm/nfs/rbd
-	DiskBackend string `json:"disk_backend"`
+	// Prefer disk backend for system disk, e.g. local/lvm/slvm/nfs/rbd
+	SysDiskBackend string `json:"sys_disk_backend"`
+	// Prefer storage id or name for system disk
+	SysPreferStorage string `json:"sys_prefer_storage"`
+	// Prefer medium for system disk, e.g. rotate/ssd/hybrid
+	SysDiskMedium string `json:"sys_disk_medium"`
+	// Prefer disk schedtags for system disk
+	SysDiskSchedtags []*SchedtagConfig `json:"sys_disk_schedtags"`
 
-	// Prefer storage id or name for all disks
-	PreferStorage string `json:"prefer_storage"`
-
-	// Prefer disk schedtags for all disks
-	DiskSchedtags []*SchedtagConfig `json:"disk_schedtags"`
+	// Prefer disk backend for data disks, e.g. local/lvm/slvm/nfs/rbd
+	DataDiskBackend string `json:"data_disk_backend"`
+	// Prefer storage id or name for data disks
+	DataPreferStorage string `json:"data_prefer_storage"`
+	// Prefer medium for data disks, e.g. rotate/ssd/hybrid
+	DataDiskMedium string `json:"data_disk_medium"`
+	// Prefer disk schedtags for data disks
+	DataDiskSchedtags []*SchedtagConfig `json:"data_disk_schedtags"`
 
 	// deploy telegraf after convert
 	DeployTelegraf bool `json:"deploy_telegraf"`
