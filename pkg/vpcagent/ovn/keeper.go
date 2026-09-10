@@ -494,11 +494,10 @@ func generateDhcpOptions(ctx context.Context, guestnetwork *agentmodels.Guestnet
 				mdIp, "0.0.0.0",
 				"0.0.0.0/0", network.GuestGateway,
 			)
-		} else {
-			routes = append(routes,
-				cidr, "0.0.0.0",
-			)
 		}
+		routes = append(routes,
+			cidr, "0.0.0.0",
+		)
 		if len(routes) > 0 {
 			dhcpopts.Options["classless_static_route"] = fmt.Sprintf("{%s}", strings.Join(routes, ","))
 		}
