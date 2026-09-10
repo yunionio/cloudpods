@@ -68,11 +68,20 @@ func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthent
 	if err != nil {
 		return nil, errors.Wrap(err, "LocalUserManager.FetchLocalUser")
 	}
+	lockCount := o.Options.PasswordErrorLockCount
+	if usrExt.IsSystemAccount {
+		if remain := localUser.AuthThrottleRemain(lockCount, time.Now()); remain > 0 {
+			return nil, errors.Wrapf(httperrors.ErrTooManyAttempts, "retry after %d seconds", int(remain.Seconds())+1)
+		}
+	}
 	err = models.VerifyPassword(usrExt, ident.Password.User.Password)
 	if err != nil {
 		localUser.SaveFailedAuth()
-		if o.Options.PasswordErrorLockCount > 0 && localUser.FailedAuthCount > o.Options.PasswordErrorLockCount && !usrExt.IsSystemAccount {
-			// do not lock system account!!!
+		if lockCount > 0 && localUser.FailedAuthCount > lockCount {
+			if usrExt.IsSystemAccount {
+				remain := localUser.AuthThrottleRemain(lockCount, time.Now())
+				return nil, errors.Wrapf(httperrors.ErrTooManyAttempts, "retry after %d seconds", int(remain.Seconds())+1)
+			}
 			models.UserManager.LockUser(usrExt.Id, "too many failed auth attempts")
 			data := jsonutils.NewDict()
 			data.Set("name", jsonutils.NewString(usrExt.Name))

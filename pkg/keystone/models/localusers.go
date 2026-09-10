@@ -176,6 +176,31 @@ func (usr *SLocalUser) ClearFailedAuth() error {
 	return nil
 }
 
+const (
+	authThrottleBase = 30 * time.Second
+	authThrottleCap  = 15 * time.Minute
+)
+
+func (usr *SLocalUser) AuthThrottleRemain(lockCount int, now time.Time) time.Duration {
+	if lockCount <= 0 || usr.FailedAuthCount <= lockCount || usr.FailedAuthAt.IsZero() {
+		return 0
+	}
+	excess := usr.FailedAuthCount - lockCount
+	cooldown := authThrottleBase
+	for i := 1; i < excess; i++ {
+		if cooldown >= authThrottleCap/2 {
+			cooldown = authThrottleCap
+			break
+		}
+		cooldown *= 2
+	}
+	elapsed := now.Sub(usr.FailedAuthAt)
+	if elapsed >= cooldown {
+		return 0
+	}
+	return cooldown - elapsed
+}
+
 func (usr *SLocalUser) markNeedResetPassword(needReset bool, reason string) error {
 	if usr.NeedResetPassword.IsTrue() == needReset {
 		return nil
