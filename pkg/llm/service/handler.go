@@ -304,9 +304,21 @@ func handleDefaultMcpTools(ctx context.Context, w http.ResponseWriter, r *http.R
 	appsrv.SendJSON(w, result)
 }
 
+func registerLLMRouterAgentRoute(app *appsrv.Application) {
+	app.AddHandler2("POST", "/llm_router_agents/<id>/route", auth.Authenticate(handleLLMRouterAgentRoute), nil, "llm_router_agent_route", nil)
+}
+
 func handleLLMRouterAgentRoute(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
+	if userCred == nil {
+		httperrors.UnauthorizedError(ctx, w, "Unauthorized")
+		return
+	}
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
-	id := params["<id>"]
+	id := ""
+	if params != nil {
+		id = params["<id>"]
+	}
 	if id == "" {
 		httperrors.MissingParameterError(ctx, w, "id")
 		return
@@ -325,12 +337,16 @@ func handleLLMRouterAgentRoute(ctx context.Context, w http.ResponseWriter, r *ht
 		httperrors.InvalidInputError(ctx, w, "invalid input: %v", err)
 		return
 	}
-	obj, err := models.GetLLMRouterAgentManager().FetchByIdOrName(ctx, nil, id)
+	obj, err := models.GetLLMRouterAgentManager().FetchByIdOrName(ctx, userCred, id)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 	agent := obj.(*models.SLLMRouterAgent)
+	if err := db.IsObjectRbacAllowed(ctx, agent, userCred, policy.PolicyActionPerform, "route"); err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
 	out, err := agent.Route(ctx, input)
 	if err != nil {
 		httperrors.GeneralServerError(ctx, w, err)
@@ -378,7 +394,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 	// 默认 MCP 服务器 tools：仅使用 options.MCPServerURL，不依赖 mcp_agent 条目
 	app.AddHandler2("GET", "/mcp_agents/default-mcp-tools", auth.Authenticate(handleDefaultMcpTools), nil, "default_mcp_tools", nil)
 
-	app.AddHandler2("POST", "/llm_router_agents/<id>/route", handleLLMRouterAgentRoute, nil, "llm_router_agent_route", nil)
+	registerLLMRouterAgentRoute(app)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,
