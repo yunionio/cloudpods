@@ -71,7 +71,7 @@ type SClouduser struct {
 	SCloudaccountResourceBase
 	SCloudproviderResourceBase
 
-	Secret string `length:"0" charset:"ascii" nullable:"true" list:"user" create:"domain_optional"`
+	Secret string `length:"0" charset:"ascii" nullable:"true" create:"domain_optional" log:"skip"`
 	// 是否可以控制台登录
 	IsConsoleLogin tristate.TriState `default:"false" list:"user" create:"optional"`
 	// 手机号码
