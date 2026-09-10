@@ -55,18 +55,6 @@ func authUserByAssume(ctx context.Context, input mcclient.SAuthenticationInputV3
 		return nil, errors.Wrap(err, "fetch scoped project")
 	}
 
-	var requireScope rbacscope.TRbacScope
-	if adminToken.ProjectId == scopedProject.Id {
-		requireScope = rbacscope.ScopeProject
-	} else if adminToken.DomainId == scopedProject.DomainId {
-		requireScope = rbacscope.ScopeDomain
-	} else {
-		requireScope = rbacscope.ScopeSystem
-	}
-
-	adminToken.ProjectId = scopedProject.Id
-	adminToken.DomainId = scopedProject.DomainId
-
 	adminTokenCred, err := adminToken.GetSimpleUserCred(input.Auth.Identity.Token.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "get admin token credential")
@@ -90,8 +78,8 @@ func authUserByAssume(ctx context.Context, input mcclient.SAuthenticationInputV3
 	}
 
 	if adminTokenCred.GetUserId() != targetUser.Id {
-		if policy.PolicyManager.Allow(requireScope, adminTokenCred, api.SERVICE_TYPE, "tokens", "perform", "assume").Result.IsDeny() {
-			return nil, httperrors.NewForbiddenError("%s not allow to assume user in project %s", adminTokenCred.GetUserName(), scopedProject.Name)
+		if err := checkAssumeAllowed(adminTokenCred, targetUser.Id, scopedProject); err != nil {
+			return nil, err
 		}
 	}
 
@@ -99,4 +87,22 @@ func authUserByAssume(ctx context.Context, input mcclient.SAuthenticationInputV3
 	targetUser.AuditIds = []string{adminTokenCred.GetUserId()}
 
 	return targetUser, nil
+}
+
+func checkAssumeAllowed(adminTokenCred mcclient.TokenCredential, targetUserId string, scopedProject *models.SProject) error {
+	if policy.PolicyManager.Allow(rbacscope.ScopeSystem, adminTokenCred, api.SERVICE_TYPE, "tokens", "perform", "assume").Result.IsDeny() {
+		return httperrors.NewForbiddenError("%s not allow to assume user in project %s", adminTokenCred.GetUserName(), scopedProject.Name)
+	}
+	roles, err := models.AssignmentManager.FetchUserProjectRoles(targetUserId, scopedProject.Id)
+	if err != nil {
+		return errors.Wrap(err, "fetch target user roles")
+	}
+	roleIds := make([]string, len(roles))
+	for i := range roles {
+		roleIds[i] = roles[i].Id
+	}
+	if err := models.ValidateJoinProjectRoles(adminTokenCred, scopedProject.Id, roleIds); err != nil {
+		return errors.Wrap(err, "validate assume target roles")
+	}
+	return nil
 }
