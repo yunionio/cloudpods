@@ -33,13 +33,13 @@ func (o *MCPAgentShowOptions) Params() (jsonutils.JSONObject, error) {
 type MCPAgentCreateOptions struct {
 	apis.SharableVirtualResourceCreateInput
 
-	LlmId        string `help:"LLM 实例 ID，如果提供则自动获取 llm_url" json:"llm_id"`
-	LLM_URL      string `help:"后端大模型的 base 请求地址" json:"llm_url"`
-	LLM_DRIVER   string `help:"使用的大模型驱动，可以是 ollama 或 openai" json:"llm_driver" choices:"ollama|openai"`
-	MODEL        string `help:"使用的模型名称" json:"model"`
-	API_KEY      string `help:"访问大模型的密钥" json:"api_key"`
-	McpServer    string `help:"mcp 服务器的后端地址" json:"mcp_server"`
-	DefaultAgent bool   `help:"set as default MCP agent (only one can be true globally)" json:"default_agent"`
+	LLM_URL             string `help:"AI 网关 OpenAI 兼容 base 请求地址" json:"llm_url"`
+	LLM_DRIVER          string `help:"使用的大模型驱动，固定为 openai" json:"llm_driver" choices:"openai"`
+	MODEL               string `help:"使用的模型名称" json:"model"`
+	McpServer           string `help:"mcp 服务器的后端地址" json:"mcp_server"`
+	AiProxyRoutingId    string `help:"关联的 AI 网关路由规则 ID" json:"aiproxy_routing_id"`
+	AiproxyVirtualKeyId string `help:"关联的 AI 网关 API Key ID" json:"aiproxy_virtual_key_id"`
+	DefaultAgent        bool   `help:"set as default MCP agent (only one can be true globally)" json:"default_agent"`
 }
 
 func (o *MCPAgentCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -49,14 +49,14 @@ func (o *MCPAgentCreateOptions) Params() (jsonutils.JSONObject, error) {
 type MCPAgentUpdateOptions struct {
 	apis.SharableVirtualResourceBaseUpdateInput
 
-	ID           string
-	LlmId        *string `help:"LLM 实例 ID，如果提供则自动获取 llm_url" json:"llm_id,omitempty"`
-	LlmUrl       *string `help:"后端大模型的 base 请求地址" json:"llm_url,omitempty"`
-	LlmDriver    *string `help:"使用的大模型驱动，可以是 ollama 或 openai" json:"llm_driver,omitempty" choices:"ollama|openai"`
-	Model        *string `help:"使用的模型名称" json:"model,omitempty"`
-	ApiKey       *string `help:"访问大模型的密钥" json:"api_key,omitempty"`
-	McpServer    *string `help:"mcp 服务器的后端地址" json:"mcp_server,omitempty"`
-	DefaultAgent *bool   `help:"set as default MCP agent (only one can be true globally)" json:"default_agent,omitempty"`
+	ID                  string
+	LlmUrl              *string `help:"AI 网关 OpenAI 兼容 base 请求地址" json:"llm_url,omitempty"`
+	LlmDriver           *string `help:"使用的大模型驱动，固定为 openai" json:"llm_driver,omitempty" choices:"openai"`
+	Model               *string `help:"使用的模型名称" json:"model,omitempty"`
+	McpServer           *string `help:"mcp 服务器的后端地址" json:"mcp_server,omitempty"`
+	AiProxyRoutingId    *string `help:"关联的 AI 网关路由规则 ID" json:"aiproxy_routing_id,omitempty"`
+	AiproxyVirtualKeyId *string `help:"关联的 AI 网关 API Key ID" json:"aiproxy_virtual_key_id,omitempty"`
+	DefaultAgent        *bool   `help:"set as default MCP agent (only one can be true globally)" json:"default_agent,omitempty"`
 }
 
 func (o *MCPAgentUpdateOptions) GetId() string {
@@ -66,9 +66,6 @@ func (o *MCPAgentUpdateOptions) GetId() string {
 func (o *MCPAgentUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	// 只包含非空字段
 	params := jsonutils.NewDict()
-	if o.LlmId != nil && len(*o.LlmId) > 0 {
-		params.Set("llm_id", jsonutils.NewString(*o.LlmId))
-	}
 	if o.LlmUrl != nil && len(*o.LlmUrl) > 0 {
 		params.Set("llm_url", jsonutils.NewString(*o.LlmUrl))
 	}
@@ -78,11 +75,14 @@ func (o *MCPAgentUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	if o.Model != nil && len(*o.Model) > 0 {
 		params.Set("model", jsonutils.NewString(*o.Model))
 	}
-	if o.ApiKey != nil && len(*o.ApiKey) > 0 {
-		params.Set("api_key", jsonutils.NewString(*o.ApiKey))
-	}
 	if o.McpServer != nil && len(*o.McpServer) > 0 {
 		params.Set("mcp_server", jsonutils.NewString(*o.McpServer))
+	}
+	if o.AiProxyRoutingId != nil && len(*o.AiProxyRoutingId) > 0 {
+		params.Set("aiproxy_routing_id", jsonutils.NewString(*o.AiProxyRoutingId))
+	}
+	if o.AiproxyVirtualKeyId != nil && len(*o.AiproxyVirtualKeyId) > 0 {
+		params.Set("aiproxy_virtual_key_id", jsonutils.NewString(*o.AiproxyVirtualKeyId))
 	}
 	if o.DefaultAgent != nil {
 		params.Set("default_agent", jsonutils.NewBool(*o.DefaultAgent))

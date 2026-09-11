@@ -77,7 +77,7 @@ func messagesHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 
 	vk := extractVirtualKey(r)
 	userCred := auth.AdminCredential()
-	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict)
+	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict, extractRoutingId(r))
 	if err != nil {
 		dbg.Error("resolve upstream: %v", err)
 		failAPILogRecord(rec, http.StatusInternalServerError, "resolve_upstream", err)

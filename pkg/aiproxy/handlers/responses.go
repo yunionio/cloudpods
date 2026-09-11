@@ -97,7 +97,7 @@ func handleResponsesCreate(ctx context.Context, w http.ResponseWriter, r *http.R
 
 	vk := extractVirtualKey(r)
 	userCred := auth.AdminCredential()
-	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict)
+	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict, extractRoutingId(r))
 	if err != nil {
 		dbg.Error("resolve upstream: %v", err)
 		failAPILogRecord(rec, http.StatusInternalServerError, "resolve_upstream", err)
@@ -293,7 +293,7 @@ func handleResponsesSubResource(ctx context.Context, w http.ResponseWriter, r *h
 		writeResponsesError(ctx, w, http.StatusBadRequest, "invalid_request_error", "model query parameter is required")
 		return
 	}
-	up, err := models.ResolveChatUpstream(ctx, userCred, vk, probe)
+	up, err := models.ResolveChatUpstream(ctx, userCred, vk, probe, extractRoutingId(r))
 	if err != nil {
 		dbg.Error("resolve upstream: %v", err)
 		httperrors.GeneralServerError(ctx, w, err)
