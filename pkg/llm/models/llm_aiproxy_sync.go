@@ -935,7 +935,21 @@ func DeleteDeploymentAiproxyResources(ctx context.Context, deploymentId string) 
 	return nil
 }
 
-// UnsyncLlmInstance removes aiproxy resources for one llm replica.
+// shouldUnsyncAiproxyOnLeaveRunning reports whether leaving running should
+// unbind/delete aiproxy catalog. Restart and stop keep routing IDs stable;
+// catalog is only removed on deployment delete or manual unregister.
+func shouldUnsyncAiproxyOnLeaveRunning() bool {
+	return false
+}
+
+// unsyncKeepsDeploymentRouting returns the routing id to persist after
+// UnsyncLlmInstance. The deployment-level ai_routing row is never deleted here.
+func unsyncKeepsDeploymentRouting(existingRoutingId string) (keepRoutingId string, deleteRouting bool) {
+	return strings.TrimSpace(existingRoutingId), false
+}
+
+// UnsyncLlmInstance unbinds one llm replica from the deployment routing.
+// It does not delete the deployment's ai_routing or clear AiproxyRoutingId.
 func UnsyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, dep *SLLMDeployment, llmId string) error {
 	if dep == nil || strings.TrimSpace(llmId) == "" {
 		return nil
@@ -953,25 +967,23 @@ func UnsyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, d
 		}
 	}
 
-	routingId := strings.TrimSpace(dep.AiproxyRoutingId)
-	if routingId == "" {
-		if err := deleteAiProviderByLlmId(session, llmId); err != nil {
-			return err
-		}
-		if err := persistDeploymentAiproxyBindings(dep, "", nil); err != nil {
-			return err
-		}
-		return dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_PENDING, "waiting for running replicas")
-	}
-
-	if len(remaining) == 0 {
+	routingId, deleteRouting := unsyncKeepsDeploymentRouting(dep.AiproxyRoutingId)
+	if deleteRouting {
 		if err := deleteAiRoutingById(session, routingId); err != nil {
 			log.Warningf("delete ai_routing %s: %v", routingId, err)
 		}
+		routingId = ""
+	}
+	if routingId == "" || len(remaining) == 0 {
+		if routingId != "" {
+			if err := applyRoutingModels(session, routingId, []apapi.AiRoutingModelItem{}); err != nil {
+				log.Warningf("clear ai_routing models %s: %v", routingId, err)
+			}
+		}
 		if err := deleteAiProviderByLlmId(session, llmId); err != nil {
 			return err
 		}
-		if err := persistDeploymentAiproxyBindings(dep, "", nil); err != nil {
+		if err := persistDeploymentAiproxyBindings(dep, routingId, nil); err != nil {
 			return err
 		}
 		return dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_PENDING, "waiting for running replicas")
