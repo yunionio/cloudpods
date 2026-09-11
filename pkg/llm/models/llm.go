@@ -569,15 +569,12 @@ func (llm *SLLM) SetStatus(ctx context.Context, userCred mcclient.TokenCredentia
 	if err := dep.SyncReadyReplicas(ctx, userCred); err != nil {
 		log.Warningf("SLLM.SetStatus: SyncReadyReplicas for deployment %s: %s", llm.LLMDeploymentId, err)
 	}
-	if dep.AutoRegisterAiproxy {
-		if status == api.LLM_STATUS_RUNNING {
-			if err := dep.StartAiproxySyncTask(ctx, userCred, llm.Id, ""); err != nil {
-				log.Warningf("SLLM.SetStatus: start aiproxy sync for llm %s: %v", llm.Id, err)
-			}
-		} else if oldStatus == api.LLM_STATUS_RUNNING && status != api.LLM_STATUS_RUNNING {
-			if err := UnsyncLlmInstance(ctx, userCred, dep, llm.Id); err != nil {
-				log.Warningf("SLLM.SetStatus: unsync aiproxy for llm %s: %v", llm.Id, err)
-			}
+	// Restart/stop must not delete aiproxy routing or providers; catalog is
+	// removed only on deployment delete or manual unregister. Reconcile on
+	// running upserts the same routing/provider IDs (e.g. new pod URL).
+	if dep.AutoRegisterAiproxy && status == api.LLM_STATUS_RUNNING {
+		if err := dep.StartAiproxySyncTask(ctx, userCred, llm.Id, ""); err != nil {
+			log.Warningf("SLLM.SetStatus: start aiproxy sync for llm %s: %v", llm.Id, err)
 		}
 	}
 	return nil
