@@ -12,7 +12,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	seclib "yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/llm"
@@ -23,6 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/llm/options"
 	"yunion.io/x/onecloud/pkg/llm/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	apmodules "yunion.io/x/onecloud/pkg/mcclient/modules/aiproxy"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -119,17 +119,21 @@ func (man *SMCPAgentManager) GetDefaultMcpServerTools(ctx context.Context, userC
 type SMCPAgent struct {
 	db.SSharableVirtualResourceBase
 
-	// LLMId 关联的 LLM 实例 ID
-	LLMId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	// LLMId 旧字段，新建不再写入
+	LLMId string `width:"128" charset:"ascii" nullable:"true" list:"user"`
+	// AiproxyRoutingId 关联的 AI 网关路由规则 ID
+	AiproxyRoutingId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"required" update:"user" json:"aiproxy_routing_id"`
+	// AiproxyVirtualKeyId 关联的 AI 网关 API Key ID（密钥只存在 aiproxy，聊天时按 ID 读取）
+	AiproxyVirtualKeyId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"required" update:"user" json:"aiproxy_virtual_key_id"`
 
-	// LLMUrl 对应后端大模型的 base 请求地址
+	// LLMUrl 对应 aiproxy OpenAI 兼容 base 请求地址
 	LLMUrl string `width:"512" charset:"utf8" nullable:"false" list:"user" create:"required" update:"user"`
-	// LLMDriver 对应使用的大模型驱动（llm_client），现在可以被设置为 ollama 或 openai
+	// LLMDriver 固定为 openai（走 AI 网关）
 	LLMDriver string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
-	// Model 使用的模型名称
-	Model string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
-	// ApiKey 即在 llm_driver 中需要用到的认证
-	ApiKey string `width:"512" charset:"utf8" nullable:"true" create:"optional" update:"user"`
+	// Model 使用的模型名称（可为 aiproxy 扁平或层级 client model id）
+	Model string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
+	// ApiKey 旧字段，新建不再写入
+	ApiKey string `width:"512" charset:"utf8" nullable:"true"`
 	// McpServer 即 mcp 服务器的后端地址
 	McpServer string `width:"512" charset:"utf8" nullable:"false" list:"user" create:"optional" update:"user"`
 	// DefaultAgent 是否为默认 Agent，全局仅允许一条为 true
@@ -140,30 +144,9 @@ func (mcp *SMCPAgent) BeforeInsert() {
 	if len(mcp.Id) == 0 {
 		mcp.Id = db.DefaultUUIDGenerator()
 	}
-	if len(mcp.ApiKey) > 0 {
-		sec, err := seclib.EncryptAESBase64(mcp.Id, mcp.ApiKey)
-		if err != nil {
-			log.Errorf("EncryptAESBase64 fail %s", err)
-		} else {
-			mcp.ApiKey = sec
-		}
-	}
+	mcp.ApiKey = ""
+	mcp.LLMId = ""
 	mcp.SSharableVirtualResourceBase.BeforeInsert()
-}
-
-func (mcp *SMCPAgent) BeforeUpdate() {
-	if len(mcp.ApiKey) > 0 {
-		// heuristic to check if it is plaintext
-		_, err := seclib.DescryptAESBase64(mcp.Id, mcp.ApiKey)
-		if err != nil {
-			sec, err := seclib.EncryptAESBase64(mcp.Id, mcp.ApiKey)
-			if err != nil {
-				log.Errorf("EncryptAESBase64 fail %s", err)
-			} else {
-				mcp.ApiKey = sec
-			}
-		}
-	}
 }
 
 func (mcp *SMCPAgent) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -182,18 +165,36 @@ func (mcp *SMCPAgent) PostUpdate(ctx context.Context, userCred mcclient.TokenCre
 			log.Errorf("unsetOtherDefaultAgents after update: %v", err)
 		}
 	}
+	if strings.TrimSpace(mcp.ApiKey) != "" || strings.TrimSpace(mcp.LLMId) != "" {
+		if _, err := db.Update(mcp, func() error {
+			mcp.ApiKey = ""
+			mcp.LLMId = ""
+			return nil
+		}); err != nil {
+			log.Errorf("clear mcp agent llm_id/api_key: %v", err)
+		}
+	}
 }
 
-func (mcp *SMCPAgent) GetApiKey() (string, error) {
-	if len(mcp.ApiKey) == 0 {
-		return "", nil
+func (mcp *SMCPAgent) GetAiproxyVirtualKey(ctx context.Context) (string, error) {
+	id := strings.TrimSpace(mcp.AiproxyVirtualKeyId)
+	if id == "" {
+		return "", errors.Wrap(httperrors.ErrInvalidStatus, "mcp agent has no aiproxy_virtual_key_id; update the agent to bind an AI gateway API key")
 	}
-	// try decrypt
-	key, err := seclib.DescryptAESBase64(mcp.Id, mcp.ApiKey)
-	if err == nil {
-		return key, nil
+	session := aiproxyAdminSession(ctx)
+	if session == nil {
+		return "", errors.Wrap(httperrors.ErrInvalidStatus, "aiproxy admin session is nil")
 	}
-	return mcp.ApiKey, nil
+	resp, err := apmodules.AiVirtualKeys.Get(session, id, nil)
+	if err != nil {
+		return "", errors.Wrapf(err, "get ai_virtual_key %s", id)
+	}
+	key, _ := resp.GetString("virtual_key")
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return "", errors.Wrapf(httperrors.ErrInvalidStatus, "ai_virtual_key %s has empty virtual_key", id)
+	}
+	return key, nil
 }
 
 func (man *SMCPAgentManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
@@ -228,63 +229,38 @@ func (man *SMCPAgentManager) ValidateCreateData(ctx context.Context, userCred mc
 		return input, errors.Wrap(err, "validate SharableVirtualResourceCreateInput")
 	}
 
-	// 如果提供了 llm_id，则通过 LLM 获取 llm_url 和 model
-	if len(input.LLMId) > 0 {
-		llm, err := FetchAccessibleLLM(ctx, userCred, input.LLMId)
-		if err != nil {
-			return input, errors.Wrapf(err, "fetch LLM by id %s", input.LLMId)
-		}
-		input.LLMId = llm.Id
-		llmUrl, err := llm.GetLLMAccessUrlInfo(ctx, userCred, query)
-		if err != nil {
-			return input, errors.Wrapf(err, "get LLM URL from LLM %s", input.LLMId)
-		}
-		input.LLMUrl = llmUrl.LoginUrl
-
-		if len(input.Model) == 0 {
-			mdlInfos, err := llm.getProbedInstantModelsExt(ctx, userCred)
-			if err != nil {
-				return input, errors.Wrap(err, "get probed models from LLM instance")
-			}
-			if len(mdlInfos) == 0 {
-				return input, httperrors.NewBadRequestError("no available models found in LLM instance %s", input.LLMId)
-			}
-			var firstModel api.LLMInternalInstantMdlInfo
-			for _, mdlInfo := range mdlInfos {
-				firstModel = mdlInfo
-				break
-			}
-			input.Model = fmt.Sprintf("%s:%s", firstModel.Name, firstModel.Tag)
-		}
+	input.LLMId = ""
+	input.ApiKey = ""
+	input.AiProxyRoutingId = strings.TrimSpace(input.AiProxyRoutingId)
+	input.AiproxyVirtualKeyId = strings.TrimSpace(input.AiproxyVirtualKeyId)
+	if input.AiProxyRoutingId == "" {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "aiproxy_routing_id is required")
+	}
+	if input.AiproxyVirtualKeyId == "" {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "aiproxy_virtual_key_id is required")
 	}
 
-	// 验证 llm_url 不为空
 	if len(input.LLMUrl) == 0 {
-		return input, errors.Wrap(httperrors.ErrInputParameter, "llm_url is required (or provide llm_id to auto-fetch)")
+		return input, errors.Wrap(httperrors.ErrInputParameter, "llm_url is required")
 	}
 
-	// 验证 llm_driver 必须是 ollama 或 openai
 	input.LLMDriver = strings.ToLower(strings.TrimSpace(input.LLMDriver))
-	if !api.IsLLMClientType(input.LLMDriver) {
-		return input, errors.Wrapf(httperrors.ErrInputParameter, "llm_driver must be one of: %s, got: %s", api.LLM_CLIENT_TYPES.List(), input.LLMDriver)
+	if input.LLMDriver == "" {
+		input.LLMDriver = string(api.LLM_CLIENT_OPENAI)
+	}
+	if input.LLMDriver != string(api.LLM_CLIENT_OPENAI) {
+		return input, errors.Wrapf(httperrors.ErrInputParameter, "llm_driver must be %s", api.LLM_CLIENT_OPENAI)
 	}
 
-	// 验证 model 不为空
 	if len(input.Model) == 0 {
 		return input, errors.Wrap(httperrors.ErrInputParameter, "model is required")
 	}
 
-	// 验证 mcp_server 不为空
 	if len(input.McpServer) == 0 {
 		input.McpServer = options.Options.MCPServerURL
 	}
 	if err := utils.ValidateMCPServerURL(input.McpServer); err != nil {
 		return input, httperrors.NewInputParameterError("%s", err.Error())
-	}
-
-	// 对于 openai 驱动，api_key 是必需的
-	if input.LLMDriver == string(api.LLM_CLIENT_OPENAI) && len(input.ApiKey) == 0 {
-		return input, errors.Wrap(httperrors.ErrInputParameter, "api_key is required when llm_driver is openai")
 	}
 
 	input.Status = api.STATUS_READY
@@ -298,43 +274,32 @@ func (man *SMCPAgentManager) ValidateUpdateData(ctx context.Context, userCred mc
 		return input, errors.Wrap(err, "validate SharableVirtualResourceCreateInput")
 	}
 
-	// 如果提供了 llm_id，则通过 LLM 获取 llm_url 和 model
-	if input.LLMId != nil && len(*input.LLMId) > 0 {
-		llm, err := FetchAccessibleLLM(ctx, userCred, *input.LLMId)
-		if err != nil {
-			return input, errors.Wrapf(err, "fetch LLM by id %s", *input.LLMId)
-		}
-		llmId := llm.Id
-		input.LLMId = &llmId
-		llmUrl, err := llm.GetLLMAccessUrlInfo(ctx, userCred, query)
-		if err != nil {
-			return input, errors.Wrapf(err, "get LLM URL from LLM %s", *input.LLMId)
-		}
-		input.LLMUrl = &llmUrl.LoginUrl
+	input.LLMId = nil
+	input.ApiKey = nil
 
-		if input.Model == nil || len(*input.Model) == 0 {
-			mdlInfos, err := llm.getProbedInstantModelsExt(ctx, userCred)
-			if err != nil {
-				return input, errors.Wrap(err, "get probed models from LLM instance")
-			}
-			if len(mdlInfos) == 0 {
-				return input, httperrors.NewBadRequestError("no available models found in LLM instance %s", *input.LLMId)
-			}
-			var firstModel api.LLMInternalInstantMdlInfo
-			for _, mdlInfo := range mdlInfos {
-				firstModel = mdlInfo
-				break
-			}
-			modelStr := fmt.Sprintf("%s:%s", firstModel.Name, firstModel.Tag)
-			input.Model = &modelStr
+	if input.AiProxyRoutingId != nil {
+		trimmed := strings.TrimSpace(*input.AiProxyRoutingId)
+		if trimmed == "" {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "aiproxy_routing_id is required")
 		}
+		input.AiProxyRoutingId = &trimmed
+	}
+	if input.AiproxyVirtualKeyId != nil {
+		trimmed := strings.TrimSpace(*input.AiproxyVirtualKeyId)
+		if trimmed == "" {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "aiproxy_virtual_key_id is required")
+		}
+		input.AiproxyVirtualKeyId = &trimmed
 	}
 
-	// 如果更新 llm_driver，验证其值
 	if input.LLMDriver != nil {
 		*input.LLMDriver = strings.ToLower(strings.TrimSpace(*input.LLMDriver))
-		if !api.IsLLMClientType(*input.LLMDriver) {
-			return input, errors.Wrapf(httperrors.ErrInputParameter, "llm_driver must be one of: %s, got: %s", api.LLM_CLIENT_TYPES.List(), *input.LLMDriver)
+		if *input.LLMDriver == "" {
+			openai := string(api.LLM_CLIENT_OPENAI)
+			input.LLMDriver = &openai
+		}
+		if *input.LLMDriver != string(api.LLM_CLIENT_OPENAI) {
+			return input, errors.Wrapf(httperrors.ErrInputParameter, "llm_driver must be %s", api.LLM_CLIENT_OPENAI)
 		}
 	}
 
@@ -385,29 +350,11 @@ func (manager *SMCPAgentManager) FetchCustomizeColumns(
 	agents := []SMCPAgent{}
 	jsonutils.Update(&agents, objs)
 
-	llmIds := make([]string, 0)
-	for i := range agents {
-		if len(agents[i].LLMId) > 0 {
-			llmIds = append(llmIds, agents[i].LLMId)
-		}
-	}
-
-	var llmIdNameMap map[string]string
-	if len(llmIds) > 0 {
-		var err error
-		llmIdNameMap, err = db.FetchIdNameMap2(GetLLMManager(), llmIds)
-		if err != nil {
-			log.Errorf("FetchIdNameMap2 for LLMs failed: %v", err)
-		}
-	}
-
 	for i := range rows {
 		rows[i].SharableVirtualResourceDetails = vrows[i]
 		if i < len(agents) {
-			rows[i].LLMId = agents[i].LLMId
-			if name, ok := llmIdNameMap[agents[i].LLMId]; ok {
-				rows[i].LLMName = name
-			}
+			rows[i].AiProxyRoutingId = agents[i].AiproxyRoutingId
+			rows[i].AiproxyVirtualKeyId = agents[i].AiproxyVirtualKeyId
 			rows[i].DefaultAgent = agents[i].DefaultAgent
 		}
 	}
@@ -577,6 +524,12 @@ func friendlyChatStreamError(err error) string {
 
 // process 处理用户请求（多轮工具调用，直到模型不再发 tool_calls 或达到上限）
 func (mcp *SMCPAgent) process(ctx context.Context, userCred mcclient.TokenCredential, req *api.LLMMCPAgentRequestInput, onStream func(string) error) (*api.MCPAgentResponse, error) {
+	if strings.TrimSpace(mcp.AiproxyRoutingId) == "" {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "mcp agent has no aiproxy_routing_id; update the agent to bind an AI gateway routing rule")
+	}
+	if strings.TrimSpace(mcp.AiproxyVirtualKeyId) == "" {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "mcp agent has no aiproxy_virtual_key_id; update the agent to bind an AI gateway API key")
+	}
 	mcpServerUrl, err := mcp.GetMcpServerUrl(ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetMcpServerUrl")

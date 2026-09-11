@@ -103,11 +103,41 @@ func TestRouterRequestModel(t *testing.T) {
 	}
 }
 
-func TestPickRoutingForRequestBoundElsewhereHierarchical(t *testing.T) {
-	routings := []SAiRouting{
-		{Priority: 10, ModelKey: "claude", AiProxyNodeId: "node-b"},
+func TestPickRoutingByIdHitsPreferred(t *testing.T) {
+	qwen := SAiRouting{ModelKey: "qwen38-Qwen3.8-27B-NVFP4"}
+	qwen.Id = "rid-qwen"
+	qwen.Name = "qwen"
+	ds := SAiRouting{ModelKey: "deepseek-v4-flash"}
+	ds.Id = "rid-ds"
+	ds.Name = "deepseek"
+	routings := []SAiRouting{qwen, ds}
+
+	picked, err := pickRoutingById(routings, "rid-qwen", "primary")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
 	}
-	_, err := pickRoutingForRequest(routings, "claude/gpt-4", "node-a")
+	if picked == nil || picked.Id != "rid-qwen" {
+		t.Fatalf("expected pinned qwen routing, got %#v", picked)
+	}
+}
+
+func TestPickRoutingByIdNotInList(t *testing.T) {
+	ds := SAiRouting{ModelKey: "deepseek-v4-flash"}
+	ds.Id = "rid-ds"
+	picked, err := pickRoutingById([]SAiRouting{ds}, "rid-missing", "primary")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if picked != nil {
+		t.Fatalf("expected nil when routing id is not visible, got %#v", picked)
+	}
+}
+
+func TestPickRoutingByIdBoundElsewhere(t *testing.T) {
+	r := SAiRouting{ModelKey: "qwen", AiProxyNodeId: "node-b"}
+	r.Id = "rid-qwen"
+	r.Name = "qwen"
+	_, err := pickRoutingById([]SAiRouting{r}, "rid-qwen", "node-a")
 	if err == nil {
 		t.Fatal("expected forbidden error")
 	}
