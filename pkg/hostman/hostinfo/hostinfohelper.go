@@ -424,6 +424,8 @@ type SSysInfo struct {
 	CpuMicrocode   string `json:"cpu_microcode"`
 	CgroupVersion  string `json:"cgroup_version"`
 
+	QemuVersions []string `json:"qemu_versions"`
+
 	StorageType string `json:"storage_type"`
 
 	HugepagesOption          string                       `json:"hugepages_option"`

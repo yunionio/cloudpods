@@ -41,25 +41,51 @@ func (self *GuestEjectISOTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 func (self *GuestEjectISOTask) startEjectIso(ctx context.Context, obj db.IStandaloneModel) {
 	guest := obj.(*models.SGuest)
 	cdromOrdinal, _ := self.Params.Int("cdrom_ordinal")
-	if guest.EjectIso(cdromOrdinal, self.UserCred) && guest.Status == api.VM_RUNNING {
-		self.SetStage("OnConfigSyncComplete", nil)
-		drv, err := guest.GetDriver()
-		if err != nil {
-			self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
-			return
+	if guest.EjectIso(cdromOrdinal, self.UserCred) {
+		if guest.Status == api.VM_RUNNING {
+			self.SetStage("OnConfigSyncComplete", nil)
+			drv, err := guest.GetDriver()
+			if err != nil {
+				self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+				return
+			}
+			drv.RequestGuestHotRemoveIso(ctx, guest, self)
+		} else {
+			self.OnConfigSyncComplete(ctx, obj, nil)
 		}
-		drv.RequestGuestHotRemoveIso(ctx, guest, self)
+	} else {
+		self.OnConfigSyncCompleteFailed(ctx, obj, jsonutils.NewString("eject iso failed"))
+	}
+
+}
+
+func (self *GuestEjectISOTask) OnConfigSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithContext(ctx, obj, logclient.ACT_ISO_DETACH, nil, self.UserCred, true)
+	if newImageId, _ := self.Params.GetString("new_image_id"); newImageId != "" {
+		cdromOrdinal, _ := self.Params.Int("cdrom_ordinal")
+		var bootIndex *int8
+		if data.Contains("boot_index") {
+			bootIndex64, _ := data.Int("boot_index")
+			bootIndex8 := int8(bootIndex64)
+			bootIndex = &bootIndex8
+		}
+		guest := obj.(*models.SGuest)
+		self.SetStage("OnInsertNewIsoComplete", nil)
+		guest.StartInsertIsoTask(ctx, cdromOrdinal, newImageId, false, bootIndex, guest.HostId, self.UserCred, self.GetTaskId())
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}
 }
 
-func (self *GuestEjectISOTask) OnConfigSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	logclient.AddActionLogWithContext(ctx, obj, logclient.ACT_ISO_DETACH, nil, self.UserCred, true)
+func (self *GuestEjectISOTask) OnConfigSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithContext(ctx, obj, logclient.ACT_ISO_DETACH, nil, self.UserCred, false)
+	self.SetStageFailed(ctx, data)
+}
+
+func (self *GuestEjectISOTask) OnInsertNewIsoComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *GuestEjectISOTask) OnConfigSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	logclient.AddActionLogWithContext(ctx, obj, logclient.ACT_ISO_DETACH, nil, self.UserCred, false)
-	self.SetStageFailed(ctx, nil)
+func (self *GuestEjectISOTask) OnInsertNewIsoCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data)
 }
