@@ -45,7 +45,7 @@ type SAiVirtualKey struct {
 	// OwnerId is the user that owns this virtual key within the project.
 	OwnerId string `width:"128" charset:"ascii" index:"true" list:"user" nullable:"false" create:"optional" update:"user"`
 	// VirtualKey stores the client token encrypted at rest with the row id.
-	VirtualKey string `width:"512" charset:"ascii" nullable:"false" create:"optional" update:"user" get:"user"`
+	VirtualKey string `width:"512" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user" get:"user"`
 	// VirtualKeyHash is SHA256 of the plaintext token for auth lookup.
 	VirtualKeyHash string `width:"64" charset:"ascii" nullable:"true" unique:"true"`
 	// Limits constrains allowed providers, per-request max_tokens, and request rate.
