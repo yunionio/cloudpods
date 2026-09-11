@@ -169,6 +169,20 @@ func TestPickRoutingForRequestFallbackPattern(t *testing.T) {
 	}
 }
 
+func TestPickRoutingForRequestEmptyPatternDoesNotMatch(t *testing.T) {
+	routings := []SAiRouting{
+		{Priority: 10, ModelPattern: ""},
+		{Priority: 20, ModelKey: "deepseek-v4-flash"},
+	}
+	picked, err := pickRoutingForRequest(routings, "qwen38-Qwen3.8-27B-NVFP4", "primary")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if picked != nil {
+		t.Fatalf("empty model_pattern must not catch unmatched models, got %#v", picked)
+	}
+}
+
 func TestModelKeyMatches(t *testing.T) {
 	if !modelKeyMatches("Foo", "foo") {
 		t.Fatal("expected case-insensitive match")
