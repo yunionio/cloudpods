@@ -118,24 +118,34 @@ func GetPortByRange(proto Protocol, start int, end int) (PortResult, error) {
 }
 
 func GetPortByRangeBySets(proto Protocol, start int, end int, usedPorts sets.Int) (PortResult, error) {
+	result := PortResult{
+		IP:   "",
+		Port: -1,
+	}
+	if start > end {
+		return result, errors.Errorf("invalid port range [%d, %d]", start, end)
+	}
+
 	errs := []error{}
-	for i := start; i <= end; i++ {
-		rPort := rand.Intn(end-start) + start
+	for _, offset := range rand.Perm(end - start + 1) {
+		rPort := start + offset
 		if usedPorts.Has(rPort) {
 			continue
 		}
-		result, err := getPort(proto, "", rPort)
+
+		portResult, err := getPort(proto, "", rPort)
 		if err != nil {
 			usedPorts.Insert(rPort)
 			errs = append(errs, errors.Wrapf(err, "check random port: %d", rPort))
-		} else {
-			return result, nil
+			continue
 		}
+		return portResult, nil
 	}
-	return PortResult{
-		IP:   "",
-		Port: -1,
-	}, errors.Wrapf(errors.NewAggregate(errs), "can't get free port in [%d, %d]", start, end)
+
+	if len(errs) == 0 {
+		return result, errors.Errorf("can't get free port in [%d, %d]: all ports are already used", start, end)
+	}
+	return result, errors.Wrapf(errors.NewAggregate(errs), "can't get free port in [%d, %d]", start, end)
 }
 
 // GetTcpPort gets a port for some random available address using either
