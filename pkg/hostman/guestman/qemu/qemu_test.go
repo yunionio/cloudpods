@@ -44,3 +44,11 @@ func Test_baseOptions(t *testing.T) {
 	assert.Equal("-vnc :5900,password", opt.VNC(5900, true))
 	assert.Equal("-vnc :5900", opt.VNC(5900, false))
 }
+
+func TestQemu1101Riscv64Registered(t *testing.T) {
+	cmd, ok := GetCommand(Version_11_0_1, Arch_riscv64)
+	if assert.True(t, ok) {
+		assert.Equal(t, Version_11_0_1, cmd.GetVersion())
+		assert.Equal(t, Arch_riscv64, cmd.GetArch())
+	}
+}
