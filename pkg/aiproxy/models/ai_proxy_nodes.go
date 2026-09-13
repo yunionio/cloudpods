@@ -20,10 +20,12 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
@@ -35,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -162,6 +165,10 @@ func aiProxyNodeDisplayName(address string) string {
 	return u.Host
 }
 
+// detectLocalAdvertiseIP resolves a non-loopback local IP for advertise address.
+// Overridable in tests.
+var detectLocalAdvertiseIP = netutils2.MyIPSmart
+
 // AdvertiseAddressFromOptions returns the service URL advertised by this instance.
 func AdvertiseAddressFromOptions(opts *options.SAiProxyOptions) (string, error) {
 	if opts == nil {
@@ -175,10 +182,16 @@ func AdvertiseAddressFromOptions(opts *options.SAiProxyOptions) (string, error) 
 		scheme = "https"
 	}
 	host := strings.TrimSpace(opts.Address)
-	if host == "" || host == "0.0.0.0" {
-		host = "127.0.0.1"
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		ip, err := detectLocalAdvertiseIP()
+		if err != nil || strings.TrimSpace(ip) == "" {
+			log.Warningf("detect local advertise IP failed, fallback to 127.0.0.1: %v", err)
+			host = "127.0.0.1"
+		} else {
+			host = ip
+		}
 	}
-	return normalizeAiProxyNodeAddress(fmt.Sprintf("%s://%s:%d", scheme, host, opts.Port))
+	return normalizeAiProxyNodeAddress(fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(host, strconv.Itoa(opts.Port))))
 }
 
 // AccessAddressFromApiServer derives ai_proxy_node.access_address from --api-server.

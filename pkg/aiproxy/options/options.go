@@ -22,7 +22,7 @@ type SAiProxyOptions struct {
 	common_options.CommonOptions
 	common_options.DBOptions
 
-	AdvertiseAddress             string `help:"Standby node address advertised to clients, e.g. http://10.0.0.2:30889; default derives from bind address and port" default:""`
+	AdvertiseAddress             string `help:"Standby node address advertised to clients, e.g. http://10.0.0.2:30889; default derives from bind address or local NIC IP and port" default:""`
 	NodeHeartbeatIntervalSeconds int    `help:"Interval in seconds for standby node registration heartbeat" default:"60"`
 
 	APILogEnabled               bool   `help:"Enable OpenAI API request JSONL logs" default:"true"`
