@@ -233,9 +233,9 @@ func resolveUpstreamAPIKeyExcluding(prov *SAiProvider, modelKey string, exclude 
 	if hasSecretKey {
 		detail := formatAiKeySkipReasons(skipReasons)
 		if detail != "" {
-			return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "no available ai_key for catalog model %q: %s", modelKey, detail)
+			return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "no available backend for model %q: %s", modelKey, detail)
 		}
-		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "no available ai_key for catalog model %q", modelKey)
+		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "no available backend for model %q", modelKey)
 	}
 	return nil, errors.Wrap(httperrors.ErrInvalidStatus, "add an enabled ai_key with secret for this provider")
 }
