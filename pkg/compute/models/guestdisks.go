@@ -75,6 +75,9 @@ type SGuestdisk struct {
 
 	Index     int8 `nullable:"false" default:"0" list:"user" update:"user"` // Column(TINYINT(4), nullable=False, default=0)
 	BootIndex int8 `nullable:"false" default:"-1" list:"user" update:"user"`
+
+	NumQueues    int8 `nullable:"true" default:"0" list:"user"`
+	NumIothreads int8 `nullable:"true" default:"0" list:"user"`
 }
 
 func (manager *SGuestdiskManager) GetSlaveFieldName() string {
@@ -161,10 +164,12 @@ func (self *SGuestdisk) DoSave(ctx context.Context, driver string, cache string,
 	}
 	self.Driver = driver
 	self.CacheMode = cache
-	if cache == "none" {
-		self.AioMode = "native"
-	} else {
-		self.AioMode = "threads"
+	if self.AioMode == "" {
+		if cache == api.DISK_CACHE_MODE_NONE {
+			self.AioMode = api.DISK_AIO_MODE_NATIVE
+		} else {
+			self.AioMode = api.DISK_AIO_MODE_THREADS
+		}
 	}
 	return GuestdiskManager.TableSpec().Insert(ctx, self)
 }
@@ -252,6 +257,8 @@ func (self *SGuestdisk) GetDiskJsonDescAtHost(ctx context.Context, host *SHost, 
 	desc.Mountpoint = self.Mountpoint
 	desc.Dev = disk.getDev()
 	desc.IsSSD = disk.IsSsd
+	desc.NumIothreads = uint8(self.NumIothreads)
+	desc.NumQueues = uint8(self.NumQueues)
 	return desc
 }
 
