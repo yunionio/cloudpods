@@ -1712,10 +1712,12 @@ func (o *ServerScreenDumpOptions) Params() (jsonutils.JSONObject, error) {
 
 type ServerChangeDiskDriverOptions struct {
 	ServerIdOptions
-	DISK_ID string
-	Driver  string `help:"Driver of vDisk" choices:"virtio|ide|sata|scsi|pvscsi"`
-	Cache   string `help:"Cache mode of vDisk" choices:"writethrough|none|writeback|directsync"`
-	Aio     string `help:"Asynchronous IO mode of vDisk" choices:"native|threads"`
+	DISK_ID      string
+	Driver       string `help:"Driver of vDisk" choices:"virtio|ide|sata|scsi|pvscsi"`
+	Cache        string `help:"Cache mode of vDisk" choices:"writethrough|none|writeback|directsync"`
+	Aio          string `help:"Asynchronous IO mode of vDisk" choices:"native|threads"`
+	NumQueues    *int8  `help:"Number of queues"`
+	NumIothreads *int8  `help:"Number of iothreads"`
 }
 
 func (o *ServerChangeDiskDriverOptions) Params() (jsonutils.JSONObject, error) {
