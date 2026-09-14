@@ -17,6 +17,8 @@ package guest
 import (
 	"context"
 
+	"yunion.io/x/pkg/util/version"
+
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -52,9 +54,17 @@ func (p *MigratePredicate) Execute(ctx context.Context, u *core.Unit, c core.Can
 		return h.GetResult()
 	}
 
+	host := c.Getter().Host()
+	if schedData.DiskIoUring {
+		kv, _ := host.SysInfo.GetString("kernel_version")
+		if !version.GE(kv, "5.10") {
+			h.Exclude2(predicates.ErrHostKernelIoUringNotSupport, kv, "5.10 or higher")
+			return h.GetResult()
+		}
+	}
+
 	// live migrate check
 	if schedData.LiveMigrate {
-		host := c.Getter().Host()
 
 		guestHypervisor := u.SchedData().Hypervisor
 		if guestHypervisor != compute.HYPERVISOR_ESXI {
