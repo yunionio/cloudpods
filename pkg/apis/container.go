@@ -123,6 +123,8 @@ type ContainerIsolatedDeviceCDI struct {
 type ContainerSpec struct {
 	// Image to use.
 	Image string `json:"image"`
+	// Container image id managed by glance
+	ContainerImageId string `json:"container_image_id"`
 	// Image pull policy
 	ImagePullPolicy ImagePullPolicy `json:"image_pull_policy"`
 	// Image credential id

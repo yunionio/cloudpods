@@ -61,6 +61,10 @@ type PullOptions struct {
 
 func (i imageTool) newRepoCommonArgs(opt RepoCommonOptions) []string {
 	args := []string{}
+	// Newer ctr uses transfer service by default; --skip-verify/--plain-http require --local.
+	if opt.SkipVerify || opt.PlainHttp {
+		args = append(args, "--local")
+	}
 	if opt.PlainHttp {
 		args = append(args, "--plain-http")
 	}
