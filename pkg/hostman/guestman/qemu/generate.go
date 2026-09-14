@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -36,6 +37,13 @@ func generatePCIDeviceOption(dev *desc.PCIDevice) string {
 		"-device %s,id=%s,%s", dev.DevType, dev.Id, dev.OptionsStr(),
 	)
 	return cmd
+}
+
+func generatePCIDeviceJsonOption(dev *desc.PCIDevice) map[string]interface{} {
+	opts := dev.OptionsMap()
+	opts["id"] = dev.Id
+	opts["driver"] = dev.DevType
+	return opts
 }
 
 func chardevOption(c *desc.CharDev) string {
@@ -248,12 +256,39 @@ func getMonitorOptions(drvOpt QemuOptions, input *Monitor) []string {
 	return opts
 }
 
-func generateScsiOptions(scsi *desc.SGuestVirtioScsi) string {
-	opt := generatePCIDeviceOption(scsi.PCIDevice)
+func generateScsiJsonOptions(drvOpt QemuOptions, scsi *desc.SGuestVirtioScsi, iothreadIds []string) string {
+	ret := generatePCIDeviceJsonOption(scsi.PCIDevice)
 	if scsi.NumQueues != nil && *scsi.NumQueues > 0 {
-		opt += fmt.Sprintf(",num_queues=%d,vectors=%d", *scsi.NumQueues, *scsi.NumQueues+1)
+		ret["num_queues"] = *scsi.NumQueues
+		ret["vectors"] = *scsi.NumQueues + 3
 	}
+	if drvOpt.SupportVqMapping() {
+		if len(iothreadIds) > 0 {
+			iothreadVqMap := []map[string]interface{}{}
+			for i := range iothreadIds {
+				iothreadVqMap = append(iothreadVqMap, map[string]interface{}{
+					"iothread": iothreadIds[i],
+				})
+			}
+			ret["iothread-vq-mapping"] = iothreadVqMap
+		}
+	}
+	cmdline := jsonutils.Marshal(ret).String()
+	cmdline = strings.ReplaceAll(cmdline, "\"", "\\\"")
+	opt := fmt.Sprintf("-device '%s'", cmdline)
 	return opt
+}
+
+func generateScsiOptions(drvOpt QemuOptions, scsi *desc.SGuestVirtioScsi, iothreadIds []string) string {
+	if drvOpt.SupportJsonCmdline() {
+		return generateScsiJsonOptions(drvOpt, scsi, iothreadIds)
+	} else {
+		opt := generatePCIDeviceOption(scsi.PCIDevice)
+		if scsi.NumQueues != nil && *scsi.NumQueues > 0 {
+			opt += fmt.Sprintf(",num_queues=%d,vectors=%d", *scsi.NumQueues, *scsi.NumQueues+3)
+		}
+		return opt
+	}
 }
 
 func generateInitrdOptions(drvOpt QemuOptions, initrdPath, kernel string) []string {
@@ -277,11 +312,29 @@ func generateKickstartBootOptions(drvOpt QemuOptions, kickstartBoot *KickstartBo
 	return opts
 }
 
+func generateIothreadOptions(drvOpt QemuOptions, guestDesc *desc.SGuestDesc) []string {
+	opts := make([]string, 0)
+	if len(guestDesc.Iothreads) == 0 {
+		opts = append(opts, drvOpt.Object("iothread", map[string]string{"id": "iothread0"}))
+	} else {
+		for i := range guestDesc.Iothreads {
+			opts = append(opts, drvOpt.Object("iothread", map[string]string{
+				"id": guestDesc.Iothreads[i].Id,
+			}))
+		}
+	}
+	return opts
+}
+
 func generateDisksOptions(drvOpt QemuOptions, disks []*desc.SGuestDisk, isEncrypt, isMaster bool, osName, machineType string) []string {
 	opts := make([]string, 0)
 	for _, disk := range disks {
 		if disk.Driver == api.DISK_DRIVER_VFIO {
 			continue
+		}
+
+		if disk.VirtioScsi != nil {
+			opts = append(opts, generateScsiOptions(drvOpt, disk.VirtioScsi, disk.IothreadIds))
 		}
 
 		if isMaster {
@@ -356,7 +409,77 @@ func isLocalStorage(disk *desc.SGuestDisk) bool {
 	}
 }
 
+func getDiskDeviceJsonOption(optDrv QemuOptions, disk *desc.SGuestDisk, osName, machineType string) string {
+	ret := map[string]interface{}{}
+	diskIndex := disk.Index
+	diskDriver := disk.Driver
+	numQueues := disk.NumQueues
+	isSsd := disk.IsSSD
+
+	ret["driver"] = GetDiskDeviceModel(diskDriver)
+	ret["drive"] = fmt.Sprintf("drive_%d", diskIndex)
+	ret["id"] = fmt.Sprintf("drive_%d", diskIndex)
+	if osName != OS_NAME_VMWARE {
+		serial := strings.ReplaceAll(disk.DiskId, "-", "")
+		ret["serial"] = serial
+		deviceId := optDrv.ScsiDeviceId(serial, diskDriver)
+		if deviceId != "" {
+			ret["device_id"] = deviceId
+		}
+	}
+	if disk.BootIndex != nil && *disk.BootIndex >= 0 {
+		ret["boot_index"] = fmt.Sprintf("%d", *disk.BootIndex)
+	}
+	if diskDriver == DISK_DRIVER_VIRTIO {
+		// virtio-blk
+		if disk.Pci != nil {
+			for k, v := range disk.Pci.OptionsMap() {
+				ret[k] = v
+			}
+		}
+		if len(disk.IothreadIds) > 0 {
+			iothreadVqMap := []map[string]interface{}{}
+			for i := range disk.IothreadIds {
+				iothreadVqMap = append(iothreadVqMap, map[string]interface{}{
+					"iothread": disk.IothreadIds[i],
+				})
+			}
+			ret["iothread-vq-mapping"] = iothreadVqMap
+		} else {
+			ret["iothread"] = "iothread0"
+		}
+
+		if numQueues > 0 {
+			ret["num-queues"] = numQueues
+			ret["vectors"] = numQueues + 1
+		}
+	} else if utils.IsInStringArray(diskDriver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
+		ret["bus"] = fmt.Sprintf("%s.0", disk.Scsi.ControllerId)
+		if diskDriver == DISK_DRIVER_SCSI && isSsd {
+			ret["rotation_rate"] = 1
+		}
+	} else if diskDriver == DISK_DRIVER_IDE {
+		if machineType == api.VM_MACHINE_TYPE_Q35 {
+			ret["bus"] = fmt.Sprintf("ide.%d", diskIndex)
+			ret["unit"] = 0
+		} else {
+			ret["bus"] = fmt.Sprintf("ide.%d", diskIndex/2)
+			ret["unit"] = diskIndex % 2
+		}
+	} else if diskDriver == DISK_DRIVER_SATA {
+		ret["bus"] = fmt.Sprintf("ahci0.%d", diskIndex)
+	}
+	cmdline := jsonutils.Marshal(ret).String()
+	cmdline = strings.ReplaceAll(cmdline, "\"", "\\\"")
+	opt := fmt.Sprintf("-device '%s'", cmdline)
+	return opt
+}
+
 func getDiskDeviceOption(optDrv QemuOptions, disk *desc.SGuestDisk, osName, machineType string) string {
+	if optDrv.SupportJsonCmdline() {
+		return getDiskDeviceJsonOption(optDrv, disk, osName, machineType)
+	}
+
 	diskIndex := disk.Index
 	diskDriver := disk.Driver
 	numQueues := disk.NumQueues
@@ -367,7 +490,10 @@ func getDiskDeviceOption(optDrv QemuOptions, disk *desc.SGuestDisk, osName, mach
 	if osName != OS_NAME_VMWARE {
 		serial := strings.ReplaceAll(disk.DiskId, "-", "")
 		opt += fmt.Sprintf(",serial=%s", serial)
-		opt += optDrv.ScsiDeviceId(serial, diskDriver)
+		deviceId := optDrv.ScsiDeviceId(serial, diskDriver)
+		if deviceId != "" {
+			opt += fmt.Sprintf(",device_id=%s", deviceId)
+		}
 	}
 	opt += fmt.Sprintf(",drive=drive_%d", diskIndex)
 	if diskDriver == DISK_DRIVER_VIRTIO {
@@ -382,6 +508,9 @@ func getDiskDeviceOption(optDrv QemuOptions, disk *desc.SGuestDisk, osName, mach
 		}
 	} else if utils.IsInStringArray(diskDriver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
 		opt += ",bus=scsi.0"
+		if diskDriver == DISK_DRIVER_SCSI && isSsd {
+			opt += ",rotation_rate=1"
+		}
 	} else if diskDriver == DISK_DRIVER_IDE {
 		if machineType == api.VM_MACHINE_TYPE_Q35 {
 			opt += fmt.Sprintf(",bus=ide.%d,unit=%d", diskIndex, 0)
@@ -392,11 +521,7 @@ func getDiskDeviceOption(optDrv QemuOptions, disk *desc.SGuestDisk, osName, mach
 		opt += fmt.Sprintf(",bus=ahci0.%d", diskIndex)
 	}
 	opt += fmt.Sprintf(",id=drive_%d", diskIndex)
-	if isSsd {
-		if diskDriver == DISK_DRIVER_SCSI {
-			opt += ",rotation_rate=1"
-		}
-	}
+
 	if disk.BootIndex != nil && *disk.BootIndex >= 0 {
 		opt += fmt.Sprintf(",bootindex=%d", *disk.BootIndex)
 	}
@@ -867,7 +992,8 @@ func GenerateStartOptions(
 	}
 
 	// iothread object
-	opts = append(opts, drvOpt.Object("iothread", map[string]string{"id": "iothread0"}))
+	//opts = append(opts, drvOpt.Object("iothread", map[string]string{"id": "iothread0"}))
+	opts = append(opts, generateIothreadOptions(drvOpt, input.GuestDesc)...)
 
 	isEncrypt := false
 	if len(input.EncryptKeyPath) > 0 {
@@ -882,7 +1008,7 @@ func GenerateStartOptions(
 	opts = append(opts, generatePciControllerOptions(input.GuestDesc.PCIControllers)...)
 
 	if input.GuestDesc.VirtioScsi != nil {
-		opts = append(opts, generateScsiOptions(input.GuestDesc.VirtioScsi))
+		opts = append(opts, generateScsiOptions(drvOpt, input.GuestDesc.VirtioScsi, nil))
 	} else if input.GuestDesc.PvScsi != nil {
 		opts = append(opts, generatePCIDeviceOption(input.GuestDesc.PvScsi.PCIDevice))
 	}

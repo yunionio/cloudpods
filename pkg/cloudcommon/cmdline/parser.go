@@ -254,6 +254,11 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 				return nil, errors.Wrapf(err, "parse disk auto_delete %s", str)
 			}
 			diskConfig.AutoDelete = &v
+		case "performance":
+			if str != compute.DISK_PERFORMANCE_HIGH {
+				return nil, errors.Errorf("unsupport performance %s", str)
+			}
+			diskConfig.Performance = str
 		default:
 			return nil, errors.Errorf("invalid disk description %s", p)
 		}

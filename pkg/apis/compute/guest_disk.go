@@ -96,6 +96,7 @@ type GuestdiskJsonDesc struct {
 	Dev               string `json:"dev"`
 	IsSSD             bool   `json:"is_ssd"`
 	NumQueues         uint8  `json:"num_queues"`
+	NumIothreads      uint8  `json:"num_iothreads"`
 	AutoReset         bool   `json:"auto_reset"`
 	PCIPath           string `json:"pci_path"`
 

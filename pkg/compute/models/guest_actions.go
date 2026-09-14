@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/pkg/util/rand"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -594,6 +595,16 @@ func (self *SGuest) GetSchedMigrateParams(
 			cpuNumaPin := make([]schedapi.SCpuNumaPin, 0)
 			self.CpuNumaPin.Unmarshal(&cpuNumaPin)
 			schedDesc.CpuNumaPin = cpuNumaPin
+		}
+		qemuVersion := self.GetMetadata(context.Background(), "__qemu_version", userCred)
+		if version.GE(qemuVersion, "11.0.5") {
+			gds, _ := self.GetGuestDisks()
+			for i := range gds {
+				if gds[i].AioMode == api.DISK_AIO_MODE_IO_URING {
+					schedDesc.DiskIoUring = true
+					break
+				}
+			}
 		}
 	}
 	schedDesc.ReuseNetwork = true
@@ -7016,22 +7027,22 @@ func (self *SGuest) PerformChangeDiskDriver(ctx context.Context, userCred mcclie
 		}
 	}
 	if input.CacheMode != "" && gd.CacheMode != input.CacheMode {
-		if input.CacheMode != "none" {
-			input.AioMode = "threads"
+		if input.CacheMode != api.DISK_CACHE_MODE_NONE {
+			input.AioMode = api.DISK_AIO_MODE_THREADS
 		}
-		if !utils.IsInStringArray(input.CacheMode, []string{api.DISK_CACHE_MODE_WRITETHROGH, api.DISK_CACHE_MODE_DIRECTSYNC, api.DISK_CACHE_MODE_WRITEBACK, api.DISK_CACHE_MODE_NONE}) {
+		if !utils.IsInStringArray(input.CacheMode, api.DISK_CACHE_MODES) {
 			return nil, httperrors.NewInputParameterError("unknown cache_mode %s", input.CacheMode)
 		}
 	}
 	if input.AioMode != "" && gd.AioMode != input.AioMode {
-		if !utils.IsInStringArray(input.AioMode, []string{api.DISK_AIO_MODE_NATIVE, api.DISK_AIO_MOD_THREADS}) {
+		if !utils.IsInStringArray(input.AioMode, api.DISK_AIO_MODES) {
 			return nil, httperrors.NewInputParameterError("unknown aio_mode %s", input.AioMode)
 		}
 		cacheMode := gd.CacheMode
 		if input.CacheMode != "" {
 			cacheMode = input.CacheMode
 		}
-		if input.AioMode == "native" && cacheMode != "none" {
+		if input.AioMode == api.DISK_AIO_MODE_NATIVE && cacheMode != api.DISK_CACHE_MODE_NONE {
 			return nil, httperrors.NewBadRequestError("AIO mode %s with cache mode %s is not supported", input.AioMode, cacheMode)
 		}
 	}

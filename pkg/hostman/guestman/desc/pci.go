@@ -121,6 +121,25 @@ func (d *PCIDevice) OptionsStr() string {
 	return cmd
 }
 
+func (d *PCIDevice) OptionsMap() map[string]interface{} {
+	ret := map[string]interface{}{}
+	if d.PCIAddr != nil {
+		ret["bus"] = d.BusStr()
+		ret["addr"] = d.SlotFunc()
+		if d.Multi != nil {
+			multi := "off"
+			if *d.Multi {
+				multi = "on"
+			}
+			ret["multifunction"] = multi
+		}
+	}
+	for k, v := range d.Options {
+		ret[k] = v
+	}
+	return ret
+}
+
 // pvscsi or virtio-scsi-pci
 type SCSIAddr struct {
 	// The LUN identifies the specific logical unit

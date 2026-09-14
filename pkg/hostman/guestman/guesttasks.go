@@ -484,6 +484,29 @@ func (d *SGuestDiskSyncTask) onRemoveDiskSucc(results string, diskIdx int8) {
 				if err != nil {
 					log.Errorf("failed release disk pci addr %s", d.guest.Desc.Disks[i].Pci.PCIAddr)
 				}
+			} else if d.guest.Desc.Disks[i].VirtioScsi != nil {
+				err := d.guest.pciAddrs.ReleasePCIAddress(d.guest.Desc.Disks[i].VirtioScsi.PCIAddr)
+				if err != nil {
+					log.Errorf("failed release disk VirtioScsi addr %s", d.guest.Desc.Disks[i].VirtioScsi.PCIAddr)
+				}
+			}
+			if len(d.guest.Desc.Disks[i].IothreadIds) > 0 {
+				for j := range d.guest.Desc.Disks[i].IothreadIds {
+					c := make(chan struct{})
+					cb := func(res string) {
+						log.Infof("iothread %s remove res %s", d.guest.Desc.Disks[i].IothreadIds[j], res)
+						c <- struct{}{}
+						if len(res) == 0 {
+							for k := range d.guest.Desc.Iothreads {
+								if d.guest.Desc.Iothreads[k].Id == d.guest.Desc.Disks[i].IothreadIds[j] {
+									d.guest.Desc.Iothreads = append(d.guest.Desc.Iothreads[:k], d.guest.Desc.Iothreads[k+1:]...)
+								}
+							}
+						}
+					}
+					d.guest.Monitor.ObjectDel(d.guest.Desc.Disks[i].IothreadIds[j], cb)
+					<-c
+				}
 			}
 			break
 		}
@@ -502,38 +525,92 @@ func (d *SGuestDiskSyncTask) checkDiskDriver(disk *desc.SGuestDisk) {
 	}
 	log.Debugf("sync disk driver: %s", disk.Driver)
 
-	if disk.Driver == DISK_DRIVER_SCSI && d.guest.Desc.VirtioScsi == nil {
-		// insert virtio scsi
-		var cType = d.guest.getHotPlugPciControllerType()
-		if cType == nil {
-			err := errors.Errorf("failed get hotplugable pci controller")
-			d.errors = append(d.errors, err)
-			d.syncDisksConf()
-			return
+	if disk.NumIothreads > 0 {
+		for i := 0; i < int(disk.NumIothreads); i++ {
+			iothreadId := fmt.Sprintf("iothread_%d_%d", disk.Index, i)
+			c := make(chan struct{})
+			cb := func(res string) {
+				log.Infof("iothread %s add res %s", iothreadId, res)
+				if res != "" {
+					err := errors.Errorf("add iothread %s failed %s", iothreadId, res)
+					d.errors = append(d.errors, err)
+					d.syncDisksConf()
+					return
+				}
+				if disk.IothreadIds == nil {
+					disk.IothreadIds = make([]string, 0)
+				}
+				disk.IothreadIds = append(disk.IothreadIds, iothreadId)
+				d.guest.Desc.Iothreads = append(d.guest.Desc.Iothreads, desc.NewObject("iothread", iothreadId))
+				c <- struct{}{}
+			}
+			params := map[string]string{"id": iothreadId}
+			d.guest.Monitor.ObjectAdd("iothread", params, cb)
+			<-c
 		}
+	}
 
-		d.guest.Desc.VirtioScsi = &desc.SGuestVirtioScsi{
-			PCIDevice: desc.NewPCIDevice(*cType, "virtio-scsi-pci", "scsi"),
-		}
-		if err := d.guest.ensureDevicePciAddress(d.guest.Desc.VirtioScsi.PCIDevice, -1, nil); err != nil {
-			d.guest.Desc.VirtioScsi = nil
+	if disk.Driver == DISK_DRIVER_SCSI {
+		if disk.NumIothreads > 0 || d.guest.Desc.VirtioScsi == nil {
+			scsiId := "scsi"
+			if disk.NumIothreads > 0 {
+				scsiId = fmt.Sprintf("scsi%d", disk.Index)
+			}
 
-			err = errors.Wrap(err, "ensureDevicePciAddress for virtio scsi device")
-			d.errors = append(d.errors, err)
-			d.syncDisksConf()
-			return
+			// insert virtio scsi
+			var cType = d.guest.getHotPlugPciControllerType()
+			if cType == nil {
+				err := errors.Errorf("failed get hotplugable pci controller")
+				d.errors = append(d.errors, err)
+				d.syncDisksConf()
+				return
+			}
+
+			virtioScsi := &desc.SGuestVirtioScsi{
+				PCIDevice: desc.NewPCIDevice(*cType, "virtio-scsi-pci", scsiId),
+			}
+			if disk.NumQueues > 0 {
+				numQueues := disk.NumQueues
+				virtioScsi.NumQueues = &numQueues
+			}
+			if err := d.guest.ensureDevicePciAddress(virtioScsi.PCIDevice, -1, nil); err != nil {
+				err = errors.Wrap(err, "ensureDevicePciAddress for virtio scsi device")
+				d.errors = append(d.errors, err)
+				d.syncDisksConf()
+				return
+			}
+			cb := func(ret string) {
+				log.Infof("Add scsi controller %s", ret)
+
+				if disk.NumIothreads > 0 {
+					disk.VirtioScsi = virtioScsi
+				} else {
+					d.guest.Desc.VirtioScsi = virtioScsi
+				}
+				d.checkDrivers = append(d.checkDrivers, DISK_DRIVER_SCSI)
+				d.startAddDisk(disk)
+			}
+			params := map[string]interface{}{
+				"id":   virtioScsi.Id,
+				"bus":  virtioScsi.BusStr(),
+				"addr": virtioScsi.SlotFunc(),
+			}
+			if virtioScsi.NumQueues != nil && *virtioScsi.NumQueues > 0 {
+				params["num_queues"] = *virtioScsi.NumQueues
+				params["num_queues"] = *virtioScsi.NumQueues + 3
+			}
+			if len(disk.IothreadIds) > 0 {
+				iothreadVqMap := []map[string]interface{}{}
+				for i := range disk.IothreadIds {
+					iothreadVqMap = append(iothreadVqMap, map[string]interface{}{
+						"iothread": disk.IothreadIds[i],
+					})
+				}
+				params["iothread-vq-mapping"] = iothreadVqMap
+			}
+
+			d.guest.Monitor.DeviceAdd(virtioScsi.DevType, params, cb)
 		}
-		cb := func(ret string) {
-			log.Infof("Add scsi controller %s", ret)
-			d.checkDrivers = append(d.checkDrivers, DISK_DRIVER_SCSI)
-			d.startAddDisk(disk)
-		}
-		params := map[string]interface{}{
-			"id":   d.guest.Desc.VirtioScsi.Id,
-			"bus":  d.guest.Desc.VirtioScsi.BusStr(),
-			"addr": d.guest.Desc.VirtioScsi.SlotFunc(),
-		}
-		d.guest.Monitor.DeviceAdd(d.guest.Desc.VirtioScsi.DevType, params, cb)
 	} else if disk.Driver == DISK_DRIVER_SATA && d.guest.Desc.SataController == nil {
 		// insert sata ahci controller
 		var cType = d.guest.getHotPlugPciControllerType()
@@ -655,7 +732,11 @@ func (d *SGuestDiskSyncTask) onAddDiskSucc(disk *desc.SGuestDisk, results string
 			return
 		}
 	case DISK_DRIVER_SCSI:
-		disk.Scsi = desc.NewScsiDevice(d.guest.Desc.VirtioScsi.Id, devType, id)
+		scsiId := d.guest.Desc.VirtioScsi.Id
+		if disk.VirtioScsi != nil {
+			scsiId = disk.VirtioScsi.Id
+		}
+		disk.Scsi = desc.NewScsiDevice(scsiId, devType, id)
 	case DISK_DRIVER_PVSCSI:
 		disk.Scsi = desc.NewScsiDevice(d.guest.Desc.PvScsi.Id, devType, id)
 	case DISK_DRIVER_IDE:
@@ -673,6 +754,15 @@ func (d *SGuestDiskSyncTask) onAddDiskSucc(disk *desc.SGuestDisk, results string
 	if diskDriver == DISK_DRIVER_VIRTIO && disk.Pci != nil {
 		params["bus"] = disk.Pci.BusStr()
 		params["addr"] = disk.Pci.SlotFunc()
+		if len(disk.IothreadIds) > 0 {
+			iothreadVqMap := []map[string]interface{}{}
+			for i := range disk.IothreadIds {
+				iothreadVqMap = append(iothreadVqMap, map[string]interface{}{
+					"iothread": disk.IothreadIds[i],
+				})
+			}
+			params["iothread-vq-mapping"] = iothreadVqMap
+		}
 	} else if DISK_DRIVER_IDE == diskDriver {
 		params["unit"] = strconv.Itoa(int(diskIndex % 2))
 	}
