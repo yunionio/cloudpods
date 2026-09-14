@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	_ "yunion.io/x/onecloud/pkg/image/drivers/container_registries"
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/image/usages"
@@ -77,6 +78,8 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		models.ImageManager,
 
 		models.GuestImageManager,
+		models.GetContainerRegistryManager(),
+		models.GetContainerImageManager(),
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

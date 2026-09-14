@@ -1,0 +1,216 @@
+files:
+  "build/Dockerfile*":
+    scans:
+      - docker-arg-alpine
+      - docker-arg-go-tag
+      - docker-arg-go
+      - git-commit-ecr
+      - git-commit-gcr
+      - git-commit-lunajson
+      - git-commit-semver
+  ".github/workflows/*.yml":
+    scans:
+      - gha-golang-matrix
+      - gha-golang-release
+      - gha-uses-vx
+      - gha-uses-semver
+      - gha-syft-version
+      - gha-cosign-version
+  "Makefile":
+    scans:
+      - makefile-staticcheck
+      - makefile-syft-version
+      - makefile-syft-version2
+      - makefile-syft-digest
+
+scans:
+  docker-arg-alpine:
+    type: "regexp"
+    source: "registry-digest-arg"
+    args:
+      regexp: '^ARG ALPINE_VER=(?P<Tag>[a-z0-9\-\.]+)@(?P<Version>sha256:[0-9a-f]+)\s*$'
+      image: "alpine"
+  docker-arg-go-tag:
+    type: "regexp"
+    source: "registry-golang-latest"
+    args:
+      regexp: '^ARG GO_VER=(?P<Version>[a-z0-9\-\.]+)-alpine@(?P<SHA>sha256:[0-9a-f]+)\s*$'
+  docker-arg-go:
+    type: "regexp"
+    source: "registry-digest-arg"
+    args:
+      regexp: '^ARG GO_VER=(?P<Tag>[a-z0-9\-\.]+)@(?P<Version>sha256:[0-9a-f]+)\s*$'
+      image: "golang"
+  git-commit-ecr:
+    type: "regexp"
+    source: "git-commit"
+    args:
+      regexp: '^ARG ECR_HELPER_VER=(?P<Version>[0-9a-f]+)\s*$'
+      repo: "https://github.com/awslabs/amazon-ecr-credential-helper.git"
+      ref: main
+  git-commit-gcr:
+    type: "regexp"
+    source: "git-commit"
+    args:
+      regexp: '^ARG GCR_HELPER_VER=(?P<Version>[0-9a-f]+)\s*$'
+      repo: "https://github.com/GoogleCloudPlatform/docker-credential-gcr.git"
+      ref: master
+  git-commit-lunajson:
+    type: "regexp"
+    source: "git-commit"
+    args:
+      regexp: '^ARG LUNAJSON_COMMIT=(?P<Version>[0-9a-f]+)\s*$'
+      repo: "https://github.com/grafi-tt/lunajson.git"
+      ref: master
+  git-commit-semver:
+    type: "regexp"
+    source: "git-commit"
+    args:
+      regexp: '^ARG SEMVER_COMMIT=(?P<Version>[0-9a-f]+)\s*$'
+      repo: "https://github.com/kikito/semver.lua.git"
+      ref: master
+  gha-uses-vx:
+    type: "regexp"
+    source: "gha-uses-vx"
+    args:
+      regexp: '^\s+-?\s+uses: (?P<Repo>[^@]+)@(?P<Version>v\d+)\s*$'
+  gha-uses-semver:
+    type: "regexp"
+    source: "gha-uses-semver"
+    args:
+      regexp: '^\s+-?\s+uses: (?P<Repo>[^@/]+/[^@/]+)[^@]*@(?P<Version>v\d+\.\d+\.\d+)\s*$'
+  gha-golang-matrix:
+    type: "regexp"
+    source: "registry-golang-matrix"
+    args:
+      regexp: '^\s*gover: (?P<Version>\[["0-9, \.]+\])\s*$'
+  gha-golang-release:
+    type: "regexp"
+    source: "registry-golang-latest"
+    args:
+      regexp: '^\s*RELEASE_GO_VER: "(?P<Version>[0-9\.]+)"\s*$'
+  gha-syft-version:
+    type: "regexp"
+    source: "registry-tag-arg-semver"
+    args:
+      regexp: '^\s*syft-version: "(?P<Version>v[0-9\.]+)"\s*$'
+      repo: "anchore/syft"
+  gha-cosign-version:
+    type: "regexp"
+    source: "git-tag-semver"
+    args:
+      regexp: '^\s*cosign-release: "(?P<Version>v[0-9\.]+)"\s*$'
+      repo: "github.com/sigstore/cosign"
+  makefile-staticcheck:
+    type: "regexp"
+    source: "git-tag-semver"
+    args:
+      regexp: '^STATICCHECK_VER\?=(?P<Version>v[0-9\.]+)\s*$'
+      repo: "github.com/dominikh/go-tools"
+  makefile-syft-version:
+    type: "regexp"
+    source: "registry-tag-arg-semver"
+    args:
+      regexp: '^SYFT_VERSION\?=(?P<Version>v[0-9\.]+)\s*$'
+      repo: "anchore/syft"
+  makefile-syft-version2:
+    type: "regexp"
+    source: "registry-tag-match-semver"
+    args:
+      regexp: '^SYFT_CONTAINER\?=(?P<Repo>[^:]*):(?P<Version>v[0-9\.]+)@(?P<Digest>sha256:[0-9a-f]+)\s*$'
+  makefile-syft-digest:
+    type: "regexp"
+    source: "registry-digest-match"
+    args:
+      regexp: '^SYFT_CONTAINER\?=(?P<Image>[^:]*):(?P<Tag>v[0-9\.]+)@(?P<Version>sha256:[0-9a-f]+)\s*$'
+
+sources:
+  registry-tag-arg-semver:
+    type: "registry"
+    key: "{{ .ScanArgs.repo }}"
+    args:
+      type: "tag"
+      repo: "{{ .ScanArgs.repo }}"
+    filter:
+      expr: '^v[0-9]+\.[0-9]+\.[0-9]+$'
+    sort:
+      method: "semver"
+  registry-tag-match-semver:
+    type: "registry"
+    key: "{{ .ScanMatch.Repo }}"
+    args:
+      type: "tag"
+      repo: "{{ .ScanMatch.Repo }}"
+    filter:
+      expr: '^v[0-9]+\.[0-9]+\.[0-9]+$'
+    sort:
+      method: "semver"
+  registry-digest-arg:
+    type: "registry"
+    key: "{{ .ScanArgs.image }}:{{.ScanMatch.Tag}}"
+    args:
+      image: "{{ .ScanArgs.image }}:{{.ScanMatch.Tag}}"
+  registry-digest-match:
+    type: "registry"
+    key: "{{ .ScanMatch.Image }}:{{.ScanMatch.Tag}}"
+    args:
+      image: "{{ .ScanMatch.Image }}:{{.ScanMatch.Tag}}"
+  registry-golang-latest:
+    type: "registry"
+    key: "golang-latest"
+    args:
+      repo: "golang"
+      type: "tag"
+    filter:
+      expr: '^\d+\.\d+$'
+    sort:
+      method: "semver"
+  registry-golang-matrix:
+    type: "registry"
+    key: "golang-matrix"
+    args:
+      repo: "golang"
+      type: "tag"
+    filter:
+      expr: '^\d+\.\d+$'
+    sort:
+      method: "semver"
+    template: '["{{ index .VerMap ( index .VerList 2 ) }}", "{{ index .VerMap ( index .VerList 1 ) }}", "{{ index .VerMap ( index .VerList 0 ) }}"]'
+  gha-uses-vx:
+    type: "git"
+    key: "{{ .ScanMatch.Repo }}"
+    args:
+      type: "tag"
+      url: "https://github.com/{{ .ScanMatch.Repo }}.git"
+    filter:
+      expr: '^v\d+$'
+    sort:
+      method: "semver"
+  gha-uses-semver:
+    type: "git"
+    key: "{{ .ScanMatch.Repo }}"
+    args:
+      type: "tag"
+      url: "https://github.com/{{ .ScanMatch.Repo }}.git"
+    filter:
+      expr: '^v\d+\.\d+\.\d+$'
+    sort:
+      method: "semver"
+  git-commit:
+    type: "git"
+    key: "{{ .ScanArgs.repo }}:{{ .ScanArgs.ref }}"
+    args:
+      type: "commit"
+      url: "{{ .ScanArgs.repo }}"
+    filter:
+      expr: '^{{ .ScanArgs.ref }}$'
+  git-tag-semver:
+    type: "git"
+    key: "{{ .ScanArgs.repo }}"
+    args:
+      type: "tag"
+      url: "https://{{ .ScanArgs.repo }}.git"
+    filter:
+      expr: '^v[0-9]+\.[0-9]+\.[0-9]+$'
+    sort:
+      method: "semver"
