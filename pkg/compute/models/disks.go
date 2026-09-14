@@ -2635,6 +2635,8 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 		gds.Field("cache_mode"),
 		gds.Field("iops"),
 		gds.Field("bps"),
+		gds.Field("num_queues"),
+		gds.Field("num_iothreads"),
 	).
 		Join(gds, sqlchemy.Equals(gds.Field("guest_id"), guestSQ.Field("id"))).
 		Filter(sqlchemy.In(gds.Field("disk_id"), diskIds))
@@ -2645,12 +2647,14 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 		Status string
 		DiskId string
 
-		Index       int
-		Driver      string
-		CacheMode   string
-		Iops        int
-		Bps         int
-		BillingType string
+		Index        int
+		Driver       string
+		CacheMode    string
+		Iops         int
+		Bps          int
+		BillingType  string
+		NumQueues    int8
+		NumIothreads int8
 	}{}
 	err := q.All(&guestInfo)
 	if err != nil {
@@ -2670,12 +2674,14 @@ func (manager *SDiskManager) FetchCustomizeColumns(
 			Name:   guest.Name,
 			Status: guest.Status,
 
-			Index:       guest.Index,
-			Driver:      guest.Driver,
-			CacheMode:   guest.CacheMode,
-			Iops:        guest.Iops,
-			Bps:         guest.Bps,
-			BillingType: guest.BillingType,
+			Index:        guest.Index,
+			Driver:       guest.Driver,
+			CacheMode:    guest.CacheMode,
+			Iops:         guest.Iops,
+			Bps:          guest.Bps,
+			BillingType:  guest.BillingType,
+			NumIothreads: guest.NumIothreads,
+			NumQueues:    guest.NumQueues,
 		})
 	}
 

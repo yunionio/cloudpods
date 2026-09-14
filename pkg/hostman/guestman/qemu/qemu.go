@@ -38,6 +38,7 @@ const (
 	Version_9_0_1  Version = "9.0.1"
 	Version_10_0_3 Version = "10.0.3"
 	Version_10_0_7 Version = "10.0.7"
+	Version_11_0_5 Version = "11.0.5"
 )
 
 type Arch string
@@ -119,6 +120,9 @@ type QemuOptions interface {
 	Initrd(initrdPath string) string
 	Kernel(kernelPath string) string
 	ScsiDeviceId(serial string, driver string) string
+	SupportVqMapping() bool
+	SupportJsonCmdline() bool
+	SupportIoUring() bool
 }
 
 var (
@@ -231,7 +235,19 @@ func (o baseOptions) ScsiDeviceId(serial string, driver string) string {
 	if !utils.IsInStringArray(driver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
 		return ""
 	}
-	return fmt.Sprintf(",device_id=%s", serial[:20])
+	return serial[:20]
+}
+
+func (o baseOptions) SupportJsonCmdline() bool {
+	return true
+}
+
+func (o baseOptions) SupportVqMapping() bool {
+	return false
+}
+
+func (o baseOptions) SupportIoUring() bool {
+	return false
 }
 
 /*
@@ -394,6 +410,28 @@ func newBaseOptionsGE800_x86_64() *baseOptions_ge_800_x86_64 {
 	return &baseOptions_ge_800_x86_64{}
 }
 
+type baseOptions_ge_1000 struct {
+}
+
+func (o baseOptions_ge_1000) SupportVqMapping() bool {
+	return true
+}
+
+func newBaseOptionsGE1000() *baseOptions_ge_1000 {
+	return &baseOptions_ge_1000{}
+}
+
+type baseOptions_ge_1105 struct {
+}
+
+func (o baseOptions_ge_1105) SupportIoUring() bool {
+	return true
+}
+
+func newBaseOptionsGE1105() *baseOptions_ge_1105 {
+	return &baseOptions_ge_1105{}
+}
+
 // qemu version grate or equal 3.1.0
 type baseOptions_ge_310 struct {
 }
@@ -404,6 +442,17 @@ func (o baseOptions_ge_310) Nodefconfig() string {
 
 func newBaseOptionsGE310() *baseOptions_ge_310 {
 	return &baseOptions_ge_310{}
+}
+
+type baseOptions_lt_620 struct {
+}
+
+func (o baseOptions_lt_620) SupportJsonCmdline() bool {
+	return false
+}
+
+func newBaseOptionsLT620() *baseOptions_lt_620 {
+	return &baseOptions_lt_620{}
 }
 
 type baseOptions_aarch64 struct {
