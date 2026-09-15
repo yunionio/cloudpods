@@ -200,6 +200,13 @@ func startMasterTasks(app *appsrv.Application, opts *options.SImageOptions) {
 
 	cron.AddJobAtIntervals("MarkDataImage", time.Duration(options.Options.VerifyImageStatusIntervalMinutes)*time.Minute, models.ImageManager.VerifyActiveImageStatus)
 
+	cron.AddJobAtIntervalsWithStartRun(
+		"AutoImportContainerRegistriesFromKubeserver",
+		time.Hour,
+		models.GetContainerRegistryManager().AutoImportFromKubeserver,
+		true,
+	)
+
 	cron.Start()
 }
 

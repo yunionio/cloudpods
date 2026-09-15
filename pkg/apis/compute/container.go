@@ -266,7 +266,7 @@ type ContainerCommitExternalRegistry struct {
 }
 
 type ContainerCommitInput struct {
-	// Container registry id from kubeserver
+	// Container registry id from glance (or kubeserver during migration)
 	RegistryId       string                           `json:"registry_id"`
 	ExternalRegistry *ContainerCommitExternalRegistry `json:"external_registry"`
 	// image name

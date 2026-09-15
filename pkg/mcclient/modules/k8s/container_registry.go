@@ -27,7 +27,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 var (
@@ -35,8 +34,11 @@ var (
 )
 
 func init() {
+	// Do not modules.Register: container_registries is owned by glance (image service).
+	// Global Register would race with image.ContainerRegistries on resourceKey2 and
+	// can make apigateway proxy /api/v1/container_registries to kubeserver.
+	// Direct callers (climc k8s shell, import-from-kubeserver) still use this manager.
 	ContainerRegistries = NewContainerRegistryManager()
-	modules.Register(ContainerRegistries)
 }
 
 type ContainerRegistryManager struct {
