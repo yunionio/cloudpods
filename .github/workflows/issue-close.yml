@@ -4,13 +4,19 @@ on:
   issues:
     types: [closed]
 
+permissions:
+  issues: write
+
 jobs:
   issue-closed-remove-labels:
     runs-on: ubuntu-latest
     if: "!contains(github.event.issue.labels.*.name, 'stale')"
     steps:
-      - name: Remove statle labels when issue that hasn't stale label is closed
-        uses: actions-cool/issues-helper@v2
-        with:
-          actions: 'remove-labels'
-          labels: 'state/awaiting processing,state/awaiting user feedback'
+      - name: Remove state labels when issue that hasn't stale label is closed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue edit "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --remove-label "state/awaiting processing" \
+            --remove-label "state/awaiting user feedback" || true

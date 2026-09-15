@@ -4,22 +4,30 @@ on:
   issues:
     types: [opened, reopened]
 
+permissions:
+  issues: write
+
 jobs:
   issue-open-add-labels:
     runs-on: ubuntu-latest
+    if: ${{ !github.event.issue.pull_request }}
     steps:
       - name: Add labels
-        uses: actions-cool/issues-helper@v2
-        if: ${{ !github.event.comment.pull_request.pull_request }}
-        with:
-          actions: 'add-labels'
-          labels: 'state/awaiting processing'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue edit "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --add-label "state/awaiting processing"
 
       - name: Remove require reply label
-        uses: actions-cool/issues-helper@v2
-        with:
-          actions: 'remove-labels'
-          labels: 'state/awaiting user feedback,stale'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue edit "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --remove-label "state/awaiting user feedback" \
+            --remove-label "stale" || true
 
   notify-author-comment:
     runs-on: ubuntu-latest

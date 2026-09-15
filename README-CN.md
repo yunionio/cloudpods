@@ -20,7 +20,7 @@ Cloudpods还提供了 **AI 云**，一个面向大语言模型（LLM）推理与
 * 将VMware vSphere虚拟化集群转换为一个可以自服务的私有云平台
 * 在混合云的场景，能够在一个界面访问私有云和公有云
 * 通过一个集中的入口访问分布在多个公有云平台上的多个账号
-* 当前只使用一个云公有云账号但希望将来使用多云的用户
+* 当前只使用一个公有云账号但希望将来使用多云的用户
 * 需要部署和管理 LLM 推理服务及 AI 容器应用，并需要 GPU 调度支持的用户
 
 ## 功能
@@ -29,15 +29,15 @@ Cloudpods还提供了 **AI 云**，一个面向大语言模型（LLM）推理与
 
 ### AI 云
 
-* **AI 推理服务**：部署和管理 LLM 推理实例，支持 GPU 调度、模型挂载与推理服务地址分配。
+* **AI 推理服务**：部署和管理 LLM 推理实例（支持 Ollama、vLLM、SGLang 等），支持 GPU 调度、模型挂载与推理服务地址分配。
 * **AI 应用管理**：一站式部署 LLM 应用编排、智能体助手、图像生成等 AI 容器应用。
 * **模型库**：统一管理模型来源、版本与缓存，支持多实例复用、离线分发，避免重复下载。
 * **模板与镜像**：通过模板定义 CPU/内存/GPU 等资源规格，通过镜像管理容器运行环境，实现标准化交付。
 * **GPU 运维**：GPU 设备自动探测与注册，支持 NVIDIA/CUDA 环境的统一配置与管理。
 
-支持的 AI 应用：
-* AI 推理：Ollama
-* AI 应用：OpenClaw、Dify、ComfyUI
+支持的 AI 工作负载：
+* AI 推理：Ollama、vLLM、SGLang
+* AI 应用：OpenClaw、Dify、ComfyUI、Hermes Agent
 
 ### 支持的云平台
 
@@ -52,29 +52,38 @@ Cloudpods还提供了 **AI 云**，一个面向大语言模型（LLM）推理与
   * 天翼云
   * 移动云
   * 京东云
+  * 火山引擎
+  * 百度云
+  * 金山云
+  * 青云
+  * Oracle Cloud
+  * 联通云
 * 私有云:
   * OpenStack
   * ZStack
-  * Alibaba Cloud Aspara (阿里飞天)
+  * Alibaba Cloud Apsara (阿里飞天)
   * Huawei HCSO (华为HCSO)
   * Nutanix
+  * BingoCloud
+  * OceanBase
 * 本地基础设施资源:
   * 基于 KVM 实现的轻量级私有云
-  * VMWare vSphere vCenter/ESXi
-  * Baremetals (IPMI, Redfish API)
-  * Object storages (Minio, Ceph, XSky)
+  * VMware vSphere vCenter/ESXi
+  * Proxmox VE
+  * 裸金属 (IPMI, Redfish API)
+  * 对象存储 (Minio, Ceph, XSky)
   * NAS (Ceph)
 
 ### 支持的云资源
 
-* Servers: instances, disks, network interfaces, networks, vpcs, storages, hosts, wires, snapshots, snapshot policies, security groups, elastic IPs, SSH keypairs, images
-* Load Balancers: instances, listeners, backend groups, backends, TLS certificates, ACLs
-* Object Storage: buckets, objects
-* NAS: file_systems, access_groups, mount_targets
-* RDS: instances, accounts, backups, databases, parameters, privileges
-* Elastic Cache: instances, accounts, backups, parameters
-* DNS: DNS zones, DNS records
-* VPC: VPCs, VPC peering, inter-VPC network, NAT gateway, DNAT/SNAT rules, route tables, route entries
+* 服务器：实例、磁盘、网卡、网络、VPC、存储、宿主机、二层网络、快照、快照策略、安全组、弹性 IP、SSH 密钥对、镜像
+* 负载均衡：实例、监听、后端服务器组、后端服务器、TLS 证书、访问控制
+* 对象存储：存储桶、对象
+* NAS：文件系统、权限组、挂载点
+* RDS：实例、账号、备份、数据库、参数、权限
+* 弹性缓存：实例、账号、备份、参数
+* DNS：DNS 区域、DNS 记录
+* VPC：VPC、VPC 对等连接、跨 VPC 网络、NAT 网关、DNAT/SNAT 规则、路由表、路由条目
 
 ## 安装部署
 

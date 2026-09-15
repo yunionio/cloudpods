@@ -4,14 +4,42 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
+permissions:
+  issues: write
+
 jobs:
   issue-check-inactive:
     runs-on: ubuntu-latest
     steps:
-      - name: check-inactive
-        uses: actions-cool/issues-helper@v2
-        with:
-          actions: 'check-inactive'
-          inactive-label: 'stale'
-          inactive-day: 30
-          exclude-labels: 'announcement'
+      - name: Label inactive issues as stale
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INACTIVE_DAY: "30"
+          INACTIVE_LABEL: "stale"
+          EXCLUDE_LABEL: "announcement"
+        run: |
+          set -euo pipefail
+          cutoff="$(date -u -d "${INACTIVE_DAY} days ago" +%Y-%m-%dT%H:%M:%SZ)"
+
+          gh issue list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --limit 1000 \
+            --json number,labels,updatedAt \
+          | jq -c \
+            --arg cutoff "$cutoff" \
+            --arg inactive "$INACTIVE_LABEL" \
+            --arg exclude "$EXCLUDE_LABEL" \
+            '
+              .[]
+              | select(.updatedAt < $cutoff)
+              | select([.labels[].name] | index($exclude) | not)
+              | select([.labels[].name] | index($inactive) | not)
+            ' \
+          | while IFS= read -r issue; do
+              number="$(echo "$issue" | jq -r .number)"
+              echo "Marking issue #${number} as ${INACTIVE_LABEL}"
+              gh issue edit "$number" \
+                --repo "${{ github.repository }}" \
+                --add-label "$INACTIVE_LABEL"
+            done
