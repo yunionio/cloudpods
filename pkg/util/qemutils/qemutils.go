@@ -47,6 +47,10 @@ func GetQemu(version string) string {
 	return getQemuCmd(qemuSystemCmd, version)
 }
 
+func GetUsrLocalQemuVersions() []string {
+	return getUsrLocalQemuVersions(qemuSystemCmd)
+}
+
 func GetQemuNbd() string {
 	return getQemuCmd("qemu-nbd", "")
 }
@@ -106,6 +110,25 @@ func getCmdVersion(cmd string) string {
 		return ""
 	}
 	return s[1:]
+}
+
+func getUsrLocalQemuVersions(cmd string) []string {
+	var qemus = make([]string, 0)
+	if files, err := procutils.RemoteReadDir("/usr/local"); err == nil {
+		for i := 0; i < len(files); i++ {
+			if strings.HasPrefix(files[i].Name(), "qemu-") {
+				p := fmt.Sprintf("/usr/local/%s/bin/%s", files[i].Name(), cmd)
+				if _, err := procutils.RemoteStat(p); err == nil {
+					qemuVersion := getQemuVersion(files[i].Name())
+					if qemuVersion == "" {
+						continue
+					}
+					qemus = append(qemus, qemuVersion)
+				}
+			}
+		}
+	}
+	return qemus
 }
 
 func getQemuDefaultCmd(cmd string) string {

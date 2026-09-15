@@ -1999,6 +1999,9 @@ func (s *SKVMGuestInstance) HandleGuestStart(ctx context.Context, userCred mccli
 func (s *SKVMGuestInstance) StartGuest(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
 	var err error
 	params, err = s.prepareEncryptKeyForStart(ctx, userCred, params)
+	if qemuVersion, ok := s.Desc.Metadata["qemu_version"]; ok && !params.Contains("qemu_version") {
+		params.Set("qemu_version", jsonutils.NewString(qemuVersion))
+	}
 	if err != nil {
 		return errors.Wrap(err, "prepareEncryptKeyForStart")
 	}
