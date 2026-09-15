@@ -4,35 +4,48 @@ on:
 
 name: Add issues workflow labels
 
+permissions:
+  issues: write
+
 jobs:
   add-label-if-is-author:
     runs-on: ubuntu-latest
     if: (github.event.issue.user.id == github.event.comment.user.id) && !github.event.issue.pull_request && (github.event.issue.state == 'open')
     steps:
       - name: Add require handle label
-        uses: actions-cool/issues-helper@v2
-        with:
-          actions: 'add-labels'
-          labels: 'state/awaiting processing'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue edit "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --add-label "state/awaiting processing"
 
       - name: Remove require reply label
-        uses: actions-cool/issues-helper@v2
-        with:
-          actions: 'remove-labels'
-          labels: 'state/awaiting user feedback,stale'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue edit "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --remove-label "state/awaiting user feedback" \
+            --remove-label "stale" || true
 
   add-label-if-not-author:
     runs-on: ubuntu-latest
     if: (github.event.issue.user.id != github.event.comment.user.id) && !github.event.issue.pull_request && (github.event.issue.state == 'open') && (!contains(github.event.comment.body, '/keep-state'))
     steps:
-      - name: Add require replay label
-        uses: actions-cool/issues-helper@v2
-        with:
-          actions: 'add-labels'
-          labels: 'state/awaiting user feedback'
+      - name: Add require reply label
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue edit "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --add-label "state/awaiting user feedback"
 
       - name: Remove require handle label
-        uses: actions-cool/issues-helper@v2
-        with:
-          actions: 'remove-labels'
-          labels: 'state/awaiting processing,stale'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue edit "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --remove-label "state/awaiting processing" \
+            --remove-label "stale" || true

@@ -19,7 +19,7 @@ Cloudpods also provides **AI Cloud**, a unified management platform for large la
 * Those who need a compact and fully automatic baremetal lift-cycle management solution
 * Those who want to turn a VMware vSphere virtualization cluster into a private cloud
 * Those who need a cohesive view of both public and private cloud in a hybrid cloud setup
-* Those who need a centric portal to access multiple acccounts from multiple public clouds
+* Those who need a centric portal to access multiple accounts from multiple public clouds
 * Those who is currently using a single cloud account, but will not lose the possibility to adopt multicloud strategy
 * Those who need to deploy and manage LLM inference services and AI container applications with GPU support
 
@@ -29,15 +29,15 @@ See [Introduction](https://www.cloudpods.org/docs/introduction/) for details.
 
 ### AI Cloud
 
-* **AI Inference Services**: Deploy and manage LLM inference instances with GPU scheduling, model mounting, and inference service address allocation.
+* **AI Inference Services**: Deploy and manage LLM inference instances (Ollama, vLLM, SGLang, and more) with GPU scheduling, model mounting, and inference service address allocation.
 * **AI Application Management**: One-stop deployment of LLM application orchestration, agent assistants, image generation, and other AI container applications.
 * **Model Library**: Unified management of model sources, versions, and caches, supporting multi-instance reuse and offline distribution.
 * **Templates and Images**: Define resource specifications (CPU/memory/GPU) through templates, manage container runtime environments through images.
 * **GPU Operations**: Automatic GPU device detection and registration, unified NVIDIA/CUDA environment configuration and management.
 
-Supported AI applications:
-* AI Inference: Ollama
-* AI Applications: OpenClaw, Dify, ComfyUI
+Supported AI workloads:
+* AI Inference: Ollama, vLLM, SGLang
+* AI Applications: OpenClaw, Dify, ComfyUI, Hermes Agent
 
 ### Supported cloud providers
 
@@ -52,15 +52,24 @@ Supported AI applications:
   * Ctyun (China Telecom)
   * ECloud (China Mobile)
   * JDCloud
+  * Volcengine
+  * Baidu Cloud
+  * Kingsoft Cloud
+  * QingCloud
+  * Oracle Cloud
+  * China Unicom Cloud
 * Private Clouds:
   * OpenStack
   * ZStack
-  * Alibaba Cloud Aspara
+  * Alibaba Cloud Apsara
   * Huawei HCSO
   * Nutanix
+  * BingoCloud
+  * OceanBase
 * On-premise resources:
   * Lightweight private cloud built on KVM
-  * VMWare vSphere vCenter/ESXi
+  * VMware vSphere vCenter/ESXi
+  * Proxmox VE
   * Baremetals (IPMI, Redfish API)
   * Object storages (Minio, Ceph, XSky)
   * NAS (Ceph)
@@ -99,7 +108,7 @@ Please check this [issue](https://github.com/yunionio/cloudpods/issues/11427) fo
 
 ## Changelog
 
-See [Relase Notes](https://www.cloudpods.org/en/docs/release-notes/) and [Changelog](https://www.cloudpods.org/en/docs/development/changelog/) for details.
+See [Release Notes](https://www.cloudpods.org/en/docs/release-notes/) and [Changelog](https://www.cloudpods.org/en/docs/development/changelog/) for details.
 
 ## Contribution
 
@@ -112,4 +121,3 @@ Apache License 2.0. See [LICENSE](./LICENSE).
 ## AI-generated doc
 
 [DeepWiki](https://deepwiki.com/yunionio/cloudpods) provides an amazing AI-generated doc of this project, you may refer to it for more detailed and comprehensive understanding of codes.
-
