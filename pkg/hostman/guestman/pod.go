@@ -606,7 +606,7 @@ func (s *sPodGuestInstance) HandleGuestStart(ctx context.Context, userCred mccli
 	return nil, nil
 }
 
-func (s *sPodGuestInstance) HandleStop(ctx context.Context, timeout int64, isForce bool) error {
+func (s *sPodGuestInstance) HandleStop(ctx context.Context, timeout int64, isForce, daemonGuestManualStop bool) error {
 	hostutils.DelayTask(ctx, func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 		err := s.stopPod(ctx, timeout)
 		if err != nil {

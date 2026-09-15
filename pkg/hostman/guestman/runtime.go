@@ -72,7 +72,7 @@ type GuestRuntimeInstance interface {
 	PostUploadStatus(resp *computeapi.HostUploadGuestStatusInput, reason string)
 	HandleGuestStart(ctx context.Context, userCred mcclient.TokenCredential, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
 
-	HandleStop(ctx context.Context, timeout int64, isForce bool) error
+	HandleStop(ctx context.Context, timeout int64, isForce, daemonGuestManualStop bool) error
 
 	LoadDesc() error
 	PostLoad(m *SGuestManager) error
