@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/sets"
 )
 
 func TestGetPort(t *testing.T) {
@@ -205,4 +206,54 @@ func TestListen(t *testing.T) {
 		assert.Empty(t, addr)
 		assert.Error(t, err, "stack not recognized")
 	})
+}
+
+func TestGetPortByRangeBySetsSinglePortUsed(t *testing.T) {
+	const port = 30000
+	var result PortResult
+	var err error
+
+	if !assert.NotPanics(t, func() {
+		result, err = GetPortByRangeBySets(TCP4, port, port, sets.NewInt(port))
+	}) {
+		return
+	}
+
+	assert.Error(t, err)
+	assert.Equal(t, -1, result.Port)
+}
+
+func TestGetPortByRangeBySetsAllPortsUsed(t *testing.T) {
+	const (
+		start = 30000
+		end   = 30001
+	)
+
+	result, err := GetPortByRangeBySets(
+		TCP4,
+		start,
+		end,
+		sets.NewInt(start, end),
+	)
+
+	assert.Error(t, err)
+	assert.Equal(t, -1, result.Port)
+}
+
+func TestGetPortByRangeBySetsIncludesEnd(t *testing.T) {
+	const (
+		start = 30000
+		end   = 30001
+	)
+	usedPorts := sets.NewInt(start)
+
+	// Force probe failure without binding a real port.
+	result, err := GetPortByRangeBySets(Protocol(-1), start, end, usedPorts)
+	if !assert.Error(t, err) {
+		return
+	}
+
+	assert.Equal(t, -1, result.Port)
+	assert.Contains(t, err.Error(), "check random port: 30001")
+	assert.True(t, usedPorts.Has(end), "the end port should be probed")
 }
