@@ -41,6 +41,8 @@ const (
 	QGA_EXEC_DEFAULT_WAIT_TIMEOUT   int = 300
 )
 
+const QgaReadTimeOutErr = errors.Error("qga read timeout")
+
 type QGACallback func([]byte)
 
 type QemuGuestAgent struct {
@@ -276,7 +278,7 @@ func (qga *QemuGuestAgent) execCmd(cmd *monitor.Command, expectResp bool, readTi
 				log.Errorf("failed close qga connection %s", err)
 			}
 		}
-		return nil, errors.Errorf("qga read timeout")
+		return nil, QgaReadTimeOutErr
 	case res = <-resChan:
 		break
 	}
@@ -302,6 +304,14 @@ func (qga *QemuGuestAgent) execCmd(cmd *monitor.Command, expectResp bool, readTi
 func (qga *QemuGuestAgent) GuestPing(timeout int) error {
 	cmd := &monitor.Command{
 		Execute: "guest-ping",
+	}
+	_, err := qga.execCmd(cmd, true, timeout)
+	return err
+}
+
+func (qga *QemuGuestAgent) GuestStop(timeout int) error {
+	cmd := &monitor.Command{
+		Execute: "guest-shutdown",
 	}
 	_, err := qga.execCmd(cmd, true, timeout)
 	return err

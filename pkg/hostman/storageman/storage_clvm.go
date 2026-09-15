@@ -89,7 +89,7 @@ func (s *SCLVMStorage) GetDiskById(diskId string) (IDisk, error) {
 }
 
 func (s *SCLVMStorage) Accessible() error {
-	if err := lvmutils.VgDisplay(s.Path); err != nil {
+	if _, err := lvmutils.VgDisplay(s.Path); err != nil {
 		return err
 	}
 	return nil
