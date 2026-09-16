@@ -951,7 +951,22 @@ func (task *STask) ClearPendingUsage(index int) error {
 }
 
 func (task *STask) GetParams() *jsonutils.JSONDict {
-	return task.Params
+	result := jsonutils.NewDict()
+	if task.Params == nil {
+		return result
+	}
+	copied := task.Params.DeepCopy()
+	copyParams, ok := copied.(*jsonutils.JSONDict)
+	if !ok || copyParams == nil {
+		return result
+	}
+	paramsJsonMap, _ := copyParams.GetMap()
+	for k, v := range paramsJsonMap {
+		if !strings.HasPrefix(k, "__") {
+			result.Set(k, v)
+		}
+	}
+	return result
 }
 
 func (task *STask) GetUserCred() mcclient.TokenCredential {

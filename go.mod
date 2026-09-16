@@ -12,6 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.16
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.4
 	github.com/aws/smithy-go v1.24.2
+	github.com/beevik/etree v1.1.0
 	github.com/benbjohnson/clock v1.0.0
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/c-bata/go-prompt v0.2.4
@@ -51,6 +52,7 @@ require (
 	github.com/lestrrat-go/jwx v1.2.25
 	github.com/lestrrat/go-jwx v0.0.0-20180221005942-b7d4802280ae
 	github.com/libvirt/libvirt-go-xml v5.2.0+incompatible
+	github.com/ma314smith/signedxml v0.0.0-20210628192057-abc5b481ae1c
 	github.com/mark3labs/mcp-go v0.48.0
 	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/mdlayher/arp v0.0.0-20190313224443-98a83c8a2717
@@ -114,7 +116,7 @@ require (
 	moul.io/http2curl/v2 v2.3.0
 	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260904120449-8aa2a5d6ba7a
 	yunion.io/x/executor v0.0.0-20260312022053-f538abd2b005
-	yunion.io/x/jsonutils v1.0.1-0.20260715075349-615cfb44ff7c
+	yunion.io/x/jsonutils v1.0.1-0.20260916031541-8e0c8de6eb2e
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
 	yunion.io/x/pkg v1.10.4-0.20260722094907-0da70a14584f
@@ -190,7 +192,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.38.6 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/basgys/goxml2json v1.1.1-0.20181031222924-996d9fc8d313 // indirect
-	github.com/beevik/etree v1.1.0 // indirect
 	github.com/benbjohnson/immutable v0.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.2.2 // indirect
@@ -287,7 +288,6 @@ require (
 	github.com/lestrrat-go/option v1.0.0 // indirect
 	github.com/lestrrat/go-pdebug v0.0.0-20180220043741-569c97477ae8 // indirect
 	github.com/lufia/plan9stats v0.0.0-20220913051719-115f729f3c8c // indirect
-	github.com/ma314smith/signedxml v0.0.0-20210628192057-abc5b481ae1c // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.11 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect

@@ -48,7 +48,7 @@ func (s *sJsonMarshalSession) marshalSlice(val reflect.Value, info *reflectutils
 	objs := make([]JSONObject, 0)
 	for i := 0; i < val.Len(); i += 1 {
 		val := s.marshalValue(val.Index(i), nil, omitEmpty)
-		if val != nil {
+		if !gotypes.IsNil(val) {
 			objs = append(objs, val)
 		}
 	}
@@ -84,7 +84,7 @@ func (s *sJsonMarshalSession) marshalMap(val reflect.Value, info *reflectutils.S
 	for i := 0; i < len(keys); i += 1 {
 		key := keys[i]
 		val := s.marshalValue(val.MapIndex(key), nil, omitEmpty)
-		if val != nil {
+		if !gotypes.IsNil(val) {
 			objPairs = append(objPairs, JSONPair{key: fmt.Sprintf("%s", key), val: val})
 		}
 	}
@@ -133,7 +133,7 @@ func (s *sJsonMarshalSession) struct2JSONPairs(val reflect.Value, omitEmpty bool
 			continue
 		}
 		val := s.marshalValue(fields[i].Value, jsonInfo, omitEmpty)
-		if val != nil {
+		if !gotypes.IsNil(val) {
 			objPair := JSONPair{key: key, val: val}
 			objPairs = append(objPairs, objPair)
 		}
