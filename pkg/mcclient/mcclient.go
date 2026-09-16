@@ -87,6 +87,7 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
 			}, // 不自动处理重定向请求
+			Timeout: time.Duration(timeout) * time.Second,
 		},
 	}
 
