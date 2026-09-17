@@ -40,8 +40,11 @@ func unhex(c rune) byte {
 	return 0
 }
 
+// shouldEncode reports whether c must be escaped by EncodeGoogleLabel.
+// Only runes in [0, 0xff] can be represented as "_" followed by two hex
+// digits, so anything above that range is written through unchanged.
 func shouldEncode(c rune) bool {
-	if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c > 256 {
+	if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c > 0xff {
 		return false
 	}
 	return true
@@ -69,7 +72,7 @@ func DecodeGoogleLable(label string) string {
 	var t strings.Builder
 	for j := 0; j < len(s); {
 		c := s[j]
-		if c == rune('_') && j+2 <= len(s) && ishex(s[j+1]) && ishex(s[j+2]) {
+		if c == rune('_') && j+2 < len(s) && ishex(s[j+1]) && ishex(s[j+2]) {
 			t.WriteByte(unhex(s[j+1])<<4 | unhex(s[j+2]))
 			j += 3
 		} else {

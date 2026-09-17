@@ -48,7 +48,7 @@ func (s *sJsonMarshalSession) marshalSlice(val reflect.Value, info *reflectutils
 	objs := make([]JSONObject, 0)
 	for i := 0; i < val.Len(); i += 1 {
 		val := s.marshalValue(val.Index(i), nil, omitEmpty)
-		if val != nil {
+		if !gotypes.IsNil(val) {
 			objs = append(objs, val)
 		}
 	}
@@ -84,7 +84,7 @@ func (s *sJsonMarshalSession) marshalMap(val reflect.Value, info *reflectutils.S
 	for i := 0; i < len(keys); i += 1 {
 		key := keys[i]
 		val := s.marshalValue(val.MapIndex(key), nil, omitEmpty)
-		if val != nil {
+		if !gotypes.IsNil(val) {
 			objPairs = append(objPairs, JSONPair{key: fmt.Sprintf("%s", key), val: val})
 		}
 	}
@@ -128,12 +128,12 @@ func (s *sJsonMarshalSession) struct2JSONPairs(val reflect.Value, omitEmpty bool
 			continue
 		}
 		key := jsonInfo.MarshalName()
-		if deprecatedBy, ok := fields[i].Info.Tags[TAG_DEPRECATED_BY]; ok {
+		if deprecatedBy, ok := fields[i].Info.Tag(TAG_DEPRECATED_BY); ok {
 			depFields[key] = deprecatedBy
 			continue
 		}
 		val := s.marshalValue(fields[i].Value, jsonInfo, omitEmpty)
-		if val != nil {
+		if !gotypes.IsNil(val) {
 			objPair := JSONPair{key: key, val: val}
 			objPairs = append(objPairs, objPair)
 		}
@@ -181,6 +181,9 @@ func marshalFloat64(val float64, info *reflectutils.SStructFieldInfo, bit int, o
 		return nil
 	} else if info != nil && info.ForceString {
 		return NewString(fmt.Sprintf("%f", val))
+	} else if !isFiniteFloat(val) {
+		// nan and +-inf have no json representation
+		return JSONNull
 	} else {
 		return NewFloat64(val)
 	}
@@ -191,6 +194,9 @@ func marshalFloat32(val float32, info *reflectutils.SStructFieldInfo, bit int, o
 		return nil
 	} else if info != nil && info.ForceString {
 		return NewString(fmt.Sprintf("%f", val))
+	} else if !isFiniteFloat(float64(val)) {
+		// nan and +-inf have no json representation
+		return JSONNull
 	} else {
 		return NewFloat32(val)
 	}
@@ -243,6 +249,13 @@ func marshalTime(val time.Time, info *reflectutils.SStructFieldInfo, omitEmpty b
 	}
 }
 
+// Marshal converts an object to a JSONObject, which can be written out with
+// String.
+//
+// A cyclic object is written with the node reference syntax, that is the
+// ___jnid_ key inside an object plus a bare <N> value referring to it.  That
+// syntax is not standard json and its result is not a valid json document,
+// and Parse does not resolve it: read such a document back with ParseTrusted.
 func Marshal(obj interface{}) JSONObject {
 	if obj == nil {
 		return JSONNull

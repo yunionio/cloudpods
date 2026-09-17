@@ -289,7 +289,7 @@ func (this *ArgumentParser) addStructArgument(prefix string, tpVal reflect.Value
 	sets := reflectutils.FetchAllStructFieldValueSetForWrite(tpVal)
 	for i := range sets {
 		if sets[i].Value.Kind() == reflect.Struct && sets[i].Value.Type() != gotypes.TimeType {
-			tagMap := sets[i].Info.Tags
+			tagMap := sets[i].Info.TagMap()
 			if _, ok := tagMap[reflectutils.TAG_DEPRECATED_BY]; ok {
 				// deprecated field, ignore
 				return nil
@@ -314,7 +314,7 @@ func (this *ArgumentParser) addStructArgument(prefix string, tpVal reflect.Value
 }
 
 func (this *ArgumentParser) addArgument(prefix string, fv reflect.Value, info *reflectutils.SStructFieldInfo) error {
-	tagMap := info.Tags
+	tagMap := info.TagMap()
 	if _, ok := tagMap[reflectutils.TAG_DEPRECATED_BY]; ok {
 		// deprecated field, ignore
 		return nil
