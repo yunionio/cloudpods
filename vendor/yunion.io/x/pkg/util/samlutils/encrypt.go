@@ -76,6 +76,9 @@ func (key EncryptedKey) decryptKey(privateKey *rsa.PrivateKey) ([]byte, error) {
 	encAlg := key.EncryptionMethod.Algorithm
 	switch encAlg {
 	case "http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p":
+		if key.EncryptionMethod.DigestMethod == nil {
+			return nil, errors.Wrap(errors.ErrInvalidFormat, "missing DigestMethod")
+		}
 		var shaAlg hash.Hash
 		hashAlg := key.EncryptionMethod.DigestMethod.Algorithm
 		switch hashAlg {
@@ -99,6 +102,9 @@ func (data EncryptedData) decryptData(privateKey *rsa.PrivateKey) ([]byte, error
 	if err != nil {
 		return nil, errors.Wrap(err, "base64.StdEncoding.DecodeString")
 	}
+	if data.KeyInfo.EncryptedKey == nil {
+		return nil, errors.Wrap(errors.ErrInvalidFormat, "missing KeyInfo.EncryptedKey")
+	}
 	key, err := data.KeyInfo.EncryptedKey.decryptKey(privateKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "KeyInfo.EncryptedKey.decryptKey")
@@ -112,7 +118,36 @@ func (data EncryptedData) decryptData(privateKey *rsa.PrivateKey) ([]byte, error
 	}
 }
 
+// stripPKCS7Padding removes the padding that XML Encryption appends to the
+// last block of a CBC payload.
+//
+// Data that does not carry valid padding is returned unchanged rather than
+// reported, so that this cannot be used to tell one payload from another.
+func stripPKCS7Padding(data []byte, blockSize int) []byte {
+	if len(data) == 0 || len(data)%blockSize != 0 {
+		return data
+	}
+	n := int(data[len(data)-1])
+	if n == 0 || n > blockSize || n > len(data) {
+		return data
+	}
+	for _, b := range data[len(data)-n:] {
+		if int(b) != n {
+			return data
+		}
+	}
+	return data[:len(data)-n]
+}
+
 func decryptAesCbc(key []byte, secret []byte) ([]byte, error) {
+	// The payload is an IV followed by whole ciphertext blocks. Anything
+	// shorter, or not a whole number of blocks, cannot be decrypted.
+	if len(secret) < 2*aes.BlockSize || len(secret)%aes.BlockSize != 0 {
+		return nil, errors.Wrapf(errors.ErrInvalidFormat,
+			"ciphertext of %d bytes is not a whole number of %d byte blocks preceded by an IV",
+			len(secret), aes.BlockSize)
+	}
+
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, errors.Wrap(err, "aes.NewCipher")
@@ -125,5 +160,5 @@ func decryptAesCbc(key []byte, secret []byte) ([]byte, error) {
 
 	decrypter.CryptBlocks(data, data)
 
-	return data, nil
+	return stripPKCS7Padding(data, aes.BlockSize), nil
 }

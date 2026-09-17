@@ -35,11 +35,20 @@ func (fs FileSystem) Open(path string) (http.File, error) {
 	}
 
 	s, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
 	if s.IsDir() {
 		index := strings.TrimSuffix(path, "/") + "/index.html"
-		if _, err := fs.fs.Open(index); err != nil {
+		indexFile, err := fs.fs.Open(index)
+		if err != nil {
+			// Without an index file a directory must not be listed.
+			f.Close()
 			return nil, err
 		}
+		// The index file is only checked for; it is not the file returned.
+		indexFile.Close()
 	}
 
 	return f, nil

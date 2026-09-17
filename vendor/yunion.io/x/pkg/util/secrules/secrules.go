@@ -402,6 +402,20 @@ func (rule *SecurityRule) GetPortsString() string {
 	return ""
 }
 
+// cidrMaskLen returns the prefix length and the size in bits of the address
+// family that a CIDR string normalises to.
+//
+// The mask of the IPNet a rule holds cannot be used for this directly: a
+// v4-mapped IPv6 CIDR stringifies as IPv4, so its raw mask is expressed in the
+// 128 bit space and does not describe the string it is printed as.
+func cidrMaskLen(cidr string) (int, int) {
+	_, n, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return 0, 0
+	}
+	return n.Mask.Size()
+}
+
 func (rule *SecurityRule) String() (result string) {
 	s := []string{}
 	s = append(s, string(rule.Direction)+":"+string(rule.Action))
@@ -409,13 +423,13 @@ func (rule *SecurityRule) String() (result string) {
 	if rule.IPNet != nil {
 		cidr := rule.IPNet.String()
 		if regutils.MatchCIDR(cidr) {
-			if ones, _ := rule.IPNet.Mask.Size(); ones < 32 {
+			if ones, bits := cidrMaskLen(cidr); ones < bits {
 				s = append(s, cidr)
 			} else {
 				s = append(s, rule.IPNet.IP.String())
 			}
 		} else if regutils.MatchCIDR6(cidr) {
-			if ones, _ := rule.IPNet.Mask.Size(); ones < 128 {
+			if ones, bits := cidrMaskLen(cidr); ones < bits {
 				s = append(s, cidr)
 			} else {
 				s = append(s, rule.IPNet.IP.String())

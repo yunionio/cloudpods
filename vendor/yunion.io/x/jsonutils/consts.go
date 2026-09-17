@@ -20,4 +20,7 @@ import (
 
 const (
 	TAG_DEPRECATED_BY = reflectutils.TAG_DEPRECATED_BY
+
+	// maxParseDepth is the maximum nesting level accepted by the parser
+	maxParseDepth = 10000
 )
