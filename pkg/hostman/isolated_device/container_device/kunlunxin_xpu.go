@@ -78,7 +78,13 @@ func (m *kunlunxinXPUManager) NewContainerDevices(input *hostapi.ContainerCreate
 
 func (m *kunlunxinXPUManager) GetContainerExtraConfigures(devs []*hostapi.ContainerDevice) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
 	indices := collectKunlunxinXpuVisibleIndices(devs)
-	return buildKunlunxinXpuExtraConfigures(indices, kunlunxinXreHome(), hygonPathExists)
+	return buildKunlunxinXpuExtraConfigures(
+		indices,
+		kunlunxinXreHome(),
+		kunlunxinXpuSmiPath(),
+		hygonPathExists,
+		procutils.RemoteReadlink,
+	)
 }
 
 type kunlunxinXPU struct {
