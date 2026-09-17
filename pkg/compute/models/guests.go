@@ -1894,6 +1894,10 @@ func (manager *SGuestManager) validateCreateData(
 	var osProf osprofile.SOSProfile
 	hypervisor = input.Hypervisor
 	if hypervisor != api.HYPERVISOR_POD {
+		if hypervisor == api.HYPERVISOR_BAREMETAL {
+			// enable deploy telegraf
+			input.DeployTelegraf = true
+		}
 		if len(input.Disks) == 0 && input.Cdrom == "" {
 			return nil, httperrors.NewInputParameterError("No bootable disk information provided")
 		}

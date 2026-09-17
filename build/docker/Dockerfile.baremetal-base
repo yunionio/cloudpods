@@ -1,6 +1,8 @@
 #RUN yum install -y https://iso.yunion.cn/vm-images/baremetal-pxerom-1.1.0-21092209.x86_64.rpm
 #RUN yum install -y http://192.168.23.50:8083/baremetal-pxerom-1.1.0-21092209.x86_64.rpm
 FROM registry.cn-beijing.aliyuncs.com/yunionio/yunionos:v4.0.0-20251203.0 as yunionos
+FROM registry.cn-beijing.aliyuncs.com/yunionio/telegraf:v1.36-20260227.0 AS telegraf_builder
+FROM registry.cn-beijing.aliyuncs.com/yunionio/supervise:v2.0 AS supervise_builder
 
 FROM registry.cn-beijing.aliyuncs.com/cloudpods/centos:8 as grub-stage
 
@@ -87,3 +89,8 @@ COPY --from=yunionos /yunionos/x86_64/libutil.c32 /opt/cloud/yunion/baremetal
 COPY --from=yunionos /yunionos/x86_64/lpxelinux.0 /opt/cloud/yunion/baremetal
 COPY --from=yunionos /yunionos/x86_64/menu.c32 /opt/cloud/yunion/baremetal
 COPY --from=yunionos /yunionos/x86_64/pxelinux.0 /opt/cloud/yunion/baremetal
+
+# copy telegraf files
+COPY --from=telegraf_builder /telegraf/telegraf /opt/yunion/bin/
+COPY --from=telegraf_builder /telegraf/telegraf.exe /opt/yunion/bin/
+COPY --from=supervise_builder /admin/daemontools-0.76/command/supervise /opt/yunion/bin/

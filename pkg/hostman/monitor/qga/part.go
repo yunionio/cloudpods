@@ -536,6 +536,18 @@ func (*QemuGuestAgentPartition) SupportSerialPorts() bool {
 	return false
 }
 
+func (p *QemuGuestAgentPartition) CopyFile(src, dest string) error {
+	return nil
+}
+
+func (p *QemuGuestAgentPartition) ExecCommand(name string, args ...string) ([]string, error) {
+	_, stdout, stderr, err := p.agent.CommandWithTimeout(name, args, nil, "", true, -1)
+	if err != nil {
+		return nil, errors.Wrap(err, "CommandWithTimeout")
+	}
+	return []string{stdout, stderr}, nil
+}
+
 func (*QemuGuestAgentPartition) GetPartDev() string {
 	return "QGA"
 }

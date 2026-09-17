@@ -827,15 +827,19 @@ func (d *sLinuxRootFs) DeployTelegraf(config string) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "write telegraf config")
 	}
-	output, err := procutils.NewCommand("cp", "-f", TELEGRAF_BINARY_PATH, path.Join(part.GetMountPath(), cloudMonitorPath)).Output()
+	telegrafBin := path.Base(TELEGRAF_BINARY_PATH)
+	err = part.CopyFile(TELEGRAF_BINARY_PATH, path.Join(cloudMonitorPath, telegrafBin))
 	if err != nil {
-		return false, errors.Wrapf(err, "cp telegraf failed %s", output)
+		return false, errors.Wrap(err, "copy telegraf file")
 	}
+
 	// supervise
-	output, err = procutils.NewCommand("cp", "-f", SUPERVISE_BINARY_PATH, path.Join(part.GetMountPath(), cloudMonitorPath)).Output()
+	superviseBin := path.Base(SUPERVISE_BINARY_PATH)
+	err = part.CopyFile(SUPERVISE_BINARY_PATH, path.Join(cloudMonitorPath, superviseBin))
 	if err != nil {
-		return false, errors.Wrapf(err, "cp supervise failed %s", output)
+		return false, errors.Wrap(err, "copy supervise file")
 	}
+
 	err = part.FilePutContents(
 		path.Join(telegrafPath, "run"),
 		fmt.Sprintf("#!/bin/sh\n%s/telegraf -config %s/telegraf.conf", cloudMonitorPath, cloudMonitorPath),
