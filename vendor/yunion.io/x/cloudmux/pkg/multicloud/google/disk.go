@@ -220,6 +220,130 @@ func (disk *SDisk) GetProjectId() string {
 	return disk.storage.zone.region.GetProjectId()
 }
 
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func diskTypeName(storageType string) string {
+	if idx := strings.LastIndex(storageType, "/"); idx >= 0 {
+		return storageType[idx+1:]
+	}
+	return storageType
+}
+
+func inRange(val, minVal, maxVal int) bool {
+	return val >= minVal && val <= maxVal
+}
+
+// hyperdiskBalancedIopsRange 计算 balanced / balanced-ha 的 IOPS 区间
+func hyperdiskBalancedIopsRange(sizeGb, maxIopsCap int) (minIops, maxIops int, ok bool) {
+	switch {
+	case sizeGb == 4:
+		return 2000, 2000, true
+	case sizeGb == 5:
+		return 2500, 2500, true
+	case sizeGb >= 6:
+		return 3000, minInt(500*sizeGb, maxIopsCap), true
+	default:
+		return 0, 0, false
+	}
+}
+
+func hyperdiskBalancedDefaultIops(sizeGb, maxIopsCap int) int {
+	if sizeGb <= 6 {
+		return 500 * sizeGb
+	}
+	// 6 GiB ~ 26.666667 TiB ≈ 27307 GiB
+	if sizeGb <= 27307 {
+		return minInt(6*sizeGb+3000, maxIopsCap)
+	}
+	return maxIopsCap
+}
+
+func hyperdiskBalancedThroughputRange(iops int) (minTp, maxTp int) {
+	return maxInt(140, iops/256), minInt(2400, iops/4)
+}
+
+func setHyperdiskBalancedPerformance(params map[string]interface{}, sizeGb, iops, throughput, maxIopsCap int) {
+	minIops, maxIops, ok := hyperdiskBalancedIopsRange(sizeGb, maxIopsCap)
+	if !ok {
+		return
+	}
+	effectiveIops := iops
+	if iops > 0 && inRange(iops, minIops, maxIops) {
+		params["provisionedIops"] = iops
+	} else if throughput > 0 {
+		effectiveIops = hyperdiskBalancedDefaultIops(sizeGb, maxIopsCap)
+	} else {
+		return
+	}
+	if throughput > 0 {
+		minTp, maxTp := hyperdiskBalancedThroughputRange(effectiveIops)
+		if inRange(throughput, minTp, maxTp) {
+			params["provisionedThroughput"] = throughput
+		}
+	}
+}
+
+// setDiskProvisionedPerformance 按 GCP 盘型区间+容量公式写入 IOPS/吞吐，超范围或不支持则丢弃该参数
+func setDiskProvisionedPerformance(params map[string]interface{}, storageType string, sizeGb, iops, throughput int) {
+	if iops <= 0 && throughput <= 0 {
+		return
+	}
+	diskType := diskTypeName(storageType)
+	switch diskType {
+	case api.STORAGE_GOOGLE_PD_EXTREME:
+		if iops > 0 && inRange(iops, 2500, 120000) {
+			params["provisionedIops"] = iops
+		}
+	case api.STORAGE_GOOGLE_HYPERDISK_EXTREME:
+		if sizeGb < 64 || iops <= 0 {
+			return
+		}
+		minIops := 2 * sizeGb
+		maxIops := 350000
+		if sizeGb <= 291 {
+			maxIops = 1200 * sizeGb
+		}
+		if inRange(iops, minIops, maxIops) {
+			params["provisionedIops"] = iops
+		}
+	case api.STORAGE_GOOGLE_HYPERDISK_BALANCED:
+		setHyperdiskBalancedPerformance(params, sizeGb, iops, throughput, 160000)
+	case "hyperdisk-balanced-high-availability":
+		setHyperdiskBalancedPerformance(params, sizeGb, iops, throughput, 100000)
+	case api.STORAGE_GOOGLE_HYPERDISK_THROUGHPUT:
+		if throughput <= 0 || sizeGb < 2048 || sizeGb > 32768 {
+			return
+		}
+		sizeTiB := float64(sizeGb) / 1024.0
+		minTp := maxInt(20, int(5*sizeTiB))
+		maxTp := minInt(int(90*sizeTiB), 2400)
+		if inRange(throughput, minTp, maxTp) {
+			params["provisionedThroughput"] = throughput
+		}
+	case api.STORAGE_GOOGLE_HYPERDISK_ML:
+		if throughput <= 0 {
+			return
+		}
+		minTp := maxInt(400, int(0.12*float64(sizeGb)))
+		maxTp := minInt(2097152, 1600*sizeGb)
+		if inRange(throughput, minTp, maxTp) {
+			params["provisionedThroughput"] = throughput
+		}
+	}
+}
+
 func (region *SRegion) CreateDisk(zone string, storageType string, opts *cloudprovider.DiskCreateConfig) (*SDisk, error) {
 	if !strings.HasPrefix(storageType, GOOGLE_COMPUTE_DOMAIN) {
 		storageType = fmt.Sprintf("projects/%s/zones/%s/diskTypes/%s", region.GetProjectId(), zone, storageType)
@@ -240,6 +364,7 @@ func (region *SRegion) CreateDisk(zone string, storageType string, opts *cloudpr
 	if len(opts.ImageId) > 0 {
 		body["sourceImage"] = opts.ImageId
 	}
+	setDiskProvisionedPerformance(body, storageType, opts.SizeGb, opts.Iops, opts.Throughput)
 	disk := &SDisk{}
 	resource := fmt.Sprintf("zones/%s/disks", zone)
 	err := region.Insert(resource, jsonutils.Marshal(body), disk)

@@ -24,34 +24,89 @@ const (
 	TAG_OLD_DEPRECATED_BY = "deprecated-by"
 )
 
+// expandAmbiguousPrefix prepends the prefix given by the
+// TAG_AMBIGUOUS_PREFIX tag to the fields sharing a name with another field.
+//
+// Expanding a prefix can itself collide with a name that is already in use, so
+// the expansion is repeated until the names settle.  A field whose expanded
+// name would take over a name owned by a field outside its own ambiguous
+// group keeps its original name, so that the expansion never introduces a new
+// ambiguity.
 func expandAmbiguousPrefix(fields SStructFieldValueSet) SStructFieldValueSet {
-	keyIndexMap := make(map[string][]int)
+	prefixed := make(map[int]bool)
+	for {
+		keyIndexMap := make(map[string][]int)
+		for i := range fields {
+			if fields[i].Info.Ignore {
+				continue
+			}
+			key := fields[i].Info.MarshalName()
+			values, ok := keyIndexMap[key]
+			if !ok {
+				values = make([]int, 0, 2)
+			}
+			keyIndexMap[key] = append(values, i)
+		}
+		changed := false
+		for _, indexes := range keyIndexMap {
+			if len(indexes) < 2 {
+				continue
+			}
+			// ambiguous found
+			for _, idx := range indexes {
+				if prefixed[idx] {
+					continue
+				}
+				amPrefix, ok := fields[idx].Info.Tags[TAG_AMBIGUOUS_PREFIX]
+				if !ok {
+					continue
+				}
+				expanded := fmt.Sprintf("%s%s", amPrefix, fields[idx].Info.Name)
+				if takenByOther(fields, expanded, indexes) {
+					continue
+				}
+				fields[idx].Info.Name = expanded
+				if depBy, ok := fields[idx].Info.Tags[TAG_DEPRECATED_BY]; ok {
+					fields[idx].Info.Tags[TAG_DEPRECATED_BY] = fmt.Sprintf("%s%s", amPrefix, depBy)
+				}
+				if depBy, ok := fields[idx].Info.Tags[TAG_OLD_DEPRECATED_BY]; ok {
+					fields[idx].Info.Tags[TAG_OLD_DEPRECATED_BY] = fmt.Sprintf("%s%s", amPrefix, depBy)
+				}
+				for i := range fields[idx].Info.Aliases {
+					fields[idx].Info.Aliases[i] = fmt.Sprintf("%s%s", amPrefix, fields[idx].Info.Aliases[i])
+				}
+				prefixed[idx] = true
+				changed = true
+			}
+		}
+		if !changed {
+			break
+		}
+	}
+	return fields
+}
+
+// takenByOther reports whether name is already used by a field outside group
+func takenByOther(fields SStructFieldValueSet, name string, group []int) bool {
 	for i := range fields {
 		if fields[i].Info.Ignore {
 			continue
 		}
-		key := fields[i].Info.MarshalName()
-		values, ok := keyIndexMap[key]
-		if !ok {
-			values = make([]int, 0, 2)
+		if fields[i].Info.MarshalName() != name {
+			continue
 		}
-		keyIndexMap[key] = append(values, i)
-	}
-	for _, indexes := range keyIndexMap {
-		if len(indexes) > 1 {
-			// ambiguous found
-			for _, idx := range indexes {
-				if amPrefix, ok := fields[idx].Info.Tags[TAG_AMBIGUOUS_PREFIX]; ok {
-					fields[idx].Info.Name = fmt.Sprintf("%s%s", amPrefix, fields[idx].Info.Name)
-					if depBy, ok := fields[idx].Info.Tags[TAG_DEPRECATED_BY]; ok {
-						fields[idx].Info.Tags[TAG_DEPRECATED_BY] = fmt.Sprintf("%s%s", amPrefix, depBy)
-					}
-					if depBy, ok := fields[idx].Info.Tags[TAG_OLD_DEPRECATED_BY]; ok {
-						fields[idx].Info.Tags[TAG_OLD_DEPRECATED_BY] = fmt.Sprintf("%s%s", amPrefix, depBy)
-					}
-				}
-			}
+		if !containsIndex(group, i) {
+			return true
 		}
 	}
-	return fields
+	return false
+}
+
+func containsIndex(indexes []int, idx int) bool {
+	for _, i := range indexes {
+		if i == idx {
+			return true
+		}
+	}
+	return false
 }

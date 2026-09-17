@@ -19,6 +19,7 @@ import (
 	"reflect"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 )
 
 /*
@@ -96,13 +97,19 @@ func fetchStructFieldNameValues(dataType reflect.Type, dataValue reflect.Value, 
 }
 */
 
+// FindStructFieldValue returns the field of dataValue named name.  The field
+// has to be writable, so a field reached through a nil embedded pointer is
+// only returned once that pointer has been put in place, which this does.
 func FindStructFieldValue(dataValue reflect.Value, name string) (reflect.Value, bool) {
 	set := FetchStructFieldValueSet(dataValue)
-	val, find := set.GetValue(name)
-	if find && val.CanSet() {
-		return val, true
+	idx := set.GetStructFieldIndex(name)
+	if idx < 0 {
+		return reflect.Value{}, false
 	}
-	return reflect.Value{}, false
+	if !set[idx].adoptEmbeddedStruct() || !set[idx].Value.CanSet() {
+		return reflect.Value{}, false
+	}
+	return set[idx].Value, true
 }
 
 func FindStructFieldInterface(dataValue reflect.Value, name string) (interface{}, bool) {
@@ -111,33 +118,51 @@ func FindStructFieldInterface(dataValue reflect.Value, name string) (interface{}
 }
 
 func FillEmbededStructValue(container reflect.Value, embed reflect.Value) bool {
+	if !container.IsValid() || container.Kind() != reflect.Struct || !embed.IsValid() {
+		return false
+	}
 	containerType := container.Type()
+	embedType := embed.Type()
 	for i := 0; i < containerType.NumField(); i += 1 {
 		fieldType := containerType.Field(i)
-		fieldValue := container.Field(i)
-		if fieldType.Type.Kind() == reflect.Struct && fieldType.Anonymous {
-			if fieldType.Type == embed.Type() {
-				fieldValue.Set(embed)
-				return true
-			} else {
-				filled := FillEmbededStructValue(fieldValue, embed)
-				if filled {
-					return true
-				}
-			}
+		if fieldType.Type.Kind() != reflect.Struct || !fieldType.Anonymous {
+			continue
 		}
-
+		fieldValue := container.Field(i)
+		if !fieldValue.CanSet() {
+			// an unexported embedded struct can not be assigned to, and
+			// neither can anything inside it
+			continue
+		}
+		if fieldType.Type == embedType {
+			fieldValue.Set(embed)
+			return true
+		}
+		if FillEmbededStructValue(fieldValue, embed) {
+			return true
+		}
 	}
 	return false
 }
 
+// SetStructFieldValue sets the field of structValue named fieldName to val.
+// A field reached through a nil embedded pointer is written only once that
+// pointer has been put in place, which this does.
 func SetStructFieldValue(structValue reflect.Value, fieldName string, val reflect.Value) bool {
 	set := FetchStructFieldValueSet(structValue)
-	target, find := set.GetValue(fieldName)
-	if !find {
+	idx := set.GetStructFieldIndex(fieldName)
+	if idx < 0 {
 		return false
 	}
+	if !set[idx].adoptEmbeddedStruct() {
+		return false
+	}
+	target := set[idx].Value
 	if !target.CanSet() {
+		return false
+	}
+	if !val.IsValid() || !val.Type().AssignableTo(target.Type()) {
+		// report a failure instead of letting reflect.Value.Set panic
 		return false
 	}
 	target.Set(val)
@@ -161,15 +186,34 @@ func ExpandInterface(val interface{}) []interface{} {
 func getAnonymouStructPointer(structValue reflect.Value, targetType reflect.Type) interface{} {
 	structType := structValue.Type()
 	if structType == targetType {
+		if !structValue.CanInterface() {
+			// the value was reached through an unexported field
+			return nil
+		}
 		return structValue.Addr().Interface()
 	}
 	for i := 0; i < structValue.NumField(); i += 1 {
 		fieldType := structType.Field(i)
-		if fieldType.Anonymous && fieldType.Type.Kind() == reflect.Struct {
-			ptr := getAnonymouStructPointer(structValue.Field(i), targetType)
-			if ptr != nil {
-				return ptr
+		if !fieldType.Anonymous || !gotypes.IsFieldExportable(fieldType.Name) {
+			// an unexported embedded struct can not be pointed at
+			continue
+		}
+		fieldValue := structValue.Field(i)
+		fieldT := fieldType.Type
+		if fieldT.Kind() == reflect.Ptr {
+			// an embedded pointer that is nil has nothing to point at
+			if fieldValue.IsNil() {
+				continue
 			}
+			fieldValue = fieldValue.Elem()
+			fieldT = fieldT.Elem()
+		}
+		if fieldT.Kind() != reflect.Struct {
+			continue
+		}
+		ptr := getAnonymouStructPointer(fieldValue, targetType)
+		if ptr != nil {
+			return ptr
 		}
 	}
 	return nil
@@ -214,11 +258,18 @@ func StructContains(type1 reflect.Type, type2 reflect.Type) bool {
 	}
 	for i := 0; i < type1.NumField(); i += 1 {
 		field := type1.Field(i)
-		if field.Anonymous && field.Type.Kind() == reflect.Struct {
-			contains := StructContains(field.Type, type2)
-			if contains {
-				return true
-			}
+		if !field.Anonymous {
+			continue
+		}
+		fieldType := field.Type
+		if fieldType.Kind() == reflect.Ptr {
+			fieldType = fieldType.Elem()
+		}
+		if fieldType.Kind() != reflect.Struct {
+			continue
+		}
+		if StructContains(fieldType, type2) {
+			return true
 		}
 	}
 	return false

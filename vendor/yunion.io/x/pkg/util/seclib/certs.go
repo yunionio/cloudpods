@@ -32,11 +32,21 @@ func CleanCertificate(cert string) string {
 	return cert
 }
 
+// DecodePrivateKey parses a PEM encoded RSA private key. Both PKCS#8 and
+// PKCS#1 encodings are accepted. An error is returned for input that is not
+// PEM encoded, or that holds a key which is not RSA.
 func DecodePrivateKey(keyString []byte) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode(keyString)
+	if block == nil {
+		return nil, errors.Wrap(errors.ErrInvalidFormat, "not a valid PEM block")
+	}
 	privKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err == nil {
-		return privKey.(*rsa.PrivateKey), nil
+		rsaKey, ok := privKey.(*rsa.PrivateKey)
+		if !ok {
+			return nil, errors.Wrapf(errors.ErrInvalidFormat, "private key is %T, not RSA", privKey)
+		}
+		return rsaKey, nil
 	}
 	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err == nil {

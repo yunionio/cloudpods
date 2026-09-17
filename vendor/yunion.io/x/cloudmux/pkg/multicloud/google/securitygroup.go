@@ -15,6 +15,7 @@
 package google
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"regexp"
 	"strings"
@@ -202,14 +203,16 @@ func normalizeString(input string) string {
 	cleaned = regexp.MustCompile(`-$`).ReplaceAllString(cleaned, "")
 
 	// 5. 限制长度为63个字符（域名标签的最大长度）
+	// 超长时保留前缀并追加原文 hash，避免仅截断前缀导致不同名称冲突
 	if len(cleaned) > 63 {
-		cleaned = cleaned[:63]
-		// 确保截断后不以连字符结尾
-		cleaned = regexp.MustCompile(`-$`).ReplaceAllString(cleaned, "")
-		// 如果截断后为空，添加一个数字1
-		if len(cleaned) == 0 {
-			cleaned = "1"
+		sum := sha1.Sum([]byte(cleaned))
+		suffix := fmt.Sprintf("%x", sum[:4]) // 8 hex chars
+		prefixLen := 63 - 1 - len(suffix)
+		prefix := strings.TrimRight(cleaned[:prefixLen], "-")
+		if len(prefix) == 0 {
+			prefix = "a"
 		}
+		cleaned = prefix + "-" + suffix
 	}
 
 	return cleaned

@@ -154,6 +154,10 @@ func normalizeIpv6Addr(addrStr string) ([8]uint16, error) {
 				}
 			}
 		}
+	} else if len(parts) > expectPartCnt {
+		// More groups than the address can hold. A "::" run can only reduce
+		// the number of groups, so there is no valid reading of this input.
+		return addr, errors.Wrapf(errors.ErrInvalidFormat, "%s too many groups", addrStr)
 	} else {
 		for i := 0; i < len(parts); i++ {
 			partStr := strings.TrimSpace(parts[i])

@@ -87,17 +87,16 @@ func collectMcpFields(optionsProto interface{}) map[string]mcpFieldMeta {
 		if info == nil {
 			continue
 		}
-		tagMap := info.Tags
-		mcpVal, ok := tagMap[TagMCP]
+		mcpVal, ok := info.Tag(TagMCP)
 		if !ok || mcpVal == "" || mcpVal == "false" {
 			continue
 		}
 		// 即便 json:"-"（Ignore）也保留：climc 仍可能用字段名作为 CLI token（如 MemSpec -> mem-spec）
-		token, tokOK := tagMap["token"]
+		token, tokOK := info.Tag("token")
 		if !tokOK {
-			if jsonName := tagMap["json"]; jsonName != "" && jsonName != "-" {
+			if jsonName, _ := info.Tag("json"); jsonName != "" && jsonName != "-" {
 				token = info.MarshalName()
-			} else if alias := tagMap["alias"]; alias != "" {
+			} else if alias, _ := info.Tag("alias"); alias != "" {
 				token = alias
 			} else {
 				// Ignore 字段的 info.Name 为空，必须用 FieldName
@@ -115,7 +114,7 @@ func collectMcpFields(optionsProto interface{}) map[string]mcpFieldMeta {
 			out[fieldTok] = meta
 		}
 		// json 名与字段名不一致时（如 Region / prefer_region）两边都登记
-		if jsonName := tagMap["json"]; jsonName != "" && jsonName != "-" {
+		if jsonName, _ := info.Tag("json"); jsonName != "" && jsonName != "-" {
 			if jsonTok := utils.CamelSplit(info.MarshalName(), "-"); jsonTok != "" && jsonTok != cliToken {
 				out[jsonTok] = meta
 			}
