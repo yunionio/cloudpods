@@ -33,6 +33,10 @@ func (this *JSONInt) String() string {
 }
 
 func (this *JSONFloat) String() string {
+	if !isFiniteFloat(this.data) {
+		// nan and +-inf have no json representation
+		return "null"
+	}
 	if this.bit != 32 && this.bit != 64 {
 		this.bit = 64
 	}

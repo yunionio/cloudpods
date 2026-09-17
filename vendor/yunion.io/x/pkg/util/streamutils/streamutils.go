@@ -39,19 +39,19 @@ type sXZReadAheadReader struct {
 
 func newXZReadAheadReader(stream io.Reader) (*sXZReadAheadReader, error) {
 	xzHdr := make([]byte, xz.HeaderLen)
-	n, err := stream.Read(xzHdr)
+	// io.ReadFull so that a stream handing its data over in more than one
+	// piece is not mistaken for a stream that has already finished.
+	n, err := io.ReadFull(stream, xzHdr)
 	hdrEof := false
 	if err != nil {
-		if errors.Cause(err) == io.EOF {
+		cause := errors.Cause(err)
+		if cause == io.EOF || cause == io.ErrUnexpectedEOF {
 			// delay the EOF
 			hdrEof = true
 			xzHdr = xzHdr[:n]
 		} else {
 			return nil, errors.Wrap(err, "Read XZ header")
 		}
-	} else if n != len(xzHdr) {
-		hdrEof = true
-		xzHdr = xzHdr[:n]
 	}
 	return &sXZReadAheadReader{
 		offset:   0,
@@ -90,16 +90,34 @@ func (s *sXZReadAheadReader) Read(buf []byte) (int, error) {
 	return n + bufOffset, err
 }
 
-func StreamPipe(upstream io.Reader, writer io.Writer, CalChecksum bool, callback func(savedTotal int64)) (*SStreamProperty, error) {
+// ErrSizeLimitExceeded is returned when the stream produces more bytes than
+// the limit passed to StreamPipe or StreamPipe2 allows.
+const ErrSizeLimitExceeded = errors.Error("stream size limit exceeded")
+
+// StreamPipe streams upstream into writer. See StreamPipe2 for the optional
+// size limit.
+func StreamPipe(upstream io.Reader, writer io.Writer, CalChecksum bool, callback func(savedTotal int64), maxSize ...int64) (*SStreamProperty, error) {
 	return StreamPipe2(upstream, writer, CalChecksum, func(savedTotal int64, savedOnce int64) {
 		if callback != nil {
 			callback(savedTotal)
 		}
-	})
+	}, maxSize...)
 }
 
-func StreamPipe2(upstream io.Reader, writer io.Writer, CalChecksum bool, callback func(savedTotal int64, savedOnce int64)) (*SStreamProperty, error) {
+// StreamPipe2 streams upstream into writer, decompressing when the input is an
+// xz stream.
+//
+// An optional maxSize stops the transfer once that many bytes have been
+// produced, so that an input which expands to far more than it looks like it
+// should cannot fill the writer. Omit it, or pass a value of zero or less, for
+// no limit.
+func StreamPipe2(upstream io.Reader, writer io.Writer, CalChecksum bool, callback func(savedTotal int64, savedOnce int64), maxSize ...int64) (*SStreamProperty, error) {
 	sp := SStreamProperty{}
+
+	var limit int64
+	if len(maxSize) > 0 {
+		limit = maxSize[0]
+	}
 
 	var md5sum hash.Hash
 	if CalChecksum {
@@ -128,6 +146,10 @@ func StreamPipe2(upstream io.Reader, writer io.Writer, CalChecksum bool, callbac
 		n, err := reader.Read(buf)
 		if n > 0 {
 			sp.Size += int64(n)
+			if limit > 0 && sp.Size > limit {
+				// Stop before the excess reaches the writer.
+				return nil, errors.Wrapf(ErrSizeLimitExceeded, "produced more than %d bytes", limit)
+			}
 			if callback != nil {
 				callback(sp.Size, int64(n))
 			}

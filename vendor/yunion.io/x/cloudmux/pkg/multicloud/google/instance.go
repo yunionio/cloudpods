@@ -581,30 +581,35 @@ func (region *SRegion) _createVM(zone string, desc *cloudprovider.SManagedVMCrea
 		labels[encode.EncodeGoogleLabel(k)] = encode.EncodeGoogleLabel(v)
 	}
 
+	sysDiskParams := map[string]interface{}{
+		"diskName":    normalizeString(desc.SysDisk.Name),
+		"sourceImage": desc.ExternalImageId,
+		"diskSizeGb":  desc.SysDisk.SizeGB,
+		"diskType":    fmt.Sprintf("zones/%s/diskTypes/%s", zone, desc.SysDisk.StorageType),
+		"labels":      labels,
+	}
+	setDiskProvisionedPerformance(sysDiskParams, desc.SysDisk.StorageType, desc.SysDisk.SizeGB, desc.SysDisk.Iops, desc.SysDisk.Throughput)
 	disks = append(disks, map[string]interface{}{
-		"boot": true,
-		"initializeParams": map[string]interface{}{
-			"diskName":    normalizeString(desc.SysDisk.Name),
-			"sourceImage": desc.ExternalImageId,
-			"diskSizeGb":  desc.SysDisk.SizeGB,
-			"diskType":    fmt.Sprintf("zones/%s/diskTypes/%s", zone, desc.SysDisk.StorageType),
-			"labels":      labels,
-		},
-		"autoDelete": true,
+		"boot":             true,
+		"initializeParams": sysDiskParams,
+		"autoDelete":       true,
 	})
-	for _, disk := range desc.DataDisks {
-		if len(disk.Name) == 0 {
-			disk.Name = fmt.Sprintf("vdisk-%s-%d", desc.Name, time.Now().UnixNano())
+	for i, disk := range desc.DataDisks {
+		name := disk.Name
+		if len(name) == 0 {
+			name = fmt.Sprintf("vdisk-%s-%d-%d", desc.Name, i, time.Now().UnixNano())
 		}
+		dataDiskParams := map[string]interface{}{
+			"diskName":   normalizeString(name),
+			"diskSizeGb": disk.SizeGB,
+			"diskType":   fmt.Sprintf("zones/%s/diskTypes/%s", zone, disk.StorageType),
+			"labels":     labels,
+		}
+		setDiskProvisionedPerformance(dataDiskParams, disk.StorageType, disk.SizeGB, disk.Iops, disk.Throughput)
 		disks = append(disks, map[string]interface{}{
-			"boot": false,
-			"initializeParams": map[string]interface{}{
-				"diskName":   normalizeString(disk.Name),
-				"diskSizeGb": disk.SizeGB,
-				"diskType":   fmt.Sprintf("zones/%s/diskTypes/%s", zone, disk.StorageType),
-				"labels":     labels,
-			},
-			"autoDelete": true,
+			"boot":             false,
+			"initializeParams": dataDiskParams,
+			"autoDelete":       true,
 		})
 	}
 
