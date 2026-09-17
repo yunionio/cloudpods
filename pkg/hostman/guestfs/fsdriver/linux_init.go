@@ -16,10 +16,9 @@ package fsdriver
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/pkg/errors"
-
-	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 const (
@@ -41,15 +40,19 @@ func (d *sLinuxRootFs) installInitScript(name, cmd string, oneshot bool) error {
 
 func (d *sLinuxRootFs) installCrond(cmd string) error {
 	cronJob := fmt.Sprintf("@reboot %s", cmd)
-	if procutils.NewCommand("chroot", d.rootFs.GetMountPath(), "crontab", "-l", "|", "grep", cronJob).Run() == nil {
-		// if cronjob exist, return success
-		return nil
-	}
-	output, err := procutils.NewCommand("chroot", d.rootFs.GetMountPath(), "sh", "-c",
-		fmt.Sprintf("(crontab -l 2>/dev/null; echo '%s') |crontab -", cronJob),
-	).Output()
+	outs, err := d.rootFs.ExecCommand("crontab", "-l")
 	if err != nil {
-		return errors.Wrapf(err, "add crontab %s", output)
+		return errors.Wrapf(err, "exec crontab -l: %v", outs)
+	}
+	for _, line := range outs {
+		if strings.Contains(line, cronJob) {
+			// if cronjob exist, return success
+			return nil
+		}
+	}
+	outs, err = d.rootFs.ExecCommand("sh", "-c", fmt.Sprintf("(crontab -l 2>/dev/null; echo '%s') |crontab -", cronJob))
+	if err != nil {
+		return errors.Wrapf(err, "add crontab %v", outs)
 	}
 	return nil
 }
