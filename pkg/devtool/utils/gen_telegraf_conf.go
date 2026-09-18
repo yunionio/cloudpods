@@ -152,11 +152,6 @@ const TELEGRAF_INPUT_BAREMETAL = `
 [[inputs.diskio]]
     name_prefix = "agent_"
     skip_serial_number = false
-[[inputs.sensors]]
-    name_prefix = "agent_"
-[[inputs.smart]]
-    name_prefix = "agent_"
-    use_sudo = true
 [[inputs.mem]]
     name_prefix = "agent_"
 [[inputs.processes]]

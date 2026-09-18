@@ -46,7 +46,8 @@ type IDiskPartition interface {
 	Cleandir(dir string, keepdir, caseInsensitive bool) error
 	Zerofiles(dir string, caseInsensitive bool) error
 	SupportSerialPorts() bool
-	//Copy(src, dest string) error
+	CopyFile(src, dest string) error
+	ExecCommand(name string, arg ...string) ([]string, error)
 
 	GetPartDev() string
 	IsMounted() bool
