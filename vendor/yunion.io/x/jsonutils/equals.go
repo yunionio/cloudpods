@@ -15,6 +15,7 @@
 package jsonutils
 
 import (
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/sortedmap"
 )
 
@@ -51,7 +52,14 @@ func (arr *JSONArray) Equals(json JSONObject) bool {
 		return false
 	}
 	for i, v := range arr.data {
-		if !v.Equals(arr2.data[i]) {
+		oth := arr2.data[i]
+		if gotypes.IsNil(v) || gotypes.IsNil(oth) {
+			if gotypes.IsNil(v) != gotypes.IsNil(oth) {
+				return false
+			}
+			continue
+		}
+		if !v.Equals(oth) {
 			return false
 		}
 	}

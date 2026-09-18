@@ -259,7 +259,7 @@ func (s *sJsonParseSession) parseJSONValue(str []byte, offset int) (JSONObject, 
 		return nil, i, errors.Wrap(e, "parseString")
 	} else if quote {
 		return &JSONString{data: val}, i, nil
-	} else if val[0] == '<' && val[len(val)-1] == '>' {
+	} else if len(val) > 1 && val[0] == '<' && val[len(val)-1] == '>' {
 		// Pointer <nnnn>
 		val = val[1 : len(val)-1]
 		ival, err := strconv.ParseInt(val, 10, 64)
@@ -476,7 +476,11 @@ func (s *sJsonParseSession) parseDict(str []byte, offset int) (sortedmap.SSorted
 		}
 		if key == jsonPointerKey {
 			// node id
-			nodeId = int(val.(*JSONInt).data)
+			jval, ok := val.(*JSONInt)
+			if !ok {
+				return smap, i, nodeId, errors.Wrap(ErrInvalidNodeId, jsonPointerKey)
+			}
+			nodeId = int(jval.data)
 		} else {
 			smap = sortedmap.Add(smap, key, val)
 		}
@@ -552,12 +556,20 @@ func (s *sJsonParseSession) parseArray(str []byte, offset int) ([]JSONObject, in
 }
 
 func (this *JSONDict) parse(s *sJsonParseSession, str []byte, offset int) (int, error) {
+	e := s.enter()
+	if e != nil {
+		return offset, errors.Wrap(e, "enter")
+	}
+	defer s.leave()
 	smap, i, nodeId, e := s.parseDict(str, offset)
 	if e == nil {
 		this.nodeId = nodeId
 		this.data = smap
 		if this.nodeId > 0 {
-			s.saveNode(nodeId, this)
+			e = s.saveNode(nodeId, this)
+			if e != nil {
+				return i, errors.Wrap(e, "saveNode")
+			}
 		}
 		return i, nil
 	}
@@ -594,14 +606,19 @@ func (this *JSONDict) prettyString(level int) string {
 		buffer.WriteByte('"')
 		buffer.WriteString(k)
 		buffer.WriteString("\":")
-		_, okdict := v.(*JSONDict)
-		_, okarray := v.(*JSONArray)
-		if okdict || okarray {
-			buffer.WriteByte('\n')
-			buffer.WriteString(v.prettyString(level + 2))
-		} else {
+		if gotypes.IsNil(v) {
 			buffer.WriteByte(' ')
-			buffer.WriteString(v.String())
+			buffer.WriteString("null")
+		} else {
+			_, okdict := v.(*JSONDict)
+			_, okarray := v.(*JSONArray)
+			if okdict || okarray {
+				buffer.WriteByte('\n')
+				buffer.WriteString(v.prettyString(level + 2))
+			} else {
+				buffer.WriteByte(' ')
+				buffer.WriteString(v.String())
+			}
 		}
 		idx++
 	}
@@ -614,6 +631,11 @@ func (this *JSONDict) prettyString(level int) string {
 }
 
 func (this *JSONArray) parse(s *sJsonParseSession, str []byte, offset int) (int, error) {
+	e := s.enter()
+	if e != nil {
+		return offset, errors.Wrap(e, "enter")
+	}
+	defer s.leave()
 	val, i, e := s.parseArray(str, offset)
 	if e == nil {
 		this.data = val
@@ -639,7 +661,12 @@ func (this *JSONArray) prettyString(level int) string {
 			buffer.WriteString(",")
 		}
 		buffer.WriteByte('\n')
-		buffer.WriteString(v.prettyString(level + 1))
+		if gotypes.IsNil(v) {
+			buffer.WriteString(tab)
+			buffer.WriteString("  null")
+		} else {
+			buffer.WriteString(v.prettyString(level + 1))
+		}
 	}
 	if len(this.data) > 0 {
 		buffer.WriteByte('\n')

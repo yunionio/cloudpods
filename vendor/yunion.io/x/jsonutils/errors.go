@@ -26,6 +26,10 @@ const (
 	ErrInvalidHex  = errors.Error("invalid hex")
 	ErrInvalidRune = errors.Error("invalid 4 byte rune")
 
+	ErrInvalidNodeId   = errors.Error("invalid node id")
+	ErrDuplicateNodeId = errors.Error("duplicate node id")
+	ErrNestedTooDeep   = errors.Error("json nested too deep")
+
 	ErrTypeMismatch         = errors.Error("unmarshal type mismatch")
 	ErrArrayLengthMismatch  = errors.Error("unmarshal array length mismatch")
 	ErrInterfaceUnsupported = errors.Error("do not known how to deserialize json into this interface type")
