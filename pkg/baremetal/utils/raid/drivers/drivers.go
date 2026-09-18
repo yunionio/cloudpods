@@ -123,10 +123,12 @@ func buildRaid(driver raid.IRaidDriver, adapter raid.IRaidAdapter, confs []*api.
 
 	for _, conf := range confs {
 		selected, left, err = baremetal.RetrieveStorages(conf, left)
-		if err != nil {
-			return errors.Wrap(err, "baremetal.RetrieveStorages")
-		}
+		// RetrieveStorages also returns match diagnostics for leftover disks in rest;
+		// only treat it as failure when no disk was selected (same as CalculateLayout).
 		if len(selected) == 0 {
+			if err != nil {
+				return errors.Wrapf(err, "no enough disks for config %#v", conf)
+			}
 			return errors.Wrapf(httperrors.ErrInputParameter, "no enough disks for config %#v", conf)
 		}
 		var err error
