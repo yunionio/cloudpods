@@ -15,6 +15,7 @@
 package container_device
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -78,7 +79,7 @@ func TestBuildKunlunxinXpuExtraConfigures(t *testing.T) {
 	exists := func(p string) bool {
 		return p == "/usr/local/xpu" || p == "/usr/local/xpu/lib"
 	}
-	envs, mounts := buildKunlunxinXpuExtraConfigures([]string{"0", "3"}, "/usr/local/xpu", exists)
+	envs, mounts := buildKunlunxinXpuExtraConfigures([]string{"0", "3"}, "/usr/local/xpu", "/usr/local/bin/xpu-smi", exists, nil)
 	require.Len(t, envs, 2)
 	assert.Equal(t, "XPU_VISIBLE_DEVICES", envs[0].Key)
 	assert.Equal(t, "0,3", envs[0].Value)
@@ -88,9 +89,74 @@ func TestBuildKunlunxinXpuExtraConfigures(t *testing.T) {
 	assert.Equal(t, "/usr/local/xpu", mounts[0].HostPath)
 	assert.True(t, mounts[0].Readonly)
 
-	envs, mounts = buildKunlunxinXpuExtraConfigures(nil, "/usr/local/xpu", exists)
+	envs, mounts = buildKunlunxinXpuExtraConfigures(nil, "/usr/local/xpu", "/usr/local/bin/xpu-smi", exists, nil)
 	assert.Nil(t, envs)
 	assert.Nil(t, mounts)
+}
+
+func TestBuildKunlunxinXpuRuntimeMountsWithSmiAndMlLib(t *testing.T) {
+	smi := "/usr/local/bin/xpu-smi"
+	ml := "/lib/x86_64-linux-gnu/libxpunvidia-ml.so.1"
+	exists := func(p string) bool {
+		switch p {
+		case "/usr/local/xpu", "/usr/local/xpu/lib", smi, ml:
+			return true
+		default:
+			return false
+		}
+	}
+	mounts := buildKunlunxinXpuRuntimeMounts("/usr/local/xpu", smi, exists, nil)
+	require.Len(t, mounts, 3)
+	assert.Equal(t, "/usr/local/xpu", mounts[0].HostPath)
+	assert.Equal(t, smi, mounts[1].HostPath)
+	assert.Equal(t, ml, mounts[2].HostPath)
+	for _, m := range mounts {
+		assert.Equal(t, m.HostPath, m.ContainerPath)
+		assert.True(t, m.Readonly)
+	}
+}
+
+func TestCollectSymlinkMountPathsReadlinkF(t *testing.T) {
+	link := "/lib/x86_64-linux-gnu/libxpunvidia-ml.so.1"
+	final := "/lib/x86_64-linux-gnu/libxpunvidia-ml.so.1.0.0"
+	readlink := func(p string) (string, error) {
+		if p == link {
+			return final, nil // RemoteReadlink: readlink -f
+		}
+		return "", os.ErrInvalid
+	}
+	paths := collectSymlinkMountPaths(link, readlink)
+	assert.Equal(t, []string{link, final}, paths)
+
+	assert.Equal(t, []string{link}, collectSymlinkMountPaths(link, nil))
+	same := func(p string) (string, error) { return p, nil }
+	assert.Equal(t, []string{link}, collectSymlinkMountPaths(link, same))
+}
+
+func TestBuildKunlunxinXpuRuntimeMountsFollowsSymlink(t *testing.T) {
+	smi := "/usr/local/bin/xpu-smi"
+	link := "/lib/x86_64-linux-gnu/libxpunvidia-ml.so.1"
+	real := "/lib/x86_64-linux-gnu/libxpunvidia-ml.so.1.0.0"
+	exists := func(p string) bool {
+		switch p {
+		case "/usr/local/xpu", smi, link, real:
+			return true
+		default:
+			return false
+		}
+	}
+	readlink := func(p string) (string, error) {
+		if p == link {
+			return real, nil
+		}
+		return "", os.ErrInvalid
+	}
+	mounts := buildKunlunxinXpuRuntimeMounts("/usr/local/xpu", smi, exists, readlink)
+	require.Len(t, mounts, 4)
+	assert.Equal(t, "/usr/local/xpu", mounts[0].HostPath)
+	assert.Equal(t, smi, mounts[1].HostPath)
+	assert.Equal(t, link, mounts[2].HostPath)
+	assert.Equal(t, real, mounts[3].HostPath)
 }
 
 func TestParseKunlunxinXpuNodeIndex(t *testing.T) {
