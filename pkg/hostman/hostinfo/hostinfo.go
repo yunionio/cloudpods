@@ -977,6 +977,10 @@ func (h *SHostInfo) detectSyssoftwareInfo() error {
 			log.Errorf("detect qemu version: %s", err.Error())
 			h.AppendHostError(fmt.Sprintf("detect qemu version: %s", err.Error()))
 		}
+		h.sysinfo.QemuVersions = qemutils.GetUsrLocalQemuVersions()
+		if !utils.IsInStringArray(h.sysinfo.QemuVersion, h.sysinfo.QemuVersions) {
+			h.sysinfo.QemuVersions = append(h.sysinfo.QemuVersions, h.sysinfo.QemuVersion)
+		}
 	}
 	h.detectOvsVersion()
 	if err := h.detectOvsKOVersion(); err != nil {

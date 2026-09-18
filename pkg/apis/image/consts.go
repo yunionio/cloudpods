@@ -78,6 +78,7 @@ const (
 	IMAGE_VDI_PROTOCOL         = "vdi_protocol"
 	IMAGE_INTERNAL_PATH_MAP    = "internal_path_map"
 	IMAGE_USED_BY_POST_OVERLAY = "used_by_post_overlay"
+	IMAGE_WIN_VIRTIO_NET       = "win_virtio_net"
 
 	IMAGE_STATUS_UPDATING = "updating"
 )
