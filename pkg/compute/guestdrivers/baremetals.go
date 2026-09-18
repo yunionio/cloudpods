@@ -356,6 +356,7 @@ func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest
 	if params.Length() > 0 {
 		config.Add(params, "params")
 	}
+	log.Debugf("RequestStartOnHost config: %s", config.String())
 	headers := task.GetTaskRequestHeader()
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/start", host.Id, guest.Id)
 	_, err := host.BaremetalSyncRequest(ctx, "POST", url, headers, config)
