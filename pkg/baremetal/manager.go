@@ -3126,10 +3126,13 @@ func (s *SBaremetalServer) DoDeploy(tool *disktool.SSHPartitionTool, term *ssh.C
 		}
 	}
 	userData, _ := s.desc.GetString("user_data")
+
+	deployTelegraf := jsonutils.QueryBoolean(data, "deploy_telegraf", false)
+	telegrafConfig, _ := data.GetString("telegraf_conf")
+
 	deployInfo := deployapi.NewDeployInfo(publicKey, deployArray,
 		password, isRandomPassword, isInit, true, o.Options.LinuxDefaultRootUser, o.Options.WindowsDefaultAdminUser, false, "",
-		false, "",
-		userData,
+		deployTelegraf, telegrafConfig, userData,
 	)
 	return s.deployFs(tool, term, deployInfo)
 }

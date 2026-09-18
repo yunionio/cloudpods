@@ -144,6 +144,10 @@ func (s *Client) GetConfig() ClientConfig {
 	return s.config
 }
 
+func (s *Client) GetSshClient() *ssh.Client {
+	return s.client
+}
+
 func (s *Client) RawRun(cmds ...string) ([]string, error) {
 	return s.run(false, cmds, nil, false)
 }
