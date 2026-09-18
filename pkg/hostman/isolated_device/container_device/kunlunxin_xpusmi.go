@@ -22,12 +22,15 @@ import (
 	"strings"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
+
+	"yunion.io/x/log"
 )
 
 const (
 	defaultKunlunxinXreHome    = "/usr/local/xpu"
 	defaultKunlunxinXpuSmiPath = "/usr/local/bin/xpu-smi"
 	kunlunxinXpuDevicePrefix   = "/dev/xpu"
+	kunlunxinXpuMlLibName      = "libxpunvidia-ml.so.1"
 )
 
 var kunlunxinXpuCommonDevicePaths = []string{
@@ -186,23 +189,99 @@ func buildKunlunxinXpuRuntimeEnvs(indices []string, xreHome string, pathExists f
 	}
 }
 
-func buildKunlunxinXpuRuntimeMounts(xreHome string, pathExists func(string) bool) []*runtimeapi.Mount {
+func kunlunxinXpuMlLibPathCandidates(xreHome string) []string {
+	xreHome = normalizeKunlunxinXreHome(xreHome)
+	return []string{
+		path.Join("/lib/x86_64-linux-gnu", kunlunxinXpuMlLibName),
+		path.Join("/usr/lib/x86_64-linux-gnu", kunlunxinXpuMlLibName),
+		path.Join(xreHome, "so", kunlunxinXpuMlLibName),
+		path.Join(xreHome, "lib64", kunlunxinXpuMlLibName),
+		path.Join(xreHome, "lib", kunlunxinXpuMlLibName),
+	}
+}
+
+func resolveKunlunxinXpuMlLibPath(xreHome string, pathExists func(string) bool) string {
+	if pathExists == nil {
+		return ""
+	}
+	for _, p := range kunlunxinXpuMlLibPathCandidates(xreHome) {
+		if pathExists(p) {
+			return p
+		}
+	}
+	return ""
+}
+
+// collectSymlinkMountPaths returns start plus the final path from readlink
+// (RemoteReadlink uses `readlink -f`, which resolves to the canonical target in one call).
+func collectSymlinkMountPaths(start string, readlink func(string) (string, error)) []string {
+	if start == "" {
+		return nil
+	}
+	start = path.Clean(start)
+	out := []string{start}
+	if readlink == nil {
+		return out
+	}
+	final, err := readlink(start)
+	if err != nil || final == "" {
+		return out
+	}
+	final = path.Clean(final)
+	if final == start {
+		return out
+	}
+	return append(out, final)
+}
+
+func appendReadonlyMountIfExists(mounts []*runtimeapi.Mount, hostPath string, pathExists func(string) bool, seen map[string]bool) []*runtimeapi.Mount {
+	if hostPath == "" || pathExists == nil || !pathExists(hostPath) || seen[hostPath] {
+		return mounts
+	}
+	seen[hostPath] = true
+	return append(mounts, &runtimeapi.Mount{
+		ContainerPath: hostPath,
+		HostPath:      hostPath,
+		Readonly:      true,
+	})
+}
+
+func buildKunlunxinXpuRuntimeMounts(
+	xreHome, smiPath string,
+	pathExists func(string) bool,
+	readlink func(string) (string, error),
+) []*runtimeapi.Mount {
 	xreHome = normalizeKunlunxinXreHome(xreHome)
 	if pathExists == nil || !pathExists(xreHome) {
 		return nil
 	}
-	return []*runtimeapi.Mount{
-		{
-			ContainerPath: xreHome,
-			HostPath:      xreHome,
-			Readonly:      true,
-		},
+	seen := map[string]bool{}
+	mounts := appendReadonlyMountIfExists(nil, xreHome, pathExists, seen)
+	mounts = appendReadonlyMountIfExists(mounts, smiPath, pathExists, seen)
+
+	mlPath := resolveKunlunxinXpuMlLibPath(xreHome, pathExists)
+	if mlPath == "" {
+		return mounts
 	}
+	for _, p := range collectSymlinkMountPaths(mlPath, readlink) {
+		if pathExists(p) {
+			mounts = appendReadonlyMountIfExists(mounts, p, pathExists, seen)
+			continue
+		}
+		log.Warningf("kunlunxin xpu ml lib symlink target %s not found, skip mount", p)
+	}
+	return mounts
 }
 
-func buildKunlunxinXpuExtraConfigures(indices []string, xreHome string, pathExists func(string) bool) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
+func buildKunlunxinXpuExtraConfigures(
+	indices []string,
+	xreHome, smiPath string,
+	pathExists func(string) bool,
+	readlink func(string) (string, error),
+) ([]*runtimeapi.KeyValue, []*runtimeapi.Mount) {
 	if len(indices) == 0 {
 		return nil, nil
 	}
-	return buildKunlunxinXpuRuntimeEnvs(indices, xreHome, pathExists), buildKunlunxinXpuRuntimeMounts(xreHome, pathExists)
+	return buildKunlunxinXpuRuntimeEnvs(indices, xreHome, pathExists),
+		buildKunlunxinXpuRuntimeMounts(xreHome, smiPath, pathExists, readlink)
 }
