@@ -30,9 +30,10 @@ import (
 // package.  Do not construct a literal or modify the exported fields in an
 // unmanaged way
 //
-// The tags of a field are meant to be read through Tag and TagMap rather than
-// off the Tags map, which is not handed out to stay writable by whoever read
-// it; a caller may modify what TagMap returns.
+// The tags of a field are read through Tag and TagMap.  The map behind them
+// is shared with the other callers of the fetch functions, which is what
+// makes reading a field several times cheap, so a caller may only modify what
+// TagMap hands out, which is a copy of its own.
 type SStructFieldInfo struct {
 	// True if the field has json tag `json:"-"`
 	Ignore bool
@@ -72,40 +73,34 @@ type SStructFieldInfo struct {
 	// value as a json string
 	ForceString bool
 
-	// Tags holds the tags of the field keyed by tag name, a tag without a
-	// value being mapped to the empty string.  Read it through Tag or
-	// TagMap rather than off here.
-	Tags map[string]string
+	// tags holds the tags of the field keyed by tag name, a tag without a
+	// value being mapped to the empty string.  The map is shared with the
+	// other callers of the fetch functions, so it has to be copied with
+	// copyTags before being written to; read it through Tag or TagMap.
+	tags map[string]string
 
-	// Aliases are the other names the field is looked up by, taken from
-	// the "alias" tag
-	Aliases []string
+	// aliases are the other names the field is looked up by, taken from
+	// the "alias" tag.  Like tags it is shared, and has to be copied with
+	// copyAliases before being written to.
+	aliases []string
 }
 
-func (s *SStructFieldInfo) updateTags(k, v string) {
-	s.Tags[k] = v
-}
-
-func (s SStructFieldInfo) deepCopy() *SStructFieldInfo {
-	scopy := SStructFieldInfo{
-		Ignore:         s.Ignore,
-		OmitEmpty:      s.OmitEmpty,
-		OmitFalse:      s.OmitFalse,
-		OmitZero:       s.OmitZero,
-		Name:           s.Name,
-		FieldName:      s.FieldName,
-		ForceString:    s.ForceString,
-		kebabFieldName: s.kebabFieldName,
-	}
-	tags := make(map[string]string, len(s.Tags))
-	for k, v := range s.Tags {
+// copyTags takes a private copy of the tags, so that they can be written to
+// without touching the ones this info was read out of.
+func (s *SStructFieldInfo) copyTags() {
+	tags := make(map[string]string, len(s.tags)+1)
+	for k, v := range s.tags {
 		tags[k] = v
 	}
-	scopy.Tags = tags
-	aliases := make([]string, len(s.Aliases))
-	copy(aliases, s.Aliases)
-	scopy.Aliases = aliases
-	return &scopy
+	s.tags = tags
+}
+
+// copyAliases takes a private copy of the aliases, so that they can be
+// written to without touching the ones this info was read out of.
+func (s *SStructFieldInfo) copyAliases() {
+	aliases := make([]string, len(s.aliases))
+	copy(aliases, s.aliases)
+	s.aliases = aliases
 }
 
 func ParseStructFieldJsonInfo(sf reflect.StructField) SStructFieldInfo {
@@ -120,8 +115,8 @@ func ParseFieldJsonInfo(name string, tag reflect.StructTag) SStructFieldInfo {
 	info.OmitZero = false
 	info.OmitFalse = false
 
-	info.Tags = utils.TagMap(tag)
-	if val, ok := info.Tags["json"]; ok {
+	info.tags = utils.TagMap(tag)
+	if val, ok := info.tags["json"]; ok {
 		keys := strings.Split(val, ",")
 		if len(keys) > 0 {
 			if keys[0] == "-" {
@@ -155,14 +150,14 @@ func ParseFieldJsonInfo(name string, tag reflect.StructTag) SStructFieldInfo {
 			}
 		}
 	}
-	if val, ok := info.Tags["name"]; ok {
+	if val, ok := info.tags["name"]; ok {
 		info.Name = val
 	}
 	if !info.Ignore && len(info.Name) == 0 {
 		info.Name = info.kebabFieldName
 	}
-	if val, ok := info.Tags["alias"]; !info.Ignore && ok {
-		info.Aliases = strings.Split(val, ",")
+	if val, ok := info.tags["alias"]; !info.Ignore && ok {
+		info.aliases = strings.Split(val, ",")
 	}
 	return info
 }
@@ -179,15 +174,15 @@ func (info *SStructFieldInfo) MarshalName() string {
 // Tag returns the value of the tag named name and whether the field has it.
 // A tag without a value is reported as present with an empty value.
 func (info *SStructFieldInfo) Tag(name string) (string, bool) {
-	val, ok := info.Tags[name]
+	val, ok := info.tags[name]
 	return val, ok
 }
 
 // TagMap returns a copy of the tags of the field, which the caller owns and
 // is free to modify.
 func (info *SStructFieldInfo) TagMap() map[string]string {
-	tags := make(map[string]string, len(info.Tags))
-	for k, v := range info.Tags {
+	tags := make(map[string]string, len(info.tags))
+	for k, v := range info.tags {
 		tags[k] = v
 	}
 	return tags
@@ -375,10 +370,10 @@ func fetchStructFieldValueSet3(dataValue reflect.Value, allocatePtr bool, tags m
 				continue
 			}
 		}
-		fieldInfo := fieldInfos[sf.Name].deepCopy()
+		fieldInfo := fieldInfos[sf.Name]
 		if !fieldInfo.Ignore || includeIgnore {
 			structFieldVaule := SStructFieldValue{
-				Info:  fieldInfo,
+				Info:  &fieldInfo,
 				Value: fv,
 			}
 			if parent != nil {
@@ -390,6 +385,7 @@ func fetchStructFieldValueSet3(dataValue reflect.Value, allocatePtr bool, tags m
 	if len(tags) > 0 {
 		for i := range fields {
 			fieldName := fields[i].Info.MarshalName()
+			owned := false
 			for k, v := range tags {
 				target := ""
 				pos := strings.Index(k, "->")
@@ -400,7 +396,12 @@ func fetchStructFieldValueSet3(dataValue reflect.Value, allocatePtr bool, tags m
 				if len(target) > 0 && target != fieldName {
 					continue
 				}
-				fields[i].Info.updateTags(k, v)
+				if !owned {
+					// the tags may still be shared with other callers
+					fields[i].Info.copyTags()
+					owned = true
+				}
+				fields[i].Info.tags[k] = v
 			}
 		}
 	}
@@ -445,7 +446,7 @@ func (fields SStructFieldValueSet) GetStructFieldIndexes2(name string, strictMod
 				ret = append(ret, i)
 			} else if info.FieldName == capName {
 				ret = append(ret, i)
-			} else if len(info.Aliases) > 0 && utils.IsInArray(name, info.Aliases) {
+			} else if len(info.aliases) > 0 && utils.IsInArray(name, info.aliases) {
 				ret = append(ret, i)
 			}
 		}
