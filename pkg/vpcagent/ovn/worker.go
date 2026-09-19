@@ -123,6 +123,7 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 		dbUrl = db
 	}
 	log.Infof("ovn: connect to ovn north database %s", dbUrl)
+	log.Infof("ovn: model sets stats: %s", mss.Stats().Dump())
 
 	ovnnbctl := ovnutil.NewOvnNbCtl(dbUrl)
 	ovndb, err := DumpOVNNorthbound(ctx, ovnnbctl)

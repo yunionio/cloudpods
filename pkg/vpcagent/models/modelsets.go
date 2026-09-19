@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -80,6 +81,34 @@ func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 		LoadbalancerListeners: apihelper.PseudoZeroTime,
 		LoadbalancerAcls:      apihelper.PseudoZeroTime,
 	}
+}
+
+type ModelSetsStats struct {
+	Vpcs                  int
+	Wires                 int
+	Networks              int
+	Guests                int
+	Hosts                 int
+	SecurityGroups        int
+	SecurityGroupRules    int
+	Guestnetworks         int
+	Guestsecgroups        int
+	Elasticips            int
+	NetworkAddresses      int
+	Guestnetworksecgroups int
+
+	DnsZones   int
+	DnsRecords int
+
+	RouteTables int
+
+	Groupguests   int
+	Groupnetworks int
+	Groups        int
+
+	LoadbalancerNetworks  int
+	LoadbalancerListeners int
+	LoadbalancerAcls      int
 }
 
 type ModelSets struct {
@@ -317,4 +346,38 @@ func (mss *ModelSets) join() bool {
 		}
 	}
 	return ret
+}
+
+func (mss ModelSets) Stats() ModelSetsStats {
+	return ModelSetsStats{
+		Vpcs:                  len(mss.Vpcs),
+		Wires:                 len(mss.Wires),
+		Networks:              len(mss.Networks),
+		Guests:                len(mss.Guests),
+		Hosts:                 len(mss.Hosts),
+		SecurityGroups:        len(mss.SecurityGroups),
+		SecurityGroupRules:    len(mss.SecurityGroupRules),
+		Guestnetworks:         len(mss.Guestnetworks),
+		Guestsecgroups:        len(mss.Guestsecgroups),
+		Elasticips:            len(mss.Elasticips),
+		NetworkAddresses:      len(mss.NetworkAddresses),
+		Guestnetworksecgroups: len(mss.Guestnetworksecgroups),
+
+		DnsZones:   len(mss.DnsZones),
+		DnsRecords: len(mss.DnsRecords),
+
+		RouteTables: len(mss.RouteTables),
+
+		Groupguests:   len(mss.Groupguests),
+		Groupnetworks: len(mss.Groupnetworks),
+		Groups:        len(mss.Groups),
+
+		LoadbalancerNetworks:  len(mss.LoadbalancerNetworks),
+		LoadbalancerListeners: len(mss.LoadbalancerListeners),
+		LoadbalancerAcls:      len(mss.LoadbalancerAcls),
+	}
+}
+
+func (msss ModelSetsStats) Dump() string {
+	return jsonutils.Marshal(msss).String()
 }
