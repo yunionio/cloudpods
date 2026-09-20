@@ -262,9 +262,6 @@ show_update_cmd() {
     'apigateway')
         spec='apiGateway'
         ;;
-    'apimap')
-        spec='apiMap'
-        ;;
     'baremetal-agent')
         spec='baremetalagent'
         name='baremetal-agent'

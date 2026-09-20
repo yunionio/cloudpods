@@ -15,7 +15,10 @@
 package misc
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/apimap"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/vpcagent"
 )
 
@@ -23,6 +26,12 @@ func init() {
 	type VpcAgentSyncOptions struct {
 	}
 	R(&VpcAgentSyncOptions{}, "vpcagent-sync", "Invoke sync of vpcagent", func(s *mcclient.ClientSession, args *VpcAgentSyncOptions) error {
+		// when the platform serves the model sets from apimap, vpcagent only
+		// picks them up there, so the apimap side has to be synced first
+		if apimap.TriggerSyncAndWait(s) == apimap.SyncOutcomeUnchanged {
+			fmt.Println("model sets did not change, skip vpcagent sync")
+			return nil
+		}
 		err := vpcagent.VpcAgent.DoSync(s)
 		if err != nil {
 			return err
