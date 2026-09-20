@@ -2696,6 +2696,7 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 	hasHygon := false
 	hasIluvatar := false
 	hasTHead := false
+	hasKunlunxin := false
 	hasNvidiasmi := false
 	hasNpusmi := false
 	for _, dev := range devs {
@@ -2708,6 +2709,9 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 		}
 		if vendorId == api.THEAD_VENDOR_ID {
 			hasTHead = true
+		}
+		if vendorId == api.KUNLUNXIN_VENDOR_ID {
+			hasKunlunxin = true
 		}
 		if !utils.IsInStringArray(dev.GetSharingMode(), api.VIRTUAL_SHARING_MODES) {
 			continue
@@ -2787,6 +2791,20 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 			system_service.TELEGRAF_INPUT_CONF_LIB_PATH: libPath,
 		}
 	}
+	if hasKunlunxin {
+		xreHome := options.HostOptions.KunlunxinXreHome
+		if xreHome == "" {
+			xreHome = defaultKunlunxinXreHome
+		}
+		smiPath := options.HostOptions.KunlunxinXpuSmiPath
+		if smiPath == "" {
+			smiPath = defaultKunlunxinXpuSmiPath
+		}
+		conf[system_service.TELEGRAF_INPUT_XPUSMI] = map[string]interface{}{
+			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: smiPath,
+			system_service.TELEGRAF_INPUT_CONF_LIB_PATH: resolveKunlunxinXpuLibDir(xreHome, fileutils2.Exists),
+		}
+	}
 	if hasNvidiasmi {
 		conf[system_service.TELEGRAF_INPUT_NVIDIASMI] = struct{}{}
 	}
@@ -2795,6 +2813,33 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: "/usr/local/bin/npu-smi",
 		}
 	}
+}
+
+const (
+	defaultKunlunxinXreHome    = "/usr/local/xpu"
+	defaultKunlunxinXpuSmiPath = "/usr/local/bin/xpu-smi"
+)
+
+// resolveKunlunxinXpuLibDir returns the directory holding the Kunlunxin driver
+// libraries, mirroring container_device.kunlunxinXpuLibDir.
+func resolveKunlunxinXpuLibDir(xreHome string, exists func(string) bool) string {
+	if xreHome == "" {
+		xreHome = defaultKunlunxinXreHome
+	}
+	candidates := []string{
+		path.Join(xreHome, "so"),
+		path.Join(xreHome, "lib64"),
+		path.Join(xreHome, "lib"),
+	}
+	if exists == nil {
+		return candidates[0]
+	}
+	for _, candidate := range candidates {
+		if exists(candidate) {
+			return candidate
+		}
+	}
+	return candidates[0]
 }
 
 func (h *SHostInfo) getNicsTelegrafConf() []map[string]interface{} {
