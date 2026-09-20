@@ -68,7 +68,6 @@ func (cli *OvnNbCtl) run(ctx context.Context, args []string) *CmdResult {
 	defer cancel()
 
 	args = cli.prepArgs(args)
-	log.Debugf("ovn-nbctl: %s", strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "ovn-nbctl", args...)
 	combined, err := cmd.CombinedOutput()
 	res := &CmdResult{

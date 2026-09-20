@@ -28,6 +28,8 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	npk "yunion.io/x/onecloud/pkg/mcclient/modules/notify"
@@ -46,6 +48,12 @@ type APIHelper struct {
 	mcclientSession *mcclient.ClientSession
 
 	tick *time.Timer
+
+	// apiMapTS is the version of the model sets that modelSets reflects, as
+	// served by the apimap service; hasAPIMapTS tells whether that version
+	// is known at all.  Both are only touched from the sync loop.
+	apiMapTS    int64
+	hasAPIMapTS bool
 }
 
 func NewAPIHelper(opts *Options, modelSets IModelSets) (*APIHelper, error) {
@@ -76,11 +84,24 @@ func (h *APIHelper) getRunDelay() time.Duration {
 
 func (h *APIHelper) addSyncHandler(app *appsrv.Application, prefix string) {
 	path := httputils.JoinPath(prefix, "sync")
-	app.AddHandler("POST", path, h.handlerSync)
+	app.AddHandler("POST", path, auth.Authenticate(RequireSystemAdmin(h.handlerSync)))
 }
 
 func (h *APIHelper) handlerSync(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	h.scheduleSync()
+}
+
+// RequireSystemAdmin wraps a handler so that only a caller with system scope
+// privilege reaches it.
+func RequireSystemAdmin(h func(context.Context, http.ResponseWriter, *http.Request)) func(context.Context, http.ResponseWriter, *http.Request) {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
+		if userCred == nil || !userCred.HasSystemAdminPrivilege() {
+			httperrors.ForbiddenError(ctx, w, "only system admin is allowed to access this resource")
+			return
+		}
+		h(ctx, w, r)
+	}
 }
 
 func (h *APIHelper) Start(ctx context.Context, app *appsrv.Application, prefix string) {
@@ -133,11 +154,11 @@ func (h *APIHelper) RunManually(ctx context.Context) {
 }
 
 func (h *APIHelper) run(ctx context.Context) {
-	changed, err := h.doSync(ctx)
-	if err != nil {
-		log.Errorf("doSync error: %v", err)
+	status := h.doSync(ctx)
+	if status.Err != nil {
+		log.Errorf("doSync error: %v", status.Err)
 	}
-	if changed {
+	if status.Changed {
 		mssCopy := h.modelSets.CopyJoined()
 		select {
 		case h.modelSetsCh <- mssCopy:
@@ -146,20 +167,35 @@ func (h *APIHelper) run(ctx context.Context) {
 	}
 }
 
-func (h *APIHelper) doSync(ctx context.Context) (changed bool, err error) {
-	{
-		stime := time.Now()
-		defer func() {
-			elapsed := time.Since(stime)
-			log.Infof("sync data done, changed: %v, elapsed: %s", changed, elapsed.String())
-		}()
-	}
+func (h *APIHelper) doSync(ctx context.Context) (status SyncStatus) {
+	status.At = time.Now()
+	defer func() {
+		status.Elapsed = time.Since(status.At)
+		log.Infof("sync data done, changed: %v, elapsed: %s, err: %v", status.Changed, status.Elapsed.String(), status.Err)
+		if h.opts.OnSyncDone != nil {
+			h.opts.OnSyncDone(status)
+		}
+	}()
 
 	s := h.adminClientSession(ctx)
-	mss := h.modelSets.Copy()
-	r, err := SyncModelSets(mss, s, h.opts)
-	if err != nil {
-		return false, errors.Wrap(err, "SyncModelSets")
+	var (
+		mss IModelSets
+		r   ModelSetsUpdateResult
+		err error
+	)
+	if h.opts.FetchFromComputeService {
+		mss = h.modelSets.Copy()
+		r, err = SyncModelSets(mss, s, h.opts)
+		if err != nil {
+			status.Err = errors.Wrap(err, "SyncModelSets")
+			return
+		}
+	} else {
+		mss, r, err = h.syncModelSetsFromAPIMap(s)
+		if err != nil {
+			status.Err = err
+			return
+		}
 	}
 	h.modelSets = mss
 	if !r.Correct {
@@ -168,10 +204,42 @@ func (h *APIHelper) doSync(ctx context.Context) (changed bool, err error) {
 		if err != nil {
 			log.Errorf("unable to EventNotify: %s", err)
 		}
-		return false, errors.Errorf("sync error")
+		status.Err = errors.Errorf("sync error")
+		return
 	}
-	changed = r.Changed
-	return changed, nil
+	status.Changed = r.Changed
+	status.Correct = true
+	return
+}
+
+// syncModelSetsFromAPIMap refreshes the model sets from the apimap service.
+//
+// The apimap service publishes a version with the model sets, so a round that
+// finds the version unchanged is skipped without copying anything.  The
+// version returned along with the payload is the authoritative one: the model
+// sets may have moved on between the version query and the fetch.
+func (h *APIHelper) syncModelSetsFromAPIMap(s *mcclient.ClientSession) (mss IModelSets, r ModelSetsUpdateResult, err error) {
+	apims, ok := h.modelSets.(IAPIMapModelSets)
+	if !ok {
+		return nil, r, errors.Errorf("model sets %T cannot be fetched from apimap", h.modelSets)
+	}
+	curTS, err := apims.APIMapTimestamp(s)
+	if err != nil {
+		return nil, r, errors.Wrap(err, "APIMapTimestamp")
+	}
+	if h.hasAPIMapTS && curTS == h.apiMapTS {
+		// nothing new since the last round
+		return h.modelSets, ModelSetsUpdateResult{Correct: true, Changed: false}, nil
+	}
+	mssNews, newTS, err := apims.FetchFromAPIMap(s)
+	if err != nil {
+		return nil, r, errors.Wrap(err, "FetchFromAPIMap")
+	}
+	mss = h.modelSets.Copy()
+	r = mss.ApplyUpdates(mssNews)
+	h.apiMapTS = newTS
+	h.hasAPIMapTS = true
+	return mss, r, nil
 }
 
 func (h *APIHelper) adminClientSession(ctx context.Context) *mcclient.ClientSession {

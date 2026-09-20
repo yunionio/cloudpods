@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/apimap"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/vpcagent"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -117,12 +118,15 @@ func (self *GuestSyncConfTask) StartRestartNetworkTask(ctx context.Context, gues
 		}
 
 		if isVpcNetwork {
-			err = vpcagent.VpcAgent.DoSync(auth.GetAdminSession(ctx, options.Options.Region))
-			if err != nil {
-				log.Errorf("vpcagent.VpcAgent.DoSync fail %s", err)
+			session := auth.GetAdminSession(ctx, options.Options.Region)
+			if apimap.TriggerSyncAndWait(session).ShouldTriggerAgent() {
+				err = vpcagent.VpcAgent.DoSync(session)
+				if err != nil {
+					log.Errorf("vpcagent.VpcAgent.DoSync fail %s", err)
+				}
+				// wait for vpcagent sync network topo
+				time.Sleep(10 * time.Second)
 			}
-			// wait for vpcagent sync network topo
-			time.Sleep(10 * time.Second)
 		}
 		return guest.StartQgaRestartNetworkTask(ctx, self.UserCred, "", ifnameDevice, ipMask, gateway, ip6Mask, gateway6)
 	}()

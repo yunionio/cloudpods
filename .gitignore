@@ -43,3 +43,5 @@ pkg/generated
 out.gotext.json
 
 pkg/notify/sender/email_test.go
+
+designs
