@@ -77,7 +77,12 @@ func getBmAgentUrl(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 }
 
 func getBmPrepareScript(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	if len(options.Options.BaremetalPreparePackageUrl) == 0 {
+	bmPreparePackageUrl := options.Options.BaremetalPreparePackageUrl
+	apiServer := options.Options.ApiServer
+	if len(apiServer) > 0 {
+		bmPreparePackageUrl = fmt.Sprintf("%s/baremetal-prepare/baremetal_prepare.tar.gz", apiServer)
+	}
+	if len(bmPreparePackageUrl) == 0 {
 		httperrors.NotAcceptableError(ctx, w, "Baremetal package not prepared")
 		return
 	}
@@ -88,8 +93,7 @@ func getBmPrepareScript(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	var script string
-	script += fmt.Sprintf("curl -fsSL -k -o ./baremetal_prepare.tar.gz %s;",
-		options.Options.BaremetalPreparePackageUrl)
+	script += fmt.Sprintf("curl -fsSL -k -o ./baremetal_prepare.tar.gz %s;", bmPreparePackageUrl)
 	script += "mkdir ./baremetal_prepare;"
 	script += "tar -zxf ./baremetal_prepare.tar.gz -C ./baremetal_prepare;"
 	script += fmt.Sprintf("./baremetal_prepare/prepare.sh %s %s",
