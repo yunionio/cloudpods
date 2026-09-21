@@ -62,6 +62,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
@@ -1023,7 +1024,7 @@ func (m *SGuestManager) startDeploy(
 	}
 
 	// refresh port_mappings
-	if err := NewPortMappingManager(m).AllocateGuestPortMappings(ctx, deployParams.UserCred, guest); err != nil {
+	if err := NewPortMappingManager(m).AllocateGuestPortMappings(ctx, deployParams.UserCred, guest, guest.GetDesc()); err != nil {
 		return nil, errors.Wrap(err, "allocate port mappings")
 	}
 
@@ -1226,6 +1227,23 @@ func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (json
 		fwOnly := jsonutils.QueryBoolean(syncParams.Body, "fw_only", false)
 		setUefiBootOrder := jsonutils.QueryBoolean(syncParams.Body, "set_uefi_boot_order", false)
 		return guest.SyncConfig(ctx, guestDesc, fwOnly, setUefiBootOrder)
+	}
+	return nil, nil
+}
+
+// GuestSetPortMapping 设置虚机网卡的端口映射：由宿主机分配 host_port 并回写 region，
+// 不在此处做配置同步，region 会在本任务完成后再发起 sync
+func (m *SGuestManager) GuestSetPortMapping(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	setParams, ok := params.(*SGuestSetPortMapping)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	guest, ok := m.GetServer(setParams.Sid)
+	if !ok {
+		return nil, errors.Errorf("not found server %s", setParams.Sid)
+	}
+	if err := NewPortMappingManager(m).SetGuestNicPortMappings(ctx, auth.AdminCredential(), guest, setParams.Input); err != nil {
+		return nil, errors.Wrap(err, "set guest nic port mappings")
 	}
 	return nil, nil
 }

@@ -2270,6 +2270,9 @@ func (manager *SGuestManager) validateCreateData(
 		if err != nil {
 			return nil, err
 		}
+		if len(netConfig.PortMappings) > 0 && !IsHypervisorSupportPortMapping(input.Hypervisor) {
+			return nil, httperrors.NewInputParameterError("hypervisor %s does not support port_mapping", input.Hypervisor)
+		}
 		if len(netConfig.Driver) == 0 {
 			netConfig.Driver = osProf.NetDriver
 		}
@@ -3388,6 +3391,22 @@ func (self *SGuest) IsExitOnly() bool {
 		}
 	}
 	return true
+}
+
+// IsHypervisorSupportPortMapping 指定 hypervisor 是否支持端口映射（port_mapping）
+// 目前仅 kvm 与 pod 两种 hypervisor 支持，baremetal 等其它类型均不支持
+func IsHypervisorSupportPortMapping(hypervisor string) bool {
+	switch hypervisor {
+	case api.HYPERVISOR_KVM, api.HYPERVISOR_POD:
+		return true
+	default:
+		return false
+	}
+}
+
+// SupportPortMapping 当前虚拟机是否支持端口映射（port_mapping）
+func (self *SGuest) SupportPortMapping() bool {
+	return IsHypervisorSupportPortMapping(self.Hypervisor)
 }
 
 func (self *SGuest) getVirtualIPs() []string {

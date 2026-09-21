@@ -593,7 +593,7 @@ func (g *SGuest) PerformUpdateSubIps(
 	query jsonutils.JSONObject,
 	input api.GuestUpdateSubIpsInput,
 ) (jsonutils.JSONObject, error) {
-	gn, err := g.findGuestnetworkByInfo(input.ServerNetworkInfo)
+	gn, err := g.FindGuestnetworkByInfo(input.ServerNetworkInfo)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getGuestnetworkByIpOrMac ip=%s mac=%s", input.IpAddr, input.Mac)
 	}
@@ -654,7 +654,7 @@ func (g *SGuest) PerformAddSubIps(
 	query jsonutils.JSONObject,
 	input api.GuestAddSubIpsInput,
 ) (jsonutils.JSONObject, error) {
-	gn, err := g.findGuestnetworkByInfo(input.ServerNetworkInfo)
+	gn, err := g.FindGuestnetworkByInfo(input.ServerNetworkInfo)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getGuestnetworkByIpOrMac ip=%s mac=%s", input.IpAddr, input.Mac)
 	}
