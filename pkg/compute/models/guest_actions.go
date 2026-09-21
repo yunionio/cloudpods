@@ -2834,7 +2834,8 @@ func (self *SGuest) StartIsolatedDevicesSyncTask(ctx context.Context, userCred m
 	}
 }
 
-func (self *SGuest) findGuestnetworkByInfo(info api.ServerNetworkInfo) (*SGuestnetwork, error) {
+// FindGuestnetworkByInfo 根据 ip / ip6 / mac / index 定位虚机网卡
+func (self *SGuest) FindGuestnetworkByInfo(info api.ServerNetworkInfo) (*SGuestnetwork, error) {
 	if len(info.IpAddr) > 0 {
 		gn, err := self.GetGuestnetworkByIp(info.IpAddr)
 		if err != nil {
@@ -2905,9 +2906,9 @@ func (self *SGuest) PerformChangeIpaddr(
 
 	reserve := (input.Reserve != nil && *input.Reserve)
 
-	gn, err := self.findGuestnetworkByInfo(input.ServerNetworkInfo)
+	gn, err := self.FindGuestnetworkByInfo(input.ServerNetworkInfo)
 	if err != nil {
-		return nil, errors.Wrap(err, "findGuestnetworkByInfo")
+		return nil, errors.Wrap(err, "FindGuestnetworkByInfo")
 	}
 
 	var conf *api.NetworkConfig
@@ -3332,6 +3333,9 @@ func (self *SGuest) PerformAttachnetwork(
 		if err != nil {
 			return nil, err
 		}
+		if len(input.Nets[i].PortMappings) > 0 && !self.SupportPortMapping() {
+			return nil, httperrors.NewUnsupportOperationError("hypervisor %s does not support port_mapping", self.Hypervisor)
+		}
 		if IsExitNetworkInfo(ctx, userCred, input.Nets[i]) {
 			enicCnt += 1
 			// ebw = input.BwLimit
@@ -3477,9 +3481,9 @@ func (guest *SGuest) PerformChangeBandwidth(
 		return nil, httperrors.NewBadRequestError("Bandwidth, tx_bw_limit and rx_bw_limit must be non-negative")
 	}
 
-	guestnic, err := guest.findGuestnetworkByInfo(input.ServerNetworkInfo)
+	guestnic, err := guest.FindGuestnetworkByInfo(input.ServerNetworkInfo)
 	if err != nil {
-		return nil, errors.Wrap(err, "findGuestnetworkByInfo")
+		return nil, errors.Wrap(err, "FindGuestnetworkByInfo")
 	}
 
 	if guestnic.BwLimit != int(input.Bandwidth) || guestnic.TxBwLimit != int(input.TxBwLimit) || guestnic.RxBwLimit != int(input.RxBwLimit) {
@@ -3509,6 +3513,45 @@ func (guest *SGuest) PerformChangeBandwidth(
 		return nil, guest.StartSyncTask(ctx, userCred, false, "")
 	}
 	return nil, nil
+}
+
+// Set port mappings of a guest nic
+// 由独立的 GuestSetPortMappingTask 完成：先请求宿主机设置/分配 host_port，再同步配置到宿主机
+// 仅 kvm / pod 支持
+func (self *SGuest) PerformSetPortMapping(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.ServerSetPortMappingInput,
+) (jsonutils.JSONObject, error) {
+	if !self.SupportPortMapping() {
+		return nil, httperrors.NewUnsupportOperationError("hypervisor %s does not support port_mapping", self.Hypervisor)
+	}
+	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
+		return nil, httperrors.NewBadRequestError("Cannot set port mapping in status %s", self.Status)
+	}
+	for i := range input.PortMappings {
+		if err := validatePortMapping(input.PortMappings[i]); err != nil {
+			return nil, errors.Wrapf(err, "validate port mapping %s", jsonutils.Marshal(input.PortMappings[i]))
+		}
+	}
+	// 预先确认网卡存在，避免启动任务后才报错
+	if _, err := self.FindGuestnetworkByInfo(input.ServerNetworkInfo); err != nil {
+		return nil, errors.Wrap(err, "FindGuestnetworkByInfo")
+	}
+	return nil, self.StartGuestSetPortMappingTask(ctx, userCred, input)
+}
+
+func (self *SGuest) StartGuestSetPortMappingTask(ctx context.Context, userCred mcclient.TokenCredential, input api.ServerSetPortMappingInput) error {
+	// 先置进行中状态，让列表与操作入口立刻可见
+	if err := self.SetStatus(ctx, userCred, api.VM_SET_PORTMAPPING, "set port mappings"); err != nil {
+		return errors.Wrap(err, "SetStatus")
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestSetPortMappingTask", self, userCred, jsonutils.Marshal(input).(*jsonutils.JSONDict), "", "")
+	if err != nil {
+		return errors.Wrap(err, "New GuestSetPortMappingTask")
+	}
+	return task.ScheduleRun(nil)
 }
 
 // 修改源地址检查

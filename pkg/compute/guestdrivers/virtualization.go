@@ -216,6 +216,9 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 
 		IsDefault: netConfig.IsDefault,
 
+		// 端口映射（port_mapping）仅 kvm / pod 支持，透传避免自动网络调度时丢失
+		PortMappings: netConfig.PortMappings,
+
 		BillingType: netConfig.BillingType,
 		ChargeType:  netConfig.ChargeType,
 	})
