@@ -43,6 +43,12 @@ type SBaseParams struct {
 	Body jsonutils.JSONObject
 }
 
+// SGuestSetPortMapping 设置虚机网卡端口映射的宿主机侧参数
+type SGuestSetPortMapping struct {
+	Sid   string
+	Input *compute.ServerSetPortMappingInput
+}
+
 type SGuestStopParams struct {
 	IsForce bool
 	Timeout int64

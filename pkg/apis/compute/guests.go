@@ -1519,6 +1519,13 @@ type ServerChangeBandwidthInput struct {
 	NoSync *bool `json:"no_sync"`
 }
 
+// ServerSetPortMappingInput 设置服务器指定网卡的端口映射
+type ServerSetPortMappingInput struct {
+	ServerNetworkInfo
+	// 端口映射规则列表；传空数组表示清空该网卡的所有端口映射
+	PortMappings GuestPortMappings `json:"port_mappings"`
+}
+
 type ServerChangeConfigSpecs struct {
 	CpuSockets    int    `json:"cpu_sockets"`
 	VcpuCount     int    `json:"vcpu_count"`

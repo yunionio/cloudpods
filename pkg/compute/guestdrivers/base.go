@@ -399,6 +399,10 @@ func (drv *SBaseGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, gue
 	return nil // do nothing
 }
 
+func (drv *SBaseGuestDriver) RequestSetPortMappingOnHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, task taskman.ITask, input api.ServerSetPortMappingInput) error {
+	return fmt.Errorf("SBaseGuestDriver: Not Implement")
+}
+
 func (drv *SBaseGuestDriver) IsSupportPublicipToEip() bool {
 	return false
 }

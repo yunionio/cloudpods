@@ -175,6 +175,51 @@ func init() {
 		return nil
 	})
 
+	type ServerSetPortMappingOptions struct {
+		SERVER      string   `help:"ID or Name of server"`
+		MACORIP     string   `help:"IP, Mac or Index of NIC"`
+		PortMapping []string `help:"Network port mapping, e.g. 'port=80,host_port=8080,protocol=<tcp|udp>,host_port_range=<int>-<int>,remote_ips=x.x.x.x|y.y.y.y'" short-token:"p"`
+	}
+	R(&ServerSetPortMappingOptions{}, "server-set-port-mapping", "Set server NIC port mappings (kvm/pod only): request host to allocate/set host_port, then sync config to host", func(s *mcclient.ClientSession, args *ServerSetPortMappingOptions) error {
+		params := jsonutils.NewDict()
+		if regutils.MatchMacAddr(args.MACORIP) {
+			params.Add(jsonutils.NewString(args.MACORIP), "mac")
+		} else if regutils.MatchIP4Addr(args.MACORIP) {
+			params.Add(jsonutils.NewString(args.MACORIP), "ip_addr")
+		} else if regutils.MatchIP6Addr(args.MACORIP) {
+			params.Add(jsonutils.NewString(args.MACORIP), "ip6_addr")
+		} else if regutils.MatchInteger(args.MACORIP) {
+			index, err := strconv.ParseInt(args.MACORIP, 10, 64)
+			if err != nil {
+				return err
+			}
+			params.Add(jsonutils.NewInt(index), "index")
+		} else if len(args.MACORIP) > 0 {
+			return fmt.Errorf("Please specify IP or Mac or Index of NIC")
+		} else {
+			// 默认第一块网卡
+			params.Add(jsonutils.NewInt(0), "index")
+		}
+		ps := compute.GuestPortMappings{}
+		if len(args.PortMapping) > 0 {
+			psm, err := cmdline.ParseNetworkConfigPortMappings(args.PortMapping)
+			if err != nil {
+				return errors.Wrap(err, "parse port mapping")
+			}
+			for _, mappings := range psm {
+				ps = append(ps, mappings...)
+			}
+		}
+		// 空数组表示清空该网卡的端口映射
+		params.Add(jsonutils.Marshal(ps), "port_mappings")
+		server, err := modules.Servers.PerformAction(s, args.SERVER, "set-port-mapping", params)
+		if err != nil {
+			return err
+		}
+		printObject(server)
+		return nil
+	})
+
 	type ServerAttachNetworkOptions struct {
 		SERVER            string   `help:"ID or Name of server"`
 		DisableSyncConfig bool     `help:"Disable sync config"`

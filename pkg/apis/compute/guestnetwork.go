@@ -130,6 +130,10 @@ type GuestnetworkUpdateInput struct {
 	PortMappings GuestPortMappings `json:"port_mappings"`
 
 	ChargeType string `json:"charge_type"`
+
+	// NoSync 为 true 时只更新数据库中网卡的 port_mappings，不触发宿主机同步
+	// 用于宿主机回写（如分配 host_port）等场景，避免递归触发同步
+	NoSync *bool `json:"no_sync"`
 }
 
 type GuestnetworkBaseDesc struct {

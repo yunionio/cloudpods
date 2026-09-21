@@ -969,6 +969,12 @@ func (gn *SGuestnetwork) ValidateUpdateData(
 			return input, err
 		}
 	}
+	if len(input.PortMappings) > 0 {
+		guest := gn.GetGuest()
+		if guest != nil && !guest.SupportPortMapping() {
+			return input, httperrors.NewUnsupportOperationError("hypervisor %s does not support port_mapping", guest.Hypervisor)
+		}
+	}
 
 	var err error
 	input.GuestJointBaseUpdateInput, err = gn.SGuestJointsBase.ValidateUpdateData(ctx, userCred, query, input.GuestJointBaseUpdateInput)
@@ -999,6 +1005,20 @@ func (gn *SGuestnetwork) PostUpdate(ctx context.Context, userCred mcclient.Token
 		err := guest.fixDefaultGateway(ctx, userCred)
 		if err != nil {
 			log.Errorf("fail to fixDefaultGateway %s", err)
+		}
+	}
+	// port_mappings 变更后，启动独立 task 设置端口映射（先由宿主机分配 host_port，再同步配置）
+	// no_sync 为 true 时跳过，供宿主机回写（如自动分配 host_port）避免递归触发
+	if data.Contains("port_mappings") && (input.NoSync == nil || !*input.NoSync) {
+		guest := gn.GetGuest()
+		if guest != nil && (guest.Status == api.VM_READY || guest.Status == api.VM_RUNNING) {
+			pms := gn.PortMappings
+			if err := guest.StartGuestSetPortMappingTask(ctx, userCred, api.ServerSetPortMappingInput{
+				ServerNetworkInfo: api.ServerNetworkInfo{Mac: gn.MacAddr},
+				PortMappings:      pms,
+			}); err != nil {
+				log.Errorf("fail to start set port mapping task of nic %s: %s", gn.GetDetailedString(), err)
+			}
 		}
 	}
 }
