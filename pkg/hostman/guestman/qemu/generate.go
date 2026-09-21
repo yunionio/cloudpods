@@ -693,11 +693,16 @@ func generatePvpanicDeviceOption(pvpanic *desc.SGuestPvpanic) string {
 	return fmt.Sprintf("-device pvpanic,id=%s,ioport=0x%x", pvpanic.Id, pvpanic.Ioport)
 }
 
-func generateTpmDevOptions(tpm *desc.SGuestTpm) []string {
+func generateTpmDevOptions(tpm *desc.SGuestTpm, arch Arch) []string {
 	opts := make([]string, 0)
 	opts = append(opts, chardevOption(tpm.TpmSock))
 	opts = append(opts, fmt.Sprintf("-tpmdev emulator,id=%s,chardev=%s", tpm.Id, tpm.TpmSock.Id))
-	opts = append(opts, fmt.Sprintf("-device tpm-tis,tpmdev=%s", tpm.Id))
+	// tpm-tis is ISA/LPC (x86). ARM/RISC-V virt uses the sysbus tpm-tis-device.
+	devModel := "tpm-tis"
+	if !arch.IsX86() {
+		devModel = "tpm-tis-device"
+	}
+	opts = append(opts, fmt.Sprintf("-device %s,tpmdev=%s", devModel, tpm.Id))
 	return opts
 }
 
@@ -973,7 +978,7 @@ func GenerateStartOptions(
 	}
 
 	if input.GuestDesc.Tpm != nil {
-		opts = append(opts, generateTpmDevOptions(input.GuestDesc.Tpm)...)
+		opts = append(opts, generateTpmDevOptions(input.GuestDesc.Tpm, input.QemuArch)...)
 	}
 
 	// move extra options to end of cmdline

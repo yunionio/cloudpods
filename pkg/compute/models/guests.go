@@ -1956,10 +1956,14 @@ func (manager *SGuestManager) validateCreateData(
 			input.EnableTpm = true
 		}
 
-		// use uefi boot and q35 machine type on enable tpm
+		// TPM requires UEFI. x86 uses q35; ARM/RISC-V uses virt.
 		if input.EnableTpm {
 			input.Bios = "UEFI"
-			input.Machine = api.VM_MACHINE_TYPE_Q35
+			if apis.IsARM(input.OsArch) || apis.IsRISCV(input.OsArch) {
+				input.Machine = api.VM_MACHINE_TYPE_VIRT
+			} else {
+				input.Machine = api.VM_MACHINE_TYPE_Q35
+			}
 		}
 
 		if imageDiskFormat != "" && imageDiskFormat != imageapi.IMAGE_DISK_FORMAT_ISO {
