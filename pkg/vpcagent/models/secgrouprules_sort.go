@@ -63,8 +63,20 @@ func (el *SecurityGroup) securityGroupRules(basePriority int64) []*SecurityGroup
 	return rs
 }
 
+// SecurityGroupRuleLessFunc orders rules by priority, which is what the
+// prefixes of OrderedSecurityGroupRules rely on: the deny-all and the ARP
+// rules come first, then the rules of the security groups of the guest, and
+// the rules of its admin security group last.
+//
+// Rules that end up on the same priority are ordered by id.  The rules of a
+// security group come out of a map, so without a tie breaker the same model
+// sets would produce a different list on every sync, and OVN matches on the
+// priority while the list is what gets written out.
 func SecurityGroupRuleLessFunc(rs []*SecurityGroupRule) func(i, j int) bool {
 	return func(i, j int) bool {
-		return rs[i].Priority < rs[i].Priority
+		if rs[i].Priority != rs[j].Priority {
+			return rs[i].Priority < rs[j].Priority
+		}
+		return rs[i].Id < rs[j].Id
 	}
 }
