@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/apimap"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/vpcagent"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -145,9 +146,12 @@ func (task *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandal
 		log.Errorf("IsOneCloudVpcNetwork fail: %s", err)
 	} else if isVpc {
 		// force update VPC topo
-		err := vpcagent.VpcAgent.DoSync(auth.GetAdminSession(ctx, options.Options.Region))
-		if err != nil {
-			log.Errorf("vpcagent.VpcAgent.DoSync fail %s", err)
+		session := auth.GetAdminSession(ctx, options.Options.Region)
+		if apimap.TriggerSyncAndWait(session).ShouldTriggerAgent() {
+			err := vpcagent.VpcAgent.DoSync(session)
+			if err != nil {
+				log.Errorf("vpcagent.VpcAgent.DoSync fail %s", err)
+			}
 		}
 	}
 	// log

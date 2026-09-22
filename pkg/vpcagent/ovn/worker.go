@@ -41,6 +41,47 @@ type Worker struct {
 	opts *options.Options
 
 	apih *apihelper.APIHelper
+
+	// size is the guard against pushing a batch of model sets that lost most
+	// of its models, see modelSetsSizeGuard
+	size modelSetsSizeGuard
+}
+
+// modelSetsDropRatio is how much of the previous model sets has to be left for
+// a run to go ahead, as a fraction of what was dropped.
+const modelSetsDropRatio = 0.9
+
+// modelSetsSizeGuard holds back a batch of model sets that lost most of its
+// models.  A run clears whatever the model sets do not claim (see Sweep), so a
+// batch that came back incomplete would take the network configuration of the
+// whole platform down with it.
+//
+// A drop is held back at most once, so a real shrink of the platform is only
+// delayed by a round of sync rather than blocked, which also means the worker
+// can never get stuck on an old batch.
+type modelSetsSizeGuard struct {
+	baseSize  int
+	suspended bool
+}
+
+func (g *modelSetsSizeGuard) allow(size int) bool {
+	if g.baseSize <= 0 {
+		// no baseline yet, nothing to compare against
+		g.baseSize = size
+		return true
+	}
+	if g.suspended {
+		// the drop was already reported once, go ahead with it
+		g.suspended = false
+		g.baseSize = size
+		return true
+	}
+	if float64(size) < float64(g.baseSize)*(1-modelSetsDropRatio) {
+		g.suspended = true
+		return false
+	}
+	g.baseSize = size
+	return true
 }
 
 func NewWorker(opts *options.Options) worker.IWorker {
@@ -116,6 +157,12 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 		}
 	}()
 
+	stats := mss.Stats()
+	if !w.size.allow(stats.Total()) {
+		log.Errorf("ovn: model sets lost most of their models, skip this run: %s", stats.Dump())
+		return nil
+	}
+
 	dbUrl := w.opts.OvnNorthDatabase
 	if db, err := ovsutils.NormalizeDbHost(dbUrl); err != nil {
 		return err
@@ -123,6 +170,7 @@ func (w *Worker) run(ctx context.Context, mss *agentmodels.ModelSets) (err error
 		dbUrl = db
 	}
 	log.Infof("ovn: connect to ovn north database %s", dbUrl)
+	log.Infof("ovn: model sets stats: %s", stats.Dump())
 
 	ovnnbctl := ovnutil.NewOvnNbCtl(dbUrl)
 	ovndb, err := DumpOVNNorthbound(ctx, ovnnbctl)

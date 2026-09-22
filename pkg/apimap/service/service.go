@@ -16,55 +16,63 @@ package service
 
 import (
 	"context"
-	"net/http"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 
-	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/appctx"
 
-	"yunion.io/x/onecloud/pkg/apimap/models/vpcagent"
 	"yunion.io/x/onecloud/pkg/apimap/options"
-	compute_api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/apis"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
-	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/scheduler/service"
 )
 
 func StartService() {
 	options.Init()
 	opt := options.GetOptions()
+	if err := opt.ValidateThenInit(); err != nil {
+		log.Fatalf("validate options: %v", err)
+	}
 
-	// hack: set GuestManager recordChecksum to false
-	models.GuestManager.SetEnableRecordChecksum(false)
-
-	service.StartServiceWrapper(&opt.DBOptions, &opt.CommonOptions, func(app *appsrv.Application) error {
-		common_options.StartOptionManager(&opt, opt.ConfigSyncPeriodSeconds, compute_api.SERVICE_TYPE, compute_api.SERVICE_VERSION, options.OnOptionsChange)
-		InitHandlers(app)
-		app_common.ServeForever(app, &opt.BaseOptions)
-		return nil
+	commonOpts := &opt.CommonOptions
+	app_common.InitAuth(commonOpts, func() {
+		log.Infof("auth finished ok")
 	})
-}
+	common_options.StartOptionManager(opt, opt.ConfigSyncPeriodSeconds, apis.SERVICE_TYPE_APIMAP, "", options.OnOptionsChange)
 
-func InitHandlers(app *appsrv.Application) {
-	app_common.ExportOptionsHandler(app, options.GetOptions())
-	app.AddHandler2("GET", "/vpcagent", auth.Authenticate(vpcAgentHandler), nil, "get_vpcagent_topo", nil)
-}
+	app := app_common.InitApp(&opt.BaseOptions, false)
+	app_common.ExportOptionsHandler(app, opt)
 
-func vpcAgentHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
-	query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
+	svc, err := NewModelSetsService(opt)
 	if err != nil {
-		httperrors.GeneralServerError(ctx, w, err)
-		return
+		log.Fatalf("new model sets service: %v", err)
 	}
+	svc.InitHandlers(app)
 
-	result, err := vpcagent.GetTopoResult(ctx, userCred, query)
-	if err != nil {
-		httperrors.GeneralServerError(ctx, w, err)
-		return
-	}
-	appsrv.SendJSON(w, jsonutils.Marshal(result))
+	go func() {
+		ctx := context.Background()
+		ctx, cancelFunc := context.WithCancel(ctx)
+
+		wg := &sync.WaitGroup{}
+		ctx = context.WithValue(ctx, "wg", wg)
+		ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "apimap")
+
+		wg.Add(1)
+		go svc.Start(ctx, app)
+
+		go func() {
+			sigChan := make(chan os.Signal, 1)
+			signal.Notify(sigChan, syscall.SIGINT)
+			signal.Notify(sigChan, syscall.SIGTERM)
+			sig := <-sigChan
+			log.Infof("signal received: %s", sig)
+			cancelFunc()
+		}()
+		wg.Wait()
+	}()
+
+	app_common.ServeForeverWithCleanup(app, &opt.BaseOptions, nil)
 }

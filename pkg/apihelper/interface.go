@@ -36,9 +36,19 @@ type IModelSets interface {
 	CopyJoined() IModelSets
 }
 
-type IDBModelSets interface {
+// IAPIMapModelSets is implemented by the model sets that can be fetched from
+// the apimap service instead of from the compute APIs.
+type IAPIMapModelSets interface {
 	IModelSets
-	FetchFromAPIMap(s *mcclient.ClientSession) (IModelSets, error)
+
+	// APIMapTimestamp returns the version of the model sets currently served
+	// by the apimap service, without fetching the payload.
+	APIMapTimestamp(s *mcclient.ClientSession) (int64, error)
+
+	// FetchFromAPIMap fetches the model sets from the apimap service.  The
+	// returned timestamp is the version of the returned payload, which is
+	// what the caller has to compare against on the next round.
+	FetchFromAPIMap(s *mcclient.ClientSession) (IModelSets, int64, error)
 }
 
 type IModelSet interface {
@@ -47,11 +57,6 @@ type IModelSet interface {
 	AddModel(db.IModel)
 	Copy() IModelSet
 	IncludeDetails() bool
-}
-
-type IDBModelSet interface {
-	IModelSet
-	DBModelManager() db.IModelManager
 }
 
 type IModelSetEmulatedIncluder interface {
@@ -70,21 +75,14 @@ type IModelListSetParams interface {
 	SetModelListParams(params *jsonutils.JSONDict) *jsonutils.JSONDict
 }
 
+// SyncModelSets refreshes mssOld with the model sets listed from the compute
+// service APIs.  Its counterpart, for the model sets served by the apimap
+// service, is APIHelper's own sync path, which also has to keep track of the
+// version that the model sets reflect.
 func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (ModelSetsUpdateResult, error) {
-	var (
-		mssNews IModelSets
-		err     error
-	)
-	if mssDB, ok := mssOld.(IDBModelSets); ok && !opt.FetchFromComputeService {
-		mssNews, err = mssDB.FetchFromAPIMap(s)
-		if err != nil {
-			return ModelSetsUpdateResult{}, errors.Wrap(err, "FetchFromAPIMap")
-		}
-	} else {
-		mssNews, err = syncModelSets(mssOld, s, opt)
-		if err != nil {
-			return ModelSetsUpdateResult{}, errors.Wrap(err, "syncModelSets")
-		}
+	mssNews, err := syncModelSets(mssOld, s, opt)
+	if err != nil {
+		return ModelSetsUpdateResult{}, errors.Wrap(err, "syncModelSets")
 	}
 	r := mssOld.ApplyUpdates(mssNews)
 	return r, nil
@@ -117,44 +115,4 @@ func syncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (
 		}
 	}
 	return mssNews, nil
-}
-
-func SyncDBModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (r ModelSetsUpdateResult, err error) {
-	mssNews := mssOld.NewEmpty()
-	for _, msNew := range mssNews.ModelSetList() {
-		var (
-			includeEmulated = false
-		)
-		if optProvider, ok := msNew.(IModelSetEmulatedIncluder); ok {
-			includeEmulated = optProvider.IncludeEmulated()
-		}
-		msi, ok := msNew.(IDBModelSet)
-		opts := &GetModelsOptions{
-			ClientSession: s,
-			ModelManager:  msNew.ModelManager(),
-			ModelSet:      msNew,
-			BatchListSize: opt.ListBatchSize,
-
-			IncludeDetails:       msNew.IncludeDetails(),
-			IncludeEmulated:      includeEmulated,
-			InCludeOtherCloudEnv: opt.IncludeOtherCloudEnv,
-		}
-		if ok {
-			dbOpts := &GetDBModelsOptions{
-				modelOptions:   opts,
-				modelDBManager: msi.DBModelManager(),
-			}
-			err = GetDBModels(dbOpts)
-			if err != nil {
-				return
-			}
-		} else {
-			err = GetModels(opts)
-			if err != nil {
-				return
-			}
-		}
-	}
-	r = mssOld.ApplyUpdates(mssNews)
-	return r, nil
 }
