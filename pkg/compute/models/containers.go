@@ -174,7 +174,10 @@ func (m *SContainerManager) ValidateSpec(ctx context.Context, userCred mcclient.
 	if !sets.NewString(apis.ImagePullPolicyAlways, apis.ImagePullPolicyIfNotPresent).Has(string(spec.ImagePullPolicy)) {
 		return httperrors.NewInputParameterError("invalid image_pull_policy %s", spec.ImagePullPolicy)
 	}
-	if err := m.resolveContainerImageId(ctx, userCred, spec); err != nil {
+	// ctr == nil means the container is being created, apply the defaults
+	// (command/args/envs) configured on the container_image; when updating the
+	// spec of an existing container keep what the user has set.
+	if err := m.resolveContainerImageId(ctx, userCred, spec, ctr == nil); err != nil {
 		return errors.Wrap(err, "resolve container_image_id")
 	}
 	if spec.Image == "" {
@@ -241,14 +244,31 @@ func (m *SContainerManager) ValidateSpec(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (m *SContainerManager) resolveContainerImageId(ctx context.Context, userCred mcclient.TokenCredential, spec *api.ContainerSpec) error {
+// fetchContainerImageObj fetches the container_image resource through the
+// glance service.
+func fetchContainerImageObj(ctx context.Context, userCred mcclient.TokenCredential, imageId string) (jsonutils.JSONObject, error) {
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	obj, err := imagemod.ContainerImages.Get(s, imageId, nil)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(errors.Wrapf(err, "get container_image %s", imageId))
+	}
+	return obj, nil
+}
+
+// fetchContainerRegistryObj fetches the container_registry resource through the
+// glance service.
+func fetchContainerRegistryObj(ctx context.Context, userCred mcclient.TokenCredential, registryId string) (jsonutils.JSONObject, error) {
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	return imagemod.ContainerRegistries.Get(s, registryId, nil)
+}
+
+func (m *SContainerManager) resolveContainerImageId(ctx context.Context, userCred mcclient.TokenCredential, spec *api.ContainerSpec, applyDefaults bool) error {
 	if spec.ContainerImageId == "" {
 		return nil
 	}
-	s := auth.GetSession(ctx, userCred, options.Options.Region)
-	obj, err := imagemod.ContainerImages.Get(s, spec.ContainerImageId, nil)
+	obj, err := fetchContainerImageObj(ctx, userCred, spec.ContainerImageId)
 	if err != nil {
-		return httperrors.NewGeneralError(errors.Wrapf(err, "get container_image %s", spec.ContainerImageId))
+		return err
 	}
 	imageName, _ := obj.GetString("image_name")
 	imageLabel, _ := obj.GetString("image_label")
@@ -262,7 +282,7 @@ func (m *SContainerManager) resolveContainerImageId(ctx context.Context, userCre
 	credId, _ := obj.GetString("credential_id")
 	if credId == "" {
 		if registryId, _ := obj.GetString("registry_id"); registryId != "" {
-			regObj, regErr := imagemod.ContainerRegistries.Get(s, registryId, nil)
+			regObj, regErr := fetchContainerRegistryObj(ctx, userCred, registryId)
 			if regErr != nil {
 				return httperrors.NewGeneralError(errors.Wrapf(regErr, "get container_registry %s for credential fallback", registryId))
 			}
@@ -272,7 +292,96 @@ func (m *SContainerManager) resolveContainerImageId(ctx context.Context, userCre
 	if credId != "" {
 		spec.ImageCredentialId = credId
 	}
+	if applyDefaults {
+		if err := applyContainerImageDefaults(spec, obj); err != nil {
+			return errors.Wrap(err, "apply container_image defaults")
+		}
+	}
 	return nil
+}
+
+// applyContainerImageDefaults applies the defaults of the referenced
+// container_image to the container spec. The container_image wins for
+// command/args when it configures a non-empty value; the envs of the image are
+// merged into the container envs and win on key conflict.
+func applyContainerImageDefaults(spec *api.ContainerSpec, image jsonutils.JSONObject) error {
+	if gotypes.IsNil(image) {
+		return nil
+	}
+	if command, err := image.Get("command"); err == nil {
+		values := make([]string, 0)
+		if err := command.Unmarshal(&values); err != nil {
+			return errors.Wrap(err, "unmarshal container_image command")
+		}
+		// an empty command on the image means "unset", keep what the container has
+		if len(values) > 0 {
+			spec.Command = values
+		}
+	}
+	if args, err := image.Get("args"); err == nil {
+		values := make([]string, 0)
+		if err := args.Unmarshal(&values); err != nil {
+			return errors.Wrap(err, "unmarshal container_image args")
+		}
+		if len(values) > 0 {
+			spec.Args = values
+		}
+	}
+	imageEnvs := make([]*apis.ContainerKeyValue, 0)
+	if envs, err := image.Get("envs"); err == nil {
+		if err := envs.Unmarshal(&imageEnvs); err != nil {
+			return errors.Wrap(err, "unmarshal container_image envs")
+		}
+	}
+	if len(imageEnvs) == 0 && len(spec.Envs) == 0 {
+		return nil
+	}
+	spec.Envs = mergeContainerImageEnvs(spec.Envs, imageEnvs)
+	return nil
+}
+
+// mergeContainerImageEnvs merges the image envs into the container envs. The
+// container envs are the base and keep their order, the image envs override the
+// value of the same key and append the missing keys.
+func mergeContainerImageEnvs(ctrEnvs, imageEnvs []*apis.ContainerKeyValue) []*apis.ContainerKeyValue {
+	out := make([]*apis.ContainerKeyValue, 0, len(ctrEnvs)+len(imageEnvs))
+	indexByKey := make(map[string]int, len(ctrEnvs)+len(imageEnvs))
+	for _, env := range ctrEnvs {
+		if env == nil {
+			continue
+		}
+		key := strings.TrimSpace(env.Key)
+		if key == "" {
+			continue
+		}
+		kv := env
+		if env.Key != key {
+			kv = &apis.ContainerKeyValue{Key: key, Value: env.Value, ValueFrom: env.ValueFrom}
+		}
+		indexByKey[key] = len(out)
+		out = append(out, kv)
+	}
+	for _, env := range imageEnvs {
+		if env == nil {
+			continue
+		}
+		key := strings.TrimSpace(env.Key)
+		if key == "" {
+			continue
+		}
+		if idx, ok := indexByKey[key]; ok {
+			// keep the key spelling of the container side, take the value of the image
+			out[idx] = &apis.ContainerKeyValue{
+				Key:       out[idx].Key,
+				Value:     env.Value,
+				ValueFrom: env.ValueFrom,
+			}
+			continue
+		}
+		indexByKey[key] = len(out)
+		out = append(out, &apis.ContainerKeyValue{Key: key, Value: env.Value, ValueFrom: env.ValueFrom})
+	}
+	return out
 }
 
 func (m *SContainerManager) ValidateSpecEnvs(ctx context.Context, userCred mcclient.TokenCredential, spec *api.ContainerSpec) error {
@@ -737,6 +846,13 @@ func (c *SContainer) PerformStart(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (c *SContainer) StartStartTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	// Refresh the defaults inherited from the container_image so that changes
+	// made on the image take effect on start/restart. All the start paths
+	// (container-start, container-restart, pod-start, pod-restart and the batch
+	// variants) funnel through here. A failure must not block the start.
+	if err := c.applyContainerImageDefaultsOnStart(ctx, userCred); err != nil {
+		log.Warningf("refresh container_image defaults for container %s: %v", c.GetId(), err)
+	}
 	c.SetStatus(ctx, userCred, api.CONTAINER_STATUS_STARTING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ContainerStartTask", c, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
@@ -901,7 +1017,7 @@ func (c *SContainer) ensureContainerImageResolved(ctx context.Context, userCred 
 	needResolve := c.Spec.ContainerImageId != "" && c.Spec.Image == ""
 	if needResolve {
 		if _, err := db.Update(c, func() error {
-			if err := GetContainerManager().resolveContainerImageId(ctx, userCred, c.Spec); err != nil {
+			if err := GetContainerManager().resolveContainerImageId(ctx, userCred, c.Spec, false); err != nil {
 				return err
 			}
 			if c.Spec.Image == "" {
@@ -914,6 +1030,30 @@ func (c *SContainer) ensureContainerImageResolved(ctx context.Context, userCred 
 	}
 	if c.Spec.Image == "" {
 		return httperrors.NewNotEmptyError("image is required")
+	}
+	return nil
+}
+
+// applyContainerImageDefaultsOnStart refreshes command/args/envs of the
+// container spec from the referenced container_image, so that changes made on
+// the image take effect when the container is started or restarted.
+func (c *SContainer) applyContainerImageDefaultsOnStart(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if c.Spec == nil || c.Spec.ContainerImageId == "" {
+		return nil
+	}
+	obj, err := fetchContainerImageObj(ctx, userCred, c.Spec.ContainerImageId)
+	if err != nil {
+		return errors.Wrapf(err, "fetch container_image %s", c.Spec.ContainerImageId)
+	}
+	// db.Update is a no-op when nothing changed, so it is safe to call it here
+	_, err = db.Update(c, func() error {
+		if c.Spec == nil {
+			return httperrors.NewNotEmptyError("container spec is empty")
+		}
+		return applyContainerImageDefaults(c.Spec, obj)
+	})
+	if err != nil {
+		return errors.Wrap(err, "update container spec")
 	}
 	return nil
 }
