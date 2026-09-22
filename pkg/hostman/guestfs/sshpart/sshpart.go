@@ -16,6 +16,7 @@ package sshpart
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"regexp"
@@ -547,6 +548,60 @@ func (p *SSHPartition) Cleandir(dir string, keepdir, caseInsensitive bool) error
 
 func (p *SSHPartition) Zerofree() {
 	log.Warningf("zerofree should not called in ssh partition")
+}
+
+func (p *SSHPartition) CopyFile(src, dest string) error {
+	rpath := path.Join(p.GetMountPath(), dest)
+	term, ok := p.term.(*ssh.Client)
+	if !ok {
+		return errors.Errorf("term %T has no stdin support", p.term)
+	}
+
+	pr, pw := io.Pipe()
+	done := make(chan error, 1)
+	go func() {
+		f, err := os.Open(src)
+		if err != nil {
+			pw.CloseWithError(err)
+			log.Errorf("open %s failed: %s", src, err)
+			done <- errors.Wrap(err, fmt.Sprintf("open %s failed", src))
+			return
+		}
+		defer f.Close()
+		if _, err := io.Copy(pw, f); err != nil {
+			pw.CloseWithError(err)
+			log.Errorf("copy %s failed: %s", src, err)
+			done <- errors.Wrap(err, "copy failed")
+			return
+		}
+		done <- pw.Close()
+	}()
+
+	ret, err := term.RunWithInput(pr, fmt.Sprintf("cat > %s", rpath))
+	pr.Close()
+	if err != nil {
+		return errors.Wrapf(err, "failed write to %s: %v", rpath, ret)
+	}
+	if perr := <-done; perr != nil {
+		return errors.Wrapf(perr, "read local %s", src)
+	}
+
+	fi, err := os.Stat(src)
+	if err != nil {
+		return errors.Wrapf(err, "failed stat %s", src)
+	}
+	mode := fi.Mode().Perm()
+	out, err := term.Run(fmt.Sprintf("chmod %04o %s", mode, rpath))
+	if err != nil {
+		return errors.Wrapf(err, "failed chmod %04o %s: %v", mode, rpath, out)
+	}
+
+	return nil
+}
+
+func (p *SSHPartition) ExecCommand(name string, args ...string) ([]string, error) {
+	cmd := strings.Join(append([]string{"/usr/sbin/chroot", p.GetMountPath(), name}, args...), " ")
+	return p.term.Run(cmd)
 }
 
 func MountSSHRootfs(tool *disktool.SSHPartitionTool, term *ssh.Client, layouts []baremetal.Layout) (*SSHPartition, fsdriver.IRootFsDriver, error) {
