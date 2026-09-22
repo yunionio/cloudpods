@@ -1213,11 +1213,9 @@ func (o *ServerRebuildRootOptions) Params() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, err
 	}
+	params.Set("reset_password", jsonutils.JSONTrue)
 	if o.NoAccountInit != nil && *o.NoAccountInit {
 		params.Add(jsonutils.JSONFalse, "reset_password")
-	}
-	if o.Password != "" {
-		params.Set("reset_password", jsonutils.JSONTrue)
 	}
 	return params, nil
 }
