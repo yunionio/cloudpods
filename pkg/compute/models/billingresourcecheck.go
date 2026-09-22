@@ -302,6 +302,7 @@ func CheckBillingResourceExpireAt(ctx context.Context, userCred mcclient.TokenCr
 			notifyclient.EventNotify(ctx, userCred, notifyclient.SEventNotifyParam{
 				Obj:                 &resources[i],
 				ObjDetailsDecorator: detailsDecro,
+				ResourceType:        resources[i].ResourceType,
 				Action:              notifyclient.ActionExpiredRelease,
 				AdvanceDays:         advanceDay,
 			})
