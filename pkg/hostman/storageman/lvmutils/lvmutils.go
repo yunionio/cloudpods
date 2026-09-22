@@ -290,12 +290,12 @@ $size1 $size2 linear $2 0" | dmsetup create $3
 	return nil
 }
 
-func VgDisplay(vgName string) error {
+func VgDisplay(vgName string) (string, error) {
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("lvm", "vgdisplay", vgName).Output()
 	if err != nil {
-		return errors.Wrapf(err, "vgdisplay %s failed %s", vgName, out)
+		return "", errors.Wrapf(err, "vgdisplay %s failed %s: %s", vgName, out, err)
 	}
-	return nil
+	return string(out), nil
 }
 
 func VgActive(vgName string, active, autoActivation bool) error {

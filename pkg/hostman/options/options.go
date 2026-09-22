@@ -42,6 +42,7 @@ type SHostBaseOptions struct {
 
 	DefaultQemuVersion string `help:"Default qemu version" default:"10.0.7"`
 	NoHpet             bool   `help:"Disable qemu hpet timer" default:"true"`
+	QgaStopTimeout     int64  `default:"30" help:"Qemu guest agent stop timeout"`
 
 	CdromCount  int `help:"cdrom count" default:"1"`
 	FloppyCount int `help:"floppy count" default:"1"`
