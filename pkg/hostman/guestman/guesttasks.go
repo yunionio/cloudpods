@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
+	"yunion.io/x/onecloud/pkg/hostman/monitor/qga"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -67,6 +68,9 @@ type SGuestStopTask struct {
 	isFroce        bool
 	startPowerdown time.Time
 	c              chan context.Context
+
+	qgaStopping bool
+	qgaTiemout  int64
 }
 
 func NewGuestStopTask(guest *SKVMGuestInstance, ctx context.Context, timeout int64, isForce bool) *SGuestStopTask {
@@ -84,7 +88,21 @@ func (s *SGuestStopTask) Start() {
 	s.stopping = true
 	s.startPowerdown = time.Now()
 	if s.IsRunning() && s.IsMonitorAlive() {
-		s.Monitor.SimpleCommand("system_powerdown", s.onPowerdownGuest)
+		if s.guestAgent.GuestPing(1) == nil {
+			// qga stop first
+			if err := s.guestAgent.GuestStop(2); err != nil && err != qga.QgaReadTimeOutErr {
+				log.Errorf("failed qga guest stop %s", err)
+			} else {
+				s.qgaStopping = true
+				s.qgaTiemout = s.timeout / 2
+				if s.qgaTiemout > options.HostOptions.QgaStopTimeout {
+					s.qgaTiemout = options.HostOptions.QgaStopTimeout
+				}
+			}
+		}
+		if !s.qgaStopping {
+			s.Monitor.SimpleCommand("system_powerdown", s.onPowerdownGuest)
+		}
 	}
 	s.checkGuestRunning()
 }
@@ -104,6 +122,7 @@ func (s *SGuestStopTask) checkGuestRunning() {
 	case ctx := <-s.c:
 		s.Stop() // force stop
 		s.stopping = false
+		s.qgaStopping = false
 		if ctx != nil {
 			hostutils.TaskComplete(ctx, nil)
 		}
@@ -112,7 +131,13 @@ func (s *SGuestStopTask) checkGuestRunning() {
 		if !s.IsRunning() {
 			s.Stop() // force stop
 			s.stopping = false
+			s.qgaStopping = false
 			hostutils.TaskComplete(s.ctx, nil)
+		} else if s.qgaStopping && time.Now().Sub(s.startPowerdown) > time.Duration(s.qgaTiemout)*time.Second {
+			// rollback acpi guest shutdown
+			s.qgaStopping = false
+			s.Monitor.SimpleCommand("system_powerdown", s.onPowerdownGuest)
+			go s.checkGuestRunning()
 		} else if time.Now().Sub(s.startPowerdown) > time.Duration(s.timeout)*time.Second {
 			// timeout
 			if s.isFroce {

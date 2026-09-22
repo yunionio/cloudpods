@@ -122,7 +122,7 @@ func storageIsVgExist(ctx context.Context, w http.ResponseWriter, r *http.Reques
 		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("vg_name"))
 		return
 	}
-	if err := lvmutils.VgDisplay(vgName); err != nil {
+	if _, err := lvmutils.VgDisplay(vgName); err != nil {
 		log.Errorf("vg %s display failed %s", vgName, err)
 		hostutils.Response(ctx, w, httperrors.NewInternalServerError("%s", err.Error()))
 		return

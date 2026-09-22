@@ -558,7 +558,7 @@ func (s *SLVMStorage) Accessible() error {
 	if err != nil {
 		return errors.Wrapf(err, "pvscan --cache failed %s", out)
 	}
-	if err := lvmutils.VgDisplay(s.Path); err != nil {
+	if _, err := lvmutils.VgDisplay(s.Path); err != nil {
 		return err
 	}
 	return nil
