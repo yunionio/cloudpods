@@ -308,7 +308,8 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 	}
 	// normal contact type
 	for _, ct := range contactTypes {
-		if ct == api.MOBILE {
+		if ct == api.MOBILE && !topic.CanSendSms() {
+			log.Infof("skip mobile notify for topic %q: enable_sms=%s sms_template=%q", topic.Name, topic.EnableSms, topic.SmsTemplate)
 			continue
 		}
 		err := nm.create(ctx, userCred, ct, realReceiverIds, nil, input.Priority, event.GetId(), topic.GetId(), topic.Type)
@@ -821,9 +822,65 @@ func (n *SNotification) TaskInsert() error {
 	return NotificationManager.TableSpec().Insert(context.Background(), n)
 }
 
+func mobileEventTemplateParam(no api.SsNotification) string {
+	dict := jsonutils.NewDict()
+	setVar := func(key, val string) {
+		val = strings.TrimSpace(val)
+		if val == "" {
+			return
+		}
+		rs := []rune(val)
+		if len(rs) > 32 {
+			val = string(rs[:32])
+		}
+		dict.Set(key, jsonutils.NewString(val))
+	}
+	if no.AdvanceDays > 0 {
+		setVar("advance_days", fmt.Sprintf("%d", no.AdvanceDays))
+	}
+	setVar("resource_type", no.Event.ResourceType())
+	msg, err := jsonutils.ParseString(no.Message)
+	if err == nil {
+		for _, key := range []string{"name", "project", "brand", "status", "billing_type"} {
+			val, _ := msg.GetString(key)
+			setVar(key, val)
+		}
+		if no.AdvanceDays == 0 {
+			if days, _ := msg.Int("advance_days"); days > 0 {
+				setVar("advance_days", fmt.Sprintf("%d", days))
+			}
+		}
+	}
+	return dict.String()
+}
+
+func (n *SNotification) getMobileTemplate(ctx context.Context, topicId, lang string, no api.SsNotification) (api.SendParams, error) {
+	params := api.SendParams{}
+	if len(n.EventId) > 0 {
+		if len(topicId) == 0 {
+			return params, errors.Errorf("no topic for mobile event %s", no.Event.String())
+		}
+		obj, err := TopicManager.FetchById(topicId)
+		if err != nil {
+			return params, errors.Wrapf(err, "get topic by id")
+		}
+		topic := obj.(*STopic)
+		if !topic.CanSendSms() {
+			return params, errors.Errorf("topic %s disable sms or empty sms template", topic.GetName())
+		}
+		params.RemoteTemplate = strings.TrimSpace(topic.SmsTemplate)
+		params.Message = mobileEventTemplateParam(no)
+		return params, nil
+	}
+	return TemplateManager.FillWithTemplate(ctx, lang, no)
+}
+
 // 获取消息文案
 func (n *SNotification) GetTemplate(ctx context.Context, topicId, lang string, no api.SsNotification) (api.SendParams, error) {
-	if len(n.EventId) == 0 || n.ContactType == api.MOBILE {
+	if n.ContactType == api.MOBILE {
+		return n.getMobileTemplate(ctx, topicId, lang, no)
+	}
+	if len(n.EventId) == 0 {
 		return TemplateManager.FillWithTemplate(ctx, lang, no)
 	}
 

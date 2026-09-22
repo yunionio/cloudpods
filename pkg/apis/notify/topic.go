@@ -51,6 +51,8 @@ type TopicUpdateInput struct {
 	ContentEn         string   `json:"content_en"`
 	AdvanceDays       []int    `json:"advance_days"`
 	WebconsoleDisable *bool    `json:"webconsole_disable"`
+	EnableSms         *bool    `json:"enable_sms"`
+	SmsTemplate       *string  `json:"sms_template"`
 	Actions           []string `json:"actions"`
 	Resources         []string `json:"resources"`
 }
@@ -93,6 +95,8 @@ type STopicCreateInput struct {
 	Resources         []string         `json:"resources"`
 	Actions           []string         `json:"actions"`
 	WebconsoleDisable bool             `json:"webconsole_disable"`
+	EnableSms         bool             `json:"enable_sms"`
+	SmsTemplate       string           `json:"sms_template"`
 }
 
 type TopicAddActionInput struct {
