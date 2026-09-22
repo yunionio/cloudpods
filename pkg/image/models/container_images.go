@@ -68,6 +68,13 @@ type SContainerImage struct {
 	ImageLabel   string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required" update:"user"`
 	CredentialId string `width:"128" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
 	RegistryId   string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+
+	// 默认启动命令，创建容器时未指定 command 则使用该值
+	Command []string `charset:"utf8" length:"long" nullable:"true" list:"user" create:"optional" update:"user"`
+	// 默认启动参数，创建容器时未指定 args 则使用该值
+	Args []string `charset:"utf8" length:"long" nullable:"true" list:"user" create:"optional" update:"user"`
+	// 默认环境变量，创建容器时追加到容器环境变量中，同名以容器指定值为准
+	Envs *api.ContainerImageEnvs `charset:"utf8" length:"long" nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 func fetchImageCredential(ctx context.Context, userCred mcclient.TokenCredential, cid string) (*identityapi.CredentialDetails, error) {
