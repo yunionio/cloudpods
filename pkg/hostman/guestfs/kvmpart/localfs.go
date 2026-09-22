@@ -47,6 +47,25 @@ func (f *SLocalGuestFS) SupportSerialPorts() bool {
 	return false
 }
 
+func (f *SLocalGuestFS) CopyFile(src, dest string) error {
+	destPath := path.Join(f.GetMountPath(), dest)
+	out, err := procutils.NewCommand("cp", "-f", src, destPath).Output()
+	if err != nil {
+		return errors.Wrapf(err, "failed to copy %s to %s: %s", src, dest, out)
+	}
+	return nil
+}
+
+func (f *SLocalGuestFS) ExecCommand(name string, args ...string) ([]string, error) {
+	newArgs := append([]string{f.GetMountPath(), name}, args...)
+	out, err := procutils.NewCommand("chroot", newArgs...).Output()
+	lines := make([]string, 0)
+	for _, line := range strings.Split(string(out), "\n") {
+		lines = append(lines, strings.TrimSpace(line))
+	}
+	return lines, err
+}
+
 func (f *SLocalGuestFS) GetLocalPath(sPath string, caseInsensitive bool) string {
 	p, err := f.resolveLocalPath(sPath, caseInsensitive, false)
 	if err != nil {
