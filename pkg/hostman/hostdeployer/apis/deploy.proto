@@ -203,6 +203,7 @@ message ImageInfo {
   string physical_partition_type = 6;
   bool is_installed_cloud_init = 7;
   bool is_bios_support = 8;
+  bool is_windows_virtio_net_support = 9;
 }
 
 message EsxiDiskInfo {

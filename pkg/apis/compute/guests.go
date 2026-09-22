@@ -1337,6 +1337,12 @@ type ServerSetPasswordInput struct {
 	AutoStart     bool `json:"auto_start"`
 }
 
+type ServerSetIsoInput struct {
+	CdromOrdinal int64  `json:"cdrom_ordinal"`
+	ImageId      string `json:"image_id"`
+	BootIndex    *int8  `json:"boot_index"`
+}
+
 type ServerInsertVfdInput struct {
 	FloppyOrdinal int64  `json:"floppy_ordinal"`
 	ImageId       string `json:"image_id"`
