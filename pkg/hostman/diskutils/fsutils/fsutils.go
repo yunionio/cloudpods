@@ -774,11 +774,12 @@ func ProbeImageInfo(d deploy_iface.IDeployer) (*apis.ImageInfo, error) {
 	}
 	partition := rootfs.GetPartition()
 	imageInfo := &apis.ImageInfo{
-		OsInfo:               rootfs.GetReleaseInfo(partition),
-		OsType:               rootfs.GetOs(),
-		IsLvmPartition:       d.IsLVMPartition(),
-		IsReadonly:           partition.IsReadonly(),
-		IsInstalledCloudInit: rootfs.IsCloudinitInstall(),
+		OsInfo:                    rootfs.GetReleaseInfo(partition),
+		OsType:                    rootfs.GetOs(),
+		IsLvmPartition:            d.IsLVMPartition(),
+		IsReadonly:                partition.IsReadonly(),
+		IsInstalledCloudInit:      rootfs.IsCloudinitInstall(),
+		IsWindowsVirtioNetSupport: rootfs.IsWindowsVirtioNetSupport(partition),
 	}
 	d.UmountRootfs(rootfs)
 
@@ -787,6 +788,6 @@ func ProbeImageInfo(d deploy_iface.IDeployer) (*apis.ImageInfo, error) {
 	imageInfo.IsUefiSupport = d.DetectIsUEFISupport(rootfs)
 	imageInfo.PhysicalPartitionType = partition.GetPhysicalPartitionType()
 	imageInfo.IsBiosSupport = d.DetectIsBIOSSupport(rootfs)
-	log.Infof("ProbeImageInfo response %s", imageInfo)
+	log.Infof("ProbeImageInfo response %#v", imageInfo)
 	return imageInfo, nil
 }

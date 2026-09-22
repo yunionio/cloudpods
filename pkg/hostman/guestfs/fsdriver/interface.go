@@ -96,6 +96,7 @@ type IRootFsDriver interface {
 	IsCloudinitInstall() bool
 	IsResizeFsPartitionSupport() bool
 	MountProcfs() bool
+	IsWindowsVirtioNetSupport(part IDiskPartition) bool
 
 	PrepareFsForTemplate(IDiskPartition) error
 	CleanNetworkScripts(rootFs IDiskPartition) error
