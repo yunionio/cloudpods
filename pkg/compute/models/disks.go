@@ -2369,11 +2369,14 @@ func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) error {
 		self.Nonpersistent = true
 	} else {
 		if len(self.DiskType) == 0 {
-			diskType := api.DISK_TYPE_DATA
-			if diskConfig.DiskType == api.DISK_TYPE_VOLUME {
-				diskType = api.DISK_TYPE_VOLUME
+			// 无镜像的空白盘（如 pod rootfs）也要尊重传入的 disk_type；
+			// 否则只能依赖 ImageId 才能标成 sys，pod 两块盘都会变成 data。
+			switch diskConfig.DiskType {
+			case api.DISK_TYPE_SYS, api.DISK_TYPE_DATA, api.DISK_TYPE_VOLUME:
+				self.DiskType = diskConfig.DiskType
+			default:
+				self.DiskType = api.DISK_TYPE_DATA
 			}
-			self.DiskType = diskType
 		}
 		self.Nonpersistent = false
 	}
