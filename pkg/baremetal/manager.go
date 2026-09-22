@@ -77,6 +77,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
+	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
 type SBaremetalManager struct {
@@ -460,7 +461,8 @@ func (m *SBaremetalManager) verifyMacAddr(sshCli *ssh.Client) (error, bool) {
 	var registered bool
 	params := jsonutils.NewDict()
 	for _, nic := range nicinfo {
-		if len(nic.Mac) > 0 {
+		// only verify Ethernet
+		if len(nic.Mac) == 6 {
 			params.Set("any_mac", jsonutils.NewString(nic.Mac.String()))
 			params.Set("scope", jsonutils.NewString("system"))
 			res, err := modules.Hosts.List(m.GetClientSession(), params)
@@ -2114,6 +2116,10 @@ func (b *SBaremetalInstance) StartServerCreateTask(ctx context.Context, userCred
 	if err := b.AutoSaveDesc(ctx); err != nil {
 		return err
 	}
+	if jsonutils.QueryBoolean(data, "fake_create_from_bm_import", false) {
+		timeutils2.AddTimeout(time.Second*3, func() { modules.ComputeTasks.TaskComplete(b.GetClientSession(), taskId, nil) })
+		return nil
+	}
 	b.StartNewTask(tasks.NewBaremetalServerCreateTask, userCred, taskId, data)
 	return nil
 }
@@ -2153,7 +2159,15 @@ func (b *SBaremetalInstance) StartServerStopTask(userCred mcclient.TokenCredenti
 }
 
 func (b *SBaremetalInstance) StartServerDestroyTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
-	b.StartNewTask(tasks.NewBaremetalServerDestroyTask, userCred, taskId, data)
+	if jsonutils.QueryBoolean(data, "purge", false) {
+		log.Infof("purge bm server %s", b.GetId())
+		timeutils2.AddTimeout(time.Second*3, func() {
+			b.RemoveServer()
+			modules.ComputeTasks.TaskComplete(b.GetClientSession(), taskId, nil)
+		})
+	} else {
+		b.StartNewTask(tasks.NewBaremetalServerDestroyTask, userCred, taskId, data)
+	}
 }
 
 func (b *SBaremetalInstance) DelayedSyncIPMIInfo(ctx context.Context, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

@@ -57,6 +57,11 @@ func (p *StatusPredicate) Execute(ctx context.Context, u *core.Unit, c core.Cand
 		return h.GetResult()
 	}
 
+	if u.SchedData().FakeCreateFromBmImport && !getter.Host().IsImport {
+		h.Exclude("request import host")
+		return h.GetResult()
+	}
+
 	if getter.IsEmpty() {
 		h.SetCapacity(1)
 	} else {

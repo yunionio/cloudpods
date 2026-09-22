@@ -780,6 +780,9 @@ func getIsolatedDevicesInfo(cli *ssh.Client, ip net.IP) ([]*isolated_device.PCID
 			if len(dev.Addr) > 0 && utils.IsInArray(dev.ClassCode, isolated_device.GpuClassCodes) && !isBootVga(cli, dev, bootVgaPath) {
 				devs = append(devs, dev)
 			}
+			if o.Options.AutoRegisterBaremetal && utils.IsInStringArray(dev.VendorId, api.HeterogeneousVendors) {
+				devs = append(devs, dev)
+			}
 		}
 	}
 	return devs, nil

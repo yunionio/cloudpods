@@ -578,6 +578,10 @@ type ServerCreateInput struct {
 	// 创建测试数据，不实际创建资源
 	FakeCreate bool `json:"fake_create"`
 
+	// swagger: ignore
+	// 从托管物理机创建虚机记录，不实际创建虚机
+	FakeCreateFromBmImport bool `json:"fake_create_from_bm_import"`
+
 	// swagger:ignore
 	// Deprecated
 	Keypair string `json:"keypair" yunion-deprecated-by:"keypair_id"`

@@ -101,6 +101,8 @@ type ScheduleInput struct {
 	SkipKernelCheck   *bool  `json:"skip_kernel_check"`
 	TargetHostKernel  string `json:"target_host_kernel"`
 
+	FakeCreateFromBmImport bool `json:"fake_create_from_bm_import"`
+
 	// In the migrate and create backup cases
 	// we don't need reallocate network
 	ReuseNetwork bool `json:"reuse_network"`

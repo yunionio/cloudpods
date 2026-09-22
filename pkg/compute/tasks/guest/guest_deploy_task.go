@@ -44,7 +44,8 @@ func (self *GuestDeployTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 
 func (self *GuestDeployTask) OnGuestNetworkReady(ctx context.Context, guest *models.SGuest) {
 	self.SetStage("OnDeployWaitServerStop", nil)
-	if jsonutils.QueryBoolean(self.Params, "restart", false) {
+	bmImportFakeServer := jsonutils.QueryBoolean(self.Params, "fake_create_from_bm_import", false)
+	if !bmImportFakeServer && jsonutils.QueryBoolean(self.Params, "restart", false) {
 		guest.StartGuestStopTask(ctx, self.UserCred, nil, true, false, self.GetTaskId())
 	} else {
 		// Note: have to use LocalTaskRun, run to another place implement OnDeployWaitServerStop
