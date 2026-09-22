@@ -63,6 +63,7 @@ func (self *SBaremetalServerDestroyTask) DoDeploys(ctx context.Context, term *ss
 	if err := self.Baremetal.GetServer().DoDiskUnconfig(term); err != nil {
 		log.Errorf("Baremetal do disk unconfig: %v", err)
 	}
+
 	self.Baremetal.RemoveServer()
 	return nil, nil
 }

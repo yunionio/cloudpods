@@ -245,7 +245,7 @@ func handleServerCreate(ctx *Context, bm *baremetal.SBaremetalInstance) {
 }
 
 func handleServerDelete(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremetaltypes.IBaremetalServer) {
-	bm.StartServerDestroyTask(ctx.UserCred(), ctx.TaskId(), nil)
+	bm.StartServerDestroyTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
 	ctx.ResponseOk()
 }
 

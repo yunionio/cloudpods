@@ -37,7 +37,7 @@ type SNetInterface struct {
 	db.SResourceBase
 
 	// Mac地址
-	Mac string `width:"36" charset:"ascii" primary:"true"` // Column(VARCHAR(36, charset='ascii'), primary_key=True)
+	Mac string `width:"64" charset:"ascii" primary:"true"` // Column(VARCHAR(36, charset='ascii'), primary_key=True)
 	// VLAN ID
 	VlanId int `nullable:"false" default:"1" primary:"true"`
 

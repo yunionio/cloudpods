@@ -316,6 +316,7 @@ func (deleteTask *BaseGuestDeleteTask) OnGuestDetachDisksCompleteFailed(ctx cont
 func (deleteTask *BaseGuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SGuest) {
 	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(ctx, guest, deleteTask.UserCred)
 	host, _ := guest.GetHost()
+	purgeBmImportServerFakeDelete := host.IsImport && options.Options.BaremetalPrepareServerFakeDelete
 	if guest.IsPrepaidRecycle() {
 		err := host.BorrowIpAddrsFromGuest(ctx, deleteTask.UserCred, guest)
 		if err != nil {
@@ -327,6 +328,17 @@ func (deleteTask *BaseGuestDeleteTask) DoDeleteGuest(ctx context.Context, guest 
 		deleteTask.OnGuestDeleteComplete(ctx, guest, nil)
 	} else if (host == nil || !host.GetEnabled()) && jsonutils.QueryBoolean(deleteTask.Params, "purge", false) {
 		deleteTask.OnGuestDeleteComplete(ctx, guest, nil)
+	} else if purgeBmImportServerFakeDelete {
+		drv, _ := guest.GetDriver()
+		if drv != nil {
+			deleteTask.SetStage("OnGuestDeleteComplete", nil)
+			if err := drv.RequestUndeployGuestOnHost(ctx, guest, host, deleteTask); err != nil {
+				deleteTask.OnGuestDeleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+				return
+			}
+		} else {
+			deleteTask.OnGuestDeleteComplete(ctx, guest, nil)
+		}
 	} else {
 		deleteTask.SetStage("OnGuestDeleteComplete", nil)
 		guest.StartUndeployGuestTask(ctx, deleteTask.UserCred, deleteTask.GetTaskId(), "")
