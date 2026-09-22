@@ -24,8 +24,8 @@ import (
 
 func init() {
 	type GetOptions struct{}
-	shell.R(new(GetOptions), "apimap-vpcagent", "Show net map for vpcagent", func(s *mcclient.ClientSession, _ *GetOptions) error {
-		ret, err := apimap.APIMap.GetVPCAgentTopo(s)
+	shell.R(new(GetOptions), "apimap-modelsets", "Show the model sets served by the apimap service", func(s *mcclient.ClientSession, _ *GetOptions) error {
+		ret, _, err := apimap.APIMap.GetModelSets(s)
 		if err != nil {
 			return err
 		}
@@ -33,4 +33,13 @@ func init() {
 		return nil
 	})
 
+	type StatsOptions struct{}
+	shell.R(new(StatsOptions), "apimap-modelsets-stats", "Show the sync status of the apimap service", func(s *mcclient.ClientSession, _ *StatsOptions) error {
+		ret, err := apimap.APIMap.GetModelSetsStats(s)
+		if err != nil {
+			return err
+		}
+		fmt.Print(ret.YAMLString())
+		return nil
+	})
 }

@@ -17,12 +17,24 @@ package options
 import (
 	"os"
 
+	"yunion.io/x/onecloud/pkg/apihelper"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/compute/options"
 )
 
 type SOptions struct {
-	options.ComputeOptions
+	common_options.CommonOptions
+
+	// APISyncIntervalSeconds is how often the model sets are synced from the
+	// region API.  Keep it below the sync interval of the services that
+	// consume the model sets, so that a change reaches them without an extra
+	// delay.
+	APISyncIntervalSeconds int `default:"5" help:"interval in seconds to sync model sets from region"`
+	// APIRunDelayMilliseconds is how long a triggered sync waits before it
+	// runs, so that a burst of triggers collapses into one sync.
+	APIRunDelayMilliseconds int `default:"100" help:"delay in milliseconds before a scheduled sync runs"`
+	// APIListBatchSize is the batch size of the model list requests made
+	// against the region API.
+	APIListBatchSize int `default:"1024" help:"batch size of model list requests"`
 }
 
 var (
@@ -35,8 +47,21 @@ func GetOptions() *SOptions {
 
 func Init() {
 	common_options.ParseOptions(&opts, os.Args, "apimap.conf", "apimap")
-	options.Options = opts.ComputeOptions
 }
+
+func (opts *SOptions) ValidateThenInit() error {
+	if opts.APISyncIntervalSeconds < apihelper.MinSyncIntervalSeconds {
+		opts.APISyncIntervalSeconds = apihelper.MinSyncIntervalSeconds
+	}
+	if opts.APIRunDelayMilliseconds < apihelper.MinRunDelayMilliseconds {
+		opts.APIRunDelayMilliseconds = apihelper.MinRunDelayMilliseconds
+	}
+	if opts.APIListBatchSize <= 20 {
+		opts.APIListBatchSize = 20
+	}
+	return nil
+}
+
 func OnOptionsChange(oldO, newO interface{}) bool {
 	oldOpts := oldO.(*SOptions)
 	newOpts := newO.(*SOptions)
@@ -45,11 +70,6 @@ func OnOptionsChange(oldO, newO interface{}) bool {
 	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
 		changed = true
 	}
-	if common_options.OnDBOptionsChange(&oldOpts.DBOptions, &newOpts.DBOptions) {
-		changed = true
-	}
-
-	options.Options = newOpts.ComputeOptions
 
 	return changed
 }

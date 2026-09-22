@@ -15,8 +15,29 @@
 package apihelper
 
 import (
+	"time"
+
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 )
+
+// SyncStatus reports the outcome of one sync attempt.
+type SyncStatus struct {
+	// At is when the attempt started
+	At time.Time
+	// Elapsed is how long the attempt took
+	Elapsed time.Duration
+	// Changed tells whether the model sets changed in this attempt
+	Changed bool
+	// Correct tells whether the model sets are complete and consistent
+	Correct bool
+	// Err is the error of the attempt, nil on success
+	Err error
+}
+
+// SyncDoneFunc is called after every sync attempt, successful or not.  It is
+// how a service that does not consume the ModelSets() channel learns about the
+// result of a sync.
+type SyncDoneFunc func(status SyncStatus)
 
 type Options struct {
 	common_options.CommonOptions
@@ -27,4 +48,8 @@ type Options struct {
 	IncludeDetails          bool
 	IncludeOtherCloudEnv    bool
 	FetchFromComputeService bool
+
+	// OnSyncDone, when not nil, is called after every sync attempt with the
+	// outcome of that attempt.
+	OnSyncDone SyncDoneFunc
 }
