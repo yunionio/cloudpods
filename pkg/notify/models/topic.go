@@ -83,6 +83,12 @@ type STopic struct {
 	AdvanceDays []int                `nullable:"true" charset:"utf8" list:"user" update:"user" create:"optional"`
 
 	WebconsoleDisable tristate.TriState `default:"false" list:"user" update:"user" create:"optional"`
+	EnableSms         tristate.TriState `default:"false" list:"user" update:"user" get:"user" create:"optional"`
+	SmsTemplate       string            `width:"256" nullable:"true" charset:"utf8" list:"user" update:"user" get:"user" create:"optional"`
+}
+
+func (t *STopic) CanSendSms() bool {
+	return t != nil && t.EnableSms.IsTrue() && strings.TrimSpace(t.SmsTemplate) != ""
 }
 
 const (
@@ -711,8 +717,12 @@ func (sm *STopicManager) FetchCustomizeColumns(ctx context.Context, userCred mcc
 		actionMap[a.TopicId] = append(actionMap[a.TopicId], a.ActionId)
 	}
 	for i := range rows {
+		ss := objs[i].(*STopic)
 		rows[i].Resources, _ = resourceMap[topicIds[i]]
 		rows[i].Actions, _ = actionMap[topicIds[i]]
+		enableSms := ss.EnableSms.IsTrue()
+		rows[i].EnableSms = &enableSms
+		rows[i].SmsTemplate = ss.SmsTemplate
 	}
 
 	return rows
@@ -774,6 +784,16 @@ func (ss *STopic) ValidateUpdateData(ctx context.Context, userCred mcclient.Toke
 
 func (tp *STopic) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	tp.SEnabledStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	if data.Contains("enable_sms") {
+		if enableSms, err := data.Bool("enable_sms"); err == nil && !enableSms && strings.TrimSpace(tp.SmsTemplate) != "" {
+			if _, err := db.Update(tp, func() error {
+				tp.SmsTemplate = ""
+				return nil
+			}); err != nil {
+				log.Errorf("clear sms_template for topic %s: %v", tp.Id, err)
+			}
+		}
+	}
 	input := api.TopicUpdateInput{}
 	jsonutils.Update(&input, data)
 	if len(input.Resources) > 0 {
