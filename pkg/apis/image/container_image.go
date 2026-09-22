@@ -15,12 +15,35 @@
 package image
 
 import (
+	"reflect"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/gotypes"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
 const (
 	CONTAINER_IMAGE_STATUS_READY = "ready"
 )
+
+func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&ContainerImageEnvs{}), func() gotypes.ISerializable {
+		return &ContainerImageEnvs{}
+	})
+}
+
+// ContainerImageEnvs is the default environment variables of a container image.
+// It is a named serializable type so that it can be stored as a compound column.
+type ContainerImageEnvs []*apis.ContainerKeyValue
+
+func (e ContainerImageEnvs) String() string {
+	return jsonutils.Marshal(e).String()
+}
+
+func (e ContainerImageEnvs) IsZero() bool {
+	return len(e) == 0
+}
 
 type ContainerImageListInput struct {
 	apis.SharableVirtualResourceListInput
@@ -37,6 +60,13 @@ type ContainerImageCreateInput struct {
 	ImageLabel   string `json:"image_label"`
 	CredentialId string `json:"credential_id"`
 	RegistryId   string `json:"registry_id"`
+
+	// Default startup command when a container does not specify one
+	Command []string `json:"command"`
+	// Default startup args when a container does not specify one
+	Args []string `json:"args"`
+	// Default environment variables, appended to the container envs
+	Envs *ContainerImageEnvs `json:"envs"`
 }
 
 type ContainerImageUpdateInput struct {
@@ -46,6 +76,10 @@ type ContainerImageUpdateInput struct {
 	ImageLabel   *string `json:"image_label,omitempty"`
 	CredentialId *string `json:"credential_id,omitempty"`
 	RegistryId   *string `json:"registry_id,omitempty"`
+
+	Command *[]string           `json:"command,omitempty"`
+	Args    *[]string           `json:"args,omitempty"`
+	Envs    *ContainerImageEnvs `json:"envs,omitempty"`
 }
 
 type ContainerImageDetails struct {
