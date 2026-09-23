@@ -345,7 +345,10 @@ func (d *SBaseBridgeDriver) MigrateSlaveConfigs(o IBridgeDriver) error {
 			}
 		}
 		{
-			tryUnmanageInterface(d.inter.String())
+
+			if len(d.inter.Addr) > 0 || len(d.inter.Addr6) > 0 {
+				tryUnmanageInterface(d.inter.String())
+			}
 			err := d.inter.FlushAddrs()
 			if err != nil {
 				return errors.Wrap(err, "ClearAddrs")
