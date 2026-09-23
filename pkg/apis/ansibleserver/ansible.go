@@ -52,6 +52,8 @@ type AnsiblePlaybookReferenceCreateInput struct {
 }
 
 type AnsiblePlaybookReferenceUpdateInput struct {
+	// Default params of the playbook, only this field is updatable
+	PlaybookParams map[string]interface{} `json:"playbook_params"`
 }
 
 type AnsiblePlaybookReferenceRunInput struct {

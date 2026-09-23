@@ -14,7 +14,11 @@
 
 package devtool
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"time"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 type ScriptApplyInput struct {
 	// description: server id
@@ -66,6 +70,24 @@ type ScriptApplyRecordDetails struct {
 	// description: Id of Server
 	// example: a4b3n2c9-dbb7-4c51-8e1a-d2d4b331ccec
 	ServerId string `json:"server_id"`
+}
+
+type ScriptApplyRecordAnsibleLogInput struct {
+}
+
+type ScriptApplyRecordAnsibleLogOutput struct {
+	// description: Id of the ansible playbook instance that ran this attempt
+	// example: cf1d1a0f-9b9d-4629-8036-af3ed87c0821
+	AnsiblePlaybookInstanceId string
+	// description: Status of the ansible playbook instance
+	// example: succeeded
+	Status string
+	// description: Start time of the playbook run
+	StartTime time.Time
+	// description: End time of the playbook run
+	EndTime time.Time
+	// description: Full stdout/stderr of ansible-playbook
+	Output string
 }
 
 type ScriptCreateInput struct {

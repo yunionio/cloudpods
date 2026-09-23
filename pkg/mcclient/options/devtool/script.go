@@ -76,3 +76,15 @@ type ScriptApplyRecordListOptions struct {
 func (so *ScriptApplyRecordListOptions) Params() (jsonutils.JSONObject, error) {
 	return options.ListStructToParams(so)
 }
+
+type ScriptApplyRecordAnsibleLogOptions struct {
+	ID string `help:"id of script apply record"`
+}
+
+func (so *ScriptApplyRecordAnsibleLogOptions) GetId() string {
+	return so.ID
+}
+
+func (so *ScriptApplyRecordAnsibleLogOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}

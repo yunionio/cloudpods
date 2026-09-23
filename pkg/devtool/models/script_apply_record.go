@@ -20,12 +20,16 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/devtool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/ansible"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -36,6 +40,11 @@ type SScriptApplyRecord struct {
 	EndTime       time.Time `list:"user"`
 	Reason        string    `list:"user"`
 	FailCode      string    `list:"user"`
+	// The ansible playbook instance that ran the playbook of this attempt. It is kept
+	// in the details only (not in the list) so that listing the records of a server
+	// stays cheap; the instance holds the full ansible output that the ansible-log
+	// action below serves on demand.
+	AnsiblePlaybookInstanceId string `width:"36" charset:"ascii" nullable:"true" get:"user"`
 }
 
 type SScriptApplyRecordManager struct {
@@ -177,4 +186,36 @@ func (sar *SScriptApplyRecord) Fail(code string, reason string) error {
 
 func (sar *SScriptApplyRecord) Succeed(reason string) error {
 	return sar.SetResult(api.SCRIPT_APPLY_RECORD_SUCCEED, "", reason)
+}
+
+// PerformAnsibleLog returns the raw ansible output of the playbook run recorded for
+// this attempt. The ansible output is kept by the ansibleserver (the instance is the
+// only place holding the whole stdout/stderr of ansible-playbook), so it is fetched
+// on demand instead of being duplicated here.
+func (sar *SScriptApplyRecord) PerformAnsibleLog(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ScriptApplyRecordAnsibleLogInput) (api.ScriptApplyRecordAnsibleLogOutput, error) {
+	output := api.ScriptApplyRecordAnsibleLogOutput{
+		AnsiblePlaybookInstanceId: sar.AnsiblePlaybookInstanceId,
+	}
+	if len(sar.AnsiblePlaybookInstanceId) == 0 {
+		return output, httperrors.NewNotSupportedError("no ansible playbook instance is recorded for this attempt")
+	}
+	// The ansible playbook instances are internal ansibleserver resources that a
+	// regular user cannot read, so the output is fetched with an admin session on
+	// behalf of the caller, after the rbac check of this action.
+	session := auth.GetAdminSessionWithInternal(ctx, "")
+	instance, err := ansible.AnsiblePlaybookInstance.Get(session, sar.AnsiblePlaybookInstanceId, nil)
+	if err != nil {
+		return output, errors.Wrapf(err, "unable to fetch ansible playbook instance %s", sar.AnsiblePlaybookInstanceId)
+	}
+	// The fields are read one by one: unmarshalling the whole instance object would
+	// fail because it carries many other keys (id, name, inventory, params, ...).
+	output.Status, _ = instance.GetString("status")
+	output.Output, _ = instance.GetString("output")
+	if startTime, err := instance.GetTime("start_time"); err == nil {
+		output.StartTime = startTime
+	}
+	if endTime, err := instance.GetTime("end_time"); err == nil {
+		output.EndTime = endTime
+	}
+	return output, nil
 }
