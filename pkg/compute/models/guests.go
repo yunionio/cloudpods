@@ -1889,6 +1889,11 @@ func (manager *SGuestManager) validateCreateData(
 		input.Provider = api.CLOUD_PROVIDER_ONECLOUD
 	}
 
+	if input.FakeCreateFromBmImport {
+		input.OsType = "Linux"
+		return input, nil
+	}
+
 	var hypervisor string
 	// var rootStorageType string
 	var osProf osprofile.SOSProfile

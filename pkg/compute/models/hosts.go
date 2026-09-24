@@ -280,7 +280,11 @@ func (manager *SHostManager) ListItemFilter(
 	}
 
 	if len(query.AnyMac) > 0 {
-		anyMac := netutils.FormatMacAddr(query.AnyMac)
+		anyMacI, err := net.ParseMAC(query.AnyMac)
+		if err != nil {
+			return nil, errors.Wrapf(httperrors.ErrInputParameter, "invalid any_mac address %s: %s", query.AnyMac, err)
+		}
+		anyMac := anyMacI.String()
 		if len(anyMac) == 0 {
 			return nil, errors.Wrapf(httperrors.ErrInputParameter, "invalid any_mac address %s", query.AnyMac)
 		}
@@ -1777,6 +1781,15 @@ func (cap *SStorageCapacity) toCapacityInfo() api.SStorageCapacityInfo {
 	info.CommitRate = cap.GetCommitRate()
 	info.FreeCapacity = cap.GetFree()
 	return info
+}
+
+func (hh *SHost) GetBmAttachedLocalStorageCapacity() SStorageCapacity {
+	ret := SStorageCapacity{}
+	storages := hh._getAttachedStorages(tristate.True, tristate.True, api.HOST_STORAGE_LOCAL_TYPES)
+	for _, s := range storages {
+		ret.Add(s.getStorageCapacity())
+	}
+	return ret
 }
 
 func (hh *SHost) GetAttachedLocalStorageCapacity() SStorageCapacity {
@@ -5800,6 +5813,32 @@ func (hm *SHostManager) PerformValidateIpmi(ctx context.Context, userCred mcclie
 	return out, nil
 }
 
+func (hh *SHost) CreateFakeBaremetalServer(ctx context.Context, userCred mcclient.TokenCredential, serverName string, ownerId mcclient.IIdentityProvider) error {
+	guest := &SGuest{}
+	name, err := db.GenerateName(ctx, GuestManager, nil, serverName)
+	if err != nil {
+		return httperrors.NewInternalServerError("generate name failed %s", err)
+	}
+	guest.Name = name
+	guest.VmemSize = hh.MemSize
+	guest.VcpuCount = hh.CpuCount
+	guest.DisableDelete = tristate.True
+	guest.Hypervisor = api.HYPERVISOR_BAREMETAL
+	guest.HostId = hh.Id
+	guest.ProjectId = ownerId.GetProjectId()
+	guest.DomainId = ownerId.GetProjectDomainId()
+	guest.Status = api.VM_RUNNING
+	guest.PowerStates = api.VM_POWER_STATES_ON
+	guest.OsType = "Linux"
+	guest.SetModelManager(GuestManager, guest)
+	err = GuestManager.TableSpec().Insert(ctx, guest)
+	if err != nil {
+		return httperrors.NewInternalServerError("Guest create error: %s", err)
+	}
+
+	return guest.fixFakeServerCreateFromBmImport(ctx, userCred)
+}
+
 func (hh *SHost) PerformInitialize(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject,
@@ -5814,50 +5853,79 @@ func (hh *SHost) PerformInitialize(
 	if err != nil || hh.GetBaremetalServer() != nil {
 		return nil, nil
 	}
-	err = db.NewNameValidator(ctx, GuestManager, userCred, name, nil)
-	if err != nil {
-		return nil, err
+	if len(name) == 0 {
+		name = hh.Name + "-server"
 	}
 
 	if hh.IpmiInfo == nil || !hh.IpmiInfo.Contains("ip_addr") ||
 		!hh.IpmiInfo.Contains("password") {
 		return nil, httperrors.NewBadRequestError("IPMI infomation not configured")
 	}
-	guest := &SGuest{}
-	guest.Name = name
-	guest.VmemSize = hh.MemSize
-	guest.VcpuCount = hh.CpuCount
-	guest.DisableDelete = tristate.True
-	guest.Hypervisor = api.HYPERVISOR_BAREMETAL
-	guest.HostId = hh.Id
-	guest.ProjectId = userCred.GetProjectId()
-	guest.DomainId = userCred.GetProjectDomainId()
-	guest.Status = api.VM_RUNNING
-	guest.PowerStates = api.VM_POWER_STATES_ON
-	guest.OsType = "Linux"
-	guest.SetModelManager(GuestManager, guest)
-	err = GuestManager.TableSpec().Insert(ctx, guest)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("Guest Insert error: %s", err)
+	if err := hh.CreateFakeBaremetalServer(ctx, userCred, name, userCred); err != nil {
+		log.Errorf("CreateFakeBaremetalServer failed %s", err)
 	}
-	guest.SetAllMetadata(ctx, map[string]interface{}{
-		"is_fake_baremetal_server": true, "host_ip": hh.AccessIp}, userCred)
 
-	caps := hh.GetAttachedLocalStorageCapacity()
-	diskConfig := &api.DiskConfig{SizeMb: int(caps.GetFree())}
-	err = guest.CreateDisksOnHost(ctx, userCred, hh, []*api.DiskConfig{diskConfig}, nil, true, true, nil, nil, true)
-	if err != nil {
-		log.Errorf("Host perform initialize failed on create disk %s", err)
+	return nil, nil
+}
+
+func (hh *SHost) PerformCreateFromImportBaremetal(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	if !hh.IsImport {
+		return nil, httperrors.NewBadRequestError("Is not import host")
 	}
-	net, err := hh.getNetworkOfIPOnHost(ctx, hh.AccessIp)
+	ownerId, err := GuestManager.FetchOwnerId(ctx, data)
 	if err != nil {
-		log.Errorf("host perfrom initialize failed fetch net of access ip %s", err)
-	} else {
-		if options.Options.BaremetalServerReuseHostIp {
-			_, err = guest.attach2NetworkDesc(ctx, userCred, hh, &api.NetworkConfig{Network: net.Id}, nil, nil)
-			if err != nil {
-				log.Errorf("host perform initialize failed on attach network %s", err)
-			}
+		return nil, err
+	}
+	if ownerId == nil {
+		ownerId = userCred
+	}
+	name, err := data.GetString("name")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("name")
+	}
+	if hh.GetBaremetalServer() != nil {
+		return nil, httperrors.NewInsufficientResourceError("host allocated")
+	}
+	if len(name) == 0 {
+		name = hh.Name + "-server"
+	}
+	if err := hh.CreateFakeBaremetalServer(ctx, userCred, name, ownerId); err != nil {
+		return nil, errors.Wrap(err, "CreateFakeBaremetalServer")
+	}
+	guest := hh.GetBaremetalServer()
+	if guest == nil {
+		return nil, errors.Errorf("failed get guest")
+	}
+	params := jsonutils.NewDict()
+	params.Set("restart", jsonutils.JSONTrue)
+	params.Set("fake_create_from_bm_import", jsonutils.JSONTrue)
+	return nil, guest.StartGuestDeployTask(ctx, userCred, params, "create", "")
+}
+
+func (hh *SHost) PerformAttachIsolatedDevices(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	if hh.HostType != api.HOST_TYPE_BAREMETAL {
+		return nil, httperrors.NewBadRequestError("Not support host type %s", hh.HostType)
+	}
+	guest := hh.GetBaremetalServer()
+	if guest == nil {
+		return nil, httperrors.NewBadRequestError("baremetal not created")
+	}
+	devs, err := hh.GetIsolateDevices()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIsolateDevices")
+	}
+	for i := range devs {
+		if devs[i].IsFull() {
+			continue
+		}
+		if err := guest.attachIsolatedDevice(ctx, userCred, &devs[i], nil, nil, nil, ""); err != nil {
+			return nil, errors.Wrap(err, "attachIsolatedDevice")
 		}
 	}
 	return nil, nil

@@ -1925,10 +1925,20 @@ func (self *SGuest) GuestNonSchedStartTask(
 }
 
 func (self *SGuest) StartGuestCreateTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput, pendingUsage quotas.IQuota, parentTaskId string) error {
-	if input.FakeCreate {
-		self.fixFakeServerInfo(ctx, userCred)
+	if input.FakeCreate || input.FakeCreateFromBmImport {
+		self.fixFakeServerInfo(ctx, userCred, input.FakeCreateFromBmImport)
+		if input.FakeCreateFromBmImport {
+			if err := self.fixFakeServerCreateFromBmImport(ctx, userCred); err != nil {
+				return err
+			}
+			params := jsonutils.NewDict()
+			params.Set("restart", jsonutils.JSONTrue)
+			params.Set("fake_create_from_bm_import", jsonutils.JSONTrue)
+			return self.StartGuestDeployTask(ctx, userCred, params, "create", parentTaskId)
+		}
 		return nil
 	}
+
 	driver, err := self.GetDriver()
 	if err != nil {
 		return errors.Wrapf(err, "GetDriver")
@@ -1936,11 +1946,63 @@ func (self *SGuest) StartGuestCreateTask(ctx context.Context, userCred mcclient.
 	return driver.StartGuestCreateTask(self, ctx, userCred, input.JSON(input), pendingUsage, parentTaskId)
 }
 
-func (self *SGuest) fixFakeServerInfo(ctx context.Context, userCred mcclient.TokenCredential) {
+func (self *SGuest) fixFakeServerCreateFromBmImport(ctx context.Context, userCred mcclient.TokenCredential) error {
+	hh, err := self.GetHost()
+	if err != nil {
+		return errors.Wrap(err, "GetHost")
+	}
+
+	self.SetAllMetadata(ctx, map[string]interface{}{
+		"is_fake_baremetal_server": true, "host_ip": hh.AccessIp}, userCred)
+
+	caps := hh.GetBmAttachedLocalStorageCapacity()
+	diskConfig := &api.DiskConfig{SizeMb: int(caps.GetFree())}
+	err = self.CreateDisksOnHost(ctx, userCred, hh, []*api.DiskConfig{diskConfig}, nil, true, true, nil, nil, true)
+	if err != nil {
+		return errors.Wrap(err, "Host perform initialize failed on create disk")
+	}
+	disks, err := self.GetDisks()
+	if err != nil {
+		return errors.Wrap(err, "GetDisks")
+	}
+	for i := range disks {
+		if err := disks[i].SetStatus(ctx, userCred, api.DISK_READY, ""); err != nil {
+			return errors.Wrap(err, "disk set status")
+		}
+	}
+	net, err := hh.getNetworkOfIPOnHost(ctx, hh.AccessIp)
+	if err != nil {
+		return httperrors.NewInputParameterError("host perfrom initialize failed fetch net of access ip %s", err)
+	} else {
+		if options.Options.BaremetalServerReuseHostIp {
+			_, err = self.attach2NetworkDesc(ctx, userCred, hh, &api.NetworkConfig{Network: net.Id}, nil, nil)
+			if err != nil {
+				return httperrors.NewInternalServerError("host perform initialize failed on attach network %s", err)
+			}
+		}
+	}
+	devs, err := hh.GetIsolateDevices()
+	if err != nil {
+		return errors.Wrap(err, "GetIsolateDevices")
+	}
+	for i := range devs {
+		if err := self.attachIsolatedDevice(ctx, userCred, &devs[i], nil, nil, nil, ""); err != nil {
+			return errors.Wrap(err, "attachIsolatedDevice")
+		}
+	}
+
+	return nil
+}
+
+func (self *SGuest) fixFakeServerInfo(ctx context.Context, userCred mcclient.TokenCredential, fakeBmImportServer bool) {
 	status := []string{api.VM_READY, api.VM_RUNNING}
+
 	rand.Seed(time.Now().Unix())
 	db.Update(self, func() error {
 		self.Status = status[rand.Intn(len(status))]
+		if fakeBmImportServer {
+			self.Status = api.VM_READY
+		}
 		self.PowerStates = api.VM_POWER_STATES_ON
 		if self.Status == api.VM_READY {
 			self.PowerStates = api.VM_POWER_STATES_OFF
