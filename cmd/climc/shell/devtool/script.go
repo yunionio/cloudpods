@@ -27,4 +27,5 @@ func init() {
 	cmd.Perform("batch-apply", new(options.ScriptBatchApplyOptions))
 	cmd1 := shell.NewResourceCmd(&modules.DevToolScriptApplyRecords).WithKeyword("devtool-script-record")
 	cmd1.List(new(options.ScriptApplyRecordListOptions))
+	cmd1.Perform("ansible-log", new(options.ScriptApplyRecordAnsibleLogOptions))
 }
