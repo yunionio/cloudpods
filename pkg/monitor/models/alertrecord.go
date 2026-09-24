@@ -92,7 +92,7 @@ func (manager *SAlertRecordManager) ListItemExportKeys(ctx context.Context, q *s
 }
 
 func (m *SAlertRecordManager) FilterByOwner(ctx context.Context, q *sqlchemy.SQuery, man db.FilterByOwnerProvider, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, scope rbacscope.TRbacScope) *sqlchemy.SQuery {
-	return m.SMonitorScopedResourceManager.FilterByOwner(ctx, q, man, userCred, ownerId, scope)
+	return m.SScopedResourceBaseManager.FilterByOwner(ctx, q, man, userCred, ownerId, scope)
 }
 
 func (manager *SAlertRecordManager) ListItemFilter(
