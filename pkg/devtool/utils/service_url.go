@@ -192,7 +192,12 @@ func serviceUrlViaProxyEndpoint(ctx context.Context, service Service, proxyEndpo
 
 func FindValidServiceUrl(ctx context.Context, service Service, proxyEndpointId string, info sServerInfo, host *ansible_api.AnsibleHost) (string, error) {
 	findFuncs := []func(ctx context.Context, service Service, proxyEndpointId string, info sServerInfo, host *ansible_api.AnsibleHost) (string, error){}
-	if info.serverDetails.Hypervisor == comapi.HYPERVISOR_KVM || info.serverDetails.Hypervisor == comapi.HYPERVISOR_BAREMETAL {
+	if info.serverDetails.Hypervisor == comapi.HYPERVISOR_KVM {
+		// KVM guests report metrics through the metadata service on the host or
+		// the public TSDB endpoint, so never create a proxy endpoint forward for
+		// them.
+		findFuncs = append(findFuncs, serviceUrlDirect)
+	} else if info.serverDetails.Hypervisor == comapi.HYPERVISOR_BAREMETAL {
 		findFuncs = append(findFuncs, serviceUrlDirect, serviceUrlViaProxyEndpoint)
 	} else {
 		findFuncs = append(findFuncs, serviceUrlViaProxyEndpoint, serviceUrlDirect)

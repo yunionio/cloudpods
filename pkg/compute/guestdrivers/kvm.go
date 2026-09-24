@@ -1236,17 +1236,27 @@ func (self *SKVMGuestDriver) RequestGuestScreenDump(ctx context.Context, userCre
 
 func (self *SKVMGuestDriver) FetchMonitorUrl(ctx context.Context, guest *models.SGuest) string {
 	if options.Options.KvmMonitorAgentUseMetadataService && !guest.IsSriov() {
-		var metadataIp string
-		strictIpv6, err := guest.IsStrictIpv6()
+		// Only guests in a non-default onecloud VPC are guaranteed to reach the
+		// metadata service at the link-local address, those subnets are served
+		// by sdnagent with a per-subnet netns proxy. Guests in the default VPC
+		// and classic networks keep using the public TSDB endpoint.
+		inVpc, err := guest.IsOneCloudVpcNetwork()
 		if err != nil {
-			log.Errorf("IsStrictIpv6 for guest %s error: %v", guest.Id, err)
+			log.Errorf("IsOneCloudVpcNetwork for guest %s error: %v", guest.Id, err)
 		}
-		if strictIpv6 {
-			metadataIp = "[" + options.Options.MetadataServerIp6s[0] + "]"
-		} else {
-			metadataIp = options.Options.MetadataServerIp4s[0]
+		if inVpc {
+			var metadataIp string
+			strictIpv6, err := guest.IsStrictIpv6()
+			if err != nil {
+				log.Errorf("IsStrictIpv6 for guest %s error: %v", guest.Id, err)
+			}
+			if strictIpv6 {
+				metadataIp = "[" + options.Options.MetadataServerIp6s[0] + "]"
+			} else {
+				metadataIp = options.Options.MetadataServerIp4s[0]
+			}
+			return fmt.Sprintf(apis.MetaServiceMonitorAgentUrl, metadataIp)
 		}
-		return fmt.Sprintf(apis.MetaServiceMonitorAgentUrl, metadataIp)
 	}
 	return self.SVirtualizedGuestDriver.FetchMonitorUrl(ctx, guest)
 }

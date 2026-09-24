@@ -19,6 +19,7 @@ import (
 	"os"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
 
@@ -94,8 +95,34 @@ func (ar *SAnsiblePlaybookReference) CustomizeCreate(ctx context.Context, userCr
 	return nil
 }
 
-func (ar *SAnsiblePlaybookReference) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.AnsiblePlaybookReferenceUpdateInput) (api.AnsiblePlaybookReferenceUpdateInput, error) {
-	return input, httperrors.NewForbiddenError("prohibited operation")
+func (ar *SAnsiblePlaybookReference) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	// An ansibleplaybook reference is immutable, the only exception is its
+	// default playbook params, which the onecloud operator reconciles when it
+	// ensures the monitor agent reference.
+	if data.Length() != 1 {
+		return nil, httperrors.NewForbiddenError("prohibited operation")
+	}
+	if _, err := data.Get("playbook_params"); err != nil {
+		return nil, httperrors.NewForbiddenError("prohibited operation")
+	}
+	return data, nil
+}
+
+func (ar *SAnsiblePlaybookReference) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	ar.SSharableVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	params, err := data.Get("playbook_params")
+	if err != nil {
+		return
+	}
+	// default_params has no "update" tag, so it is filtered out of the generic
+	// update path and must be persisted explicitly.
+	_, err = db.Update(ar, func() error {
+		ar.DefaultParams = params
+		return nil
+	})
+	if err != nil {
+		log.Errorf("unable to update default params of ansibleplaybook reference %s: %v", ar.Id, err)
+	}
 }
 
 func (ar *SAnsiblePlaybookReference) PerformRun(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.AnsiblePlaybookReferenceRunInput) (api.AnsiblePlaybookReferenceRunOutput, error) {
