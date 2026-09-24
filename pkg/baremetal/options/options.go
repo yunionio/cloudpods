@@ -38,6 +38,8 @@ type BaremetalOptions struct {
 	ShortWorkerCount         int    `default:"8" help:"Parallel worker count for short-lived tasks"`
 	BaremetalTaskWorkerCount int    `default:"32" help:"Parallel worker count for baremetal tasks"`
 
+	AutoDetectHeterogeneousDevices bool `default:"true" help:"Auto detect heterogeneous vendor devices"`
+
 	DefaultIpmiPassword       string `help:"Default IPMI passowrd"`
 	DefaultStrongIpmiPassword string `help:"Default strong IPMI passowrd"`
 
