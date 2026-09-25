@@ -343,7 +343,13 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 
 	manager := s.manager.GetHost().GetIsolatedDeviceManager()
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
-		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
+		dev := manager.GetDeviceByIdent(s.Desc.IsolatedDevices[i].VendorDeviceId, s.Desc.IsolatedDevices[i].Addr, s.Desc.IsolatedDevices[i].MdevId)
+		if dev == nil {
+			log.Errorf("failed find dev by %s %s %s",
+				s.Desc.IsolatedDevices[i].VendorDeviceId, s.Desc.IsolatedDevices[i].Addr, s.Desc.IsolatedDevices[i].MdevId)
+			continue
+		}
+
 		if s.Desc.IsolatedDevices[i].DevType == api.USB_TYPE {
 			s.Desc.IsolatedDevices[i].Usb = desc.NewUsbDevice("usb-host", dev.GetQemuId())
 			s.Desc.IsolatedDevices[i].Usb.Options = dev.GetPassthroughOptions()
