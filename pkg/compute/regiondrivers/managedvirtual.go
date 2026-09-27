@@ -3247,7 +3247,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateKubeCluster(ctx con
 		opts.RoleName, _ = params.GetString("role_name")
 		opts.PrivateAccess, _ = params.Bool("private_access")
 		opts.PublicAccess, _ = params.Bool("public_access")
-		_, opts.PublicKey, _ = sshkeys.GetSshAdminKeypair(ctx)
+		_, pubKeys, err := sshkeys.GetSshAdminKeypair(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetSshAdminKeypair")
+		}
+		opts.PublicKey = pubKeys[0]
 
 		iregion, err := cluster.GetIRegion(ctx)
 		if err != nil {

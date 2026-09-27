@@ -82,7 +82,7 @@ func NewClimcSshCommand(info *webconsole.ClimcSshInfo, s *mcclient.ClientSession
 		return nil, fmt.Errorf("Invalid username %q", info.Username)
 	}
 	targetIp := helper.FetchClimcTargetIp()
-	privateKey, err := helper.GetValidPrivateKey(targetIp, 22, info.Username, "")
+	privateKey, err := helper.GetValidPrivateKey(targetIp, 22, info.Username, s)
 	if err != nil {
 		return nil, errors.Wrap(err, "get cloud admin private key")
 	}

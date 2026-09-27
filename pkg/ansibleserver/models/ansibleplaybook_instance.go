@@ -125,11 +125,11 @@ func (ai *SAnsiblePlaybookInstance) runPlaybook(ctx context.Context, userCred mc
 		ar = obj.(*SAnsiblePlaybookReference)
 	}
 	var (
-		privateKey string
-		err        error
+		privateKeys []string
+		err         error
 	)
-	if privateKey, err = compute.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
-		return err
+	if privateKeys, err = compute.Sshkeypairs.FetchProjectPrivateKeys(ctx, userCred); err != nil {
+		return errors.Wrap(err, "unable to fetch private keys")
 	}
 	_, err = db.Update(ai, func() error {
 		ai.StartTime = time.Now()
@@ -157,7 +157,7 @@ func (ai *SAnsiblePlaybookInstance) runPlaybook(ctx context.Context, userCred mc
 	}
 	sess := ansiblev2.NewOfflineSession().
 		Inventory(ai.Inventory).
-		PrivateKey(privateKey).
+		PrivateKeys(privateKeys).
 		ConfigYaml(params.YAMLString()).
 		PlaybookPath(ar.PlaybookPath).
 		OutputWriter(&ansiblePlaybookOutputWriter{ai}).

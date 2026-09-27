@@ -5708,8 +5708,8 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		log.Errorf("fail to get ssh project public key %s", err)
 	}
 
-	config.Add(jsonutils.NewString(adminPubKey), "admin_public_key")
-	config.Add(jsonutils.NewString(projPubKey), "project_public_key")
+	config.Add(jsonutils.NewString(adminPubKey[0]), "admin_public_key")
+	config.Add(jsonutils.NewString(projPubKey[0]), "project_public_key")
 
 	config.Add(jsonutils.NewString(deployAction), "action")
 

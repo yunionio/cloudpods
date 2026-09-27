@@ -35,9 +35,10 @@ import (
 type SProxyEndpoint struct {
 	db.SVirtualResourceBase
 
-	User       string `nullable:"false" list:"user" update:"user" create:"optional"`
-	Host       string `nullable:"false" list:"user" update:"user" create:"required"`
-	Port       int    `nullable:"false" list:"user" update:"user" create:"optional"`
+	User string `nullable:"false" list:"user" update:"user" create:"optional"`
+	Host string `nullable:"false" list:"user" update:"user" create:"required"`
+	Port int    `nullable:"false" list:"user" update:"user" create:"optional"`
+
 	PrivateKey string `nullable:"false" update:"user" list:"admin" get:"admin" create:"required"` // do not allow get, list
 
 	IntranetIpAddr string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"required"`
@@ -73,7 +74,7 @@ func (man *SProxyEndpointManager) PerformCreateFromServer(ctx context.Context, u
 	if err != nil {
 		return nil, err
 	}
-	if serverInfo.PrivateKey == "" {
+	if len(serverInfo.PrivateKeys) == 0 {
 		return nil, httperrors.NewBadRequestError("cannot find ssh private key for this server")
 	}
 
@@ -111,21 +112,42 @@ func (man *SProxyEndpointManager) PerformCreateFromServer(ctx context.Context, u
 	if portStr, ok := serverInfo.Server.Metadata[compute_apis.SSH_PORT]; ok {
 		port, _ = strconv.Atoi(portStr)
 	}
-	proxyendpoint := &SProxyEndpoint{
-		User:       "cloudroot",
-		Host:       host,
-		Port:       port,
-		PrivateKey: serverInfo.PrivateKey,
+	createAndVerifyPE := func(privateKey string) (*SProxyEndpoint, error) {
+		proxyendpoint := &SProxyEndpoint{
+			User:       "cloudroot",
+			Host:       host,
+			Port:       port,
+			PrivateKey: privateKey,
 
-		IntranetIpAddr: nic.IpAddr,
+			IntranetIpAddr: nic.IpAddr,
+		}
+		proxyendpoint.SetModelManager(man, proxyendpoint)
+		proxyendpoint.Name = name
+		proxyendpoint.DomainId = serverInfo.Server.DomainId
+		proxyendpoint.ProjectId = serverInfo.Server.ProjectId
+
+		if err := proxyendpoint.remoteCheckMake(ctx, userCred); err != nil {
+			return nil, errors.Wrap(err, "remoteCheckMake")
+		}
+		return proxyendpoint, nil
 	}
-	proxyendpoint.SetModelManager(man, proxyendpoint)
-	proxyendpoint.Name = name
-	proxyendpoint.DomainId = serverInfo.Server.DomainId
-	proxyendpoint.ProjectId = serverInfo.Server.ProjectId
-
-	if err := proxyendpoint.remoteCheckMake(ctx, userCred); err != nil {
-		return nil, err
+	var proxyendpoint *SProxyEndpoint
+	var errs []error
+	for _, privateKey := range serverInfo.PrivateKeys {
+		pe, err := createAndVerifyPE(privateKey)
+		if err == nil {
+			proxyendpoint = pe
+			break
+		} else {
+			errs = append(errs, err)
+		}
+	}
+	if proxyendpoint == nil {
+		if len(errs) > 0 {
+			return nil, errors.NewAggregate(errs)
+		} else {
+			return nil, errors.Wrap(httperrors.ErrInvalidStatus, "server has no usable ssh private key")
+		}
 	}
 
 	if err := man.TableSpec().Insert(ctx, proxyendpoint); err != nil {
