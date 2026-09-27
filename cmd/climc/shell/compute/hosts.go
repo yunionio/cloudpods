@@ -578,11 +578,11 @@ func init() {
 	}
 	R(&HostSSHLoginOptions{}, "host-ssh", "SSH login of a host", func(s *mcclient.ClientSession, args *HostSSHLoginOptions) error {
 		i, e := modules.Hosts.PerformAction(s, args.ID, "login-info", nil)
-		privateKey := ""
+		var privateKeys []string
 		if e != nil {
 			if httputils.ErrorCode(e) == 404 || strings.Contains(e.Error(), "ciphertext too short") {
 				var err error
-				privateKey, err = modules.Sshkeypairs.FetchPrivateKeyBySession(context.Background(), s)
+				privateKeys, err = modules.Sshkeypairs.FetchAdminPrivateKeysBySession(context.Background(), s)
 				if err != nil {
 					return errors.Wrap(err, "fetch private key")
 				}
@@ -624,10 +624,27 @@ func init() {
 		if args.Port != 22 {
 			port = args.Port
 		}
-		sshCli, err := ssh.NewClient(host, port, user, passwd, privateKey)
-		if err != nil {
-			return err
+
+		if len(privateKeys) == 0 {
+			privateKeys = append(privateKeys, "")
 		}
+
+		var sshCli *ssh.Client
+		var errs []error
+		for _, privateKey := range privateKeys {
+			cli, err := ssh.NewClient(host, port, user, passwd, privateKey)
+			if err == nil {
+				sshCli = cli
+				break
+			} else {
+				errs = append(errs, err)
+			}
+		}
+
+		if sshCli == nil {
+			return errors.NewAggregate(errs)
+		}
+
 		log.Infof("ssh %s:%d", host, port)
 		if err := sshCli.RunTerminal(); err != nil {
 			return err

@@ -329,10 +329,11 @@ func (manager *SKubeNodePoolManager) ValidateCreateData(ctx context.Context, use
 		keypair := keypairObj.(*SKeypair)
 		input.PublicKey = keypair.PublicKey
 	} else {
-		_, input.PublicKey, err = sshkeys.GetSshAdminKeypair(ctx)
+		_, pubKeys, err := sshkeys.GetSshAdminKeypair(ctx)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "GetSshAdminKeypair"))
 		}
+		input.PublicKey = pubKeys[0]
 	}
 
 	if input.DesiredInstanceCount > 0 {

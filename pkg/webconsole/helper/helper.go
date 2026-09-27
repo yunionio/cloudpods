@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
@@ -78,45 +79,17 @@ func FetchClimcTargetIp() string {
 	return podIp
 }
 
-func GetValidPrivateKey(host string, port int, username string, projectId string) (string, error) {
+func GetValidPrivateKey(host string, port int, username string, cliSession *mcclient.ClientSession) (string, error) {
 	errs := []error{}
 	ctx := context.Background()
 	admin := auth.GetAdminSession(ctx, o.Options.Region)
-	for _, gf := range []func() (jsonutils.JSONObject, error){
-		func() (jsonutils.JSONObject, error) {
-			if projectId == "" {
-				return nil, errors.Error("project_id is empty")
-			}
-			key, err := compute.Sshkeypairs.GetById(admin, projectId, jsonutils.Marshal(map[string]bool{"admin": true}))
-			if err != nil {
-				return nil, errors.Wrapf(err, "Sshkeypairs.GetById(%s)", projectId)
-			}
-			return key, nil
-		},
-		func() (jsonutils.JSONObject, error) {
-			query := jsonutils.NewDict()
-			query.Set("admin", jsonutils.JSONTrue)
-			ret, err := compute.Sshkeypairs.List(admin, query)
-			if err != nil {
-				return nil, errors.Wrap(err, "modules.Sshkeypairs.List")
-			}
-			if len(ret.Data) == 0 {
-				return nil, errors.Wrap(httperrors.ErrNotFound, "Not found admin sshkey")
-			}
-			keys := ret.Data[0]
-			return keys, nil
-		},
-	} {
-		key, err := gf()
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		privKey, err := key.GetString("private_key")
-		if err != nil {
-			errs = append(errs, errors.Wrapf(err, "get private_key"))
-			continue
-		}
+	var privateKeys []string
+	projectPrivateKeys, _ := compute.Sshkeypairs.FetchProjectPrivateKeysBySession(ctx, cliSession)
+	privateKeys = append(privateKeys, projectPrivateKeys...)
+	adminPrivateKeys, _ := compute.Sshkeypairs.FetchAdminPrivateKeysBySession(ctx, admin)
+	privateKeys = append(privateKeys, adminPrivateKeys...)
+
+	for _, privKey := range privateKeys {
 		signer, err := ssh.ParsePrivateKey([]byte(privKey))
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "ParsePrivateKey"))

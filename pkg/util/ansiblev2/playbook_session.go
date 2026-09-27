@@ -262,7 +262,7 @@ func (r runnable) Run(ctx context.Context) (err error) {
 }
 
 type PlaybookSessionBase struct {
-	privateKey string
+	privateKeys []string
 
 	inventory    string
 	outputWriter io.Writer
@@ -280,8 +280,8 @@ func NewPlaybookSessionBase() PlaybookSessionBase {
 	}
 }
 
-func (pb *PlaybookSessionBase) GetPrivateKey() string {
-	return pb.privateKey
+func (pb *PlaybookSessionBase) GetPrivateKeys() []string {
+	return pb.privateKeys
 }
 
 func (pb *PlaybookSessionBase) IsKeepTmpdir() bool {

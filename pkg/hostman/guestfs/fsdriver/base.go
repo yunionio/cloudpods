@@ -277,18 +277,14 @@ func DeployAdminAuthorizedKeys(s *mcclient.ClientSession) error {
 		return errors.Wrapf(err, "mkdir .ssh %s", output)
 	}
 
-	query := jsonutils.NewDict()
-	query.Set("admin", jsonutils.JSONTrue)
-	ret, err := modules.Sshkeypairs.List(s, query)
+	keypairs, err := modules.Sshkeypairs.FetchAdminKeypairsBySession(s.GetContext(), s)
 	if err != nil {
 		return errors.Wrap(err, "modules.Sshkeypairs.List")
 	}
-	if len(ret.Data) == 0 {
+	if len(keypairs) == 0 {
 		return errors.Wrap(httperrors.ErrNotFound, "Not found admin sshkey")
 	}
-	keys := ret.Data[0]
-	adminPublicKey, _ := keys.GetString("public_key")
-	pubKeys := &deployapi.SSHKeys{AdminPublicKey: adminPublicKey}
+	pubKeys := &deployapi.SSHKeys{AdminPublicKey: keypairs[0].PublicKey}
 
 	var oldKeys string
 	authFile := path.Join(sshDir, "authorized_keys")

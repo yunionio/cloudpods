@@ -15,58 +15,49 @@
 package compute
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/models"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
+type SshkeypairQueryOptions struct {
+	Project string `help:"get keypair for specific project"`
+	Admin   bool   `help:"get admin keypair, sysadmin ONLY option"`
+}
+
+func getSshKeypair(s *mcclient.ClientSession, args *SshkeypairQueryOptions) ([]models.SshKeypair, error) {
+	ctx := context.Background()
+	if len(args.Project) > 0 {
+		return modules.Sshkeypairs.FetchKeypairsByProject(ctx, s, args.Project)
+	} else if args.Admin {
+		return modules.Sshkeypairs.FetchAdminKeypairsBySession(ctx, s)
+	} else {
+		return modules.Sshkeypairs.FetchProjectKeypairsBySession(ctx, s)
+	}
+}
+
 func init() {
-	type SshkeypairQueryOptions struct {
-		Project string `help:"get keypair for specific project"`
-		Admin   bool   `help:"get admin keypair, sysadmin ONLY option"`
-	}
-
-	getSshKeypair := func(s *mcclient.ClientSession, args *SshkeypairQueryOptions) (string, string, error) {
-		query := jsonutils.NewDict()
-		if args.Admin {
-			query.Add(jsonutils.JSONTrue, "admin")
-		}
-		var keys jsonutils.JSONObject
-		if len(args.Project) == 0 {
-			listResult, err := modules.Sshkeypairs.List(s, query)
-			if err != nil {
-				return "", "", err
-			}
-			keys = listResult.Data[0]
-		} else {
-			result, err := modules.Sshkeypairs.GetById(s, args.Project, query)
-			if err != nil {
-				return "", "", err
-			}
-			keys = result
-		}
-		privKey, _ := keys.GetString("private_key")
-		pubKey, _ := keys.GetString("public_key")
-		return privKey, pubKey, nil
-	}
-
 	R(&SshkeypairQueryOptions{}, "sshkeypair-show", "Get ssh keypairs", func(s *mcclient.ClientSession, args *SshkeypairQueryOptions) error {
-		privKey, pubKey, err := getSshKeypair(s, args)
+		keypairs, err := getSshKeypair(s, args)
 		if err != nil {
 			return err
 		}
-
-		fmt.Print(privKey)
-		fmt.Print(pubKey)
-
+		if len(keypairs) == 0 {
+			return errors.Wrap(errors.ErrNotFound, "no ssh key found")
+		}
+		for _, keypair := range keypairs {
+			fmt.Print(keypair.PrivateKey)
+			fmt.Print(keypair.PublicKey)
+		}
 		return nil
 	})
 
@@ -75,9 +66,12 @@ func init() {
 		TargetDir string `help:"Target directory to save cloud ssh keypair"`
 	}
 	R(&SshkeypairInjectOptions{}, "sshkeypair-inject", "Inject ssh keypairs to local path", func(s *mcclient.ClientSession, args *SshkeypairInjectOptions) error {
-		_, pubKey, err := getSshKeypair(s, &args.SshkeypairQueryOptions)
+		keypairs, err := getSshKeypair(s, &args.SshkeypairQueryOptions)
 		if err != nil {
 			return err
+		}
+		if len(keypairs) == 0 {
+			return errors.Wrap(errors.ErrNotFound, "no ssh key found")
 		}
 		targetDir := args.TargetDir
 		if targetDir == "" {
@@ -100,7 +94,7 @@ func init() {
 			}
 			oldKeys = string(output)
 		}
-		var MergeAuthorizedKeys = func(oldKeys string, pubKey string) string {
+		var MergeAuthorizedKeys = func(oldKeys string, keyPairs []models.SshKeypair) string {
 			const sshKeySignature = "@yunioncloudpods"
 			var allkeys = make(map[string]string)
 			if len(oldKeys) > 0 {
@@ -118,10 +112,9 @@ func init() {
 					}
 				}
 			}
-			candiateKeys := []string{pubKey}
-			for _, k := range candiateKeys {
-				if len(k) > 0 {
-					k = strings.TrimSpace(k)
+			for _, k := range keyPairs {
+				if len(k.PublicKey) > 0 {
+					k := strings.TrimSpace(k.PublicKey)
 					dat := strings.Split(k, " ")
 					if len(dat) > 1 {
 						if _, ok := allkeys[dat[1]]; !ok {
@@ -137,7 +130,7 @@ func init() {
 			return strings.Join(keys, "\n") + "\n"
 		}
 
-		newKeys := MergeAuthorizedKeys(oldKeys, pubKey)
+		newKeys := MergeAuthorizedKeys(oldKeys, keypairs)
 		if output, err := procutils.NewCommand(
 			"sh", "-c", fmt.Sprintf("echo '%s' > %s", newKeys, authFile)).Output(); err != nil {
 			return errors.Wrapf(err, "write public keys: %s", output)
