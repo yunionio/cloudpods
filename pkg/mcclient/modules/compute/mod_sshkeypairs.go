@@ -48,42 +48,84 @@ func (this *SSshkeypairManager) List(s *mcclient.ClientSession, params jsonutils
 	return &result, nil
 }
 
-func (this *SSshkeypairManager) FetchPrivateKey(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
+func (this *SSshkeypairManager) FetchProjectPrivateKeys(ctx context.Context, userCred mcclient.TokenCredential) ([]string, error) {
 	s := auth.GetSession(ctx, userCred, "")
-	return this.FetchPrivateKeyBySession(ctx, s)
+	return this.FetchProjectPrivateKeysBySession(ctx, s)
 }
 
-func (this *SSshkeypairManager) FetchPrivateKeyBySession(ctx context.Context, s *mcclient.ClientSession) (string, error) {
-	kp, err := this.FetchKeypairBySession(ctx, s)
+func (this *SSshkeypairManager) FetchProjectPrivateKeysBySession(ctx context.Context, s *mcclient.ClientSession) ([]string, error) {
+	kp, err := this.FetchProjectKeypairsBySession(ctx, s)
 	if err != nil {
-		return "", errors.Wrap(err, "FetchKeypairBySession")
+		return nil, errors.Wrap(err, "FetchProjectKeypairsBySession")
 	}
-	return kp.PrivateKey, nil
+	keys := make([]string, 0, len(kp))
+	for _, kp := range kp {
+		keys = append(keys, kp.PrivateKey)
+	}
+	return keys, nil
 }
 
-func (this *SSshkeypairManager) FetchKeypairBySession(ctx context.Context, s *mcclient.ClientSession) (*models.SshKeypair, error) {
-	userCred := s.GetToken()
+func (this *SSshkeypairManager) FetchAdminPrivateKeysBySession(ctx context.Context, s *mcclient.ClientSession) ([]string, error) {
+	kp, err := this.FetchAdminKeypairsBySession(ctx, s)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchAdminKeypairsBySession")
+	}
+	keys := make([]string, 0, len(kp))
+	for _, kp := range kp {
+		keys = append(keys, kp.PrivateKey)
+	}
+	return keys, nil
+}
+
+func (this *SSshkeypairManager) FetchAdminKeypairsBySession(ctx context.Context, s *mcclient.ClientSession) ([]models.SshKeypair, error) {
+	return this.fetchKeypairsBySession(ctx, s, true)
+}
+
+func (this *SSshkeypairManager) FetchProjectKeypairsBySession(ctx context.Context, s *mcclient.ClientSession) ([]models.SshKeypair, error) {
+	return this.fetchKeypairsBySession(ctx, s, false)
+}
+
+func (this *SSshkeypairManager) fetchKeypairsBySession(ctx context.Context, s *mcclient.ClientSession, isAdmin bool) ([]models.SshKeypair, error) {
 	jd := jsonutils.NewDict()
-	var jr jsonutils.JSONObject
-	if userCred.HasSystemAdminPrivilege() {
+	if isAdmin {
 		jd.Set("admin", jsonutils.JSONTrue)
-		r, err := Sshkeypairs.List(s, jd)
-		if err != nil {
-			return nil, errors.Wrap(err, "get admin ssh key")
+	}
+	r, err := this.List(s, jd)
+	if err != nil {
+		return nil, errors.Wrap(err, "get admin ssh key")
+	}
+	if len(r.Data) == 0 {
+		return nil, errors.Wrap(errors.ErrNotFound, "no ssh key found")
+	}
+	return unmarshalSshKeypairs(r.Data[0])
+}
+
+func (this *SSshkeypairManager) FetchKeypairsByProject(ctx context.Context, s *mcclient.ClientSession, projectId string) ([]models.SshKeypair, error) {
+	jd := jsonutils.NewDict()
+	if len(projectId) == 0 {
+		projectId = s.GetProjectId()
+	}
+	r, err := Sshkeypairs.GetById(s, projectId, jd)
+	if err != nil {
+		return nil, errors.Wrap(err, "get project ssh key")
+	}
+	return unmarshalSshKeypairs(r)
+}
+
+func unmarshalSshKeypairs(jr jsonutils.JSONObject) ([]models.SshKeypair, error) {
+	kps := make([]models.SshKeypair, 0, 2)
+	if jr.Contains("keypairs") {
+		if err := jr.Unmarshal(&kps, "keypairs"); err != nil {
+			return nil, errors.Wrap(err, "unmarshal ssh key")
 		}
-		jr = r.Data[0]
 	} else {
-		r, err := Sshkeypairs.GetById(s, userCred.GetProjectId(), jd)
-		if err != nil {
-			return nil, errors.Wrap(err, "get project ssh key")
+		kp := models.SshKeypair{}
+		if err := jr.Unmarshal(&kp); err != nil {
+			return nil, errors.Wrap(err, "unmarshal ssh key")
 		}
-		jr = r
+		kps = append(kps, kp)
 	}
-	kp := &models.SshKeypair{}
-	if err := jr.Unmarshal(kp); err != nil {
-		return nil, errors.Wrap(err, "unmarshal ssh key")
-	}
-	return kp, nil
+	return kps, nil
 }
 
 var (

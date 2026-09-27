@@ -1636,7 +1636,7 @@ func (b *SBaremetalInstance) GetServerSSHClient() (*ssh.Client, error) {
 		return nil, errors.Error("No server")
 	}
 
-	privateKey, err := modules.Sshkeypairs.FetchPrivateKey(context.TODO(), auth.AdminCredential())
+	privateKeys, err := modules.Sshkeypairs.FetchProjectPrivateKeys(context.TODO(), auth.AdminCredential())
 	if err != nil {
 		return nil, errors.Wrapf(err, "Get server %s login info", s.GetId())
 	}
@@ -1645,12 +1645,14 @@ func (b *SBaremetalInstance) GetServerSSHClient() (*ssh.Client, error) {
 	for idx, nic := range nics {
 		if nic.Ip != "" {
 			for _, user := range []string{"cloudroot", "root"} {
-				sshCli, err := ssh.NewClient(nic.Ip, 22, user, "", privateKey)
-				if err != nil {
-					err = errors.Wrapf(err, "New server %s ssh client %s@%s", s.GetName(), user, nic.Ip)
-					errs = append(errs, err)
-				} else {
-					return sshCli, nil
+				for _, privateKey := range privateKeys {
+					sshCli, err := ssh.NewClient(nic.Ip, 22, user, "", privateKey)
+					if err != nil {
+						err = errors.Wrapf(err, "New server %s ssh client %s@%s", s.GetName(), user, nic.Ip)
+						errs = append(errs, err)
+					} else {
+						return sshCli, nil
+					}
 				}
 			}
 		} else {

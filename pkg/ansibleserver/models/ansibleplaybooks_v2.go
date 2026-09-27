@@ -252,9 +252,9 @@ func (apb *SAnsiblePlaybookV2) runPlaybook(ctx context.Context, userCred mcclien
 	// time.Sleep(50 * time.Second)
 
 	var (
-		privateKey string
-		err        error
-		files      = map[string][]byte{}
+		privateKeys []string
+		err         error
+		files       = map[string][]byte{}
 	)
 	if apb.Files != "" {
 		obj, err := jsonutils.ParseString(apb.Files)
@@ -274,7 +274,7 @@ func (apb *SAnsiblePlaybookV2) runPlaybook(ctx context.Context, userCred mcclien
 		}
 	}
 	// init private key
-	if privateKey, err = compute.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
+	if privateKeys, err = compute.Sshkeypairs.FetchProjectPrivateKeys(ctx, userCred); err != nil {
 		return errors.Wrap(err, "fetch private key")
 	}
 
@@ -306,7 +306,7 @@ func (apb *SAnsiblePlaybookV2) runPlaybook(ctx context.Context, userCred mcclien
 	sess := ansiblev2.NewSession().
 		Inventory(apb.Inventory).
 		Playbook(apb.Playbook).
-		PrivateKey(privateKey).
+		PrivateKeys(privateKeys).
 		Requirements(requirements).
 		Files(files).
 		OutputWriter(&ansiblePlaybookOutputWriter{apb}).

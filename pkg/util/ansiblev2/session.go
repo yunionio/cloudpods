@@ -17,6 +17,8 @@ package ansiblev2
 import (
 	"context"
 	"io"
+
+	"yunion.io/x/pkg/errors"
 )
 
 type Session struct {
@@ -27,6 +29,16 @@ type Session struct {
 	files        map[string][]byte
 }
 
+type trySession struct {
+	*Session
+
+	privateKeyIndex int
+}
+
+func (trySession *trySession) GetPrivateKey() string {
+	return trySession.GetPrivateKeys()[trySession.privateKeyIndex]
+}
+
 func NewSession() *Session {
 	sess := &Session{
 		PlaybookSessionBase: NewPlaybookSessionBase(),
@@ -35,8 +47,8 @@ func NewSession() *Session {
 	return sess
 }
 
-func (sess *Session) PrivateKey(s string) *Session {
-	sess.privateKey = s
+func (sess *Session) PrivateKeys(s []string) *Session {
+	sess.privateKeys = s
 	return sess
 }
 
@@ -103,6 +115,19 @@ func (sess *Session) GetFile() map[string][]byte {
 	return sess.files
 }
 
-func (sess *Session) Run(ctx context.Context) (err error) {
-	return runnable{sess}.Run(ctx)
+func (sess *Session) Run(ctx context.Context) error {
+	privateKeys := sess.GetPrivateKeys()
+	errs := make([]error, 0, len(privateKeys))
+	for i := range privateKeys {
+		trySession := &trySession{
+			Session:         sess,
+			privateKeyIndex: i,
+		}
+		err := runnable{trySession}.Run(ctx)
+		if err == nil {
+			return nil
+		}
+		errs = append(errs, err)
+	}
+	return errors.NewAggregate(errs)
 }

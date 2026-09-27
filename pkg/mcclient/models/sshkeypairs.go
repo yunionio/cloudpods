@@ -15,6 +15,6 @@
 package models
 
 type SshKeypair struct {
-	PrivateKey string
-	PublicKey  string
+	PrivateKey string `json:"private_key"`
+	PublicKey  string `json:"public_key"`
 }

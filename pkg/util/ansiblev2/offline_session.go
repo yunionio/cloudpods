@@ -17,6 +17,8 @@ package ansiblev2
 import (
 	"context"
 	"io"
+
+	"yunion.io/x/pkg/errors"
 )
 
 type OfflineSession struct {
@@ -31,6 +33,16 @@ type OfflineSession struct {
 	configYaml   string
 }
 
+type tryOfflineSession struct {
+	*OfflineSession
+
+	privateKeyIndex int
+}
+
+func (trySession *tryOfflineSession) GetPrivateKey() string {
+	return trySession.GetPrivateKeys()[trySession.privateKeyIndex]
+}
+
 func NewOfflineSession() *OfflineSession {
 	sess := &OfflineSession{
 		PlaybookSessionBase: NewPlaybookSessionBase(),
@@ -38,8 +50,8 @@ func NewOfflineSession() *OfflineSession {
 	return sess
 }
 
-func (sess *OfflineSession) PrivateKey(s string) *OfflineSession {
-	sess.privateKey = s
+func (sess *OfflineSession) PrivateKeys(s []string) *OfflineSession {
+	sess.privateKeys = s
 	return sess
 }
 
@@ -85,6 +97,19 @@ func (sess *OfflineSession) GetConfigYaml() string {
 	return sess.configYaml
 }
 
-func (sess *OfflineSession) Run(ctx context.Context) (err error) {
-	return runnable{sess}.Run(ctx)
+func (sess *OfflineSession) Run(ctx context.Context) error {
+	privateKeys := sess.GetPrivateKeys()
+	errs := make([]error, 0, len(privateKeys))
+	for i := range privateKeys {
+		trySession := &tryOfflineSession{
+			OfflineSession:  sess,
+			privateKeyIndex: i,
+		}
+		err := runnable{trySession}.Run(ctx)
+		if err == nil {
+			return nil
+		}
+		errs = append(errs, err)
+	}
+	return errors.NewAggregate(errs)
 }

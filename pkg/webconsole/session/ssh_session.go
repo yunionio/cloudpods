@@ -134,7 +134,7 @@ func (s *SSshSession) IsNeedLogin() (bool, error) {
 			return true, errors.Error("username is empty")
 		}
 	}
-	privateKey, err := helper.GetValidPrivateKey(s.Host, s.Port, s.Username, s.us.GetProjectId())
+	privateKey, err := helper.GetValidPrivateKey(s.Host, s.Port, s.Username, s.us)
 	if err != nil {
 		return true, errors.Wrap(err, "try to use cloud admin private_key for ssh login")
 	}

@@ -276,11 +276,11 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 	if err := ansible.ValidatePlaybook(pb); err != nil {
 		return err
 	}
-	if len(pb.PrivateKey) == 0 {
-		if k, err := compute.Sshkeypairs.FetchPrivateKey(ctx, userCred); err != nil {
-			return err
+	if len(pb.PrivateKeys) == 0 {
+		if keys, err := compute.Sshkeypairs.FetchProjectPrivateKeys(ctx, userCred); err != nil {
+			return errors.Wrap(err, "unable to fetch private keys")
 		} else {
-			pb.PrivateKey = []byte(k)
+			pb.PrivateKeys = keys
 		}
 	}
 	// init tmpdir clean policy

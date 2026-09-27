@@ -123,7 +123,7 @@ func (proxyendpoint *SProxyEndpoint) remoteConfigure(ctx context.Context, userCr
 	host.SetVar("ansible_port", fmt.Sprintf("%d", proxyendpoint.Port))
 	host.SetVar("ansible_become", "yes")
 	pb := &ansible.Playbook{
-		PrivateKey: []byte(proxyendpoint.PrivateKey),
+		PrivateKeys: []string{proxyendpoint.PrivateKey},
 		Inventory: ansible.Inventory{
 			Hosts: []ansible.Host{host},
 		},

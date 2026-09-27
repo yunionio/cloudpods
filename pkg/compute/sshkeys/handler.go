@@ -31,10 +31,15 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/models"
 )
 
 func AddSshKeysHandler(prefix string, app *appsrv.Application) {
+	// 1. 获取用户自己项目的密钥对，总是返回公钥+私钥
+	// 2. 如果是regionadmin所在系统项目（system），指定admin=true，则获取全局管理密钥
 	app.AddHandler2("GET", fmt.Sprintf("%s/sshkeypairs", prefix), auth.Authenticate(sshKeysHandler), nil, "get_sshkeys", nil)
+	// 1. 获取指定项目（tenant_id）的项目密钥对，只有域管理员或者系统管理员级别才能获得私钥
+	// 2. 无法获取全局管理密钥
 	app.AddHandler2("GET", fmt.Sprintf("%s/sshkeypairs/<tenant_id>", prefix), auth.Authenticate(adminSshKeysHandler), nil, "get_sshkeys", nil)
 }
 
@@ -80,7 +85,7 @@ func sshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 }
 
 func sendSshKey(ctx context.Context, w http.ResponseWriter, userCred mcclient.TokenCredential, projectId string, isAdmin bool, publicOnly bool) {
-	var privKey, pubKey string
+	var privKey, pubKey []string
 
 	if isAdmin {
 		if policy.PolicyManager.Allow(rbacscope.ScopeSystem, userCred, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet).Result.IsAllow() {
@@ -93,12 +98,24 @@ func sendSshKey(ctx context.Context, w http.ResponseWriter, userCred mcclient.To
 		privKey, pubKey, _ = GetSshProjectKeypair(ctx, projectId)
 	}
 
+	keypairs := make([]models.SshKeypair, 0, len(privKey))
+	for i := range pubKey {
+		keypair := models.SshKeypair{
+			PublicKey: pubKey[i],
+		}
+		if !publicOnly {
+			keypair.PrivateKey = privKey[i]
+		}
+		keypairs = append(keypairs, keypair)
+	}
+
 	ret := jsonutils.NewDict()
 
 	if !publicOnly {
-		ret.Add(jsonutils.NewString(privKey), "private_key")
+		ret.Add(jsonutils.NewString(privKey[0]), "private_key")
 	}
-	ret.Add(jsonutils.NewString(pubKey), "public_key")
+	ret.Add(jsonutils.NewString(pubKey[0]), "public_key")
+	ret.Add(jsonutils.Marshal(keypairs), "keypairs")
 	body := jsonutils.NewDict()
 	body.Add(ret, "sshkeypair")
 	appsrv.SendJSON(w, body)
