@@ -29,7 +29,7 @@ type serverInfo struct {
 
 	// PrivateKey is the one corresponds to userCred when getting this
 	// serverInfo instance.  It can be empty
-	PrivateKey string
+	PrivateKeys []string
 }
 
 func (si *serverInfo) GetNic() *compute_apis.GuestnetworkShortDesc {
@@ -71,11 +71,11 @@ func getServerInfo(
 		return nil, httperrors.NewServerError("unmarshal server %s: %v", serverId, err)
 	}
 
-	privateKey, _ := compute_modules.Sshkeypairs.FetchPrivateKey(ctx, userCred)
+	privateKeys, _ := compute_modules.Sshkeypairs.FetchProjectPrivateKeys(ctx, userCred)
 
 	serverInfo := &serverInfo{
-		Server:     server,
-		PrivateKey: privateKey,
+		Server:      server,
+		PrivateKeys: privateKeys,
 	}
 	return serverInfo, nil
 }
