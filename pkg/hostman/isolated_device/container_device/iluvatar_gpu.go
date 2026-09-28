@@ -120,20 +120,33 @@ func iluvatarCommonDevices() []*runtimeapi.Device {
 	return devs
 }
 
-func iluvatarCorexHome() string {
-	home := options.HostOptions.IluvatarCorexHome
-	if home == "" {
-		return defaultIluvatarCorexHome
-	}
-	return home
-}
+const defaultIluvatarIxsmiPath = "/usr/local/bin/ixsmi"
 
 func iluvatarIxsmiPath() string {
 	p := options.HostOptions.IluvatarIxsmiPath
 	if p != "" {
 		return p
 	}
-	return path.Join(iluvatarCorexHome(), "bin", "ixsmi")
+	return defaultIluvatarIxsmiPath
+}
+
+func iluvatarCorexHome() string {
+	return iluvatarCorexHomeWithReadlink(iluvatarIxsmiPath(), procutils.RemoteReadlink)
+}
+
+func iluvatarCorexHomeWithReadlink(ixsmiPath string, readlink func(string) (string, error)) string {
+	if ixsmiPath == "" {
+		ixsmiPath = defaultIluvatarIxsmiPath
+	}
+	resolved, err := readlink(ixsmiPath)
+	if err != nil || resolved == "" || resolved == ixsmiPath {
+		return defaultIluvatarCorexHome
+	}
+	home := path.Dir(path.Dir(resolved))
+	if home == "" || home == "/" {
+		return defaultIluvatarCorexHome
+	}
+	return home
 }
 
 func iluvatarLDLibraryPath() string {
