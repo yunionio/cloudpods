@@ -290,8 +290,7 @@ type SHostOptions struct {
 	HygonVgpuCacheDir           string `help:"hygon vgpu vdev cache directory" default:"/usr/local/vgpu/dcu"`
 
 	EnableContainerIluvatarGPU bool   `help:"enable container iluvatar gpu" default:"true"`
-	IluvatarCorexHome          string `help:"iluvatar corex home" default:"/usr/local/corex-4.4.0"`
-	IluvatarIxsmiPath          string `help:"iluvatar ixsmi path" default:"/usr/local/corex-4.4.0/bin/ixsmi"`
+	IluvatarIxsmiPath          string `help:"iluvatar ixsmi path" default:"/usr/local/bin/ixsmi"`
 
 	EnableContainerTHeadPPU bool   `help:"enable container t-head ppu" default:"true"`
 	THeadPpuSdkHome         string `help:"t-head ppu sdk home" default:"/usr/local/PPU_SDK"`

@@ -171,6 +171,16 @@ const TELEGRAF_INPUT_BAREMETAL = `
     collect_memstats = false
 [[inputs.nvidia_smi]]
     name_prefix = "agent_"
+[[inputs.npu_smi]]
+    name_prefix = "agent_"
+[[inputs.ixsmi]]
+    name_prefix = "agent_"
+[[inputs.ppusmi]]
+    name_prefix = "agent_"
+[[inputs.hysmi]]
+    name_prefix = "agent_"
+[[inputs.xpusmi]]
+    name_prefix = "agent_"
 `
 
 var temp *template.Template
