@@ -2689,6 +2689,22 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 	}*/
 }
 
+func resolveSmiBinPath(binPath string) string {
+	return resolveSmiBinPathWithReadlink(binPath, procutils.RemoteReadlink)
+}
+
+func resolveSmiBinPathWithReadlink(binPath string, readlink func(string) (string, error)) string {
+	if binPath == "" {
+		return binPath
+	}
+	resolved, err := readlink(binPath)
+	if err != nil || resolved == "" {
+		log.Warningf("failed to resolve smi binary path %q: %v", binPath, err)
+		return binPath
+	}
+	return resolved
+}
+
 func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 	devs := h.GetIsolatedDeviceManager().GetDevices()
 	if len(devs) == 0 {
@@ -2764,16 +2780,18 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 		}
 	}
 	if hasIluvatar {
-		corexHome := options.HostOptions.IluvatarCorexHome
-		if corexHome == "" {
-			corexHome = "/usr/local/corex-4.4.0"
-		}
+		defaultCorexHome := "/usr/local/corex-4.4.0"
 		ixsmiPath := options.HostOptions.IluvatarIxsmiPath
 		if ixsmiPath == "" {
-			ixsmiPath = path.Join(corexHome, "bin", "ixsmi")
+			ixsmiPath = "/usr/local/bin/ixsmi"
+		}
+		resolvedPath := resolveSmiBinPath(ixsmiPath)
+		corexHome := defaultCorexHome
+		if resolvedPath != ixsmiPath {
+			corexHome = path.Dir(path.Dir(resolvedPath))
 		}
 		conf[system_service.TELEGRAF_INPUT_IXSMI] = map[string]interface{}{
-			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: ixsmiPath,
+			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: resolvedPath,
 			system_service.TELEGRAF_INPUT_CONF_LIB_PATH: path.Join(corexHome, "lib64"),
 		}
 	}

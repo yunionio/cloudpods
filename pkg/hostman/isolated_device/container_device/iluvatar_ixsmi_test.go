@@ -15,6 +15,7 @@
 package container_device
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -103,4 +104,54 @@ func TestParseIxsmiTableTwoGpus(t *testing.T) {
 func TestIluvatarPCIAddrCandidates(t *testing.T) {
 	cands := iluvatarPCIAddrCandidates("00000000:26:00.0")
 	assert.Equal(t, []string{"00000000:26:00.0", "0000:26:00.0", "26:00.0"}, cands)
+}
+
+func TestIluvatarCorexHomeWithReadlink(t *testing.T) {
+	cases := []struct {
+		name     string
+		ixsmi    string
+		resolved string
+		readErr  error
+		want     string
+	}{
+		{
+			name:     "resolve symlink",
+			ixsmi:    "/usr/local/bin/ixsmi",
+			resolved: "/usr/local/corex-4.3.0/bin/ixsmi",
+			want:     "/usr/local/corex-4.3.0",
+		},
+		{
+			name:    "fallback on error",
+			ixsmi:   "/usr/local/bin/ixsmi",
+			readErr: fmt.Errorf("no such file"),
+			want:    defaultIluvatarCorexHome,
+		},
+		{
+			name:     "fallback when not a symlink",
+			ixsmi:    "/usr/local/bin/ixsmi",
+			resolved: "/usr/local/bin/ixsmi",
+			want:     defaultIluvatarCorexHome,
+		},
+		{
+			name:     "fallback on empty result",
+			ixsmi:    "/usr/local/bin/ixsmi",
+			resolved: "",
+			want:     defaultIluvatarCorexHome,
+		},
+		{
+			name:  "fallback on empty input",
+			ixsmi: "",
+			want:  defaultIluvatarCorexHome,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			readlink := func(string) (string, error) {
+				return c.resolved, c.readErr
+			}
+			if got := iluvatarCorexHomeWithReadlink(c.ixsmi, readlink); got != c.want {
+				t.Errorf("iluvatarCorexHomeWithReadlink(%q) = %q, expected %q", c.ixsmi, got, c.want)
+			}
+		})
+	}
 }

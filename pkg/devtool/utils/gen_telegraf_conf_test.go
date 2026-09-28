@@ -15,6 +15,8 @@
 package utils
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -39,6 +41,12 @@ func TestGenerateTelegrafConf(t *testing.T) {
 			want:    "",
 			wantErr: false,
 		},
+		{
+			name:    "test_baremetal_accelerators",
+			args:    args{new(api.ServerDetails), "http://127.0.0.1:8086", "Linux", api.HYPERVISOR_BAREMETAL},
+			want:    "",
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -46,6 +54,19 @@ func TestGenerateTelegrafConf(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GenerateTelegrafConf() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+			if tt.args.serverType == api.HYPERVISOR_BAREMETAL {
+				for _, plugin := range []string{
+					"nvidia_smi", "npu_smi", "ixsmi",
+					"ppusmi", "hysmi", "xpusmi",
+				} {
+					if !strings.Contains(got, fmt.Sprintf("[[inputs.%s]]", plugin)) {
+						t.Errorf("GenerateTelegrafConf() missing input %s", plugin)
+					}
+				}
+				if !strings.Contains(got, `name_prefix = "agent_"`) {
+					t.Errorf("GenerateTelegrafConf() missing name_prefix = \"agent_\"")
+				}
 			}
 			t.Logf("got %s", got)
 		})
