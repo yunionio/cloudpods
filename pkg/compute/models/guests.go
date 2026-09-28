@@ -4940,10 +4940,10 @@ func (self *SGuest) CreateNetworksOnHost(
 		if candidateNet != nil {
 			networkIds = candidateNet.NetworkIds
 		}
-		if idx == 0 && netConfig.NumQueues == 0 {
+		if netConfig.NumQueues == 0 {
 			numQueues := self.VcpuCount / 2
-			if numQueues > 16 {
-				numQueues = 16
+			if numQueues > options.Options.DefaultNicNumQueuesMax {
+				numQueues = options.Options.DefaultNicNumQueuesMax
 			}
 			netConfig.NumQueues = numQueues
 		}

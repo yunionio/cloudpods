@@ -3446,8 +3446,29 @@ func (self *SGuest) PerformAttachnetwork(
 			return nil, httperrors.NewMissingParameterError("nets/net_desc")
 		}
 	}
+	gns, err := self.GetNetworks("")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetNetworks")
+	}
+	var prevNumQueues = 0
+	for i := range gns {
+		if gns[i].NumQueues > 0 {
+			prevNumQueues = gns[i].NumQueues
+			break
+		}
+	}
+	if len(gns) == 0 {
+		numQueues := self.VcpuCount / 2
+		if numQueues > options.Options.DefaultNicNumQueuesMax {
+			numQueues = options.Options.DefaultNicNumQueuesMax
+		}
+		prevNumQueues = numQueues
+	}
 	var inicCnt, enicCnt, isolatedDevCount, defaultGwCnt int
 	for i := range input.Nets {
+		if input.Nets[i].NumQueues <= 0 {
+			input.Nets[i].NumQueues = prevNumQueues
+		}
 		err := isValidNetworkInfo(ctx, userCred, input.Nets[i], "", "")
 		if err != nil {
 			return nil, err

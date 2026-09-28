@@ -59,9 +59,10 @@ type ComputeOptions struct {
 	ImageCacheStoragePolicy string `default:"least_used" choices:"best_fit|least_used" help:"Policy to choose storage for image cache, best_fit or least_used"`
 	MetricsRetentionDays    int32  `default:"30" help:"Retention days for monitoring metrics in influxdb"`
 
-	DefaultBandwidth int `default:"1000" help:"Default bandwidth"`
-	DefaultMtu       int `default:"1500" help:"Default network mtu"`
-	OvnUnderlayMtu   int `help:"mtu of ovn underlay network" default:"1500"`
+	DefaultBandwidth       int `default:"1000" help:"Default bandwidth"`
+	DefaultMtu             int `default:"1500" help:"Default network mtu"`
+	OvnUnderlayMtu         int `help:"mtu of ovn underlay network" default:"1500"`
+	DefaultNicNumQueuesMax int `help:"default nic max num_queues" default:"16"`
 
 	DefaultServerQuota           int `default:"50" help:"Common Server quota per tenant, default 50"`
 	DefaultCpuQuota              int `default:"200" help:"Common CPU quota per tenant, default 200"`
