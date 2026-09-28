@@ -1,4 +1,4 @@
-ARG FILE_REPO_TAG=v0.5.9
+ARG FILE_REPO_TAG=v0.5.10
 
 # https://github.com/yunionio/telegraf/blob/yn-release-1.36/Makefile.yn#L28
 # install playbook and telegraf install pkg

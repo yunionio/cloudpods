@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
 	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	ansible_api "yunion.io/x/onecloud/pkg/apis/ansibleserver"
@@ -121,7 +122,7 @@ func serviceUrlDirect(ctx context.Context, service Service, proxyEndpointId stri
 	url, code := serviceComplete2(service)
 	ok, err := checkUrl(ctx, url, code, host)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "check url %s with returned code %d: %s", url, code, jsonutils.Marshal(host))
 	}
 	if ok {
 		return service.Url, nil
@@ -192,13 +193,11 @@ func serviceUrlViaProxyEndpoint(ctx context.Context, service Service, proxyEndpo
 
 func FindValidServiceUrl(ctx context.Context, service Service, proxyEndpointId string, info sServerInfo, host *ansible_api.AnsibleHost) (string, error) {
 	findFuncs := []func(ctx context.Context, service Service, proxyEndpointId string, info sServerInfo, host *ansible_api.AnsibleHost) (string, error){}
-	if info.serverDetails.Hypervisor == comapi.HYPERVISOR_KVM {
+	if utils.IsInStringArray(info.serverDetails.Hypervisor, []string{comapi.HYPERVISOR_KVM, comapi.HYPERVISOR_BAREMETAL}) {
 		// KVM guests report metrics through the metadata service on the host or
 		// the public TSDB endpoint, so never create a proxy endpoint forward for
 		// them.
 		findFuncs = append(findFuncs, serviceUrlDirect)
-	} else if info.serverDetails.Hypervisor == comapi.HYPERVISOR_BAREMETAL {
-		findFuncs = append(findFuncs, serviceUrlDirect, serviceUrlViaProxyEndpoint)
 	} else {
 		findFuncs = append(findFuncs, serviceUrlViaProxyEndpoint, serviceUrlDirect)
 	}
@@ -399,6 +398,10 @@ func checkUrl(ctx context.Context, completeUrl string, expectedCode int, host *a
 		case ansible_api.AnsiblePlaybookStatusInit, ansible_api.AnsiblePlaybookStatusRunning:
 			continue
 		case ansible_api.AnsiblePlaybookStatusFailed, ansible_api.AnsiblePlaybookStatusCanceled, ansible_api.AnsiblePlaybookStatusUnknown:
+			if status == ansible_api.AnsiblePlaybookStatusFailed {
+				obj, err := ansible_modules.AnsiblePlaybooks.Get(session, id, nil)
+				log.Errorf("run ansible playbook %s failed: %s, err: %v", id, jsonutils.Marshal(obj).PrettyString(), err)
+			}
 			return false, nil
 		case ansible_api.AnsiblePlaybookStatusSucceeded:
 			return true, nil

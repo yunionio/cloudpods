@@ -14,7 +14,10 @@
 
 package hostinfo
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestResolveKunlunxinXpuLibDir(t *testing.T) {
 	cases := []struct {
@@ -70,5 +73,49 @@ func TestResolveKunlunxinXpuLibDir(t *testing.T) {
 
 	if got := resolveKunlunxinXpuLibDir("", nil); got != "/usr/local/xpu/so" {
 		t.Errorf("resolveKunlunxinXpuLibDir with nil exists = %q, expected %q", got, "/usr/local/xpu/so")
+	}
+}
+
+func TestResolveSmiBinPathWithReadlink(t *testing.T) {
+	cases := []struct {
+		name     string
+		binPath  string
+		resolved string
+		readErr  error
+		want     string
+	}{
+		{
+			name:     "resolve symlink",
+			binPath:  "/usr/local/bin/ixsmi",
+			resolved: "/usr/local/corex-4.3.0/bin/ixsmi",
+			want:     "/usr/local/corex-4.3.0/bin/ixsmi",
+		},
+		{
+			name:    "fallback on error",
+			binPath: "/usr/local/bin/ixsmi",
+			readErr: fmt.Errorf("no such file"),
+			want:    "/usr/local/bin/ixsmi",
+		},
+		{
+			name:     "fallback on empty result",
+			binPath:  "/usr/local/bin/ixsmi",
+			resolved: "",
+			want:     "/usr/local/bin/ixsmi",
+		},
+		{
+			name:    "empty input",
+			binPath: "",
+			want:    "",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			readlink := func(string) (string, error) {
+				return c.resolved, c.readErr
+			}
+			if got := resolveSmiBinPathWithReadlink(c.binPath, readlink); got != c.want {
+				t.Errorf("resolveSmiBinPathWithReadlink(%q) = %q, expected %q", c.binPath, got, c.want)
+			}
+		})
 	}
 }
