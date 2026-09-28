@@ -103,10 +103,13 @@ func (pb *Playbook) Running() bool {
 
 func (pb *Playbook) Run(ctx context.Context) error {
 	errs := make([]error, 0, len(pb.PrivateKeys))
-	for _, privateKey := range pb.PrivateKeys {
+	for i, privateKey := range pb.PrivateKeys {
 		err := pb.runOnce(ctx, privateKey)
 		if err != nil {
 			errs = append(errs, err)
+			if i != len(pb.PrivateKeys)-1 {
+				pb.state = pbStateInit
+			}
 		} else {
 			return nil
 		}
@@ -203,7 +206,7 @@ func (pb *Playbook) runOnce(ctx context.Context, privateKey string) error {
 			"all",
 		}
 		if privateKey != "" {
-			args = append(args, "--private-key", privateKey)
+			args = append(args, "--private-key", privateKeyFile)
 		}
 		cmd := exec.CommandContext(ctx, "ansible", args...)
 		cmd.Dir = pb.tmpdir
