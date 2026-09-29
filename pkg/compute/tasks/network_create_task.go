@@ -65,6 +65,9 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		self.taskFailed(ctx, net, errors.Wrapf(err, "RequestCreateNetwork"))
 		return
 	}
+	if net.Status == api.NETWORK_STATUS_AVAILABLE {
+		net.TriggerPublicCloudSkuSync(ctx, self.UserCred)
+	}
 
 	net.ClearSchedDescCache()
 	logclient.AddActionLogWithStartable(self, net, logclient.ACT_CREATE, "", self.UserCred, true)
