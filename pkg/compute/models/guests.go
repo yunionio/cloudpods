@@ -6554,7 +6554,7 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 }
 
 func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
-	deadline := time.Now().Add(time.Duration(options.Options.PrepaidExpireCheckSeconds*-1) * time.Second)
+	deadline := time.Now().Add(-time.Duration(options.Options.PrepaidExpireDeleteMinutes) * time.Minute)
 
 	q := manager.Query()
 	q = q.Equals("billing_type", billing_api.BILLING_TYPE_PREPAID).LT("expired_at", deadline).
@@ -6616,6 +6616,9 @@ func (self *SGuest) doExternalSync(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if !options.Options.PrepaidExpireCheck {
+		return
+	}
 	guests := manager.getExpiredPrepaidGuests()
 	if guests == nil {
 		return
@@ -6639,6 +6642,9 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 }
 
 func (manager *SGuestManager) AutoRenewPrepaidServer(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if !options.Options.PrepaidAutoRenew {
+		return
+	}
 	guests, err := manager.getNeedRenewPrepaidGuests()
 	if err != nil {
 		log.Errorf("failed to get need renew prepaid guests error: %v", err)
