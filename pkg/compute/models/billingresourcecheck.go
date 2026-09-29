@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"reflect"
 	"time"
@@ -47,6 +48,8 @@ type SBillingResourceCheck struct {
 	SBillingResourceBase
 
 	ResourceType string `width:"36" charset:"ascii" list:"user"`
+	// 已发送过提醒的提前天数；0 表示尚未通知。用于避免 cron/重启重复发送同一档位提醒
+	NotifiedAdvanceDays int `nullable:"false" default:"0" list:"user" json:"notified_advance_days"`
 }
 
 type IBillingModelManager interface {
@@ -196,23 +199,59 @@ func fetchExpiredModels(manager db.IModelManager, advanceDay int) ([]IBillingMod
 }
 
 func (bm *SBillingResourceCheckManager) Create(ctx context.Context, res IBillingModel, resourceType string) error {
-	bc := &SBillingResourceCheck{
-		ResourceType: resourceType,
+	obj, err := bm.FetchById(res.GetId())
+	if err != nil {
+		if errors.Cause(err) != sql.ErrNoRows {
+			return errors.Wrap(err, "FetchById")
+		}
+		bc := &SBillingResourceCheck{
+			ResourceType: resourceType,
+		}
+		bc.Id = res.GetId()
+		bc.Name = res.GetName()
+		bc.ExpiredAt = res.GetExpiredAt()
+		bc.ReleaseAt = res.GetReleaseAt()
+		bc.AutoRenew = res.GetAutoRenew()
+		bc.BillingType = res.GetBillingType()
+		if owner := res.GetOwnerId(); owner != nil {
+			bc.ProjectId = owner.GetProjectId()
+			bc.DomainId = owner.GetProjectDomainId()
+		}
+		bc.CreatedAt = res.GetCreatedAt()
+		bc.Status = res.GetStatus()
+		bc.SetModelManager(bm, bc)
+		return bm.TableSpec().Insert(ctx, bc)
 	}
-	bc.Id = res.GetId()
-	bc.Name = res.GetName()
-	bc.ExpiredAt = res.GetExpiredAt()
-	bc.ReleaseAt = res.GetReleaseAt()
-	bc.AutoRenew = res.GetAutoRenew()
-	bc.BillingType = res.GetBillingType()
-	if owner := res.GetOwnerId(); owner != nil {
-		bc.ProjectId = owner.GetProjectId()
-		bc.DomainId = owner.GetDomainId()
-	}
-	bc.CreatedAt = res.GetCreatedAt()
-	bc.Status = res.GetStatus()
-	bc.SetModelManager(bm, bc)
-	return bm.TableSpec().InsertOrUpdate(ctx, bc)
+
+	bc := obj.(*SBillingResourceCheck)
+	_, err = db.Update(bc, func() error {
+		expireChanged := bc.ExpiredAt.Unix() != res.GetExpiredAt().Unix() || bc.ReleaseAt.Unix() != res.GetReleaseAt().Unix()
+		bc.Name = res.GetName()
+		bc.ResourceType = resourceType
+		bc.ExpiredAt = res.GetExpiredAt()
+		bc.ReleaseAt = res.GetReleaseAt()
+		bc.AutoRenew = res.GetAutoRenew()
+		bc.BillingType = res.GetBillingType()
+		if owner := res.GetOwnerId(); owner != nil {
+			bc.ProjectId = owner.GetProjectId()
+			bc.DomainId = owner.GetProjectDomainId()
+		}
+		bc.Status = res.GetStatus()
+		// 到期/释放时间变化后重新走提醒档位
+		if expireChanged {
+			bc.NotifiedAdvanceDays = 0
+		}
+		return nil
+	})
+	return err
+}
+
+func (bc *SBillingResourceCheck) markNotified(advanceDay int) error {
+	_, err := db.Update(bc, func() error {
+		bc.NotifiedAdvanceDays = advanceDay
+		return nil
+	})
+	return err
 }
 
 func (man *SBillingResourceCheckManager) PerformCheck(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -220,9 +259,14 @@ func (man *SBillingResourceCheckManager) PerformCheck(ctx context.Context, userC
 	return jsonutils.NewDict(), nil
 }
 
-func (man *SBillingResourceCheckManager) clean(resType string, resourceIds []string) error {
+func (man *SBillingResourceCheckManager) clean(resType string, keepIds []string) error {
 	ids, err := db.FetchField(man, "id", func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		return q.Equals("resource_type", resType).NotIn("id", resourceIds)
+		q = q.Equals("resource_type", resType)
+		// keepIds 为空时清理该类型全部记录；禁止对空切片使用 NotIn（sqlchemy 会变成恒真条件）
+		if len(keepIds) > 0 {
+			q = q.NotIn("id", keepIds)
+		}
+		return q
 	})
 	if err != nil {
 		return errors.Wrap(err, "fetchField")
@@ -247,17 +291,18 @@ func scanExpiredBillingResources(ctx context.Context) {
 			continue
 		}
 
-		resourceIds := []string{}
+		// 先收集扫描到的 id，Create 失败也不应被 clean 误删
+		keepIds := make([]string, 0, len(expiredModels))
 		for _, model := range expiredModels {
+			keepIds = append(keepIds, model.GetId())
 			err = BillingResourceCheckManager.Create(ctx, model, manager.Keyword())
 			if err != nil {
 				log.Errorf("unable to create billing_resource_check for resource %s %s", manager.Keyword(), model.GetId())
 				continue
 			}
-			resourceIds = append(resourceIds, model.GetId())
 		}
 
-		err = BillingResourceCheckManager.clean(manager.Keyword(), resourceIds)
+		err = BillingResourceCheckManager.clean(manager.Keyword(), keepIds)
 		if err != nil {
 			log.Errorf("unable to clean billing_resource_check for resource %s", manager.Keyword())
 			continue
@@ -296,6 +341,9 @@ func CheckBillingResourceExpireAt(ctx context.Context, userCred mcclient.TokenCr
 		}
 
 		for i := range resources {
+			if resources[i].NotifiedAdvanceDays == advanceDay {
+				continue
+			}
 			detailsDecro := func(ctx context.Context, details *jsonutils.JSONDict) {
 				details.Set("advance_days", jsonutils.NewInt(int64(advanceDay)))
 			}
@@ -305,7 +353,12 @@ func CheckBillingResourceExpireAt(ctx context.Context, userCred mcclient.TokenCr
 				ResourceType:        resources[i].ResourceType,
 				Action:              notifyclient.ActionExpiredRelease,
 				AdvanceDays:         advanceDay,
+				ExcludeOperator:     true,
 			})
+			if err := resources[i].markNotified(advanceDay); err != nil {
+				log.Errorf("unable to mark notified for %s %s advance_day %d: %v",
+					resources[i].ResourceType, resources[i].GetId(), advanceDay, err)
+			}
 		}
 	}
 }

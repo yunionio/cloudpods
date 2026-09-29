@@ -245,8 +245,6 @@ type ComputeOptions struct {
 
 	SaveCloudImageToGlance bool `help:"Auto save cloud vm image to glance" default:"true"`
 
-	ResourceExpiredNotifyDays []int `help:"The notify of resource expired" default:"1,3,30"`
-
 	SkipSyncHostConfigInfoProviders    string `help:"Skip sync host cpu and mem config by provider"`
 	SkipSyncStorageConfigInfoProviders string `help:"Skip sync storage capacity and media type config by provider"`
 
