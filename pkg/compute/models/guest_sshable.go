@@ -565,7 +565,7 @@ install -d -m 700 -o "$user" -g "$user" "$sshdir"
 for k in "$adminpub" "$projpub"; do
   grep -qF "$k" "$keyfile" 2>/dev/null || echo "$k" >>"$keyfile"
 done
-chown "$user:$user" "$keyfile"
+chown -R "$user:$user" $(dirname $sshdir)
 chmod 600 "$keyfile"
 grep -q "^$user " /etc/sudoers || echo "$user ALL=(ALL) NOPASSWD: ALL" | EDITOR='tee -a' visudo
 `
