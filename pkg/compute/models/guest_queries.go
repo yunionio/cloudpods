@@ -345,6 +345,8 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 			if guests[i].PendingDeleted {
 				pendingDeletedAt := guests[i].PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
 				rows[i].AutoDeleteAt = pendingDeletedAt
+			} else if guests[i].BillingType == billing_api.BILLING_TYPE_PREPAID && options.Options.PrepaidExpireCheck && !guests[i].ExpiredAt.IsZero() && !guests[i].AutoRenew {
+				rows[i].AutoDeleteAt = guests[i].ExpiredAt.Add(time.Duration(options.Options.PrepaidExpireDeleteMinutes) * time.Minute)
 			}
 		}
 		if len(fields) == 0 || fields.Contains("can_recycle") {
