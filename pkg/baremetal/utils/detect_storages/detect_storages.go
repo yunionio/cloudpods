@@ -73,7 +73,7 @@ func DetectStorageInfo(term raid.IExecTerm, wait bool) ([]*baremetal.BaremetalSt
 	log.Infof("Get Raid drivers: %v, collecting disks info ...", raidDrivers)
 	pcieRet, err := term.Run("/lib/mos/lsdisk --pcie")
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("Fail to retrieve PCIE DISK info")
+		return nil, nil, nil, fmt.Errorf("Fail to retrieve PCIE DISK info: %s", err)
 	}
 	pcieDiskInfo := sysutils.ParsePCIEDiskInfo(pcieRet)
 
