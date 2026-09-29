@@ -43,7 +43,8 @@ type ComputeOptions struct {
 
 	PrepaidExpireCheck              bool `default:"false" help:"clean expired servers or disks"`
 	PrepaidDeleteExpireCheck        bool `default:"false" help:"check prepaid expired before delete"`
-	PrepaidExpireCheckSeconds       int  `default:"600" help:"How long to wait to scan expired prepaid VM or disks, default is 10 minutes"`
+	PrepaidExpireCheckSeconds       int  `default:"600" help:"How long to wait to scan expired postpaid resources, default is 10 minutes"`
+	PrepaidExpireDeleteMinutes      int  `default:"10" help:"Minutes after a prepaid server expires before auto delete, default is 10 minutes"`
 	ExpiredPrepaidMaxCleanBatchSize int  `default:"50" help:"How many expired prepaid servers can be deleted in a batch"`
 
 	PrepaidAutoRenew      bool `default:"true" help:"auto renew prepaid servers when server's auto_renew attr is true"`

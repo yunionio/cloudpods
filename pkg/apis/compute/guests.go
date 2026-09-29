@@ -217,7 +217,8 @@ type ServerDetails struct {
 	// 是否可以回收
 	CanRecycle bool `json:"can_recycle"`
 
-	// 自动释放时间
+	// 自动释放时间, 若虚拟机在到期后未续费, 则会在AutoDeleteAt时间后自动释放，或在回收站时自动释放
+	// example: 2026-09-29T10:00:00Z
 	AutoDeleteAt time.Time `json:"auto_delete_at"`
 	// 磁盘数量
 	DiskCount int `json:"disk_count"`
