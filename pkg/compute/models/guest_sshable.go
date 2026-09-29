@@ -475,6 +475,7 @@ func (guest *SGuest) PerformMakeSshable(
 					"name=cloudroot",
 					"state=present",
 					"group=cloudroot",
+					"home=/opt/cloudroot",
 				},
 			},
 			{
@@ -482,7 +483,7 @@ func (guest *SGuest) PerformMakeSshable(
 				Args: []string{
 					"user=cloudroot",
 					"state=present",
-					fmt.Sprintf("key=%q", adminPublicKey),
+					fmt.Sprintf("key=%q", adminPublicKey[0]),
 				},
 			},
 			{
@@ -490,7 +491,7 @@ func (guest *SGuest) PerformMakeSshable(
 				Args: []string{
 					"user=cloudroot",
 					"state=present",
-					fmt.Sprintf("key=%q", projectPublicKey),
+					fmt.Sprintf("key=%q", projectPublicKey[0]),
 				},
 			},
 			{
