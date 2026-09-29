@@ -161,19 +161,22 @@ func syncRegionSkus(ctx context.Context, userCred mcclient.TokenCredential, loca
 		return
 	}
 
-	cnt, err := ServerSkuManager.GetSkuCountByRegion(regionId)
-	if err != nil {
-		log.Errorf("GetSkuCountByRegion fail %s", err)
-		return
+	skipSku := localRegion.skipSkuSyncWithoutNetwork(ctx)
+	if !skipSku {
+		cnt, err := ServerSkuManager.GetSkuCountByRegion(regionId)
+		if err != nil {
+			log.Errorf("GetSkuCountByRegion fail %s", err)
+			return
+		}
+
+		if cnt == 0 {
+			// 提前同步instance type.如果同步失败可能导致vm 内存显示为0
+			localRegion.StartSyncSkusTask(ctx, userCred, ServerSkuManager.Keyword())
+		}
 	}
 
-	if cnt == 0 {
-		// 提前同步instance type.如果同步失败可能导致vm 内存显示为0
-		localRegion.StartSyncSkusTask(ctx, userCred, ServerSkuManager.Keyword())
-	}
-
-	if localRegion.GetDriver().IsSupportedElasticcache() {
-		cnt, err = ElasticcacheSkuManager.GetSkuCountByRegion(regionId)
+	if localRegion.GetDriver().IsSupportedElasticcache() && !skipSku {
+		cnt, err := ElasticcacheSkuManager.GetSkuCountByRegion(regionId)
 		if err != nil {
 			log.Errorf("ElasticcacheSkuManager.GetSkuCountByRegion fail %s", err)
 			return
@@ -184,8 +187,8 @@ func syncRegionSkus(ctx context.Context, userCred mcclient.TokenCredential, loca
 		}
 	}
 
-	if localRegion.GetDriver().IsSupportedDBInstance() {
-		cnt, err = DBInstanceSkuManager.GetSkuCountByRegion(regionId)
+	if localRegion.GetDriver().IsSupportedDBInstance() && !skipSku {
+		cnt, err := DBInstanceSkuManager.GetSkuCountByRegion(regionId)
 		if err != nil {
 			log.Errorf("DBInstanceSkuManager.GetSkuCountByRegion fail %s", err)
 			return
@@ -1543,6 +1546,9 @@ func syncSkusFromPrivateCloud(
 	remoteRegion cloudprovider.ICloudRegion,
 	xor bool,
 ) {
+	if region.skipSkuSyncWithoutNetwork(ctx) {
+		return
+	}
 	skus, err := remoteRegion.GetISkus()
 	if err != nil {
 		msg := fmt.Sprintf("GetISkus for region %s(%s) failed %v", region.Name, region.Id, err)
@@ -1614,6 +1620,9 @@ func syncRegionDBInstances(
 }
 
 func syncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	if localRegion.skipSkuSyncWithoutNetwork(ctx) {
+		return
+	}
 	skus, err := func() ([]cloudprovider.ICloudDBInstanceSku, error) {
 		defer syncResults.AddRequestCost(DBInstanceSkuManager)()
 		return remoteRegion.GetIDBInstanceSkus()
@@ -1672,6 +1681,9 @@ func syncNATSkus(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 }
 
 func syncCacheSkus(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	if localRegion.skipSkuSyncWithoutNetwork(ctx) {
+		return
+	}
 	skus, err := func() ([]cloudprovider.ICloudElasticcacheSku, error) {
 		defer syncResults.AddRequestCost(ElasticcacheSkuManager)()
 		return remoteRegion.GetIElasticcacheSkus()

@@ -496,10 +496,13 @@ func (manager *SDBInstanceSkuManager) SyncDBInstanceSkus(
 	region *SCloudregion,
 	xor bool,
 ) compare.SyncResult {
+	result := compare.SyncResult{}
+	if region.skipSkuSyncWithoutNetwork(ctx) {
+		return result
+	}
+
 	lockman.LockRawObject(ctx, manager.Keyword(), region.Id)
 	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), region.Id)
-
-	result := compare.SyncResult{}
 
 	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {
@@ -672,6 +675,9 @@ func SyncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCreden
 	for _, region := range cloudregions {
 		if !region.GetDriver().IsSupportedDBInstance() {
 			log.Debugf("region %s(%s) not support dbinstance, skip sync", region.Name, region.Id)
+			continue
+		}
+		if region.skipSkuSyncWithoutNetwork(ctx) {
 			continue
 		}
 		skuMeta := &SDBInstanceSku{}

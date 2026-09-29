@@ -850,8 +850,20 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 		Obj:    net,
 		Action: notifyclient.ActionSyncCreate,
 	})
+	if net.Status == api.NETWORK_STATUS_AVAILABLE {
+		net.TriggerPublicCloudSkuSync(ctx, userCred)
+	}
 
 	return net, nil
+}
+
+func (snet *SNetwork) TriggerPublicCloudSkuSync(ctx context.Context, userCred mcclient.TokenCredential) {
+	region, err := snet.GetRegion()
+	if err != nil {
+		log.Errorf("network %s(%s) get region for sku sync fail %s", snet.Name, snet.Id, err)
+		return
+	}
+	region.TriggerSkuSyncOnFirstNetwork(ctx, userCred)
 }
 
 func (net *SNetwork) IsAddressInRange(address netutils.IPV4Addr) bool {
