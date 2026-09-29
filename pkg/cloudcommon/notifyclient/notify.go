@@ -282,6 +282,8 @@ type SEventNotifyParam struct {
 	IsFail              bool
 	ObjDetailsDecorator func(context.Context, *jsonutils.JSONDict)
 	AdvanceDays         int
+	// ExcludeOperator 为 true 时不把操作者加入接收人（如定时任务，避免发给服务管理员账号）
+	ExcludeOperator bool
 }
 
 type eventTask struct {
@@ -340,8 +342,12 @@ func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEve
 		projectId = ownerId.GetProjectId()
 		projectDomainId = ownerId.GetProjectDomainId()
 	}
+	receiverIds := []string{}
+	if !ep.ExcludeOperator && userCred != nil {
+		receiverIds = []string{userCred.GetUserId()}
+	}
 	params := api.NotificationManagerEventNotifyInput{
-		ReceiverIds:     []string{userCred.GetUserId()},
+		ReceiverIds:     receiverIds,
 		ResourceDetails: objDetails,
 		Event:           event.String(),
 		AdvanceDays:     ep.AdvanceDays,
