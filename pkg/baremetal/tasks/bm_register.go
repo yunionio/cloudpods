@@ -209,6 +209,7 @@ func (s *sBaremetalRegisterTask) UpdateBaremetal(ctx context.Context) (string, e
 	}
 
 	s.baremetal = pxeBm.(IBaremetal)
+	s.baremetal.SyncStatus(ctx, "init", "Register reprepare info")
 	return s.baremetal.GetId(), nil
 }
 
@@ -229,6 +230,7 @@ func (s *sBaremetalRegisterTask) doRedfishProbe(ctx context.Context) (redfishSup
 func (s *sBaremetalRegisterTask) DoPrepare(ctx context.Context, cli *ssh.Client, registered bool) error {
 	infos, err := s.prepareBaremetalInfo(cli)
 	if err != nil {
+		log.Errorf("prepareBaremetalInfo failed %s", err)
 		return err
 	}
 
@@ -295,6 +297,7 @@ func (s *sBaremetalRegisterTask) updateBmInfo(ctx context.Context, cli *ssh.Clie
 	}
 
 	if registered {
+		s.baremetal.SyncStatus(ctx, "running", "Register update info success")
 		return nil
 	}
 	return s.initBaremetalServer(ctx)
