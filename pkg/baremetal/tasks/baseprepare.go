@@ -440,6 +440,7 @@ func (task *sBaremetalPrepareTask) doUpdateBmInfo(
 	if len(i.isolatedDevicesInfo) > 0 {
 		err = task.sendIsolatedDevicesInfo(task.getClientSession(), i.isolatedDevicesInfo)
 		if err != nil {
+			log.Errorf("send isolated devices info")
 			return errors.Wrap(err, "send isolated devices info")
 		}
 	}
@@ -777,10 +778,21 @@ func getIsolatedDevicesInfo(cli *ssh.Client, ip net.IP) ([]*isolated_device.PCID
 	for _, line := range lines {
 		if len(line) > 0 {
 			dev := isolated_device.NewPCIDevice2(line, cli)
+			//log.Infof("dev addr %s, vendor %s, class code %s", dev.Addr, dev.VendorId, dev.ClassCode)
 			if len(dev.Addr) > 0 && utils.IsInArray(dev.ClassCode, isolated_device.GpuClassCodes) && !isBootVga(cli, dev, bootVgaPath) {
+				log.Infof("append dev %s", dev.Addr)
 				devs = append(devs, dev)
 			}
-			if o.Options.AutoRegisterBaremetal && utils.IsInStringArray(dev.VendorId, api.HeterogeneousVendors) {
+			if o.Options.AutoDetectHeterogeneousDevices && utils.IsInStringArray(dev.VendorId, api.HeterogeneousVendors) {
+				if dev.VendorId == api.HYGON_VENDOR_ID && dev.ClassCode != isolated_device.CLASS_CODE_ASSIST {
+					log.Infof("skip dev %s", dev.Addr)
+					continue
+				}
+				if dev.VendorId == api.ILUVATAR_VENDOR_ID && dev.ClassCode != isolated_device.CLASS_CODE_PA {
+					log.Infof("skip dev %s", dev.Addr)
+					continue
+				}
+				log.Infof("append dev %s", dev.Addr)
 				devs = append(devs, dev)
 			}
 		}

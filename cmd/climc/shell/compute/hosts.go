@@ -70,6 +70,7 @@ func init() {
 	cmd.BatchPerform("set-host-files", &compute.HostSetHostFilesOptions{})
 	cmd.BatchPerform("create-from-import-baremetal", &compute.HostCreateFromImportBaremetalOptions{})
 	cmd.BatchPerform("attach-isolated-devices", &options.BaseIdsOptions{})
+	cmd.BatchPerform("baremetal-probe-isolated-devices", &options.BaseIdsOptions{})
 
 	cmd.Get("ipmi", &options.BaseIdOptions{})
 	cmd.Get("vnc", &options.BaseIdOptions{})

@@ -42,6 +42,9 @@ const (
 	CLASS_CODE_3D  = "0302"
 
 	CLASS_CODE_DISP = "0380"
+
+	CLASS_CODE_ASSIST = "0b40"
+	CLASS_CODE_PA     = "1200"
 )
 
 var (
