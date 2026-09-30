@@ -17,12 +17,7 @@ package measurements
 import "yunion.io/x/onecloud/pkg/apis/monitor"
 
 var ppusmi = SMeasurement{
-	Context: []SMonitorContext{
-		{
-			"ppusmi", "T-Head PPU metrics",
-			monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE,
-		},
-	},
+	Context: newHostAgentMonitorContext("ppusmi", "T-Head PPU metrics"),
 	Metrics: []SMetric{
 		{
 			"temperature_gpu", "PPU temperature", "",
