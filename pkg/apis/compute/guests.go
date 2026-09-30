@@ -136,6 +136,9 @@ type ServerListInput struct {
 	BindingSnapshotpolicy *bool `json:"binding_snapshotpolicy"`
 	// 根据虚机关联的磁盘是否绑定快照策略过滤
 	BindingDisksSnapshotpolicy *bool `json:"binding_disks_snapshotpolicy"`
+
+	// 根据秘钥对ID过滤
+	KeypairId []string `json:"keypair_id"`
 }
 
 // 主机快照策略绑定/设置接口入参
