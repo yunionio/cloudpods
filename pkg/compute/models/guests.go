@@ -749,6 +749,10 @@ func (manager *SGuestManager) ListItemFilter(
 		}
 	}
 
+	if len(query.KeypairId) > 0 {
+		q = q.In("keypair_id", query.KeypairId)
+	}
+
 	return q, nil
 }
 
