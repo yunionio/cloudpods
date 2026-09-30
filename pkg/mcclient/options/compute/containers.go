@@ -487,7 +487,7 @@ func (o *ContainerLogOptions) ToAPIInput() (*computeapi.PodLogOptions, error) {
 
 type ContainerCommitOptions struct {
 	ServerIdOptions
-	RegistryId               string `help:"Registry ID from kubeserver"`
+	RegistryId               string `help:"Container registry ID from glance"`
 	ImageName                string `help:"Image name"`
 	Tag                      string `help:"Tag"`
 	ExternalRegistryUrl      string `help:"External registry URL, e.g.: registry.cn-beijing.aliyuncs.com/yunionio"`
@@ -500,18 +500,15 @@ func (o *ContainerCommitOptions) Params() (jsonutils.JSONObject, error) {
 		RegistryId: o.RegistryId,
 		ImageName:  o.ImageName,
 		Tag:        o.Tag,
-		ExternalRegistry: &computeapi.ContainerCommitExternalRegistry{
-			Auth: &apis.ContainerPullImageAuthConfig{},
-		},
 	}
-	if o.ExternalRegistryUrl != "" {
-		input.ExternalRegistry.Url = o.ExternalRegistryUrl
-	}
-	if o.ExternalRegistryUsername != "" {
-		input.ExternalRegistry.Auth.Username = o.ExternalRegistryUsername
-	}
-	if o.ExternalRegistryPassword != "" {
-		input.ExternalRegistry.Auth.Password = o.ExternalRegistryPassword
+	if o.ExternalRegistryUrl != "" || o.ExternalRegistryUsername != "" || o.ExternalRegistryPassword != "" {
+		input.ExternalRegistry = &computeapi.ContainerCommitExternalRegistry{
+			Url: o.ExternalRegistryUrl,
+			Auth: &apis.ContainerPullImageAuthConfig{
+				Username: o.ExternalRegistryUsername,
+				Password: o.ExternalRegistryPassword,
+			},
+		}
 	}
 	return jsonutils.Marshal(input), nil
 }
