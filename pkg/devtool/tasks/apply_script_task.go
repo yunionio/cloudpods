@@ -89,8 +89,10 @@ func (self *ApplyScriptTask) taskSuccess(ctx context.Context, sa *models.SScript
 	err := sa.StopApply(self.UserCred, sar, true, "", "")
 	if err != nil {
 		log.Errorf("unable to StopApply script %s to server %s", sa.ScriptId, sa.GuestId)
-		self.SetStageComplete(ctx, nil)
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
 	}
+	self.SetStageComplete(ctx, nil)
 }
 
 func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
