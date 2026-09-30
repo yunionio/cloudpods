@@ -17,12 +17,7 @@ package measurements
 import "yunion.io/x/onecloud/pkg/apis/monitor"
 
 var ixsmi = SMeasurement{
-	Context: []SMonitorContext{
-		{
-			"ixsmi", "Iluvatar GPU metrics",
-			monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE,
-		},
-	},
+	Context: newHostAgentMonitorContext("ixsmi", "Iluvatar GPU metrics"),
 	Metrics: []SMetric{
 		{
 			"temperature_gpu", "GPU temperature", "",
