@@ -17,12 +17,7 @@ package measurements
 import "yunion.io/x/onecloud/pkg/apis/monitor"
 
 var npuSmi = SMeasurement{
-	Context: []SMonitorContext{
-		{
-			"npu_smi", "NPU metrics",
-			monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE,
-		},
-	},
+	Context: newHostAgentMonitorContext("npu_smi", "Ascend NPU metrics"),
 	Metrics: []SMetric{
 		{
 			"temperature", "NPU temperature", "",

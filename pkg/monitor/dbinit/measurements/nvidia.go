@@ -17,14 +17,7 @@ package measurements
 import "yunion.io/x/onecloud/pkg/apis/monitor"
 
 var nvidia = SMeasurement{
-	Context: []SMonitorContext{
-		{
-			"nvidia_smi", "Nvidia GPU metrics", monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE,
-		},
-		{
-			"agent_nvidia_smi", "Nvidia GPU metrics in guests", monitor.METRIC_RES_TYPE_AGENT, monitor.METRIC_DATABASE_TELE,
-		},
-	},
+	Context: newHostAgentMonitorContext("nvidia_smi", "Nvidia GPU metrics"),
 	Metrics: []SMetric{
 		{
 			"clocks_current_graphics", "GPU current clocks, MHz", "",

@@ -17,12 +17,7 @@ package measurements
 import "yunion.io/x/onecloud/pkg/apis/monitor"
 
 var hysmi = SMeasurement{
-	Context: []SMonitorContext{
-		{
-			"hysmi", "Hygon DCU metrics",
-			monitor.METRIC_RES_TYPE_HOST, monitor.METRIC_DATABASE_TELE,
-		},
-	},
+	Context: newHostAgentMonitorContext("hysmi", "Hygon DCU metrics"),
 	Metrics: []SMetric{
 		{
 			"temperature_gpu", "DCU temperature", "",
@@ -44,6 +39,33 @@ var hysmi = SMeasurement{
 		},
 		{
 			"utilization_decoder", "DCU decoder utilization", monitor.METRIC_UNIT_PERCENT,
+		},
+		{
+			"memory_total", "GPU memory total size", "",
+		},
+		{
+			"memory_free", "GPU memory free size", "",
+		},
+		{
+			"memory_used", "GPU memory used size", "",
+		},
+		{
+			"memory_gtt_total", "GPU memory gtt size", "",
+		},
+		{
+			"memory_gtt_free", "GPU memory gtt free size", "",
+		},
+		{
+			"memory_gtt_used", "GPU memory gtt used size", "",
+		},
+		{
+			"memory_vis_vram_total", "GPU memory vis vram size", "",
+		},
+		{
+			"memory_vis_vram_free", "GPU memory vis vram free size", "",
+		},
+		{
+			"memory_vis_vram_used", "GPU memory vis vram used size", "",
 		},
 	},
 }
