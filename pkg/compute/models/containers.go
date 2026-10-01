@@ -44,7 +44,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	identitymod "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	imagemod "yunion.io/x/onecloud/pkg/mcclient/modules/image"
-	kubemod "yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
 var containerManager *SContainerManager
@@ -1433,37 +1432,22 @@ func (c *SContainer) getContainerHostCommitInput(ctx context.Context, userCred m
 	}
 	if input.RegistryId != "" {
 		s := auth.GetSession(ctx, userCred, consts.GetRegion())
-		var (
-			obj        jsonutils.JSONObject
-			err        error
-			fromGlance bool
-		)
-		// Prefer glance-managed registry; fall back to kubeserver during migration.
-		obj, err = imagemod.ContainerRegistries.Get(s, input.RegistryId, nil)
-		if err == nil {
-			fromGlance = true
-		} else {
-			obj, err = kubemod.ContainerRegistries.Get(s, input.RegistryId, nil)
-			if err != nil {
-				return nil, httperrors.NewGeneralError(err)
-			}
+		obj, err := imagemod.ContainerRegistries.Get(s, input.RegistryId, nil)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
 		}
-		reg := new(api.KubeServerContainerRegistryDetails)
+		reg := new(imageapi.ContainerRegistryDetails)
 		if err := obj.Unmarshal(reg); err != nil {
 			return nil, errors.Wrap(err, "Unmarshal registry details")
 		}
 		if reg.Config == nil {
 			var confObj jsonutils.JSONObject
 			var confErr error
-			if fromGlance {
-				confObj, confErr = imagemod.ContainerRegistries.GetSpecific(s, input.RegistryId, "config", nil)
-			} else {
-				confObj, confErr = kubemod.ContainerRegistries.GetSpecific(s, input.RegistryId, "config", nil)
-			}
+			confObj, confErr = imagemod.ContainerRegistries.GetSpecific(s, input.RegistryId, "config", nil)
 			if confErr != nil {
 				return nil, errors.Wrap(confErr, "Get registry config")
 			}
-			reg.Config = new(api.KubeServerContainerRegistryConfig)
+			reg.Config = new(imageapi.ContainerRegistryConfig)
 			if err := confObj.Unmarshal(reg.Config); err != nil {
 				return nil, errors.Wrap(err, "Unmarshal registry config")
 			}
@@ -1473,12 +1457,16 @@ func (c *SContainer) getContainerHostCommitInput(ctx context.Context, userCred m
 			switch reg.Type {
 			case "common":
 				cfg := reg.Config.Common
-				hostInput.Auth.Username = cfg.Username
-				hostInput.Auth.Password = cfg.Password
+				if cfg != nil {
+					hostInput.Auth.Username = cfg.Username
+					hostInput.Auth.Password = cfg.Password
+				}
 			case "harbor":
 				cfg := reg.Config.Harbor
-				hostInput.Auth.Username = cfg.Username
-				hostInput.Auth.Password = cfg.Password
+				if cfg != nil {
+					hostInput.Auth.Username = cfg.Username
+					hostInput.Auth.Password = cfg.Password
+				}
 			default:
 				return nil, httperrors.NewInputParameterError("invalid registry type %s", reg.Type)
 			}
