@@ -15,8 +15,11 @@
 package modulebase
 
 import (
+	"net/http"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -26,6 +29,15 @@ func GetAppOptions(s *mcclient.ClientSession, serviceType string) (jsonutils.JSO
 	_, resp, err := man.jsonRequest(s, "GET", "/app-options", nil, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "rawBaseUrlRequest")
+	}
+	return resp, nil
+}
+
+func ServiceJsonRequest(s *mcclient.ClientSession, serviceType string, method httputils.THttpMethod, url string, header http.Header, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	man := NewBaseManager(serviceType, "", "", nil, nil)
+	_, resp, err := man.jsonRequest(s, method, url, header, body)
+	if err != nil {
+		return nil, errors.Wrap(err, "man.jsonRequest")
 	}
 	return resp, nil
 }
