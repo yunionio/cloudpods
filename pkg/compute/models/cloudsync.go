@@ -172,7 +172,12 @@ func syncRegionSkus(ctx context.Context, userCred mcclient.TokenCredential, loca
 		localRegion.StartSyncSkusTask(ctx, userCred, ServerSkuManager.Keyword())
 	}
 
-	if localRegion.GetDriver().IsSupportedElasticcache() {
+	skipRdsRedis := false
+	if localRegion.GetDriver().IsSupportedElasticcache() || localRegion.GetDriver().IsSupportedDBInstance() {
+		skipRdsRedis = localRegion.skipRdsRedisSkuSync(ctx)
+	}
+
+	if localRegion.GetDriver().IsSupportedElasticcache() && !skipRdsRedis {
 		cnt, err = ElasticcacheSkuManager.GetSkuCountByRegion(regionId)
 		if err != nil {
 			log.Errorf("ElasticcacheSkuManager.GetSkuCountByRegion fail %s", err)
@@ -184,7 +189,7 @@ func syncRegionSkus(ctx context.Context, userCred mcclient.TokenCredential, loca
 		}
 	}
 
-	if localRegion.GetDriver().IsSupportedDBInstance() {
+	if localRegion.GetDriver().IsSupportedDBInstance() && !skipRdsRedis {
 		cnt, err = DBInstanceSkuManager.GetSkuCountByRegion(regionId)
 		if err != nil {
 			log.Errorf("DBInstanceSkuManager.GetSkuCountByRegion fail %s", err)
@@ -1614,6 +1619,9 @@ func syncRegionDBInstances(
 }
 
 func syncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	if localRegion.skipRdsRedisSkuSync(ctx) {
+		return
+	}
 	skus, err := func() ([]cloudprovider.ICloudDBInstanceSku, error) {
 		defer syncResults.AddRequestCost(DBInstanceSkuManager)()
 		return remoteRegion.GetIDBInstanceSkus()
@@ -1672,6 +1680,9 @@ func syncNATSkus(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 }
 
 func syncCacheSkus(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	if localRegion.skipRdsRedisSkuSync(ctx) {
+		return
+	}
 	skus, err := func() ([]cloudprovider.ICloudElasticcacheSku, error) {
 		defer syncResults.AddRequestCost(ElasticcacheSkuManager)()
 		return remoteRegion.GetIElasticcacheSkus()

@@ -1334,6 +1334,47 @@ func (self *SCloudregion) StartSyncSkusTask(ctx context.Context, userCred mcclie
 	return task.ScheduleRun(nil)
 }
 
+// skipRdsRedisSkuSync 当前 region 没有可用子网时跳过 RDS/Redis 套餐同步。
+func (self *SCloudregion) skipRdsRedisSkuSync(ctx context.Context) bool {
+	cnt, err := self.GetNetworkCount(ctx)
+	if err != nil {
+		log.Errorf("region %s(%s) GetNetworkCount fail %s, skip rds/redis sku sync", self.Name, self.Id, err)
+		return true
+	}
+	if cnt > 0 {
+		return false
+	}
+	log.Debugf("region %s(%s) has no available network, skip rds/redis sku sync", self.Name, self.Id)
+	return true
+}
+
+// TriggerRdsRedisSkuSyncOnFirstNetwork 公有云区域出现第一个可用子网时触发 RDS/Redis 套餐同步。
+func (self *SCloudregion) TriggerRdsRedisSkuSyncOnFirstNetwork(ctx context.Context, userCred mcclient.TokenCredential) {
+	if self.GetCloudEnv() != cloudprovider.CLOUD_ENV_PUBLIC_CLOUD {
+		return
+	}
+	cnt, err := self.GetNetworkCount(ctx)
+	if err != nil {
+		log.Errorf("region %s(%s) GetNetworkCount fail %s", self.Name, self.Id, err)
+		return
+	}
+	if cnt != 1 {
+		return
+	}
+	log.Infof("first available network ready in public region %s(%s), trigger rds/redis sku sync", self.Name, self.Id)
+	driver := self.GetDriver()
+	if driver != nil && driver.IsSupportedElasticcache() {
+		if err := self.StartSyncSkusTask(ctx, userCred, ElasticcacheSkuManager.Keyword()); err != nil {
+			log.Errorf("start elasticcache sku sync for region %s fail %s", self.Name, err)
+		}
+	}
+	if driver != nil && driver.IsSupportedDBInstance() {
+		if err := self.StartSyncSkusTask(ctx, userCred, DBInstanceSkuManager.Keyword()); err != nil {
+			log.Errorf("start dbinstance sku sync for region %s fail %s", self.Name, err)
+		}
+	}
+}
+
 func (self *SCloudregion) GetCloudproviders() ([]SCloudprovider, error) {
 	sq := CloudproviderRegionManager.Query().Equals("cloudregion_id", self.Id).SubQuery()
 	q := CloudproviderManager.Query()
