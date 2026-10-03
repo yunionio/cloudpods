@@ -24,6 +24,8 @@ const (
 	DISK_CLONE_TASK_ID = "__disk_clone_task_id"
 
 	SSH_PORT = "__ssh_port"
+
+	DAEMON_GUEST_MANUAL_STOP = "daemon_guest_manual_stop"
 )
 
 const BASE_INSTANCE_SNAPSHOT_ID = "__base_instance_snapshot_id"
