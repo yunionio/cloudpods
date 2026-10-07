@@ -44,7 +44,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	identitymod "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	imagemod "yunion.io/x/onecloud/pkg/mcclient/modules/image"
-	kubemod "yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
 var containerManager *SContainerManager
@@ -1422,7 +1421,7 @@ func (c *SContainer) PerformStatus(ctx context.Context, userCred mcclient.TokenC
 // A nil result means the registry has no credentials (anonymous pull/push is allowed).
 // Callers must not dereference the nested config directly: glance omits common/harbor/custom
 // when the registry has no credential, and that nil pointer used to panic in PerformCommit.
-func containerCommitRegistryAuth(reg *api.KubeServerContainerRegistryDetails) (*api.KubeServerContainerRegistryConfigCommon, error) {
+func containerCommitRegistryAuth(reg *imageapi.ContainerRegistryDetails) (*imageapi.ContainerRegistryConfigCommon, error) {
 	if reg == nil || reg.Config == nil {
 		return nil, nil
 	}
@@ -1433,18 +1432,18 @@ func containerCommitRegistryAuth(reg *api.KubeServerContainerRegistryDetails) (*
 		if reg.Config.Harbor == nil {
 			return nil, nil
 		}
-		return &reg.Config.Harbor.KubeServerContainerRegistryConfigCommon, nil
+		return &reg.Config.Harbor.ContainerRegistryConfigCommon, nil
 	case "custom":
 		if reg.Config.Custom == nil {
 			return nil, nil
 		}
-		return &reg.Config.Custom.KubeServerContainerRegistryConfigCommon, nil
+		return &reg.Config.Custom.ContainerRegistryConfigCommon, nil
 	default:
 		return nil, httperrors.NewInputParameterError("invalid registry type %s", reg.Type)
 	}
 }
 
-func applyContainerCommitRegistryAuth(hostInput *hostapi.ContainerCommitInput, reg *api.KubeServerContainerRegistryDetails) error {
+func applyContainerCommitRegistryAuth(hostInput *hostapi.ContainerCommitInput, reg *imageapi.ContainerRegistryDetails) error {
 	cfg, err := containerCommitRegistryAuth(reg)
 	if err != nil {
 		return err
@@ -1457,6 +1456,78 @@ func applyContainerCommitRegistryAuth(hostInput *hostapi.ContainerCommitInput, r
 	}
 	hostInput.Auth.Username = cfg.Username
 	hostInput.Auth.Password = cfg.Password
+	return nil
+}
+
+func parseContainerImageRepository(repo string) (string, string, error) {
+	idx := strings.LastIndex(repo, ":")
+	if idx <= 0 || idx == len(repo)-1 {
+		return "", "", errors.Errorf("invalid container image repository %q", repo)
+	}
+	return repo[:idx], repo[idx+1:], nil
+}
+
+func (c *SContainer) SaveContainerImageToGlance(ctx context.Context, userCred mcclient.TokenCredential, registryId, repository string) error {
+	imageName, imageLabel, err := parseContainerImageRepository(repository)
+	if err != nil {
+		return err
+	}
+
+	s := auth.GetSession(ctx, userCred, consts.GetRegion())
+
+	// Check for an existing catalog entry for the same image reference.
+	listParams := jsonutils.NewDict()
+	listParams.Set("image_name", jsonutils.NewString(imageName))
+	listParams.Set("image_label", jsonutils.NewString(imageLabel))
+	if registryId != "" {
+		listParams.Set("registry_id", jsonutils.NewString(registryId))
+	}
+	listResp, err := imagemod.ContainerImages.List(s, listParams)
+	if err != nil {
+		return errors.Wrap(err, "list container_images")
+	}
+	existing := listResp.Data
+
+	buildPayload := func(withName bool) *jsonutils.JSONDict {
+		payload := jsonutils.NewDict()
+		if withName {
+			payload.Set("name", jsonutils.NewString(fmt.Sprintf("%s-%s", c.GetName(), imageLabel)))
+		}
+		payload.Set("image_name", jsonutils.NewString(imageName))
+		payload.Set("image_label", jsonutils.NewString(imageLabel))
+		if registryId != "" {
+			payload.Set("registry_id", jsonutils.NewString(registryId))
+		}
+		if c.Spec != nil {
+			if len(c.Spec.Command) > 0 {
+				payload.Set("command", jsonutils.Marshal(c.Spec.Command))
+			}
+			if len(c.Spec.Args) > 0 {
+				payload.Set("args", jsonutils.Marshal(c.Spec.Args))
+			}
+			if len(c.Spec.Envs) > 0 {
+				envs := imageapi.ContainerImageEnvs(c.Spec.Envs)
+				payload.Set("envs", jsonutils.Marshal(&envs))
+			}
+		}
+		return payload
+	}
+
+	if len(existing) > 0 {
+		imageId, _ := existing[0].GetString("id")
+		if imageId != "" {
+			updateInput := buildPayload(false)
+			if _, err := imagemod.ContainerImages.Update(s, imageId, updateInput); err != nil {
+				log.Warningf("failed to update existing container_image %s: %v", imageId, err)
+			}
+		}
+		return nil
+	}
+
+	createInput := buildPayload(true)
+	if _, err := imagemod.ContainerImages.Create(s, createInput); err != nil {
+		return errors.Wrap(err, "create container_image")
+	}
 	return nil
 }
 
@@ -1475,37 +1546,22 @@ func (c *SContainer) getContainerHostCommitInput(ctx context.Context, userCred m
 	}
 	if input.RegistryId != "" {
 		s := auth.GetSession(ctx, userCred, consts.GetRegion())
-		var (
-			obj        jsonutils.JSONObject
-			err        error
-			fromGlance bool
-		)
-		// Prefer glance-managed registry; fall back to kubeserver during migration.
-		obj, err = imagemod.ContainerRegistries.Get(s, input.RegistryId, nil)
-		if err == nil {
-			fromGlance = true
-		} else {
-			obj, err = kubemod.ContainerRegistries.Get(s, input.RegistryId, nil)
-			if err != nil {
-				return nil, httperrors.NewGeneralError(err)
-			}
+		obj, err := imagemod.ContainerRegistries.Get(s, input.RegistryId, nil)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
 		}
-		reg := new(api.KubeServerContainerRegistryDetails)
+		reg := new(imageapi.ContainerRegistryDetails)
 		if err := obj.Unmarshal(reg); err != nil {
 			return nil, errors.Wrap(err, "Unmarshal registry details")
 		}
 		if reg.Config == nil {
 			var confObj jsonutils.JSONObject
 			var confErr error
-			if fromGlance {
-				confObj, confErr = imagemod.ContainerRegistries.GetSpecific(s, input.RegistryId, "config", nil)
-			} else {
-				confObj, confErr = kubemod.ContainerRegistries.GetSpecific(s, input.RegistryId, "config", nil)
-			}
+			confObj, confErr = imagemod.ContainerRegistries.GetSpecific(s, input.RegistryId, "config", nil)
 			if confErr != nil {
 				return nil, errors.Wrap(confErr, "Get registry config")
 			}
-			reg.Config = new(api.KubeServerContainerRegistryConfig)
+			reg.Config = new(imageapi.ContainerRegistryConfig)
 			if err := confObj.Unmarshal(reg.Config); err != nil {
 				return nil, errors.Wrap(err, "Unmarshal registry config")
 			}
@@ -1525,6 +1581,7 @@ func (c *SContainer) getContainerHostCommitInput(ctx context.Context, userCred m
 	}
 	repoPrefix := strings.TrimPrefix(strings.TrimPrefix(repoUrl, "http://"), "https://")
 	hostInput.Repository = fmt.Sprintf("%s:%s", filepath.Join(repoPrefix, imageName), tag)
+	hostInput.RegistryId = input.RegistryId
 	return hostInput, nil
 }
 
