@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -46,6 +47,22 @@ func (t *ContainerCommitTask) requestCommitImage(ctx context.Context, container 
 }
 
 func (t *ContainerCommitTask) OnCommitted(ctx context.Context, container *models.SContainer, data jsonutils.JSONObject) {
+	imgRepo, _ := data.GetString("image_repository")
+	if imgRepo == "" {
+		log.Errorf("ContainerCommitTask OnCommitted missing image_repository for container %s", container.GetId())
+		container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_COMMIT_FAILED, "missing image_repository")
+		t.SetStageFailed(ctx, jsonutils.NewString("missing image_repository"))
+		return
+	}
+
+	registryId, _ := t.GetParams().GetString("registry_id")
+	if err := container.SaveContainerImageToGlance(ctx, t.GetUserCred(), registryId, imgRepo); err != nil {
+		log.Errorf("save container %s image %s to glance error: %v", container.GetId(), imgRepo, err)
+		container.SetStatus(ctx, t.GetUserCred(), api.CONTAINER_STATUS_COMMIT_FAILED, err.Error())
+		t.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
+	}
+
 	t.SetStage("OnSyncStatus", nil)
 	container.StartSyncStatusTask(ctx, t.GetUserCred(), t.GetTaskId())
 }

@@ -158,6 +158,9 @@ type ContainerSaveVolumeMountToImageInput struct {
 type ContainerCommitInput struct {
 	Repository string                             `json:"repository"`
 	Auth       *apis.ContainerPullImageAuthConfig `json:"auth"`
+	// RegistryId is the glance container_registry id used to build Repository.
+	// It is only needed by the compute side after the host succeeds; the host ignores it.
+	RegistryId string `json:"registry_id"`
 }
 
 type ContainerStopInput struct {
