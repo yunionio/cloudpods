@@ -362,10 +362,13 @@ func (self *SElasticcacheSku) GetElasticcacheCount() (int, error) {
 }
 
 func (manager *SElasticcacheSkuManager) SyncElasticcacheSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, xor bool) compare.SyncResult {
+	syncResult := compare.SyncResult{}
+	if region.skipSkuSyncWithoutNetwork(ctx) {
+		return syncResult
+	}
+
 	lockman.LockRawObject(ctx, manager.Keyword(), region.Id)
 	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), region.Id)
-
-	syncResult := compare.SyncResult{}
 
 	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {
@@ -827,6 +830,9 @@ func SyncElasticCacheSkus(ctx context.Context, userCred mcclient.TokenCredential
 		region := &cloudregions[i]
 
 		if !region.GetDriver().IsSupportedElasticcache() {
+			continue
+		}
+		if region.skipSkuSyncWithoutNetwork(ctx) {
 			continue
 		}
 
