@@ -1514,10 +1514,13 @@ func (manager *SServerSkuManager) GetLocalSkus() (map[string]bool, error) {
 }
 
 func (region *SCloudregion) SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, xor bool) compare.SyncResult {
+	result := compare.SyncResult{}
+	if region.skipSkuSyncWithoutNetwork(ctx) {
+		return result
+	}
+
 	lockman.LockRawObject(ctx, ServerSkuManager.Keyword(), region.Id)
 	defer lockman.ReleaseRawObject(ctx, ServerSkuManager.Keyword(), region.Id)
-
-	result := compare.SyncResult{}
 
 	meta, err := yunionmeta.FetchYunionmeta(ctx)
 	if err != nil {
@@ -1973,6 +1976,9 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 
 	for i := range cloudregions {
 		region := &cloudregions[i]
+		if region.skipSkuSyncWithoutNetwork(ctx) {
+			continue
+		}
 
 		skuMeta := &SServerSku{}
 		skuMeta.SetModelManager(ServerSkuManager, skuMeta)
