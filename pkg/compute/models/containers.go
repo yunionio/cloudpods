@@ -1418,6 +1418,48 @@ func (c *SContainer) PerformStatus(ctx context.Context, userCred mcclient.TokenC
 	return c.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input.PerformStatusInput)
 }
 
+// containerCommitRegistryAuth returns the username/password section for a registry.
+// A nil result means the registry has no credentials (anonymous pull/push is allowed).
+// Callers must not dereference the nested config directly: glance omits common/harbor/custom
+// when the registry has no credential, and that nil pointer used to panic in PerformCommit.
+func containerCommitRegistryAuth(reg *api.KubeServerContainerRegistryDetails) (*api.KubeServerContainerRegistryConfigCommon, error) {
+	if reg == nil || reg.Config == nil {
+		return nil, nil
+	}
+	switch reg.Type {
+	case "common":
+		return reg.Config.Common, nil
+	case "harbor":
+		if reg.Config.Harbor == nil {
+			return nil, nil
+		}
+		return &reg.Config.Harbor.KubeServerContainerRegistryConfigCommon, nil
+	case "custom":
+		if reg.Config.Custom == nil {
+			return nil, nil
+		}
+		return &reg.Config.Custom.KubeServerContainerRegistryConfigCommon, nil
+	default:
+		return nil, httperrors.NewInputParameterError("invalid registry type %s", reg.Type)
+	}
+}
+
+func applyContainerCommitRegistryAuth(hostInput *hostapi.ContainerCommitInput, reg *api.KubeServerContainerRegistryDetails) error {
+	cfg, err := containerCommitRegistryAuth(reg)
+	if err != nil {
+		return err
+	}
+	if cfg == nil {
+		return nil
+	}
+	if hostInput.Auth == nil {
+		hostInput.Auth = new(apis.ContainerPullImageAuthConfig)
+	}
+	hostInput.Auth.Username = cfg.Username
+	hostInput.Auth.Password = cfg.Password
+	return nil
+}
+
 func (c *SContainer) getContainerHostCommitInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.ContainerCommitInput) (*hostapi.ContainerCommitInput, error) {
 	var hostInput = &hostapi.ContainerCommitInput{
 		Auth: new(apis.ContainerPullImageAuthConfig),
@@ -1469,19 +1511,8 @@ func (c *SContainer) getContainerHostCommitInput(ctx context.Context, userCred m
 			}
 		}
 		repoUrl = reg.Url
-		if reg.Config != nil {
-			switch reg.Type {
-			case "common":
-				cfg := reg.Config.Common
-				hostInput.Auth.Username = cfg.Username
-				hostInput.Auth.Password = cfg.Password
-			case "harbor":
-				cfg := reg.Config.Harbor
-				hostInput.Auth.Username = cfg.Username
-				hostInput.Auth.Password = cfg.Password
-			default:
-				return nil, httperrors.NewInputParameterError("invalid registry type %s", reg.Type)
-			}
+		if err := applyContainerCommitRegistryAuth(hostInput, reg); err != nil {
+			return nil, err
 		}
 	} else if input.ExternalRegistry != nil {
 		repoUrl = input.ExternalRegistry.Url
