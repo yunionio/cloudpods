@@ -294,10 +294,15 @@ type KubeServerContainerRegistryConfigHarbor struct {
 	KubeServerContainerRegistryConfigCommon
 }
 
+type KubeServerContainerRegistryConfigCustom struct {
+	KubeServerContainerRegistryConfigCommon
+}
+
 type KubeServerContainerRegistryConfig struct {
 	Type   string                                   `json:"type"`
 	Common *KubeServerContainerRegistryConfigCommon `json:"common"`
 	Harbor *KubeServerContainerRegistryConfigHarbor `json:"harbor"`
+	Custom *KubeServerContainerRegistryConfigCustom `json:"custom"`
 }
 
 type KubeServerContainerRegistryDetails struct {
