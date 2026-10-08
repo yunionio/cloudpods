@@ -919,21 +919,25 @@ func (project *SProject) setAdminId(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
+func (project *SProject) SetUserMetadataValues(ctx context.Context, dictstore map[string]string, userCred mcclient.TokenCredential) error {
+	return project.SStandaloneAnonResourceBase.SetUserMetadataValues(ctx, preserveInactiveOrganizationUserTags(api.OrgTypeProject, dictstore), userCred)
+}
+
+func (project *SProject) SetUserMetadataAll(ctx context.Context, dictstore map[string]string, userCred mcclient.TokenCredential) error {
+	return project.SStandaloneAnonResourceBase.SetUserMetadataAll(ctx, preserveInactiveOrganizationUserTags(api.OrgTypeProject, dictstore), userCred)
+}
+
+func (project *SProject) OnMetadataUpdated(ctx context.Context, userCred mcclient.TokenCredential) {
+	if err := syncEnabledOrganizationByUserTags(ctx, userCred, api.OrgTypeProject, project); err != nil {
+		log.Errorf("project %s sync organization node by tags: %s", project.Id, err)
+	}
+}
+
 func (project *SProject) matchOrganizationNodes() (*api.SProjectOrganization, error) {
-	orgs, err := OrganizationManager.FetchOrgnaizations(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		q = q.Equals("type", api.OrgTypeProject)
-		q = q.IsTrue("enabled")
-		return q
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "FetchOrgnaizations")
+	org, err := fetchEnabledOrganization(api.OrgTypeProject)
+	if err != nil || org == nil {
+		return nil, err
 	}
-	if len(orgs) == 0 {
-		return nil, nil
-	} else if len(orgs) > 1 {
-		return nil, errors.Wrap(httperrors.ErrDuplicateResource, "multiple enabled organizations")
-	}
-	org := &orgs[0]
 	tags, err := project.GetAllOrganizationMetadata()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetAllOrganizationMetadata")

@@ -627,6 +627,172 @@ func (org *SOrganization) PerformDisable(
 	return nil, nil
 }
 
+type organizationMetadataTarget interface {
+	GetId() string
+	GetAllUserMetadata() (map[string]string, error)
+	GetAllOrganizationMetadata() (map[string]string, error)
+	SetOrganizationMetadataAll(ctx context.Context, meta map[string]string, userCred mcclient.TokenCredential) error
+}
+
+func isActiveOrganizationTagValue(val string) bool {
+	if len(strings.TrimSpace(val)) == 0 {
+		return false
+	}
+	switch strings.ToLower(val) {
+	case "none", "null":
+		return false
+	}
+	return val != tagutils.NoValue
+}
+
+// rewriteInactiveOrganizationUserTags keeps organization keys that the caller
+// cleared with none/null as empty values. Metadata.SetAll would otherwise delete
+// those keys, so OnMetadataUpdated could not tell an explicit clear from an
+// unrelated tag edit that simply omitted the top organization key.
+func rewriteInactiveOrganizationUserTags(orgKeys []string, dictstore map[string]string) map[string]string {
+	if len(dictstore) == 0 || len(orgKeys) == 0 {
+		return dictstore
+	}
+	orgKeySet := make(map[string]struct{}, len(orgKeys))
+	for _, key := range orgKeys {
+		orgKeySet[key] = struct{}{}
+	}
+	out := make(map[string]string, len(dictstore))
+	changed := false
+	for key, val := range dictstore {
+		bare := key
+		if strings.HasPrefix(bare, db.USER_TAG_PREFIX) {
+			bare = bare[len(db.USER_TAG_PREFIX):]
+		}
+		if _, ok := orgKeySet[bare]; ok && !isActiveOrganizationTagValue(val) {
+			out[key] = ""
+			if val != "" {
+				changed = true
+			}
+			continue
+		}
+		out[key] = val
+	}
+	if !changed {
+		return dictstore
+	}
+	return out
+}
+
+func preserveInactiveOrganizationUserTags(orgType api.TOrgType, dictstore map[string]string) map[string]string {
+	if len(dictstore) == 0 {
+		return dictstore
+	}
+	org, err := fetchEnabledOrganization(orgType)
+	if err != nil || org == nil {
+		return dictstore
+	}
+	return rewriteInactiveOrganizationUserTags(org.GetKeys(), dictstore)
+}
+
+// organizationTagsFromUserTags builds the node path from user tags.
+// touched is true only when the top organization key is present, so a project
+// bound solely by organization tags is not detached by unrelated tag edits.
+// A present but empty top key clears the path and unbinds the project.
+func organizationTagsFromUserTags(keys []string, userTags map[string]string) (labels []string, orgTags map[string]string, touched bool) {
+	orgTags = make(map[string]string)
+	if len(keys) == 0 {
+		return nil, orgTags, false
+	}
+	if _, ok := userTags[keys[0]]; !ok {
+		return nil, orgTags, false
+	}
+	for _, key := range keys {
+		val, ok := userTags[key]
+		if !ok || !isActiveOrganizationTagValue(val) {
+			break
+		}
+		labels = append(labels, val)
+		orgTags[key] = val
+	}
+	return labels, orgTags, true
+}
+
+func sameStringMap(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if bv, ok := b[k]; !ok || bv != v {
+			return false
+		}
+	}
+	return true
+}
+
+func (org *SOrganization) ensureNodePath(ctx context.Context, labels []string) error {
+	for i := range labels {
+		fullLabel := api.JoinLabels(labels[:i+1]...)
+		_, err := org.getNode(fullLabel)
+		if err == nil {
+			continue
+		}
+		if errors.Cause(err) != sql.ErrNoRows {
+			return errors.Wrapf(err, "getNode %s", fullLabel)
+		}
+		if _, err := OrganizationNodeManager.ensureNode(ctx, org.Id, fullLabel, nil, ""); err != nil {
+			return errors.Wrapf(err, "ensureNode %s", fullLabel)
+		}
+	}
+	return nil
+}
+
+func fetchEnabledOrganization(orgType api.TOrgType) (*SOrganization, error) {
+	orgs, err := OrganizationManager.FetchOrgnaizations(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		q = q.Equals("type", orgType)
+		q = q.IsTrue("enabled")
+		return q
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchOrgnaizations")
+	}
+	if len(orgs) == 0 {
+		return nil, nil
+	}
+	if len(orgs) > 1 {
+		return nil, errors.Wrap(httperrors.ErrDuplicateResource, "multiple enabled organizations")
+	}
+	return &orgs[0], nil
+}
+
+// syncEnabledOrganizationByUserTags moves the resource onto the organization
+// node that matches its user tags when an organization of orgType is enabled.
+func syncEnabledOrganizationByUserTags(ctx context.Context, userCred mcclient.TokenCredential, orgType api.TOrgType, obj organizationMetadataTarget) error {
+	org, err := fetchEnabledOrganization(orgType)
+	if err != nil || org == nil {
+		return err
+	}
+	keys := org.GetKeys()
+	if len(keys) == 0 {
+		return nil
+	}
+	userTags, err := obj.GetAllUserMetadata()
+	if err != nil {
+		return errors.Wrap(err, "GetAllUserMetadata")
+	}
+	labels, orgTags, touched := organizationTagsFromUserTags(keys, userTags)
+	if !touched {
+		return nil
+	}
+	if err := org.ensureNodePath(ctx, labels); err != nil {
+		return errors.Wrap(err, "ensureNodePath")
+	}
+	current, err := obj.GetAllOrganizationMetadata()
+	if err != nil {
+		return errors.Wrap(err, "GetAllOrganizationMetadata")
+	}
+	if sameStringMap(current, orgTags) {
+		return nil
+	}
+	log.Infof("switch %s %s to organization %s node %s", orgType, obj.GetId(), org.Id, api.JoinLabels(labels...))
+	return obj.SetOrganizationMetadataAll(ctx, orgTags, userCred)
+}
+
 func (org *SOrganization) getProjectOrganization(tags map[string]string) (*api.SProjectOrganization, error) {
 	keys := api.SplitLabel(org.Keys)
 	ret := api.SProjectOrganization{

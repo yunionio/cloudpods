@@ -707,7 +707,7 @@ func (model *SStandaloneAnonResourceBase) PerformMetadata(ctx context.Context, u
 // 更新资源的用户标签
 // +onecloud:swagger-gen-ignore
 func (model *SStandaloneAnonResourceBase) PerformUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformUserMetadataInput) (jsonutils.JSONObject, error) {
-	err := model.SetUserMetadataValues(ctx, input, userCred)
+	err := model.GetIStandaloneModel().SetUserMetadataValues(ctx, input, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "SetUserMetadataValues")
 	}
@@ -717,7 +717,7 @@ func (model *SStandaloneAnonResourceBase) PerformUserMetadata(ctx context.Contex
 // 全量替换资源的所有用户标签
 // +onecloud:swagger-gen-ignore
 func (model *SStandaloneAnonResourceBase) PerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetUserMetadataInput) (jsonutils.JSONObject, error) {
-	err := model.SetUserMetadataAll(ctx, input, userCred)
+	err := model.GetIStandaloneModel().SetUserMetadataAll(ctx, input, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "SetUserMetadataAll")
 	}
