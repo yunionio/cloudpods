@@ -124,7 +124,7 @@ func (self *SBaseCollectDriver) sendMetrics(ctx context.Context, manager api.Clo
 	if err != nil {
 		return errors.Wrap(err, "GetServiceURLs")
 	}
-	log.Infof("send %d %s with %d metrics for %s(%s)", resCnt, resName, len(metrics), manager.Name, manager.Id)
+	log.Debugf("send %d %s with %d metrics for %s(%s)", resCnt, resName, len(metrics), manager.Name, manager.Id)
 	return influxdb.BatchSendMetrics(urls, options.Options.InfluxDatabase, metrics, false)
 }
 
@@ -583,7 +583,7 @@ func (self *SCollectByResourceIdDriver) CollectK8sMetrics(ctx context.Context, m
 			}()
 			// 未同步到本地k8s集群
 			if len(vm.ExternalClusterId) == 0 {
-				log.Infof("skip collect %s %s(%s) metric, because not with local kubeserver", vm.Name, manager.Name, manager.Id)
+				log.Debugf("skip collect %s %s(%s) metric, because not with local kubeserver", vm.Name, manager.Name, manager.Id)
 				return
 			}
 			opts := &cloudprovider.MetricListOptions{
