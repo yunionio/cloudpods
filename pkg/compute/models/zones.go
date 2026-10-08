@@ -718,6 +718,13 @@ func NetworkUsableZoneIds(usableNet, usableVpc bool, query *api.ZoneListInput) (
 	return ret, nil
 }
 
+// InvalidateNetworkUsableZoneIdsCache clears cached usable zone ids.
+// Call when networks are created, deleted, or their availability changes
+// (including cloud account sync of new/removed/updated subnets).
+func InvalidateNetworkUsableZoneIdsCache() {
+	networkUsableZoneIdsCache.Invalidate()
+}
+
 func queryNetworkUsableZoneIds(usableNet, usableVpc bool, query *api.ZoneListInput) ([]string, error) {
 	vpcs, err := zoneUsableVpc(usableVpc, query)
 	if err != nil {
