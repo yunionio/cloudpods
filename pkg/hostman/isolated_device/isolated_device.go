@@ -267,6 +267,26 @@ func (man *isolatedDeviceManager) probeContainerNvidiaGPUs(enableCudaHAMI, enabl
 	}
 }
 
+func (man *isolatedDeviceManager) probeContanerAmdGpus() {
+	devType := ContainerDeviceTypeAmdGpu
+
+	devman, err := GetContainerDeviceManager(devType)
+	if err != nil {
+		log.Errorf("no container device manager %s found", devType)
+		return
+	}
+	devs, err := devman.ProbeDevices()
+	if err != nil {
+		log.Warningf("Probe container amd gpu devices: %v", err)
+		return
+	} else {
+		for idx, dev := range devs {
+			man.devices = append(man.devices, dev)
+			log.Infof("Add Container amd gpu device: %d => %#v", idx, dev)
+		}
+	}
+}
+
 func (man *isolatedDeviceManager) probeContainerAscendNPUs(enable, enableHami bool) {
 	devType := ContainerDeviceTypeAscendNpu
 	if enableHami {
@@ -621,6 +641,7 @@ func (man *isolatedDeviceManager) ProbePCIDevices(opts *SIsolatedDeviceProbeOpti
 	if isContainerHost {
 		man.probeContainerDevices()
 		man.probeContainerNvidiaGPUs(opts.EnableCudaHAMI, opts.EnableCudaMps)
+		man.probeContanerAmdGpus()
 		man.probeContainerAscendNPUs(opts.EnableContainerAscendNpu, opts.EnableContainerAscendNpuHAMI)
 		man.probeContainerHygonDCUs(opts.EnableContainerHygonDCU, opts.EnableContainerHygonDCUHAMI)
 		man.probeContainerIluvatarGPUs(opts.EnableContainerIluvatarGPU)
