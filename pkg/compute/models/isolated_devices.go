@@ -1441,10 +1441,12 @@ func (man *SIsolatedDeviceManager) BatchGetModelSpecs(statusCheck bool) (jsonuti
 		if err := rows.Scan(&vendorDeviceId, &m, &t, &s, &nvmeSize, &memorySize, &hostType, &count); err != nil {
 			return nil, errors.Wrap(err, "get model spec scan rows")
 		}
-		vendor := GetVendorByVendorDeviceId(vendorDeviceId)
-		specKeys := man.getSpecKeys(vendor, m, t, s)
-		specKey := GetSpecIdentKey(specKeys)
 		spec := man.getSpecByRows(hostType, vendorDeviceId, m, t, s, &nvmeSize, &memorySize, &count)
+		specKey := GetSpecIdentKey(man.GetSpecIdent(spec))
+		if oldSpec, _ := res.Get(specKey); oldSpec != nil {
+			oldCount, _ := oldSpec.Int("count")
+			spec.Set("count", jsonutils.NewInt(oldCount+int64(count)))
+		}
 		res.Set(specKey, spec)
 	}
 
@@ -1525,15 +1527,19 @@ func (man *SIsolatedDeviceManager) GetSpecIdent(spec *jsonutils.JSONDict) []stri
 	vendor, _ := spec.GetString("vendor")
 	model, _ := spec.GetString("model")
 	sharingMode, _ := spec.GetString("sharing_mode")
-	return man.getSpecKeys(vendor, model, devType, sharingMode)
+	hypervisor, _ := spec.GetString("hypervisor")
+	return man.getSpecKeys(vendor, model, devType, sharingMode, hypervisor)
 }
 
-func (man *SIsolatedDeviceManager) getSpecKeys(vendor, model, devType, sharingMode string) []string {
+func (man *SIsolatedDeviceManager) getSpecKeys(vendor, model, devType, sharingMode, hypervisor string) []string {
 	keys := []string{
 		fmt.Sprintf("type:%s", devType),
 		fmt.Sprintf("vendor:%s", vendor),
 		fmt.Sprintf("model:%s", model),
 		fmt.Sprintf("sharing_mode:%s", sharingMode),
+	}
+	if len(hypervisor) > 0 {
+		keys = append(keys, fmt.Sprintf("hypervisor:%s", hypervisor))
 	}
 	return keys
 }
