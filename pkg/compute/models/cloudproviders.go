@@ -1496,6 +1496,7 @@ func (provider *SCloudprovider) markProviderDisconnected(ctx context.Context, us
 	if err != nil {
 		return err
 	}
+	InvalidateNetworkUsableZoneIdsCache()
 	if provider.Status != api.CLOUD_PROVIDER_DISCONNECTED {
 		provider.SetStatus(ctx, userCred, api.CLOUD_PROVIDER_DISCONNECTED, reason)
 		return provider.ClearSchedDescCache()
@@ -1530,9 +1531,11 @@ func (provider *SCloudprovider) markProviderConnected(ctx context.Context, userC
 			return err
 		}
 		db.OpsLog.LogEvent(provider, db.ACT_UPDATE, diff, userCred)
+		InvalidateNetworkUsableZoneIdsCache()
 	}
 	if provider.Status != api.CLOUD_PROVIDER_CONNECTED {
 		provider.SetStatus(ctx, userCred, api.CLOUD_PROVIDER_CONNECTED, "")
+		InvalidateNetworkUsableZoneIdsCache()
 		return provider.ClearSchedDescCache()
 	}
 	return nil

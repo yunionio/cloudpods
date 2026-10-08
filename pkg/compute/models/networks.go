@@ -696,6 +696,10 @@ func (manager *SNetworkManager) SyncNetworks(
 		}
 	}
 
+	if syncResult.AddCnt > 0 || syncResult.DelCnt > 0 || syncResult.UpdateCnt > 0 {
+		InvalidateNetworkUsableZoneIdsCache()
+	}
+
 	return localNets, remoteNets, syncResult
 }
 
@@ -3376,6 +3380,7 @@ func (network *SNetwork) GetSchedtagJointManager() ISchedtagJointManager {
 }
 
 func (network *SNetwork) ClearSchedDescCache() error {
+	InvalidateNetworkUsableZoneIdsCache()
 	wire, _ := network.GetWire()
 	if wire == nil {
 		return nil
@@ -3618,7 +3623,11 @@ func (net *SNetwork) PerformStatus(ctx context.Context, userCred mcclient.TokenC
 	if !utils.IsInStringArray(input.Status, []string{api.NETWORK_STATUS_AVAILABLE, api.NETWORK_STATUS_UNAVAILABLE}) {
 		return nil, httperrors.NewInputParameterError("invalid status %s", input.Status)
 	}
-	return net.SSharableVirtualResourceBase.PerformStatus(ctx, userCred, query, input)
+	ret, err := net.SSharableVirtualResourceBase.PerformStatus(ctx, userCred, query, input)
+	if err == nil {
+		InvalidateNetworkUsableZoneIdsCache()
+	}
+	return ret, err
 }
 
 func (net *SNetwork) GetChangeOwnerCandidateDomainIds() []string {
