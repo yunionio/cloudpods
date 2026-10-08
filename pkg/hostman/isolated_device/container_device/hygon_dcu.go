@@ -386,6 +386,13 @@ func getHygonRenderPathMap() (map[string]string, error) {
 		if err != nil {
 			continue
 		}
+		pciOutput, err := isolated_device.GetPCIStrByAddr(pciAddr)
+		if err != nil {
+			continue
+		}
+		dev := isolated_device.NewPCIDevice2(pciOutput[0])
+		pciAddr = dev.Addr
+
 		fp := path.Join(byPathDir, entryName)
 		linkPath, err := hygonReadlink(fp)
 		if err != nil {
