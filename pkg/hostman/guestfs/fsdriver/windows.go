@@ -627,9 +627,10 @@ func (w *SWindowsRootFs) DeployTelegraf(config string) (bool, error) {
 	}
 
 	winTelegrafPath := w.rootFs.GetLocalPath(WIN_TELEGRAF_PATH, true)
-	telegrafConfPath := path.Join(winTelegrafPath, "telegraf.conf")
+	// FilePutContents takes a guest path, not a host path from GetLocalPath.
+	telegrafConfPath := path.Join(WIN_TELEGRAF_PATH, "telegraf.conf")
 	if err := w.rootFs.FilePutContents(telegrafConfPath, config, false, true); err != nil {
-		return false, errors.Wrap(err, "write boot script")
+		return false, errors.Wrap(err, "write telegraf config")
 	}
 	telegrafConfPath = strings.ReplaceAll(path.Join("%PROGRAMFILES%", "Telegraf", "telegraf.conf"), "/", "\\")
 
