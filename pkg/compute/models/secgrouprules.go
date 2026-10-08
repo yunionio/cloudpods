@@ -80,7 +80,7 @@ type SSecurityGroupRule struct {
 	Action      string `width:"5" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
 	Description string `width:"256" charset:"utf8" list:"user" update:"user" create:"optional"`
 
-	TargetType api.TSecgroupTargetType `width:"8" charset:"ascii" default:"cidr" list:"user" create:"optional"`
+	TargetType api.TSecgroupTargetType `width:"16" charset:"ascii" default:"cidr" list:"user" create:"optional"`
 }
 
 func (self *SSecurityGroupRule) GetId() string {
