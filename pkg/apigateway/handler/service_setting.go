@@ -20,25 +20,17 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 )
 
-var settingNames = map[string][]string{
-	"identity":   []string{"no_action_logout_seconds"},
-	"yunionapi":  []string{"enable_organization", "totp_issuer"},
-	"image":      []string{"enable_pending_delete"},
-	"compute_v2": []string{"enable_pending_delete"},
-	"meter":      []string{"cost_conversion_available", "enable_prediction", "share_resource_type"},
-	"common":     []string{"api_server", "enable_quota_check", "enable_watermark", "enable_cloud_shell"},
-}
-
 func (mh *MiscHandler) getServiceSettings(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	s := auth.GetAdminSession(ctx, FetchRegion(req))
 	types := []string{}
-	for typ := range settingNames {
+	for typ := range api.PublicServiceSettingNames {
 		types = append(types, typ)
 	}
 	params := map[string]interface{}{
@@ -71,7 +63,7 @@ func (mh *MiscHandler) getServiceSettings(ctx context.Context, w http.ResponseWr
 			httperrors.JsonClientError(ctx, w, e)
 			return
 		}
-		names, _ := settingNames[service.Type]
+		names, _ := api.PublicServiceSettingNames[service.Type]
 		for _, name := range names {
 			v, _ := data.Get("config", "default", name)
 			result[service.Type][name] = v
