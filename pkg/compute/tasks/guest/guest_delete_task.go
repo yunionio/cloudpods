@@ -58,6 +58,12 @@ func (deleteTask *BaseGuestDeleteTask) OnInit(ctx context.Context, obj db.IStand
 		deleteTask.OnGuestStopComplete(ctx, guest, data)
 		return
 	}
+	purgeBmImportServerFakeDelete := host.IsImport && options.Options.BaremetalPrepareServerFakeDelete
+	if purgeBmImportServerFakeDelete && options.Options.BaremetalPrepareServerFakeDeleteKeepRunning {
+		deleteTask.OnGuestStopComplete(ctx, guest, data)
+		return
+	}
+
 	if len(guest.BackupHostId) > 0 {
 		deleteTask.SetStage("OnMasterHostStopGuestComplete", nil)
 		if err := drv.RequestStopGuestForDelete(ctx, guest, nil, deleteTask); err != nil {
