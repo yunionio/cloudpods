@@ -33,6 +33,7 @@ import (
 
 const (
 	TELEGRAF_INPUT_RADEONTOP           = "radeontop"
+	TELEGRAF_INPUT_ROCM_SMI            = "rocm-smi"
 	TELEGRAF_INPUT_RADEONTOP_DEV_PATHS = "device_paths"
 	TELEGRAF_INPUT_CONF_BIN_PATH       = "bin_path"
 	TELEGRAF_INPUT_NETDEV              = "ni_rsrc_mon"
@@ -397,6 +398,13 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		npusmiMap, _ := npusmi.(map[string]interface{})
 		conf += fmt.Sprintf("[[inputs.npu_smi]]\n")
 		conf += fmt.Sprintf("  bin_path = \"%s\"\n", npusmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
+		conf += "\n"
+	}
+
+	if rocmsmi, ok := kwargs[TELEGRAF_INPUT_ROCM_SMI]; ok {
+		rocmsmiMap, _ := rocmsmi.(map[string]interface{})
+		conf += fmt.Sprintf("[[inputs.amd_rocm_smi]]\n")
+		conf += fmt.Sprintf("  bin_path = \"%s\"\n", rocmsmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
 		conf += "\n"
 	}
 
