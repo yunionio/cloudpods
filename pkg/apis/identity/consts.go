@@ -127,6 +127,42 @@ var (
 		},
 	}
 
+	// PublicServiceSettingNames lists non-sensitive service option keys that may be
+	// exposed to anonymous / ordinary users via apigateway GET service_settings.
+	// Do not add secrets, bind addresses, DSN, bootstrap passwords, or fernet keys.
+	PublicServiceSettingNames = map[string][]string{
+		"identity": {
+			"no_action_logout_seconds",
+			"password_minimal_length",
+			"password_char_complexity",
+			"password_unique_history_check",
+			"password_expiration_seconds",
+		},
+		"yunionapi": {
+			"enable_organization",
+			"totp_issuer",
+			"enable_totp",
+		},
+		"image": {
+			"enable_pending_delete",
+		},
+		"compute_v2": {
+			"enable_pending_delete",
+			"enable_export_username_password",
+		},
+		"meter": {
+			"cost_conversion_available",
+			"enable_prediction",
+			"share_resource_type",
+		},
+		"common": {
+			"api_server",
+			"enable_quota_check",
+			"enable_watermark",
+			"enable_cloud_shell",
+		},
+	}
+
 	ServiceBlacklistOptionMap = map[string][]string{
 		"default": {
 			// ############################
