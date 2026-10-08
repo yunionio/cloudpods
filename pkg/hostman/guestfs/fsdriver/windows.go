@@ -647,19 +647,18 @@ func (w *SWindowsRootFs) DeployTelegraf(config string) (bool, error) {
 		return false, errors.Wrap(err, "mkdir telegraf path")
 	}
 
-	winTelegrafPath := w.rootFs.GetLocalPath(WIN_TELEGRAF_PATH, true)
-	telegrafConfPath := path.Join(winTelegrafPath, "telegraf.conf")
+	// FilePutContents takes a guest path, not a host path from GetLocalPath.
+	telegrafConfPath := path.Join(WIN_TELEGRAF_PATH, "telegraf.conf")
 	if err := w.rootFs.FilePutContents(telegrafConfPath, config, false, true); err != nil {
-		return false, errors.Wrap(err, "write boot script")
+		return false, errors.Wrap(err, "write telegraf config")
 	}
 	telegrafConfPath = strings.ReplaceAll(path.Join("%PROGRAMFILES%", "Telegraf", "telegraf.conf"), "/", "\\")
-	telegrafBinaryPath := path.Join(winTelegrafPath, "telegraf.exe")
 
 	err := w.rootFs.CopyFile(WIN_TELEGRAF_BINARY_PATH, path.Join(WIN_TELEGRAF_PATH, "telegraf.exe"))
 	if err != nil {
 		return false, errors.Wrap(err, "cp telegraf failed")
 	}
-	telegrafBinaryPath = strings.ReplaceAll(path.Join("%PROGRAMFILES%", "Telegraf", "telegraf.exe"), "/", "\\")
+	telegrafBinaryPath := strings.ReplaceAll(path.Join("%PROGRAMFILES%", "Telegraf", "telegraf.exe"), "/", "\\")
 	bootScript := strings.Join([]string{
 		`set SETUP_TELEGRAF_SCRIPT=%SystemRoot%\telegraf.bat`,
 		`if exist %SETUP_TELEGRAF_SCRIPT% (`,
