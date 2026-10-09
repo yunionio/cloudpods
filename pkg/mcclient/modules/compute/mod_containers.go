@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -214,8 +215,12 @@ func (man ContainerManager) copyTo(s *mcclient.ClientSession, ctrId string, dest
 }
 
 func (man ContainerManager) CopyTo(s *mcclient.ClientSession, ctrId string, destPath string, in io.Reader) error {
-	ctrCmd := []string{"sh", "-c", fmt.Sprintf("cat - > %s", destPath)}
+	ctrCmd := []string{"sh", "-c", fmt.Sprintf("cat - > %s", shellSingleQuote(destPath))}
 	return man.copyTo(s, ctrId, destPath, in, ctrCmd)
+}
+
+func shellSingleQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func (man ContainerManager) CopyTarTo(s *mcclient.ClientSession, ctrId string, destDir string, in io.Reader, noSamePermissions bool) error {
