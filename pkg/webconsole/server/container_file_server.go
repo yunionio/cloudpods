@@ -19,7 +19,6 @@ import (
 	"context"
 	"io/fs"
 	"net/http"
-	"net/url"
 	"path"
 	"regexp"
 	"sort"
@@ -154,13 +153,13 @@ func HandleContainerDownload(ctx context.Context, w http.ResponseWriter, r *http
 	err := func() error {
 		s, ctrId, err := containerClientSession(ctx, params)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "containerClientSession")
 		}
-		if err := containerTestRegularFile(s, ctrId, filePath); err != nil {
-			return err
+		info, err := containerTestRegularFile(s, ctrId, filePath)
+		if err != nil {
+			return errors.Wrapf(err, "stat %s", filePath)
 		}
-		w.Header().Add("Content-Disposition", "attachment;filename*=utf-8''"+strings.ReplaceAll(url.QueryEscape(path.Base(filePath)), "+", "%20"))
-		w.Header().Add("Content-Type", "application/octet-stream")
+		setDownloadHeaders(w, path.Base(filePath), info.Size(), info.ModTime())
 		if err := compute_modules.Containers.CopyFrom(s, ctrId, filePath, w); err != nil {
 			return errors.Wrapf(err, "copy from %s", filePath)
 		}
@@ -206,21 +205,86 @@ func HandleContainerUpload(ctx context.Context, w http.ResponseWriter, r *http.R
 	appsrv.SendJSON(w, jsonutils.Marshal(map[string]string{"status": "success"}))
 }
 
-func containerTestRegularFile(s *mcclient.ClientSession, ctrId, filePath string) error {
-	var stderr bytes.Buffer
+func containerTestRegularFile(s *mcclient.ClientSession, ctrId, filePath string) (fs.FileInfo, error) {
+	var stdout, stderr bytes.Buffer
 	err := compute_modules.Containers.Exec(s, ctrId, &compute_modules.ContainerExecInput{
-		Command: []string{"sh", "-c", "test -f " + shellSingleQuote(filePath)},
+		Command: []string{"sh", "-c", "LC_ALL=C stat -c " + shellSingleQuote("%F|%s|%Y|%a|%n") + " " + shellSingleQuote(filePath)},
 		Tty:     false,
+		Stdout:  &stdout,
 		Stderr:  &stderr,
 	})
 	if err != nil {
 		msg := strings.TrimSpace(stderr.String())
 		if msg != "" {
-			return errors.Wrapf(err, "stat %s: %s", filePath, msg)
+			return nil, errors.Wrapf(err, "stat %s: %s", filePath, msg)
 		}
-		return errors.Wrapf(err, "stat %s", filePath)
+		return nil, errors.Wrapf(err, "stat %s", filePath)
 	}
-	return nil
+	info, err := parseContainerStat(stdout.String())
+	if err != nil {
+		return nil, errors.Wrapf(err, "stat %s", filePath)
+	}
+	if info.IsDir() {
+		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "dir %s can not be downloaded", filePath)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "%s is not a regular file", filePath)
+	}
+	return info, nil
+}
+
+// containerFileInfo is the fs.FileInfo parsed from `stat -c '%F|%s|%Y|%a|%n'`.
+type containerFileInfo struct {
+	name    string
+	size    int64
+	mode    fs.FileMode
+	modTime time.Time
+}
+
+func (f *containerFileInfo) Name() string       { return f.name }
+func (f *containerFileInfo) Size() int64        { return f.size }
+func (f *containerFileInfo) Mode() fs.FileMode  { return f.mode }
+func (f *containerFileInfo) ModTime() time.Time { return f.modTime }
+func (f *containerFileInfo) IsDir() bool        { return f.mode.IsDir() }
+func (f *containerFileInfo) Sys() interface{}   { return nil }
+
+func parseContainerStat(output string) (*containerFileInfo, error) {
+	line := strings.TrimRight(output, "\r\n")
+	if i := strings.IndexByte(line, '\n'); i >= 0 {
+		line = line[:i]
+	}
+	parts := strings.SplitN(line, "|", 5)
+	if len(parts) != 5 {
+		return nil, errors.Errorf("invalid stat output %q", output)
+	}
+	size, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return nil, errors.Wrap(err, "parse size")
+	}
+	sec, err := strconv.ParseInt(parts[2], 10, 64)
+	if err != nil {
+		return nil, errors.Wrap(err, "parse mtime")
+	}
+	perm, err := strconv.ParseUint(parts[3], 8, 32)
+	if err != nil {
+		return nil, errors.Wrap(err, "parse mode")
+	}
+	mode := fs.FileMode(perm)
+	switch parts[0] {
+	case "regular file", "regular empty file":
+	case "directory":
+		mode |= fs.ModeDir
+	case "symbolic link":
+		mode |= fs.ModeSymlink
+	default:
+		return nil, errors.Errorf("unsupported file type %q", parts[0])
+	}
+	return &containerFileInfo{
+		name:    path.Base(parts[4]),
+		size:    size,
+		mode:    mode,
+		modTime: time.Unix(sec, 0),
+	}, nil
 }
 
 func parseContainerLs(dir, output string) Files {

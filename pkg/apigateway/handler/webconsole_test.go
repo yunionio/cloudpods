@@ -14,7 +14,9 @@
 
 package handler
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestWebconsoleBackendPath(t *testing.T) {
 	got := webconsoleBackendPath("container", "ctr id", "list", "path=%2Ftmp")
