@@ -18,11 +18,12 @@ import (
 	"context"
 	"io"
 	"io/fs"
+	"mime"
 	"net/http"
-	"net/url"
 	"path"
+	"path/filepath"
 	"sort"
-	"strings"
+	"strconv"
 	"sync"
 	"time"
 
@@ -264,11 +265,9 @@ func HandleSftpDownload(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		}
 		defer reader.Close()
 
-		w.Header().Add("Content-Disposition", "attachment;filename*=utf-8''"+strings.ReplaceAll(url.QueryEscape(file.Name()), "+", "%20"))
-		w.Header().Add("Content-Type", "application/octet-stream")
-		_, err = io.Copy(w, reader)
-		if err != nil {
-			return errors.Wrap(httperrors.FsErrorNormalize(err), "Copy")
+		setDownloadHeaders(w, file.Name(), file.Size(), file.ModTime())
+		if _, err := io.Copy(w, reader); err != nil {
+			return errors.Wrap(httperrors.FsErrorNormalize(err), "io.Copy")
 		}
 		return nil
 	}()
@@ -276,4 +275,17 @@ func HandleSftpDownload(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
+}
+
+func setDownloadHeaders(w http.ResponseWriter, filename string, size int64, lastModified time.Time) {
+	ext := filepath.Ext(filename)
+	contentType := mime.TypeByExtension(ext)
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	w.Header().Add("Content-Disposition", contentDispositionAttachment(filename))
+	w.Header().Add("Content-Type", contentType)
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.Header().Set("Last-Modified", lastModified.Format(http.TimeFormat))
 }
