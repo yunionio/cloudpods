@@ -61,7 +61,7 @@ func (h *WebconsoleHandler) Bind(app *appsrv.Application) {
 func (h *WebconsoleHandler) forwardToWebconsole(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params := appctx.AppContextParams(ctx)
 	service := params["<service>"]
-	if !utils.IsInStringArray(service, []string{"sftp", "container"}) {
+	if !utils.IsInStringArray(service, []string{"sftp", "container", "rdp"}) {
 		httperrors.BadRequestError(ctx, w, "service %s not supported", service)
 		return
 	}
