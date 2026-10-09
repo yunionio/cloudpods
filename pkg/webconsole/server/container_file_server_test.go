@@ -15,6 +15,7 @@
 package server
 
 import (
+	"io/fs"
 	"testing"
 	"time"
 )
@@ -66,4 +67,33 @@ func TestParseContainerLs(t *testing.T) {
 	if l.Name != "link" || l.IsDir || l.IsRegular || l.LinkFile == nil || l.LinkFile.Name != "/tmp/target" || l.LinkFile.Path != "/tmp/target" {
 		t.Fatalf("link = %#v", l)
 	}
+}
+
+func TestParseContainerStat(t *testing.T) {
+	info, err := parseContainerStat("regular file|123|1696769460|644|/tmp/file name.txt\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Name() != "file name.txt" || info.Size() != 123 || info.IsDir() || !info.Mode().IsRegular() {
+		t.Fatalf("info = %#v mode=%o", info, info.Mode())
+	}
+	if info.Mode().Perm() != 0644 {
+		t.Fatalf("perm = %o", info.Mode().Perm())
+	}
+	if !info.ModTime().Equal(time.Unix(1696769460, 0)) {
+		t.Fatalf("mtime = %s", info.ModTime())
+	}
+
+	dir, err := parseContainerStat("directory|4096|1696769460|755|/data\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !dir.IsDir() || dir.Mode().IsRegular() || dir.Name() != "data" {
+		t.Fatalf("dir = %#v", dir)
+	}
+
+	if _, err := parseContainerStat("socket|0|1|777|/tmp/sock\n"); err == nil {
+		t.Fatal("expected unsupported file type error")
+	}
+	var _ fs.FileInfo = info
 }
