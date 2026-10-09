@@ -105,8 +105,9 @@ type ComputeOptions struct {
 	SystemAdminQuotaCheck         bool `help:"Enable quota check for system admin, default False" default:"false"`
 	CloudaccountHealthStatusCheck bool `help:"Enable cloudaccount health status check, default True" default:"true"`
 
-	BaremetalPreparePackageUrl       string `help:"Baremetal online register package"`
-	BaremetalPrepareServerFakeDelete bool   `help:"Baremetal registed server fake delete" default:"false"`
+	BaremetalPreparePackageUrl                  string `help:"Baremetal online register package"`
+	BaremetalPrepareServerFakeDelete            bool   `help:"Baremetal registed server fake delete" default:"false"`
+	BaremetalPrepareServerFakeDeleteKeepRunning bool   `help:"Baremetal registed server fake delete keep guest running" default:"true"`
 
 	// snapshot options
 	AutoSnapshotDay  int `default:"1" help:"Days auto snapshot disks, default 1 day"`
