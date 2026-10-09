@@ -78,6 +78,10 @@ func (s *RDPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer ws.Close()
 
+	ownerId := s.Session.GetClientSession().GetUserId()
+	addRdpDriveSession(s.Session.Id, ownerId)
+	defer delRdpDriveSession(s.Session.Id)
+
 	tunnel, err := guac.NewGuacamoleTunnel(
 		s.Host,
 		s.Port,
@@ -87,7 +91,7 @@ func (s *RDPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.Width,
 		s.Height,
 		s.Dpi,
-		s.Session.GetClientSession().GetUserId(),
+		ownerId,
 	)
 	if err != nil {
 		log.Errorf("NewGuacamoleTunnel error: %v", err)
