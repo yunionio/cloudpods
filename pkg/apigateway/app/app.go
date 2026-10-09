@@ -36,6 +36,8 @@ type Application struct {
 	CloudIdSAMLHandler handler.IHandler
 
 	BackendServiceProxyHandler handler.IHandler
+
+	WebconsoleHandler handler.IHandler
 }
 
 func NewApp(app *appsrv.Application) *Application {
@@ -71,6 +73,9 @@ func (app *Application) InitHandlers() *Application {
 		AddGet(handler.FetchAuthToken).
 		AddPost(handler.FetchAuthToken)
 
+	// bind webconsole handler
+	app.WebconsoleHandler = handler.NewWebconsoleHandler("/api/v1/webconsole")
+
 	if options.Options.EnableBackendServiceProxy {
 		// bind backend service API proxy
 		log.Infof("enable backend service proxy")
@@ -92,6 +97,7 @@ func (app *Application) Bind() {
 		app.RPCHandler,
 		app.ResourceHandler,
 		app.CSRFResourceHandler,
+		app.WebconsoleHandler,
 	} {
 		if h != nil {
 			h.Bind(app.Application)
