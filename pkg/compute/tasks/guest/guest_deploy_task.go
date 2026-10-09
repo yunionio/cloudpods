@@ -122,7 +122,7 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DEPLOY, action, self.UserCred, true)
 	}
 
-	if self.HasParentTask() {
+	if self.HasParentTask() && !jsonutils.QueryBoolean(self.Params, "fake_create_from_bm_import", false) {
 		self.SetStageComplete(ctx, nil)
 		return
 	}

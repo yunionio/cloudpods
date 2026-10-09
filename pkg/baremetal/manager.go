@@ -2134,6 +2134,7 @@ func (b *SBaremetalInstance) StartServerCreateTask(ctx context.Context, userCred
 		return err
 	}
 	if jsonutils.QueryBoolean(data, "fake_create_from_bm_import", false) {
+		log.Infof("guest %s is fake_create_from_bm_import", b.GetName())
 		timeutils2.AddTimeout(time.Second*3, func() { modules.ComputeTasks.TaskComplete(b.GetClientSession(), taskId, nil) })
 		return nil
 	}
