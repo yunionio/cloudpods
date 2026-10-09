@@ -2937,6 +2937,12 @@ func (guest *SGuest) getGuestBackupResourceRequirements(ctx context.Context, use
 
 func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	guest.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	if guest.Hypervisor == api.HYPERVISOR_BAREMETAL && jsonutils.QueryBoolean(data, "fake_create_from_bm_import", false) {
+		jdata := data.(*jsonutils.JSONDict)
+		jdata.Remove("nets")
+		jdata.Remove("disks")
+	}
+
 	tags := []string{"cpu_bound", "io_bound", "io_hardlimit"}
 	appTags := make([]string, 0)
 	for _, tag := range tags {
@@ -4926,8 +4932,9 @@ func (self *SGuest) CreateNetworksOnHost(
 	netArray []*api.NetworkConfig,
 	pendingUsage, pendingUsageZone quotas.IQuota,
 	candidateNets []*schedapi.CandidateNet,
+	permitNoNetwork bool,
 ) error {
-	if len(netArray) == 0 {
+	if !permitNoNetwork && len(netArray) == 0 {
 		netConfig := self.getDefaultNetworkConfig()
 		_, err := self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
 		return errors.Wrap(err, "self.attach2RandomNetwork")
