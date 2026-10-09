@@ -429,9 +429,7 @@ func HandleRdpDownload(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		}
 		defer reader.Close()
 
-		w.Header().Set("Content-Disposition", contentDispositionAttachment(info.Name()))
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("X-Accel-Buffering", "no")
+		setDownloadHeaders(w, info.Name(), info.Size(), info.ModTime())
 		headersSent = true
 		if _, err := io.Copy(w, reader); err != nil {
 			return errors.Wrap(httperrors.FsErrorNormalize(err), "Copy")

@@ -100,9 +100,6 @@ func (h *WebconsoleHandler) forwardToWebconsole(ctx context.Context, w http.Resp
 	defer resp.Body.Close()
 
 	copyHTTPHeader(w.Header(), resp.Header)
-	w.Header().Del("Content-Length")
-	w.Header().Del("Content-Encoding")
-	w.Header().Del("Transfer-Encoding")
 	w.WriteHeader(resp.StatusCode)
 	if _, err := io.Copy(w, resp.Body); err != nil {
 		log.Errorf("copy webconsole %s response: %v", action, err)
