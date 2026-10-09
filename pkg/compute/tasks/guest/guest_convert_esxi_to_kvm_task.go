@@ -164,7 +164,7 @@ func (task *GuestConvertEsxiToKvmTask) SaveScheduleResult(ctx context.Context, o
 		return
 	}
 
-	err = targetGuest.CreateNetworksOnHost(ctx, task.UserCred, host, input.Networks, nil, nil, target.Nets)
+	err = targetGuest.CreateNetworksOnHost(ctx, task.UserCred, host, input.Networks, nil, nil, target.Nets, false)
 	if err != nil {
 		task.taskFailed(ctx, guest, jsonutils.NewString(fmt.Sprintf("guest create networks %s", err)))
 		return

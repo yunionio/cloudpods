@@ -201,7 +201,7 @@ func (task *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	pendingRegionUsage := models.SRegionQuota{}
 	task.GetPendingUsage(&pendingRegionUsage, 1)
 	// allocate networks
-	err = guest.CreateNetworksOnHost(ctx, task.UserCred, host, input.Networks, &pendingRegionUsage, &pendingUsage, candidate.Nets)
+	err = guest.CreateNetworksOnHost(ctx, task.UserCred, host, input.Networks, &pendingRegionUsage, &pendingUsage, candidate.Nets, input.FakeCreateFromBmImport)
 	task.SetPendingUsage(&pendingUsage, 0)
 	task.SetPendingUsage(&pendingRegionUsage, 1)
 	if err != nil {
