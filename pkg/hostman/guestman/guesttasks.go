@@ -879,6 +879,10 @@ func (n *SGuestNetworkSyncTask) addNic(nic *desc.SGuestNetwork) {
 		n.onDeviceAdd(nic)
 		return
 	}
+	if nic.NumQueues > 1 {
+		vectors := nic.NumQueues*2 + 1
+		nic.Vectors = &vectors
+	}
 	var (
 		netType    = "tap"
 		upscript   = n.guest.getNicUpScriptPath(nic)
@@ -896,6 +900,9 @@ func (n *SGuestNetworkSyncTask) addNic(nic *desc.SGuestNetwork) {
 		n.errors = append(n.errors, err)
 		n.syncNetworkConf()
 		return
+	}
+	if nic.NumQueues > 1 {
+		params["queues"] = strconv.Itoa(nic.NumQueues)
 	}
 
 	callback := func(res string) {
@@ -949,6 +956,14 @@ func (n *SGuestNetworkSyncTask) onNetdevAdd(nic *desc.SGuestNetwork, cType *desc
 		"mac":    nic.Mac,
 		"bus":    nic.Pci.BusStr(),
 		"addr":   nic.Pci.SlotFunc(),
+	}
+	if nic.Driver == "virtio" {
+		if nic.NumQueues > 1 {
+			params["mq"] = true
+		}
+		if nic.Vectors != nil {
+			params["vectors"] = *nic.Vectors
+		}
 	}
 
 	callback := func(res string) {
