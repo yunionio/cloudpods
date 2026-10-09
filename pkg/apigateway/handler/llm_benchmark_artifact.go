@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/appctx"
@@ -68,6 +69,15 @@ func llmBenchmarkArtifactBackendPath(id string, kind string) string {
 
 func copyHTTPHeader(dst http.Header, src http.Header) {
 	for k, vv := range src {
+		if strings.EqualFold(k, "Server") {
+			continue
+		}
+		if strings.EqualFold(k, "Vary") {
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(k), "x-") {
+			continue
+		}
 		for _, v := range vv {
 			dst.Add(k, v)
 		}
