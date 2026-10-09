@@ -1932,7 +1932,6 @@ func (self *SGuest) StartGuestCreateTask(ctx context.Context, userCred mcclient.
 				return err
 			}
 			params := jsonutils.NewDict()
-			params.Set("restart", jsonutils.JSONTrue)
 			params.Set("fake_create_from_bm_import", jsonutils.JSONTrue)
 			return self.StartGuestDeployTask(ctx, userCred, params, "create", parentTaskId)
 		}
@@ -1986,6 +1985,9 @@ func (self *SGuest) fixFakeServerCreateFromBmImport(ctx context.Context, userCre
 		return errors.Wrap(err, "GetIsolateDevices")
 	}
 	for i := range devs {
+		if devs[i].IsFull() {
+			continue
+		}
 		if err := self.attachIsolatedDevice(ctx, userCred, &devs[i], nil, nil, nil, ""); err != nil {
 			return errors.Wrap(err, "attachIsolatedDevice")
 		}
