@@ -782,14 +782,31 @@ func getIsolatedDevicesInfo(cli *ssh.Client, ip net.IP) ([]*isolated_device.PCID
 			if len(dev.Addr) > 0 && utils.IsInArray(dev.ClassCode, isolated_device.GpuClassCodes) && !isBootVga(cli, dev, bootVgaPath) {
 				log.Infof("append dev %s", dev.Addr)
 				devs = append(devs, dev)
+				continue
 			}
 			if o.Options.AutoDetectHeterogeneousDevices && utils.IsInStringArray(dev.VendorId, api.HeterogeneousVendors) {
 				if dev.VendorId == api.HYGON_VENDOR_ID && dev.ClassCode != isolated_device.CLASS_CODE_ASSIST {
-					log.Infof("skip dev %s", dev.Addr)
+					log.Infof("skip hygon dev %s with class code %s", dev.Addr, dev.ClassCode)
 					continue
 				}
 				if dev.VendorId == api.ILUVATAR_VENDOR_ID && dev.ClassCode != isolated_device.CLASS_CODE_PA {
-					log.Infof("skip dev %s", dev.Addr)
+					log.Infof("skip iluvatar dev %s with class code %s", dev.Addr, dev.ClassCode)
+					continue
+				}
+				if dev.VendorId == api.VASTAITECH_VENDOR_ID && dev.ClassCode != isolated_device.CLASS_CODE_PA {
+					log.Infof("skip vastaitech dev %s with class code %s", dev.Addr, dev.ClassCode)
+					continue
+				}
+				if dev.VendorId == api.ASCEND_VENDOR_ID && dev.ClassCode != isolated_device.CLASS_CODE_PA {
+					log.Infof("skip ascend dev %s with class code %s", dev.Addr, dev.ClassCode)
+					continue
+				}
+				if dev.VendorId == api.THEAD_VENDOR_ID && dev.ClassCode != isolated_device.CLASS_CODE_PA {
+					log.Infof("skip THead dev %s with class code %s", dev.Addr, dev.ClassCode)
+					continue
+				}
+				if dev.VendorId == api.KUNLUNXIN_VENDOR_ID && dev.ClassCode != isolated_device.CLASS_CODE_PA {
+					log.Infof("skip kunlunxin dev %s with class code %s", dev.Addr, dev.ClassCode)
 					continue
 				}
 				log.Infof("append dev %s", dev.Addr)
