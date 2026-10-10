@@ -28,14 +28,15 @@ import (
 type HostSpec struct {
 	apis.Meta
 
-	Cpu             int                  `json:"cpu"`
-	Mem             int                  `json:"mem"`
-	NicCount        int                  `json:"nic_count"`
-	Manufacture     string               `json:"manufacture"`
-	Model           string               `json:"model"`
-	Disk            DiskDriverSpec       `json:"disk"`
-	Driver          string               `json:"driver"`
-	IsolatedDevices []IsolatedDeviceSpec `json:"isolated_devices"`
+	Cpu                       int                  `json:"cpu"`
+	Mem                       int                  `json:"mem"`
+	NicCount                  int                  `json:"nic_count"`
+	Manufacture               string               `json:"manufacture"`
+	Model                     string               `json:"model"`
+	Disk                      DiskDriverSpec       `json:"disk"`
+	Driver                    string               `json:"driver"`
+	IsolatedDevices           []IsolatedDeviceSpec `json:"isolated_devices"`
+	CreateFromImportBaremetal bool                 `json:"create_from_import_baremetal"`
 }
 
 type IsolatedDeviceSpec struct {
