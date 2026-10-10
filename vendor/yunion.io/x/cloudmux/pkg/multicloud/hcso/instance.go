@@ -722,7 +722,11 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 
 // todo:// 返回jsonobject感觉很诡异。不能直接知道内部细节
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	return self.host.zone.region.GetInstanceVNCUrl(self.GetId())
+	origin := false
+	if input != nil {
+		origin = input.Origin
+	}
+	return self.host.zone.region.GetInstanceVNCUrl(self.GetId(), origin)
 }
 
 func (self *SInstance) NextDeviceName() (string, error) {
@@ -1246,7 +1250,7 @@ func (self *SRegion) ChangeVMConfig(instanceId string, instanceType string) erro
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0142763126.html 微版本2.6及以上?
 // https://support.huaweicloud.com/api-ecs/ecs_02_0208.html
-func (self *SRegion) GetInstanceVNCUrl(instanceId string) (*cloudprovider.ServerVncOutput, error) {
+func (self *SRegion) GetInstanceVNCUrl(instanceId string, origin bool) (*cloudprovider.ServerVncOutput, error) {
 	params := jsonutils.NewDict()
 	vncObj := jsonutils.NewDict()
 	vncObj.Add(jsonutils.NewString("novnc"), "type")
@@ -1260,9 +1264,19 @@ func (self *SRegion) GetInstanceVNCUrl(instanceId string) (*cloudprovider.Server
 
 	ret := &cloudprovider.ServerVncOutput{
 		Hypervisor: api.HYPERVISOR_HCSO,
+		InstanceId: instanceId,
 	}
 	resp.Unmarshal(ret)
-	ret.Protocol = "huawei"
+	if origin {
+		ret.Protocol = "huawei"
+		return ret, nil
+	}
+	wsUrl, err := huawei.ConvertNovncHtmlUrlToWebsocket(ret.Url)
+	if err != nil {
+		return nil, err
+	}
+	ret.Url = wsUrl
+	ret.Protocol = "vnc"
 	return ret, nil
 }
 

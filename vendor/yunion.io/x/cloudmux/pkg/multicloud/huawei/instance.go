@@ -708,7 +708,11 @@ func (self *SRegion) GetInstanceModificationTypes(instanceId string) ([]cloudpro
 }
 
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	return self.host.zone.region.GetInstanceVNCUrl(self.GetId())
+	origin := false
+	if input != nil {
+		origin = input.Origin
+	}
+	return self.host.zone.region.GetInstanceVNCUrl(self.GetId(), origin)
 }
 
 func (self *SInstance) NextDeviceName() (string, error) {
@@ -1023,7 +1027,7 @@ func (self *SRegion) ChangeVMConfig(instanceId string, instanceType string) erro
 }
 
 // https://console.huaweicloud.com/apiexplorer/#/openapi/ECS/doc?api=ShowServerRemoteConsole
-func (self *SRegion) GetInstanceVNCUrl(instanceId string) (*cloudprovider.ServerVncOutput, error) {
+func (self *SRegion) GetInstanceVNCUrl(instanceId string, origin bool) (*cloudprovider.ServerVncOutput, error) {
 	params := map[string]interface{}{
 		"remote_console": map[string]interface{}{
 			"type":     "novnc",
@@ -1036,9 +1040,19 @@ func (self *SRegion) GetInstanceVNCUrl(instanceId string) (*cloudprovider.Server
 	}
 	result := &cloudprovider.ServerVncOutput{
 		Hypervisor: api.HYPERVISOR_HUAWEI,
+		InstanceId: instanceId,
 	}
 	resp.Unmarshal(result, "remote_console")
-	result.Protocol = api.HYPERVISOR_HUAWEI
+	if origin {
+		result.Protocol = api.HYPERVISOR_HUAWEI
+		return result, nil
+	}
+	wsUrl, err := ConvertNovncHtmlUrlToWebsocket(result.Url)
+	if err != nil {
+		return nil, err
+	}
+	result.Url = wsUrl
+	result.Protocol = "vnc"
 	return result, nil
 }
 
