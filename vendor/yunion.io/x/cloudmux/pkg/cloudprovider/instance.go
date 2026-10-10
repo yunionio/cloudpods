@@ -339,7 +339,7 @@ func (vmConfig *SManagedVMCreateConfig) InjectPasswordByCloudInit() error {
 
 // +onecloud:model-api-gen
 type ServerVncInput struct {
-	// 是否使用原生vnc控制台，此选项仅对openstack有效
+	// 是否使用原生vnc控制台，此选项对 openstack/aliyun/hcso/huawei 有效
 	// default: false
 	Origin bool `json:"origin"`
 }
