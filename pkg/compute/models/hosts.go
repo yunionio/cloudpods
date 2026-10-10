@@ -26,7 +26,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"yunion.io/x/onecloud/pkg/compute/sshkeys"
 
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
@@ -66,6 +65,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/compute/sshkeys"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -5901,7 +5901,6 @@ func (hh *SHost) PerformCreateFromImportBaremetal(
 		return nil, errors.Errorf("failed get guest")
 	}
 	params := jsonutils.NewDict()
-	params.Set("restart", jsonutils.JSONTrue)
 	params.Set("fake_create_from_bm_import", jsonutils.JSONTrue)
 	return nil, guest.StartGuestDeployTask(ctx, userCred, params, "create", "")
 }
