@@ -24,9 +24,11 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/compute"
+	webconsole_options "yunion.io/x/onecloud/pkg/webconsole/options"
 )
 
 type SSshConnectionInfo struct {
@@ -60,7 +62,8 @@ func resolveServerIPPortById(ctx context.Context, s *mcclient.ClientSession, id 
 	True := true
 	input.Details = &True
 	input.ServerFilterListInput.Scope = "max"
-	result, err := compute.Servernetworks.List(s, jsonutils.Marshal(input))
+	adminSession := auth.GetAdminSession(ctx, webconsole_options.Options.Region)
+	result, err := compute.Servernetworks.List(adminSession, jsonutils.Marshal(input))
 	if err != nil {
 		return "", 0, nil, errors.Wrap(err, "Servernetworks.List")
 	}
