@@ -18,8 +18,17 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/sortedmap"
 )
+
+func writeJSONObject(sb *strings.Builder, v JSONObject) {
+	if gotypes.IsNil(v) {
+		sb.WriteString("null")
+		return
+	}
+	v.buildString(sb)
+}
 
 type writeSource interface {
 	buildString(sb *strings.Builder)
@@ -46,6 +55,10 @@ func (this *JSONBool) buildString(sb *strings.Builder) {
 }
 
 func (this *JSONDict) buildString(sb *strings.Builder) {
+	if this == nil {
+		sb.WriteString("null")
+		return
+	}
 	sb.WriteByte('{')
 	var idx = 0
 	if this.nodeId > 0 {
@@ -63,19 +76,23 @@ func (this *JSONDict) buildString(sb *strings.Builder) {
 		sb.WriteString(quoteString(k))
 		sb.WriteByte(':')
 
-		v.buildString(sb)
+		writeJSONObject(sb, v)
 		idx++
 	}
 	sb.WriteByte('}')
 }
 
 func (this *JSONArray) buildString(sb *strings.Builder) {
+	if this == nil {
+		sb.WriteString("null")
+		return
+	}
 	sb.WriteByte('[')
 	for idx, v := range this.data {
 		if idx > 0 {
 			sb.WriteByte(',')
 		}
-		v.buildString(sb)
+		writeJSONObject(sb, v)
 	}
 	sb.WriteByte(']')
 }

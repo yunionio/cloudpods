@@ -172,6 +172,162 @@ func EncryptAESBase64Url(key, msg string) (string, error) {
 	return base64.URLEncoding.EncodeToString(result), nil
 }
 
+// Authenticated encryption with AES-256-GCM.
+//
+// Payloads produced by EncryptAESBase64GCM / EncryptAESBase64UrlGCM are self
+// describing: a fixed header, then the nonce, then the sealed ciphertext.
+// DescryptAESBase64Auto / DescryptAESBase64UrlAuto accept both these payloads
+// and the legacy ones produced by EncryptAESBase64 / EncryptAESBase64Url, so
+// stored values can be re-encrypted and migrated without a flag day.
+//
+// EncryptAESBase64 / EncryptAESBase64Url are deliberately left unchanged: the
+// legacy form has no header, so a reader built from an older revision would
+// treat a GCM payload as ciphertext and return garbage without reporting an
+// error. Roll out readers that call the Auto functions before switching any
+// writer to the GCM functions.
+const aesGCMVersion = byte(0x02)
+
+var aesGCMHeader = []byte{'Y', 'N', 'P', 'K', aesGCMVersion}
+
+func hasAESGCMHeader(secret []byte) bool {
+	if len(secret) < len(aesGCMHeader) {
+		return false
+	}
+	for i := range aesGCMHeader {
+		if secret[i] != aesGCMHeader[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func encryptAESGCM(k, msg []byte) ([]byte, error) {
+	block, err := aes.NewCipher(k)
+	if err != nil {
+		return nil, err
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, aead.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+	out := make([]byte, 0, len(aesGCMHeader)+len(nonce)+len(msg)+aead.Overhead())
+	out = append(out, aesGCMHeader...)
+	out = append(out, nonce...)
+	return aead.Seal(out, nonce, msg, nil), nil
+}
+
+func descryptAESGCM(k, secret []byte) ([]byte, error) {
+	if !hasAESGCMHeader(secret) {
+		return nil, fmt.Errorf("payload is not in the authenticated format")
+	}
+	body := secret[len(aesGCMHeader):]
+	block, err := aes.NewCipher(k)
+	if err != nil {
+		return nil, err
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	if len(body) < aead.NonceSize()+aead.Overhead() {
+		return nil, fmt.Errorf("payload is truncated")
+	}
+	nonce, cipherText := body[:aead.NonceSize()], body[aead.NonceSize():]
+	return aead.Open(nil, nonce, cipherText, nil)
+}
+
+// EncryptAESBase64GCM encrypts msg and returns the standard-base64 encoding of
+// the authenticated payload.
+func EncryptAESBase64GCM(key, msg string) (string, error) {
+	result, err := encryptAESGCM(toAESKey(key), []byte(msg))
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(result), nil
+}
+
+// EncryptAESBase64UrlGCM is EncryptAESBase64GCM using the URL-safe alphabet.
+func EncryptAESBase64UrlGCM(key, msg string) (string, error) {
+	result, err := encryptAESGCM(toAESKey(key), []byte(msg))
+	if err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(result), nil
+}
+
+// DescryptAESBase64GCM decrypts a payload produced by EncryptAESBase64GCM.
+// A payload that was modified after it was written is reported as an error.
+func DescryptAESBase64GCM(key, secret string) (string, error) {
+	s, err := base64.StdEncoding.DecodeString(secret)
+	if err != nil {
+		return "", err
+	}
+	result, err := descryptAESGCM(toAESKey(key), s)
+	if err != nil {
+		return "", err
+	}
+	return string(result), nil
+}
+
+// DescryptAESBase64UrlGCM decrypts a payload produced by
+// EncryptAESBase64UrlGCM.
+func DescryptAESBase64UrlGCM(key, secret string) (string, error) {
+	s, err := base64.URLEncoding.DecodeString(secret)
+	if err != nil {
+		return "", err
+	}
+	result, err := descryptAESGCM(toAESKey(key), s)
+	if err != nil {
+		return "", err
+	}
+	return string(result), nil
+}
+
+// DescryptAESBase64Auto decrypts an authenticated payload
+// (EncryptAESBase64GCM) as well as a legacy payload (EncryptAESBase64).
+func DescryptAESBase64Auto(key, secret string) (string, error) {
+	s, err := base64.StdEncoding.DecodeString(secret)
+	if err != nil {
+		return "", err
+	}
+	k := toAESKey(key)
+	var result []byte
+	if hasAESGCMHeader(s) {
+		result, err = descryptAESGCM(k, s)
+	} else {
+		result, err = descryptAES(k, s)
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(result), nil
+}
+
+// DescryptAESBase64UrlAuto decrypts an authenticated payload
+// (EncryptAESBase64UrlGCM) as well as a legacy payload
+// (EncryptAESBase64Url).
+func DescryptAESBase64UrlAuto(key, secret string) (string, error) {
+	s, err := base64.URLEncoding.DecodeString(secret)
+	if err != nil {
+		return "", err
+	}
+	k := toAESKey(key)
+	var result []byte
+	if hasAESGCMHeader(s) {
+		result, err = descryptAESGCM(k, s)
+	} else {
+		result, err = descryptAES(k, s)
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(result), nil
+}
+
 // RSA 加密
 func rsaEncrypt(publicKey, origData []byte) ([]byte, error) {
 	block, _ := pem.Decode(publicKey)

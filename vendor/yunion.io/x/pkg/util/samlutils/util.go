@@ -20,7 +20,9 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"fmt"
+	"html"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/ma314smith/signedxml"
@@ -92,14 +94,23 @@ func SAMLEncode(input []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(comp), nil
 }
 
+// SAMLForm renders an auto-submitting HTML form carrying the given
+// parameters. Both the action and the values are escaped, and the keys are
+// sorted so the output is stable for a given input.
 func SAMLForm(action string, attrs map[string]string) string {
 	form := strings.Builder{}
 	// form.WriteString(`<!DOCTYPE html><html lang="en-US"><body>`)
 	form.WriteString(`<form id="saml_submit_form" method="POST" action="`)
-	form.WriteString(action)
+	form.WriteString(html.EscapeString(action))
 	form.WriteString(`">`)
-	for k, v := range attrs {
-		form.WriteString(fmt.Sprintf("<input type=\"hidden\" name=\"%s\" value=\"%s\" />", k, v))
+	keys := make([]string, 0, len(attrs))
+	for k := range attrs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		form.WriteString(fmt.Sprintf("<input type=\"hidden\" name=\"%s\" value=\"%s\" />",
+			html.EscapeString(k), html.EscapeString(attrs[k])))
 	}
 	form.WriteString(`<input type="submit" value="Submit" />`)
 	form.WriteString("</form><script><!--\n")

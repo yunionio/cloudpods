@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -51,6 +52,24 @@ func NewWebsocketProxyServer(s *session.SSession) (*WebsocketProxyServer, error)
 	}
 	proxySrv.Backend = func(_ *http.Request) *url.URL {
 		return u
+	}
+	proxySrv.Director = func(_ *http.Request, out http.Header) {
+		// Use backend host, not the incoming webconsole Host header
+		out.Set("Host", u.Host)
+		// Some public-cloud novnc proxies validate Origin.
+		originScheme := "https"
+		if u.Scheme == "ws" {
+			originScheme = "http"
+		}
+		out.Set("Origin", fmt.Sprintf("%s://%s", originScheme, u.Hostname()))
+		// Huawei/OpenStack novncproxy requires binary or base64.
+		// Set on request headers (not Dialer.Subprotocols) to avoid
+		// "duplicate header not allowed: Sec-Websocket-Protocol" when
+		// websocketproxy also forwards the client protocol header.
+		out.Set("Sec-WebSocket-Protocol", strings.Join([]string{BINARY_PROTOL, BASE64_PROTOL}, ", "))
+		if len(info.Cookie) > 0 {
+			out.Set("Cookie", info.Cookie)
+		}
 	}
 	proxySrv.Upgrader = &upgrader
 	return &WebsocketProxyServer{

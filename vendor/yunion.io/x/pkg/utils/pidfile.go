@@ -25,7 +25,9 @@ func SavePid(pidfile string) error {
 		return err
 	}
 
-	file, err := os.OpenFile(pidfile, os.O_RDWR|os.O_CREATE, 0644)
+	// O_TRUNC so that a shorter pid cannot leave the tail of a longer
+	// previously written pid behind in the file.
+	file, err := os.OpenFile(pidfile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("error opening pidfile %s: %s", pidfile, err)
 	}

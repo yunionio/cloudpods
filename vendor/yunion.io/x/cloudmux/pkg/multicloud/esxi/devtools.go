@@ -33,6 +33,7 @@ type SDiskConfig struct {
 	UnitNumber    int32
 	Key           int32
 	ImagePath     string
+	DestPath      string
 	IsRoot        bool
 	Datastore     *SDatastore
 	Preallocation string

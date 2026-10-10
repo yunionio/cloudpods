@@ -319,12 +319,20 @@ func (srcs securityRuleCuts) cutOutPorts(protocol string, ps1 []uint16) security
 				src_.r.PortEnd = int(e)
 				r = append(r, src_)
 			}
+			// ps1 is sorted. Walk the ports that are left over between the
+			// cut ports, advancing past each one even when it leaves no room
+			// for a range of its own (p == 1), so that it is not handed back
+			// by the trailing range below.
 			s := uint16(1)
 			for _, p := range ps1 {
+				if p < s {
+					continue
+				}
 				if s <= p-1 {
 					add(s, p-1)
-					s = p + 1
 				}
+				// Wraps to 0 for p == 65535, which the check below rejects.
+				s = p + 1
 			}
 			if s != 0 && s <= 65535 {
 				add(s, 65535)

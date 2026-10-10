@@ -55,7 +55,10 @@ func addQueryStringSeg(body JSONObject, segs []sTextNumber, val []string) (JSONO
 			if err != nil {
 				return nil, errors.Wrapf(err, "get jsondict %s with %s fail", body, key)
 			}
-			addQueryStringSeg(next, segs[1:], val)
+			_, err = addQueryStringSeg(next, segs[1:], val)
+			if err != nil {
+				return nil, errors.Wrapf(err, "addQueryStringSeg %s with %s fail", body, key)
+			}
 		}
 		return jbody, nil
 	case *JSONArray:
@@ -66,7 +69,10 @@ func addQueryStringSeg(body JSONObject, segs []sTextNumber, val []string) (JSONO
 			if err != nil {
 				return nil, errors.Wrapf(err, "get jsonarray %s at %d fail", body, index)
 			}
-			addQueryStringSeg(next, segs[1:], val)
+			_, err = addQueryStringSeg(next, segs[1:], val)
+			if err != nil {
+				return nil, errors.Wrapf(err, "addQueryStringSeg %s at %d fail", body, index)
+			}
 		} else if arrSize == index {
 			// new
 			next, err := addQueryStringSeg(nil, segs[1:], val)

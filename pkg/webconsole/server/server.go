@@ -62,6 +62,9 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if utils.IsInStringArray(info.Hypervisor, []string{
 			api.HYPERVISOR_OPENSTACK,
 			api.HYPERVISOR_CTYUN,
+			api.HYPERVISOR_ALIYUN,
+			api.HYPERVISOR_HCSO,
+			api.HYPERVISOR_HUAWEI,
 		}) {
 			srv, err = NewWebsocketProxyServer(sessionObj)
 		} else {

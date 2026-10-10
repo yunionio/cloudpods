@@ -15,6 +15,7 @@
 package jsonutils
 
 import (
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/sortedmap"
 )
 
@@ -41,6 +42,10 @@ func (self *JSONString) Interface() interface{} {
 func (self *JSONArray) Interface() interface{} {
 	ret := make([]interface{}, len(self.data))
 	for i := 0; i < len(self.data); i += 1 {
+		if gotypes.IsNil(self.data[i]) {
+			ret[i] = nil
+			continue
+		}
 		ret[i] = self.data[i].Interface()
 	}
 	return ret
@@ -51,7 +56,12 @@ func (self *JSONDict) Interface() interface{} {
 
 	for iter := sortedmap.NewIterator(self.data); iter.HasMore(); iter.Next() {
 		k, v := iter.Get()
-		mapping[k] = v.(JSONObject).Interface()
+		jo, _ := v.(JSONObject)
+		if gotypes.IsNil(jo) {
+			mapping[k] = nil
+			continue
+		}
+		mapping[k] = jo.Interface()
 	}
 
 	return mapping

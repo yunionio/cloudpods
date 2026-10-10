@@ -23,7 +23,7 @@ import (
 
 func (table *STableSpec) structField2ColumnSpec(field *reflectutils.SStructFieldValue) IColumnSpec {
 	fieldname := field.Info.MarshalName()
-	tagmap := field.Info.Tags
+	tagmap := field.Info.TagMap()
 	if _, ok := tagmap[TAG_IGNORE]; ok {
 		return nil
 	}
