@@ -64,6 +64,9 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			api.HYPERVISOR_CTYUN,
 			api.HYPERVISOR_SANGFOR,
 			api.HYPERVISOR_PROXMOX,
+			api.HYPERVISOR_ALIYUN,
+			api.HYPERVISOR_HCSO,
+			api.HYPERVISOR_HUAWEI,
 		}) {
 			srv, err = NewWebsocketProxyServer(sessionObj)
 		} else {
