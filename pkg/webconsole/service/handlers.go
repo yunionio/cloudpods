@@ -238,13 +238,13 @@ func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		}
 		switch sshConnInfo.ResourceType {
 		case "server":
-			err = tryServer()
+			err := tryServer()
 			if err != nil {
 				httperrors.GeneralServerError(ctx, w, err)
 				return
 			}
 		case "host":
-			err = tryHost()
+			err := tryHost()
 			if err != nil {
 				httperrors.GeneralServerError(ctx, w, err)
 				return
@@ -254,7 +254,7 @@ func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 				tryServer,
 				tryHost,
 			} {
-				err = try()
+				err := try()
 				if err == nil {
 					s := session.NewSshSession(ctx, env.ClientSessin, sshConnInfo)
 					handleSshSession(ctx, s, w)
