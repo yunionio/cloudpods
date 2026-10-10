@@ -117,7 +117,7 @@ require (
 	k8s.io/cri-api v0.28.15
 	k8s.io/klog/v2 v2.90.1
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260916101522-bf8649bcb146
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20261010100039-1aaf2264f9e1
 	yunion.io/x/executor v0.0.0-20260312022053-f538abd2b005
 	yunion.io/x/jsonutils v1.0.1-0.20260917025845-3108cd9a32ea
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
