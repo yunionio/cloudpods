@@ -65,13 +65,14 @@ func containerClientSession(ctx context.Context, params map[string]string) (*mcc
 		if !ok {
 			return nil, "", errors.Wrapf(errors.ErrInvalidFormat, "invalid container_id format: %s", ctrId)
 		}
-		pod, err := compute_modules.Servers.Get(s, podName, nil)
+		pod, err := compute_modules.Servers.Get(s, podName, jsonutils.Marshal(map[string]string{"scope": "max"}))
 		if err != nil {
 			return nil, "", errors.Wrapf(err, "get pod %s", podName)
 		}
 		podId, _ := pod.GetString("id")
 		params := map[string]string{
 			"guest_id": podId,
+			"scope":    "max",
 		}
 		container, err := compute_modules.Containers.Get(s, containerName, jsonutils.Marshal(params))
 		if err != nil {
