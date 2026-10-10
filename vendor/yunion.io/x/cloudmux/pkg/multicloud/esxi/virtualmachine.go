@@ -285,17 +285,105 @@ func (svm *SVirtualMachine) DoRebuildRoot(ctx context.Context, imagePath string,
 	return svm.rebuildDisk(ctx, &svm.vdisks[0], imagePath, uefi)
 }
 
+func rebuildRootDiskBackupPath(filename string) string {
+	const suffix = ".vmdk"
+	if strings.HasSuffix(strings.ToLower(filename), suffix) {
+		return filename[:len(filename)-len(suffix)] + ".rebuild-bak.vmdk"
+	}
+	return filename + ".rebuild-bak.vmdk"
+}
+
+func (svm *SVirtualMachine) moveVirtualDiskFile(ctx context.Context, ds *SDatastore, src, dst string) error {
+	obj, err := ds.getDatastoreObj(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "getDatastoreObj")
+	}
+	fm := obj.NewFileManager(ds.datacenter.getObjectDatacenter(), true)
+	err = fm.Move(ctx, src, dst)
+	if err != nil {
+		return errors.Wrapf(err, "move %s -> %s", src, dst)
+	}
+	return nil
+}
+
+func (svm *SVirtualMachine) reattachNonRootDisks(ctx context.Context) error {
+	for i := 1; i < len(svm.vdisks); i++ {
+		err := svm.doDetachDisk(ctx, &svm.vdisks[i], false)
+		if err != nil {
+			return errors.Wrapf(err, "doDetachDisk %d", i)
+		}
+		err = svm.doAttachDisk(ctx, &svm.vdisks[i])
+		if err != nil {
+			return errors.Wrapf(err, "doAttachDisk: %d", i)
+		}
+	}
+	return nil
+}
+
+func (svm *SVirtualMachine) attachDisksInOriginalOrder(ctx context.Context, root *SVirtualDisk) error {
+	for i := 1; i < len(svm.vdisks); i++ {
+		err := svm.doDetachDisk(ctx, &svm.vdisks[i], false)
+		if err != nil {
+			return errors.Wrapf(err, "doDetachDisk %d", i)
+		}
+	}
+	err := svm.doAttachDisk(ctx, root)
+	if err != nil {
+		for i := 1; i < len(svm.vdisks); i++ {
+			if attachErr := svm.doAttachDisk(ctx, &svm.vdisks[i]); attachErr != nil {
+				log.Errorf("reattach disk %d after root attach failed: %s", i, attachErr)
+			}
+		}
+		return errors.Wrap(err, "doAttachDisk root")
+	}
+	for i := 1; i < len(svm.vdisks); i++ {
+		err = svm.doAttachDisk(ctx, &svm.vdisks[i])
+		if err != nil {
+			return errors.Wrapf(err, "doAttachDisk: %d", i)
+		}
+	}
+	return nil
+}
+
+func (svm *SVirtualMachine) restoreRootDiskAfterRebuild(ctx context.Context, disk *SVirtualDisk, ds *SDatastore, origPath, backupPath string) error {
+	if err := ds.Delete2(ctx, origPath, false, true); err != nil {
+		log.Errorf("delete rebuilt root disk %s before restore: %s", origPath, err)
+	}
+	if err := svm.moveVirtualDiskFile(ctx, ds, backupPath, origPath); err != nil {
+		return errors.Wrap(err, "rename backup root disk")
+	}
+	return svm.attachDisksInOriginalOrder(ctx, disk)
+}
+
 func (svm *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk, imagePath string, uefi bool) error {
 	uuid := disk.GetId()
 	sizeMb := disk.GetDiskSizeMB()
 	diskKey := disk.getKey()
 	ctlKey := disk.getControllerKey()
 	unitNumber := *disk.dev.GetVirtualDevice().UnitNumber
+	origPath := disk.GetFilename()
+	backupPath := rebuildRootDiskBackupPath(origPath)
 
-	err := svm.doDetachAndDeleteDisk(ctx, disk)
+	istorage, err := disk.GetIStorage()
+	if err != nil {
+		return errors.Wrap(err, "GetIStorage")
+	}
+	ds := istorage.(*SDatastore)
+
+	err = svm.doDetachDisk(ctx, disk, false)
 	if err != nil {
 		return err
 	}
+
+	err = svm.moveVirtualDiskFile(ctx, ds, origPath, backupPath)
+	if err != nil {
+		if attachErr := svm.attachDisksInOriginalOrder(ctx, disk); attachErr != nil {
+			log.Errorf("reattach disks in original order after backup failed: %s", attachErr)
+		}
+		return errors.Wrapf(err, "backup root disk %s", origPath)
+	}
+	log.Infof("backup root disk %s -> %s", origPath, backupPath)
+
 	err = svm.createDiskInternal(ctx, SDiskConfig{
 		Uefi:          uefi,
 		SizeMb:        int64(sizeMb),
@@ -304,20 +392,21 @@ func (svm *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk,
 		UnitNumber:    unitNumber,
 		Key:           diskKey,
 		ImagePath:     imagePath,
+		DestPath:      origPath,
 		IsRoot:        len(imagePath) > 0,
+		Datastore:     ds,
 	}, false)
 	if err != nil {
+		if restoreErr := svm.restoreRootDiskAfterRebuild(ctx, disk, ds, origPath, backupPath); restoreErr != nil {
+			log.Errorf("restore root disk %s from %s failed: %s", origPath, backupPath, restoreErr)
+		}
 		return errors.Wrapf(err, "createDiskInternal")
 	}
-	for i := 1; i < len(svm.vdisks); i++ {
-		err = svm.doDetachDisk(ctx, &svm.vdisks[i], false)
-		if err != nil {
-			return errors.Wrapf(err, "doDetachDisk %d", i)
-		}
-		err = svm.doAttachDisk(ctx, &svm.vdisks[i])
-		if err != nil {
-			return errors.Wrapf(err, "doAttachDisk: %d", i)
-		}
+	if err = svm.reattachNonRootDisks(ctx); err != nil {
+		return err
+	}
+	if err = ds.Delete2(ctx, backupPath, false, true); err != nil {
+		log.Errorf("delete backup root disk %s: %s", backupPath, err)
 	}
 	return nil
 }
@@ -1256,10 +1345,24 @@ func (svm *SVirtualMachine) GetRootImagePath() (string, error) {
 	return path, nil
 }
 
-func (svm *SVirtualMachine) CopyRootDisk(ctx context.Context, imagePath string) (string, error) {
-	newImagePath, datastore, err := svm.getDatastoreAndRootImagePath(false)
-	if err != nil {
-		return "", errors.Wrapf(err, "GetRootImagePath")
+func (svm *SVirtualMachine) CopyRootDisk(ctx context.Context, imagePath, destPath string, datastore *SDatastore) (string, error) {
+	var (
+		newImagePath string
+		err          error
+	)
+	if len(destPath) > 0 {
+		newImagePath = destPath
+		if datastore == nil {
+			_, datastore, err = svm.getDatastoreAndRootImagePath(false)
+			if err != nil {
+				return "", errors.Wrapf(err, "GetRootImagePath")
+			}
+		}
+	} else {
+		newImagePath, datastore, err = svm.getDatastoreAndRootImagePath(false)
+		if err != nil {
+			return "", errors.Wrapf(err, "GetRootImagePath")
+		}
 	}
 	ds, err := datastore.getDatastoreObj(ctx)
 	if err != nil {
@@ -1278,7 +1381,7 @@ func (svm *SVirtualMachine) createDiskWithDeviceChange(ctx context.Context, devi
 	// copy disk
 	if len(config.ImagePath) > 0 {
 		config.IsRoot = true
-		config.ImagePath, err = svm.CopyRootDisk(ctx, config.ImagePath)
+		config.ImagePath, err = svm.CopyRootDisk(ctx, config.ImagePath, config.DestPath, config.Datastore)
 		if err != nil {
 			return errors.Wrap(err, "unable to copyRootDisk")
 		}
@@ -1327,7 +1430,6 @@ func (svm *SVirtualMachine) createDiskWithDeviceChange(ctx context.Context, devi
 }
 
 func (svm *SVirtualMachine) createDiskInternal(ctx context.Context, config SDiskConfig, check bool) error {
-
 	return svm.createDiskWithDeviceChange(ctx, nil, config, check)
 }
 

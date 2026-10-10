@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"path"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -99,32 +100,127 @@ func NewWriteFile(path string, content string, perm string, owner string, isBase
 	return f
 }
 
+// shellQuote wraps s so that a POSIX shell treats it as one literal word.
+// A single quote inside s is closed, escaped and reopened.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// validUserName reports whether name can be used as a user name.
+//
+// The set is deliberately narrow. A name becomes a directory under /home, a
+// file name under /etc/sudoers.d and an argument to useradd, so a slash or a
+// ".." would move the files that are written, and a control character would
+// split a generated line. Leading "-" is refused so the name cannot be read as
+// an option.
+func validUserName(name string) bool {
+	if len(name) == 0 || name == "." || name == ".." || name[0] == '-' {
+		return false
+	}
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case c == '_' || c == '-' || c == '.':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// validWritePath reports whether path may be written by a generated script.
+//
+// Quoting keeps a path from running as a command, but a path that walks up out
+// of its directory would still write somewhere else. A path carrying a ".."
+// element is refused rather than normalised, so that what is written is what
+// was asked for.
+func validWritePath(filePath string) bool {
+	if len(filePath) == 0 {
+		return false
+	}
+	for _, elem := range strings.Split(filePath, "/") {
+		if elem == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+// escapePowerShell escapes a value for use inside a PowerShell double quoted
+// string, where a backtick introduces an escape, $ introduces a variable, and
+// a control character written literally would break the line it sits on.
+func escapePowerShell(s string) string {
+	return strings.NewReplacer(
+		"`", "``",
+		`"`, "`\"",
+		"$", "`$",
+		"\r", "`r",
+		"\n", "`n",
+		"\t", "`t",
+		"\x00", "`0",
+	).Replace(s)
+}
+
+const heredocPrefix = "_YUNION_EOF_"
+
+// heredocTerminator returns a terminator that does not occur in content, so
+// that a line of the content cannot end the heredoc early. Quote it at the use
+// site so the shell does not expand the content.
+//
+// The generated value is checked against the content rather than assumed to be
+// unique: utils.GenRequestId returns the empty string if the random source is
+// unavailable, which would otherwise leave a fixed, guessable terminator.
+func heredocTerminator(content string) string {
+	return uniqueTerminator(heredocPrefix+utils.GenRequestId(8), content)
+}
+
+// uniqueTerminator returns term with underscores appended until it does not
+// occur in content. Each pass lengthens it, so this ends once it is longer
+// than the content and can no longer occur in it.
+func uniqueTerminator(term, content string) string {
+	for strings.Contains(content, term) {
+		term += "_"
+	}
+	return term
+}
+
 func setFilePermission(path, permission, owner string) []string {
 	cmds := []string{}
 	if len(permission) > 0 {
-		cmds = append(cmds, fmt.Sprintf("chmod %s %s", permission, path))
+		cmds = append(cmds, fmt.Sprintf("chmod %s %s", shellQuote(permission), shellQuote(path)))
 	}
 	if len(owner) > 0 {
-		cmds = append(cmds, fmt.Sprintf("chown %s:%s %s", owner, owner, path))
+		cmds = append(cmds, fmt.Sprintf("chown %s:%s %s", shellQuote(owner), shellQuote(owner), shellQuote(path)))
 	}
 	return cmds
 }
 
+// mkWriteFileCmd builds the commands that create path with content. The
+// redirection and the path are quoted, and the heredoc is quoted with a
+// terminator that is not expected to occur in the content.
+func mkWriteFileCmd(redirect, filePath, content, permission, owner string) []string {
+	terminator := heredocTerminator(content)
+	cmds := []string{
+		fmt.Sprintf("mkdir -p %s", shellQuote(path.Dir(filePath))),
+		fmt.Sprintf("cat %s %s <<'%s'\n%s\n%s", redirect, shellQuote(filePath), terminator, content, terminator),
+	}
+	return append(cmds, setFilePermission(filePath, permission, owner)...)
+}
+
 func mkPutFileCmd(path string, content string, permission string, owner string) []string {
-	cmds := []string{}
-	cmds = append(cmds, fmt.Sprintf("mkdir -p $(dirname %s)", path))
-	cmds = append(cmds, fmt.Sprintf("cat > %s <<_END\n%s\n_END", path, content))
-	return append(cmds, setFilePermission(path, permission, owner)...)
+	return mkWriteFileCmd(">", path, content, permission, owner)
 }
 
 func mkAppendFileCmd(path string, content string, permission string, owner string) []string {
-	cmds := []string{}
-	cmds = append(cmds, fmt.Sprintf("mkdir -p $(dirname %s)", path))
-	cmds = append(cmds, fmt.Sprintf("cat >> %s <<_END\n%s\n_END", path, content))
-	return append(cmds, setFilePermission(path, permission, owner)...)
+	return mkWriteFileCmd(">>", path, content, permission, owner)
 }
 
 func (wf *SWriteFile) ShellScripts() []string {
+	if !validWritePath(wf.Path) {
+		log.Errorf("cloudinit: skipping write_file with a path that walks up out of its directory: %q", wf.Path)
+		return nil
+	}
 	content := wf.Content
 	if wf.Encoding == "b64" {
 		_content, _ := base64.StdEncoding.DecodeString(wf.Content)
@@ -176,23 +272,36 @@ func (u *SUser) Password(passwd string) *SUser {
 }
 
 func (u *SUser) PowerShellScripts() []string {
+	if !validUserName(u.Name) {
+		log.Errorf("cloudinit: skipping scripts for unusable user name %q", u.Name)
+		return nil
+	}
+	// Every line below is parsed by PowerShell first, so the name and the
+	// password are escaped the same way. Using the unescaped name for one of
+	// the lines would have them name different accounts.
+	name := escapePowerShell(u.Name)
 	shells := []string{}
-	shells = append(shells, fmt.Sprintf(`New-LocalUser -Name "%s" -Description "A New Local Account Created By PowerShell" -NoPassword`, u.Name))
-	shells = append(shells, fmt.Sprintf(`Add-LocalGroupMember -Group "Administrators" -Member "%s"`, u.Name))
+	shells = append(shells, fmt.Sprintf(`New-LocalUser -Name "%s" -Description "A New Local Account Created By PowerShell" -NoPassword`, name))
+	shells = append(shells, fmt.Sprintf(`Add-LocalGroupMember -Group "Administrators" -Member "%s"`, name))
 	if len(u.PlainTextPasswd) > 0 {
-		shells = append(shells, fmt.Sprintf(`net user "%s" "%s"`, u.Name, u.PlainTextPasswd))
+		shells = append(shells, fmt.Sprintf(`net user "%s" "%s"`, name, escapePowerShell(u.PlainTextPasswd)))
 	}
 	// enable需要再设置密码之后，否则会出现Enable-LocalUser : Unable to update the password. The value provided for the new password does not meet the length, complexity, or history requirements of the domain
-	shells = append(shells, fmt.Sprintf(`Enable-LocalUser "%s"`, u.Name))
+	shells = append(shells, fmt.Sprintf(`Enable-LocalUser "%s"`, name))
 	return shells
 }
 
 func (u *SUser) ShellScripts() []string {
+	if !validUserName(u.Name) {
+		log.Errorf("cloudinit: skipping scripts for unusable user name %q", u.Name)
+		return nil
+	}
+	name := shellQuote(u.Name)
 	shells := []string{}
 
-	shells = append(shells, fmt.Sprintf("useradd -m %s || true", u.Name))
+	shells = append(shells, fmt.Sprintf("useradd -m %s || true", name))
 	if len(u.HashedPasswd) > 0 {
-		shells = append(shells, fmt.Sprintf("usermod -p '%s' %s", u.HashedPasswd, u.Name))
+		shells = append(shells, fmt.Sprintf("usermod -p %s %s", shellQuote(u.HashedPasswd), name))
 	}
 
 	home := "/" + u.Name
@@ -202,7 +311,7 @@ func (u *SUser) ShellScripts() []string {
 
 	keyPath := fmt.Sprintf("%s/.ssh/authorized_keys", home)
 	shells = append(shells, mkAppendFileCmd(keyPath, strings.Join(u.SshAuthorizedKeys, "\n"), "600", u.Name)...)
-	shells = append(shells, fmt.Sprintf("chown -R %s:%s %s/.ssh", u.Name, u.Name, home))
+	shells = append(shells, fmt.Sprintf("chown -R %s:%s %s", name, name, shellQuote(home+"/.ssh")))
 
 	if !utils.IsInStringArray(u.Sudo, []string{"", "False"}) {
 		shells = append(shells, mkPutFileCmd("/etc/sudoers.d/"+u.Name, fmt.Sprintf("%s	%s", u.Name, u.Sudo), "", "")...)
@@ -212,6 +321,9 @@ func (u *SUser) ShellScripts() []string {
 }
 
 func (conf *SCloudConfig) UserData() string {
+	if conf == nil {
+		return ""
+	}
 	var buf bytes.Buffer
 	jsonConf := jsonutils.Marshal(conf).(*jsonutils.JSONDict)
 	if jsonConf.Contains("users") {
@@ -228,6 +340,9 @@ func (conf *SCloudConfig) UserData() string {
 }
 
 func (conf *SCloudConfig) UserDataScript() string {
+	if conf == nil {
+		return ""
+	}
 	shells := []string{}
 	for _, u := range conf.Users {
 		shells = append(shells, u.ShellScripts()...)
@@ -248,8 +363,11 @@ func (conf *SCloudConfig) UserDataScript() string {
 	}
 
 	for _, pkg := range conf.Packages {
-		shells = append(shells, "which yum &>/dev/null && yum install -y "+pkg)
-		shells = append(shells, "which apt-get &>/dev/null && apt-get install -y "+pkg)
+		// A package name is an argument, not part of the command line, so it
+		// is quoted rather than pasted in.
+		quoted := shellQuote(pkg)
+		shells = append(shells, "which yum &>/dev/null && yum install -y "+quoted)
+		shells = append(shells, "which apt-get &>/dev/null && apt-get install -y "+quoted)
 	}
 	for _, wf := range conf.WriteFiles {
 		shells = append(shells, wf.ShellScripts()...)
@@ -317,7 +435,13 @@ func ParseUserData(data string) (*SCloudConfig, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "ParseYAML")
 	}
-	jsonDict := jsonConf.(*jsonutils.JSONDict)
+	jsonDict, ok := jsonConf.(*jsonutils.JSONDict)
+	if !ok {
+		// Anything that is valid YAML but not a mapping, e.g. a list or a
+		// scalar, is not a usable cloud-config document.
+		return nil, errors.Wrapf(errors.ErrInvalidFormat,
+			"cloud-config must be a YAML mapping, got %s", jsonConf.String())
+	}
 	if jsonDict.Contains("users") {
 		userArray := jsonutils.NewArray()
 		users, _ := jsonConf.GetArray("users")

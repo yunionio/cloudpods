@@ -181,12 +181,21 @@ func (ar IPV4AddrRange) ContainsRange(ar2 IPV4AddrRange) bool {
 	return ar.start <= ar2.start && ar.end >= ar2.end
 }
 
+// Random returns an address from the range, excluding end. A range that
+// covers a single address returns that address.
 func (ar IPV4AddrRange) Random() IPV4Addr {
-	return IPV4Addr(uint32(ar.start) + uint32(rand.Intn(int(uint32(ar.end)-uint32(ar.start)))))
+	if ar.start >= ar.end {
+		return ar.start
+	}
+	// int64 so the span of a very large range cannot overflow the argument
+	// to the random source.
+	span := int64(uint32(ar.end) - uint32(ar.start))
+	return IPV4Addr(uint32(ar.start) + uint32(rand.Int63n(span)))
 }
 
 func (ar IPV4AddrRange) AddressCount() int {
-	return int(uint32(ar.end) - uint32(ar.start) + 1)
+	// 64 bit arithmetic so a full range does not wrap around to zero.
+	return int(uint64(uint32(ar.end)) - uint64(uint32(ar.start)) + 1)
 }
 
 func (ar IPV4AddrRange) String() string {
@@ -360,9 +369,17 @@ func (ar IPV4AddrRange) equals(ar2 IPV4AddrRange) bool {
 	return ar.start == ar2.start && ar.end == ar2.end
 }
 
+// Masklen2Mask returns the network mask for a prefix length.
+//
+// A length above 32 cannot be represented and is treated as 32, i.e. a single
+// host, rather than shifting past the width of the mask and wrapping around to
+// a match-all mask.
 func Masklen2Mask(maskLen int8) IPV4Addr {
 	if maskLen < 0 {
 		panic("negative masklen")
+	}
+	if maskLen > 32 {
+		maskLen = 32
 	}
 	return IPV4Addr(^(uint32(1<<(32-uint8(maskLen))) - 1))
 }
@@ -392,6 +409,25 @@ func Mask2Len(mask IPV4Addr) int8 {
 	return int8(bits.LeadingZeros32(^uint32(mask)))
 }
 
+// ParsePrefix parses an IPv4 prefix written as "address/masklen", or as a
+// bare address, which is taken to be a /32. An empty string parses as
+// 0.0.0.0/32 rather than being rejected.
+//
+// The prefix length may also be written as a dotted-decimal mask, e.g.
+// "10.0.0.0/255.0.0.0". A dotted mask is converted by counting its leading
+// one bits, so the result always has a contiguous mask:
+// "1.2.3.4/255.0.255.0" yields 1.0.0.0/8 rather than being rejected.
+//
+// The numeric form is read with strconv.Atoi, so it also accepts a leading
+// sign and leading zeros: "+8" and "024" parse as 8 and 24.
+//
+// These accepted forms are more permissive than net.ParseCIDR. Note that
+// regutils.MatchCIDR and regutils.MatchIP4Addr reject the dotted-mask and
+// leading-zero spellings that this function accepts, so a value checked with
+// one of those and then normalised here can end up covering something other
+// than what was checked. Prefer net.ParseCIDR where the stricter grammar is
+// wanted; the lenient spellings are kept for compatibility with prefixes
+// already stored by callers.
 func ParsePrefix(prefix string) (IPV4Addr, int8, error) {
 	slash := strings.IndexByte(prefix, '/')
 	if slash > 0 {
@@ -438,7 +474,15 @@ func NewIPV4Prefix(prefix string) (IPV4Prefix, error) {
 	return pref, nil
 }
 
+// NewIPV4PrefixFromAddr builds a prefix from an address and a prefix length.
+//
+// A length above 32 is clamped to 32 so that the stored MaskLen always agrees
+// with the address and range it describes. A negative length keeps its
+// existing behaviour of panicking.
 func NewIPV4PrefixFromAddr(addr IPV4Addr, masklen int8) IPV4Prefix {
+	if masklen > 32 {
+		masklen = 32
+	}
 	pref := IPV4Prefix{
 		Address: addr.NetAddr(masklen),
 		MaskLen: masklen,
@@ -465,14 +509,28 @@ const (
 	multicastPrefix = "224.0.0.0/4"
 )
 
+// Ranges that cannot be a public address but are not part of the private
+// ranges used to classify guest addresses. They are consulted by
+// IsExitAddress only, so that IsPrivate keeps its current meaning for the
+// callers that use it for address allocation and DHCP.
+var reservedPrefixes = []string{
+	"0.0.0.0/8",       // "this network"
+	"192.0.2.0/24",    // TEST-NET-1
+	"198.51.100.0/24", // TEST-NET-2
+	"203.0.113.0/24",  // TEST-NET-3
+	"240.0.0.0/4",     // reserved, includes the limited broadcast address
+}
+
 var privateIPRanges []IPV4AddrRange
 var customizedPrivateIPRanges []IPV4AddrRange
+var reservedIPRanges []IPV4AddrRange
 var hostLocalIPRange IPV4AddrRange
 var linkLocalIPRange IPV4AddrRange
 var multicastIPRange IPV4AddrRange
 
 func init() {
 	initPrivateIPRanges()
+	initReservedIPRanges()
 
 	prefix, _ := NewIPV4Prefix(hostlocalPrefix)
 	hostLocalIPRange = prefix.ToIPRange()
@@ -500,6 +558,22 @@ func initPrivateIPRanges() {
 		}
 		privateIPRanges[i] = prefix.ToIPRange()
 	}
+}
+
+func initReservedIPRanges() {
+	reservedIPRanges = make([]IPV4AddrRange, 0, len(reservedPrefixes))
+	for _, prefix := range reservedPrefixes {
+		p, err := NewIPV4Prefix(prefix)
+		if err != nil {
+			continue
+		}
+		reservedIPRanges = append(reservedIPRanges, p.ToIPRange())
+	}
+}
+
+// GetReservedIPRanges returns the ranges that IsReserved consults.
+func GetReservedIPRanges() []IPV4AddrRange {
+	return append([]IPV4AddrRange(nil), reservedIPRanges...)
 }
 
 func SetPrivatePrefixes(pref []string) {
@@ -538,8 +612,23 @@ func IsMulticast(addr IPV4Addr) bool {
 	return multicastIPRange.Contains(addr)
 }
 
+// IsReserved reports whether addr is in a range that is reserved and can
+// never be a public address.
+func IsReserved(addr IPV4Addr) bool {
+	for _, ipRange := range reservedIPRanges {
+		if ipRange.Contains(addr) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsExitAddress reports whether addr can be a public address, i.e. one that a
+// guest can reach directly. Reserved ranges are excluded along with the
+// private, host local, link local and multicast ones.
 func IsExitAddress(addr IPV4Addr) bool {
-	return !IsPrivate(addr) && !IsHostLocal(addr) && !IsLinkLocal(addr) && !IsMulticast(addr)
+	return !IsPrivate(addr) && !IsReserved(addr) &&
+		!IsHostLocal(addr) && !IsLinkLocal(addr) && !IsMulticast(addr)
 }
 
 func MacUnpackHex(mac string) string {

@@ -8,6 +8,7 @@ require (
 	github.com/LeeEirc/terminalparser v0.0.0-20240205084113-fbf78c8480f2
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.684
 	github.com/anacrolix/torrent v0.0.0-20181129073333-cc531b8c4a80
+	github.com/beevik/etree v1.1.0
 	github.com/benbjohnson/clock v1.0.0
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/c-bata/go-prompt v0.2.4
@@ -40,6 +41,7 @@ require (
 	github.com/lestrrat-go/jwx v1.0.2
 	github.com/lestrrat/go-jwx v0.0.0-20180221005942-b7d4802280ae
 	github.com/libvirt/libvirt-go-xml v5.2.0+incompatible
+	github.com/ma314smith/signedxml v0.0.0-20210628192057-abc5b481ae1c
 	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/mdlayher/arp v0.0.0-20190313224443-98a83c8a2717
 	github.com/mdlayher/ethernet v0.0.0-20190606142754-0394541c37b7
@@ -93,15 +95,15 @@ require (
 	k8s.io/client-go v0.26.1
 	k8s.io/cluster-bootstrap v0.19.3
 	moul.io/http2curl/v2 v2.3.0
-	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20260904120453-50460af86d9f
+	yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20261010100045-bd34f5ef923e
 	yunion.io/x/executor v0.0.0-20260312022053-f538abd2b005
-	yunion.io/x/jsonutils v1.0.1-0.20260715075349-615cfb44ff7c
+	yunion.io/x/jsonutils v1.0.1-0.20260917025845-3108cd9a32ea
 	yunion.io/x/log v1.0.1-0.20240305175729-7cf2d6cd5a91
 	yunion.io/x/ovsdb v0.0.0-20230306173834-f164f413a900
-	yunion.io/x/pkg v1.10.4-0.20260722094907-0da70a14584f
+	yunion.io/x/pkg v1.10.4-0.20260918012554-27cd9d2e093b
 	yunion.io/x/s3cli v0.0.0-20241221171442-1c11599d28e1
-	yunion.io/x/sqlchemy v1.1.3-0.20260807102031-1d7e260d0dcc
-	yunion.io/x/structarg v0.0.0-20231017124457-df4d5009457c
+	yunion.io/x/sqlchemy v1.1.3-0.20260917035232-d682485b3a12
+	yunion.io/x/structarg v0.0.0-20260917033311-96c7653334ac
 )
 
 require (
@@ -142,7 +144,6 @@ require (
 	github.com/apparentlymart/go-cidr v1.1.0 // indirect
 	github.com/aws/aws-sdk-go v1.44.194 // indirect
 	github.com/basgys/goxml2json v1.1.1-0.20181031222924-996d9fc8d313 // indirect
-	github.com/beevik/etree v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.2.0 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
@@ -215,7 +216,6 @@ require (
 	github.com/lestrrat-go/pdebug v0.0.0-20200204225717-4d6bd78da58d // indirect
 	github.com/lestrrat/go-pdebug v0.0.0-20180220043741-569c97477ae8 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
-	github.com/ma314smith/signedxml v0.0.0-20210628192057-abc5b481ae1c // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.11 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect

@@ -17,6 +17,7 @@ package aliyun
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -439,13 +440,23 @@ func (self *SInstance) StopVM(ctx context.Context, opts *cloudprovider.ServerSto
 }
 
 func (self *SInstance) GetVNCInfo(input *cloudprovider.ServerVncInput) (*cloudprovider.ServerVncOutput, error) {
-	url, err := self.host.zone.region.GetInstanceVNCUrl(self.InstanceId)
+	rawUrl, err := self.host.zone.region.GetInstanceVNCUrl(self.InstanceId)
 	if err != nil {
 		return nil, err
 	}
+	vncUrl, err := url.QueryUnescape(rawUrl)
+	if err != nil {
+		return nil, errors.Wrap(err, "url.QueryUnescape")
+	}
+	// Default: websocket url for webconsole wsproxy (no-vnc).
+	// Origin=true keeps aliyun console page protocol for ForceUseOriginVnc.
+	protocol := "vnc"
+	if input != nil && input.Origin {
+		protocol = "aliyun"
+	}
 	ret := &cloudprovider.ServerVncOutput{
-		Url:        url,
-		Protocol:   "aliyun",
+		Url:        vncUrl,
+		Protocol:   protocol,
 		InstanceId: self.InstanceId,
 		Hypervisor: api.HYPERVISOR_ALIYUN,
 		OsName:     string(self.GetOsType()),

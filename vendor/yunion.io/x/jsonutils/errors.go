@@ -26,10 +26,16 @@ const (
 	ErrInvalidHex  = errors.Error("invalid hex")
 	ErrInvalidRune = errors.Error("invalid 4 byte rune")
 
+	ErrInvalidNodeId         = errors.Error("invalid node id")
+	ErrDuplicateNodeId       = errors.Error("duplicate node id")
+	ErrNestedTooDeep         = errors.Error("json nested too deep")
+	ErrNodeReferenceDisabled = errors.Error("node reference is not enabled, see ParseTrusted")
+
 	ErrTypeMismatch         = errors.Error("unmarshal type mismatch")
 	ErrArrayLengthMismatch  = errors.Error("unmarshal array length mismatch")
 	ErrInterfaceUnsupported = errors.Error("do not known how to deserialize json into this interface type")
 	ErrMapKeyMustString     = errors.Error("map key must be string")
+	ErrNodeNotFound         = errors.Error("no node found for the reference")
 
 	ErrMissingInputField = errors.Error("missing input field")
 	ErrNilInputField     = errors.Error("nil input field")

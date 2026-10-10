@@ -20,9 +20,17 @@ import (
 	"time"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/sortedmap"
 	"yunion.io/x/pkg/util/timeutils"
 )
+
+func normalizeJSONObject(obj JSONObject) JSONObject {
+	if gotypes.IsNil(obj) {
+		return JSONNull
+	}
+	return obj
+}
 
 type JSONPair struct {
 	key string
@@ -40,7 +48,7 @@ func NewDict(objs ...JSONPair) *JSONDict {
 func NewArray(objs ...JSONObject) *JSONArray {
 	arr := JSONArray{data: make([]JSONObject, 0, len(objs))}
 	for _, o := range objs {
-		arr.data = append(arr.data, o)
+		arr.data = append(arr.data, normalizeJSONObject(o))
 	}
 	return &arr
 }
@@ -74,7 +82,7 @@ func NewBool(val bool) *JSONBool {
 }
 
 func (this *JSONDict) Set(key string, value JSONObject) {
-	this.data = sortedmap.Add(this.data, key, value)
+	this.data = sortedmap.Add(this.data, key, normalizeJSONObject(value))
 }
 
 func (this *JSONDict) Remove(key string) bool {
@@ -130,12 +138,12 @@ func (this *JSONDict) Add(o JSONObject, keys ...string) error {
 }
 
 func (this *JSONArray) SetAt(idx int, obj JSONObject) {
-	this.data[idx] = obj
+	this.data[idx] = normalizeJSONObject(obj)
 }
 
 func (this *JSONArray) Add(objs ...JSONObject) {
 	for _, o := range objs {
-		this.data = append(this.data, o)
+		this.data = append(this.data, normalizeJSONObject(o))
 	}
 }
 

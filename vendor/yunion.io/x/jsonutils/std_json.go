@@ -16,9 +16,9 @@ package jsonutils
 
 import (
 	"encoding/json"
-	"fmt"
 	"reflect"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 )
 
@@ -110,11 +110,13 @@ func tryStdMarshal(v reflect.Value, marshalFunc func(v reflect.Value) JSONObject
 		if m != nil {
 			data, err := m.MarshalJSON()
 			if err != nil {
-				panic(fmt.Sprintf("MarshalJSON of %q error: %v", v.String(), err))
+				log.Errorf("MarshalJSON of %s error: %v", v.Type(), err)
+				return JSONNull
 			}
 			jo, err := Parse(data)
 			if err != nil {
-				panic(fmt.Sprintf("Parse data %q to json of %q error: %v", data, v.String(), err))
+				log.Errorf("Parse data %s to json of %s error: %v", data, v.Type(), err)
+				return JSONNull
 			}
 			return jo
 		}

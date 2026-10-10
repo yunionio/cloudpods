@@ -17,7 +17,6 @@ package utils
 import (
 	"net"
 	"strconv"
-	"strings"
 )
 
 func GetOutboundIP() net.IP {
@@ -30,8 +29,18 @@ func GetOutboundIP() net.IP {
 	return localAddr.IP
 }
 
+// GetAddrPort splits a "host:port" address into its host and port parts.
+// IPv6 addresses must be bracketed, e.g. "[::1]:8080", which also yields the
+// address without the brackets. If addrPort cannot be split, or the port is
+// not a number, the host is returned with a port of 0.
 func GetAddrPort(addrPort string) (string, int) {
-	parts := strings.Split(addrPort, ":")
-	port, _ := strconv.Atoi(parts[1])
-	return parts[0], port
+	host, portStr, err := net.SplitHostPort(addrPort)
+	if err != nil {
+		return addrPort, 0
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return host, 0
+	}
+	return host, port
 }

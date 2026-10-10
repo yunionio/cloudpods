@@ -471,6 +471,9 @@ func GetSize(sizeStr, defaultSize string, base int64) (size int64, err error) {
 	if IsMatchInteger(sizeStr) {
 		sizeStr += defaultSize
 	}
+	if len(sizeStr) == 0 {
+		return 0, fmt.Errorf("empty size string")
+	}
 
 	sizeNumStr := sizeStr[0 : len(sizeStr)-1]
 	size, err = strconv.ParseInt(sizeNumStr, 10, 64)
@@ -481,16 +484,16 @@ func GetSize(sizeStr, defaultSize string, base int64) (size int64, err error) {
 	switch u := sizeStr[len(sizeStr)-1]; u {
 
 	case 't', 'T':
-		size = size * base * base * base * base
+		size, err = scaleSize(size, base, 4)
 
 	case 'g', 'G':
-		size = size * base * base * base
+		size, err = scaleSize(size, base, 3)
 
 	case 'm', 'M':
-		size = size * base * base
+		size, err = scaleSize(size, base, 2)
 
 	case 'k', 'K':
-		size = size * base
+		size, err = scaleSize(size, base, 1)
 
 	case 'b', 'B':
 		size = size
@@ -500,6 +503,22 @@ func GetSize(sizeStr, defaultSize string, base int64) (size int64, err error) {
 	}
 
 	return
+}
+
+// scaleSize multiplies size by base the given number of times, reporting a
+// value that does not fit in an int64 instead of silently wrapping around.
+func scaleSize(size, base int64, times int) (int64, error) {
+	const maxInt64 = int64(^uint64(0) >> 1)
+	if base <= 0 {
+		return 0, fmt.Errorf("invalid base %d", base)
+	}
+	for i := 0; i < times; i++ {
+		if size > maxInt64/base {
+			return 0, fmt.Errorf("size value is too large")
+		}
+		size *= base
+	}
+	return size, nil
 }
 
 func GetSizeBytes(sizeStr, defaultSize string) (int64, error) {
