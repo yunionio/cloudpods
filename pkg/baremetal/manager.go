@@ -1651,6 +1651,9 @@ func (b *SBaremetalInstance) GetServerSSHClient() (*ssh.Client, error) {
 		return nil, errors.Wrapf(err, "Get server %s login info", s.GetId())
 	}
 	nics := s.GetNics()
+	if len(nics) == 0 {
+		return nil, errors.Errorf("server %s has no nics", s.GetName())
+	}
 	var errs []error
 	for idx, nic := range nics {
 		if nic.Ip != "" {
@@ -1669,7 +1672,9 @@ func (b *SBaremetalInstance) GetServerSSHClient() (*ssh.Client, error) {
 			errs = append(errs, errors.Errorf("nic %d link_up: %v, ip: %q", idx, nic.LinkUp, nic.Ip))
 		}
 	}
-
+	if len(errs) == 0 {
+		return nil, errors.Errorf("server %s ssh unreachable", s.GetName())
+	}
 	return nil, errors.NewAggregate(errs)
 }
 
@@ -1677,15 +1682,13 @@ func (b *SBaremetalInstance) SSHReachable() (bool, error) {
 	var errs []error
 	if cli, err := b.GetHostSSHClient(); err != nil {
 		errs = append(errs, err)
-	} else {
-		// host ssh reachable
+	} else if cli != nil {
 		cli.Close()
 		return true, nil
 	}
 	if cli, err := b.GetServerSSHClient(); err != nil {
 		errs = append(errs, err)
-	} else {
-		// server ssh reachable
+	} else if cli != nil {
 		cli.Close()
 		return true, nil
 	}
@@ -1954,18 +1957,18 @@ func (b *SBaremetalInstance) GetPowerStatus() (types.PowerStatus, error) {
 func (b *SBaremetalInstance) getPowerStatus() (types.PowerStatus, error) {
 	ipmiCli := b.GetIPMITool()
 	if ipmiCli == nil {
-		if cli, err := b.GetHostSSHClient(); err == nil {
+		if cli, err := b.GetHostSSHClient(); err != nil {
+			log.Warningf("Use host %s ssh client get powerstatus: %v", b.GetName(), err)
+		} else if cli != nil {
 			cli.Close()
 			return types.POWER_STATUS_ON, nil
-		} else {
-			log.Warningf("Use host %s ssh client get powerstatus: %v", b.GetName(), err)
 		}
-		if cli, err := b.GetServerSSHClient(); err == nil {
+		if cli, err := b.GetServerSSHClient(); err != nil {
+			log.Warningf("Use server %s ssh client get powerstatus: %v", b.GetServerName(), err)
+		} else if cli != nil {
 			cli.Close()
 			b.ClearSSHConfig()
 			return types.POWER_STATUS_ON, nil
-		} else {
-			log.Warningf("Use server %s ssh client get powerstatus: %v", b.GetServerName(), err)
 		}
 		return "", errors.Wrapf(types.ErrIPMIToolNull, "Baremetal %s", b.GetId())
 	}
@@ -3253,6 +3256,9 @@ func (s *SBaremetalServer) reIndexDescNics(term *ssh.Client, desc *deployapi.Gue
 
 func (s *SBaremetalServer) GetNics() []types.SServerNic {
 	nics := []types.SServerNic{}
+	if s.desc == nil || !s.desc.Contains("nics") {
+		return nil
+	}
 	err := s.desc.Unmarshal(&nics, "nics")
 	if err != nil {
 		log.Errorf("Unmarshal desc to get server nics error: %v", err)
