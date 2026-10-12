@@ -224,6 +224,9 @@ func ParseOutput(output []byte) []string {
 }
 
 func (s *Client) Close() {
+	if s == nil || s.client == nil {
+		return
+	}
 	s.client.Close()
 }
 
