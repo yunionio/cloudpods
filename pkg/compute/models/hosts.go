@@ -1669,6 +1669,9 @@ func (hh *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 			specInfo.IsolatedDevices[i].Vendor = devices[i].getVendor()
 		}
 	}
+	if hh.IsImport && options.Options.BaremetalPrepareServerFakeDelete {
+		specInfo.CreateFromImportBaremetal = true
+	}
 
 	return specInfo.JSON(specInfo)
 }
@@ -1688,6 +1691,9 @@ func (manager *SHostManager) GetSpecIdent(input *jsonutils.JSONDict) []string {
 		for driver, driverSpec := range diskDriverSpec {
 			specKeys = append(specKeys, parseDiskDriverSpec(driver, driverSpec)...)
 		}
+	}
+	if spec.CreateFromImportBaremetal {
+		specKeys = append(specKeys, "importBaremetal:true")
 	}
 	sort.Strings(specKeys)
 	return specKeys
