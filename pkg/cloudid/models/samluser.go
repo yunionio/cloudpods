@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -80,6 +81,44 @@ func (manager *SSamluserManager) GetIVirtualModelManager() db.IVirtualModelManag
 	return manager.GetVirtualObject().(db.IVirtualModelManager)
 }
 
+// ResourceScope 声明 samluser 归属本地用户。
+// 模型同时带 domain_id，若不覆盖，scope=user 会被提升为 domain，
+// 普通用户只有 user 范围的 list 权限，查询会 403。
+func (manager *SSamluserManager) ResourceScope() rbacscope.TRbacScope {
+	return rbacscope.ScopeUser
+}
+
+// effectiveSamluserListScope 在未显式指定 scope、且不是 admin=true 时，
+// 为域/系统读者保留原来的域范围默认视图。普通用户不改写，走 user scope。
+func effectiveSamluserListScope(reqScope string, isAdmin, domainAllow bool) (string, bool) {
+	if reqScope == string(rbacscope.ScopeNone) {
+		reqScope = ""
+	}
+	if len(reqScope) > 0 || isAdmin || !domainAllow {
+		return "", false
+	}
+	return string(rbacscope.ScopeDomain), true
+}
+
+// samluserListOwnerConstraint 限制普通用户只能看到自己的 samluser。
+// 域/系统读者保留请求里的 user 过滤。
+func samluserListOwnerConstraint(callerId string, domainAllow bool) (ownerId string, restrict bool) {
+	if domainAllow {
+		return "", false
+	}
+	return callerId, true
+}
+
+func (manager *SSamluserManager) ValidateListConditions(ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	reqScope, _ := query.GetString("scope")
+	isAdmin := query.Contains("admin") && jsonutils.QueryBoolean(query, "admin", false)
+	domainAllow := db.IsDomainAllowList(userCred, manager).Result.IsAllow()
+	if scope, ok := effectiveSamluserListScope(reqScope, isAdmin, domainAllow); ok {
+		query.Set("scope", jsonutils.NewString(scope))
+	}
+	return query, nil
+}
+
 func (manager *SSamluserManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	groupId, _ := data.GetString("cloudgroup_id")
 	return jsonutils.Marshal(map[string]string{"cloudgroup_id": groupId})
@@ -96,9 +135,19 @@ func (manager *SSamluserManager) FilterByUniqValues(q *sqlchemy.SQuery, values j
 // SAML认证用户列表
 func (manager *SSamluserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.SamluserListInput) (*sqlchemy.SQuery, error) {
 	var err error
+	domainAllow := db.IsDomainAllowList(userCred, manager).Result.IsAllow()
+	ownerId, restrict := samluserListOwnerConstraint(userCred.GetUserId(), domainAllow)
+	if restrict {
+		// 丢弃 user/user_id，避免基类按请求参数查到其他用户。
+		query.UserId = ""
+		query.User = ""
+	}
 	q, err = manager.SStatusDomainLevelUserResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusDomainLevelUserResourceListInput)
 	if err != nil {
 		return nil, err
+	}
+	if restrict {
+		q = q.Equals("owner_id", ownerId)
 	}
 	q, err = manager.SCloudgroupResourceBaseManager.ListItemFilter(ctx, q, userCred, query.CloudgroupResourceListInput)
 	if err != nil {
@@ -168,6 +217,9 @@ func (manager *SSamluserManager) ValidateCreateData(
 			return input, errors.Wrapf(err, "FetchUserById")
 		}
 		input.OwnerId = user.Id
+		if input.OwnerId != userCred.GetUserId() && !db.IsDomainAllowCreate(userCred, manager).Result.IsAllow() {
+			return input, httperrors.NewForbiddenError("not allow to create samluser for another user")
+		}
 		if len(input.Name) == 0 {
 			input.Name = user.Name
 		}
