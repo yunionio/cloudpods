@@ -194,6 +194,8 @@ type SHostOptions struct {
 
 	DisableKVM bool `help:"force disable KVM" default:"false" json:"disable_kvm"`
 
+	GuestMaxMemSizeMb int `help:"guest maximal mem size, default 0 is not set" default:"0"`
+
 	DisableGPU          bool     `help:"force disable GPU detect" default:"false" json:"disable_gpu"`
 	DisableCustomDevice bool     `help:"force disable custom pci device detect" default:"false" json:"disable_custom_device"`
 	DisableUSB          bool     `help:"force disable USB detect" default:"true" json:"disable_usb"`
