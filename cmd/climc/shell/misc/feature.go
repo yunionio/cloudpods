@@ -94,6 +94,7 @@ func init() {
 		"storage",
 		"default",
 		"k8s",
+		"k8s-volcano",
 		"pod",
 		"ai",
 		"monitor",
