@@ -437,6 +437,23 @@ func HasTHeadDevices(llm *SLLM, sku *SLLMSku) bool {
 	return false
 }
 
+// HasMthreadsDevices reports whether effective devices include Moore Threads GPU.
+func HasMthreadsDevices(llm *SLLM, sku *SLLMSku) bool {
+	devs := GetEffectiveDevices(llm, sku)
+	if devs == nil {
+		return false
+	}
+	for _, d := range *devs {
+		if strings.EqualFold(d.Vendor, "MTHREADS") {
+			return true
+		}
+		if d.DevType == computeapi.CONTAINER_DEV_MTHREADS_GPU || d.DevType == computeapi.CONTAINER_DEV_MTHREADS_GPU_HAMI {
+			return true
+		}
+	}
+	return false
+}
+
 // HasKunlunxinDevices reports whether effective devices include Kunlunxin XPU.
 func HasKunlunxinDevices(llm *SLLM, sku *SLLMSku) bool {
 	devs := GetEffectiveDevices(llm, sku)
