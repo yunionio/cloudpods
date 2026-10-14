@@ -135,6 +135,7 @@ type SHostInfo struct {
 	hasNvidiaGpus                  *bool
 	hasVastaitechGpus              *bool
 	hasCphAmdGpus                  *bool
+	hasMthreadsGpus                *bool
 
 	guestManager hostutils.IGuestManager
 }
@@ -2357,24 +2358,26 @@ func (h *SHostInfo) probeSyncIsolatedDevices() (*jsonutils.JSONArray, error) {
 		options.HostOptions.HygonDtkPath,
 	)
 	probeOpts := &isolated_device.SIsolatedDeviceProbeOptions{
-		SkipGPUs:                     options.HostOptions.DisableGPU,
-		SkipUSBs:                     options.HostOptions.DisableUSB,
-		SkipCustomDevs:               options.HostOptions.DisableCustomDevice,
-		EnableCudaHAMI:               options.HostOptions.EnableCudaHAMI,
-		EnableCudaMps:                options.HostOptions.EnableCudaMPS,
-		EnableContainerAscendNpu:     options.HostOptions.EnableContainerAscendNPU,
-		EnableContainerAscendNpuHAMI: options.HostOptions.EnableContainerAscendNPUHami,
-		EnableContainerHygonDCU:      options.HostOptions.EnableContainerHygonDCU,
-		EnableContainerHygonDCUHAMI:  options.HostOptions.EnableContainerHygonDCUHami,
-		EnableContainerIluvatarGPU:   options.HostOptions.EnableContainerIluvatarGPU,
-		EnableContainerTHeadPPU:      options.HostOptions.EnableContainerTHeadPPU,
-		EnableContainerKunlunxinXPU:  options.HostOptions.EnableContainerKunlunxinXPU,
-		EnableWhitelist:              options.HostOptions.EnableIsolatedDeviceWhitelist,
-		SriovNics:                    sriovNics,
-		OvsOffloadNics:               offloadNics,
-		NvmePciDisks:                 options.HostOptions.PTNVMEConfigs,
-		AmdVgpuPFs:                   options.HostOptions.AMDVgpuPFs,
-		NvidiaVgpuPFs:                options.HostOptions.NVIDIAVgpuPFs,
+		SkipGPUs:                       options.HostOptions.DisableGPU,
+		SkipUSBs:                       options.HostOptions.DisableUSB,
+		SkipCustomDevs:                 options.HostOptions.DisableCustomDevice,
+		EnableCudaHAMI:                 options.HostOptions.EnableCudaHAMI,
+		EnableCudaMps:                  options.HostOptions.EnableCudaMPS,
+		EnableContainerAscendNpu:       options.HostOptions.EnableContainerAscendNPU,
+		EnableContainerAscendNpuHAMI:   options.HostOptions.EnableContainerAscendNPUHami,
+		EnableContainerHygonDCU:        options.HostOptions.EnableContainerHygonDCU,
+		EnableContainerHygonDCUHAMI:    options.HostOptions.EnableContainerHygonDCUHami,
+		EnableContainerIluvatarGPU:     options.HostOptions.EnableContainerIluvatarGPU,
+		EnableContainerTHeadPPU:        options.HostOptions.EnableContainerTHeadPPU,
+		EnableContainerKunlunxinXPU:    options.HostOptions.EnableContainerKunlunxinXPU,
+		EnableContainerMthreadsGPU:     options.HostOptions.EnableContainerMthreadsGPU,
+		EnableContainerMthreadsGPUHami: options.HostOptions.EnableContainerMthreadsGPUHami,
+		EnableWhitelist:                options.HostOptions.EnableIsolatedDeviceWhitelist,
+		SriovNics:                      sriovNics,
+		OvsOffloadNics:                 offloadNics,
+		NvmePciDisks:                   options.HostOptions.PTNVMEConfigs,
+		AmdVgpuPFs:                     options.HostOptions.AMDVgpuPFs,
+		NvidiaVgpuPFs:                  options.HostOptions.NVIDIAVgpuPFs,
 	}
 	h.IsolatedDeviceMan.ProbePCIDevices(probeOpts)
 
@@ -2717,6 +2720,7 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 	hasIluvatar := false
 	hasTHead := false
 	hasKunlunxin := false
+	hasMthreads := false
 	hasNvidiasmi := false
 	hasNpusmi := false
 	for _, dev := range devs {
@@ -2732,6 +2736,9 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 		}
 		if vendorId == api.KUNLUNXIN_VENDOR_ID {
 			hasKunlunxin = true
+		}
+		if vendorId == api.MTHREADS_VENDOR_ID {
+			hasMthreads = true
 		}
 		if !utils.IsInStringArray(dev.GetSharingMode(), api.VIRTUAL_SHARING_MODES) {
 			continue
@@ -2811,6 +2818,15 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 		conf[system_service.TELEGRAF_INPUT_PPUSMI] = map[string]interface{}{
 			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: smiPath,
 			system_service.TELEGRAF_INPUT_CONF_LIB_PATH: libPath,
+		}
+	}
+	if hasMthreads {
+		smiPath := options.HostOptions.MthreadsGmiPath
+		if smiPath == "" {
+			smiPath = "/usr/bin/mthreads-gmi"
+		}
+		conf[system_service.TELEGRAF_INPUT_MTHREADSGMI] = map[string]interface{}{
+			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: smiPath,
 		}
 	}
 	if hasKunlunxin {

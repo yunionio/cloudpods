@@ -399,6 +399,34 @@ func (man *isolatedDeviceManager) probeContainerKunlunxinXPUs(enable bool) {
 	}
 }
 
+func (man *isolatedDeviceManager) probeContainerMthreadsGPUs(enable, enableHami bool) {
+	devType := ContainerDeviceTypeMthreadsGpu
+	if enableHami {
+		devType = ContainerDeviceTypeMthreadsGpuHami
+	} else if !enable {
+		log.Infof("mthreads gpu probe skipped: enable_container_mthreads_gpu=false and enable_container_mthreads_gpu_hami=false")
+		return
+	}
+	devman, err := GetContainerDeviceManager(devType)
+	if err != nil {
+		log.Errorf("no container device manager %s found: %v", devType, err)
+		return
+	}
+	devs, err := devman.ProbeDevices()
+	if err != nil {
+		log.Warningf("Probe container mthreads gpu devices: %v", err)
+		return
+	}
+	if len(devs) == 0 {
+		log.Infof("mthreads gpu probe finished: no devices found")
+		return
+	}
+	for idx, dev := range devs {
+		man.devices = append(man.devices, dev)
+		log.Infof("Add Container mthreads GPU device: %d => %#v", idx, dev)
+	}
+}
+
 func (man *isolatedDeviceManager) probeGPUS(skipGPUs bool, amdVgpuPFs, nvidiaVgpuPFs []string, enableWhitelist bool, whitelistModels []IsolatedDeviceModel) {
 	if skipGPUs {
 		return
@@ -567,16 +595,18 @@ type SIsolatedDeviceProbeOptions struct {
 	SkipUSBs       bool
 	SkipCustomDevs bool
 
-	EnableCudaHAMI               bool
-	EnableCudaMps                bool
-	EnableContainerAscendNpu     bool
-	EnableContainerAscendNpuHAMI bool
-	EnableContainerHygonDCU      bool
-	EnableContainerHygonDCUHAMI  bool
-	EnableContainerIluvatarGPU   bool
-	EnableContainerTHeadPPU      bool
-	EnableContainerKunlunxinXPU  bool
-	EnableWhitelist              bool
+	EnableCudaHAMI                 bool
+	EnableCudaMps                  bool
+	EnableContainerAscendNpu       bool
+	EnableContainerAscendNpuHAMI   bool
+	EnableContainerHygonDCU        bool
+	EnableContainerHygonDCUHAMI    bool
+	EnableContainerIluvatarGPU     bool
+	EnableContainerTHeadPPU        bool
+	EnableContainerKunlunxinXPU    bool
+	EnableContainerMthreadsGPU     bool
+	EnableContainerMthreadsGPUHami bool
+	EnableWhitelist                bool
 
 	SriovNics, OvsOffloadNics []HostNic
 
@@ -596,6 +626,7 @@ func (man *isolatedDeviceManager) ProbePCIDevices(opts *SIsolatedDeviceProbeOpti
 		man.probeContainerIluvatarGPUs(opts.EnableContainerIluvatarGPU)
 		man.probeContainerTHeadPPUs(opts.EnableContainerTHeadPPU)
 		man.probeContainerKunlunxinXPUs(opts.EnableContainerKunlunxinXPU)
+		man.probeContainerMthreadsGPUs(opts.EnableContainerMthreadsGPU, opts.EnableContainerMthreadsGPUHami)
 	} else {
 		log.Infof("==== ProbePCIDevices: not container host, hygon container probe will NOT run (use host_type=container for hygon dcu)")
 		devModels, err := man.getCustomIsolatedDeviceModels()
