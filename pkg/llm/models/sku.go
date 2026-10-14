@@ -86,14 +86,22 @@ func (man *SLLMSkuBaseManager) ValidateCreateData(ctx context.Context, userCred 
 	return input, nil
 }
 
-// normalizeLLMSkuDevices maps NVIDIA_* / HYGON_* / ASCEND_* / ILUVATAR_* / THEAD_* / KUNLUNXIN_* DevTypes onto
+// normalizeLLMSkuDevices maps NVIDIA_* / HYGON_* / ASCEND_* / ILUVATAR_* / THEAD_* / KUNLUNXIN_* / MTHREADS_* DevTypes onto
 // GPU|NPU + SharingMode, and defaults empty DevType/SharingMode appropriately.
 func normalizeLLMSkuDevices(devices *api.Devices) error {
 	if devices == nil || len(*devices) == 0 {
 		return nil
 	}
+	mthreadsHami := 0
 	for i := range *devices {
 		normalizeLLMSkuDevice(&(*devices)[i])
+		dev := (*devices)[i]
+		if computeapi.IsMthreadsHami(dev.Vendor, dev.SharingMode) {
+			mthreadsHami++
+		}
+	}
+	if mthreadsHami > 1 {
+		return httperrors.NewInputParameterError("Moore Threads sGPU does not support multiple cards in one task; use exclusive mode for multiple cards")
 	}
 	return nil
 }
@@ -175,6 +183,16 @@ func normalizeLLMSkuDevice(dev *api.Device) {
 		if dev.SharingMode == "" {
 			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_EXCLUSIVE
 		}
+	case computeapi.CONTAINER_DEV_MTHREADS_GPU:
+		dev.DevType = computeapi.GPU_TYPE
+		if dev.SharingMode == "" {
+			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_EXCLUSIVE
+		}
+	case computeapi.CONTAINER_DEV_MTHREADS_GPU_HAMI:
+		dev.DevType = computeapi.GPU_TYPE
+		if dev.SharingMode == "" {
+			dev.SharingMode = computeapi.DEVICE_SHARING_MODE_HAMI
+		}
 	}
 	if dev.SharingMode == "" {
 		dev.SharingMode = computeapi.DEVICE_SHARING_MODE_HAMI
@@ -194,6 +212,8 @@ func normalizeLLMSkuDevice(dev *api.Device) {
 			dev.Vendor = "THEAD"
 		case computeapi.CONTAINER_DEV_KUNLUNXIN_XPU:
 			dev.Vendor = "KUNLUNXIN"
+		case computeapi.CONTAINER_DEV_MTHREADS_GPU, computeapi.CONTAINER_DEV_MTHREADS_GPU_HAMI:
+			dev.Vendor = "MTHREADS"
 		}
 	}
 	dev.Vendor = canonicalizeLLMDeviceVendor(dev.Vendor)
