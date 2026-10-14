@@ -59,6 +59,11 @@ var podGpu = SMeasurement{
 			DisplayName: "Pod gpu mem usage",
 			Unit:        monitor.METRIC_UNIT_PERCENT,
 		},
+		{
+			Name:        "gpu_util",
+			DisplayName: "Pod gpu utilization",
+			Unit:        monitor.METRIC_UNIT_PERCENT,
+		},
 	},
 }
 

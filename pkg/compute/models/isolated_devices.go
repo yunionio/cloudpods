@@ -2020,6 +2020,29 @@ func (manager *SIsolatedDeviceManager) GetHostsGuestIsolatedDevices(hostIds []st
 	return ret
 }
 
+func (dev *SIsolatedDevice) isMthreads() bool {
+	return strings.EqualFold(dev.getVendorId(), api.MTHREADS_VENDOR_ID)
+}
+
+func (dev *SIsolatedDevice) hamiMemoryRequest(memoryRequest int) int {
+	if dev.isMthreads() {
+		return api.AlignMthreadsSgpuMemoryMiB(memoryRequest)
+	}
+	return memoryRequest
+}
+
+func (dev *SIsolatedDevice) mthreadsSgpuInstanceFull() bool {
+	if !dev.isMthreads() {
+		return false
+	}
+	cnt, err := dev.getAllocatedCount()
+	if err != nil {
+		log.Errorf("failed getAllocatedCount %s", err)
+		return true
+	}
+	return cnt >= api.MthreadsSgpuMaxInstances
+}
+
 func (dev *SIsolatedDevice) IsEnough(memoryRequest int) bool {
 	if dev.SharingMode != api.DEVICE_SHARING_MODE_HAMI {
 		cnt, err := dev.getAllocatedCount()
@@ -2028,14 +2051,17 @@ func (dev *SIsolatedDevice) IsEnough(memoryRequest int) bool {
 			return false
 		}
 		return dev.VirtualNum > cnt
-	} else {
-		allocated, err := dev.getAllocatedMemorySize()
-		if err != nil {
-			log.Errorf("failed getAllocatedMemorySize %s", err)
-			return false
-		}
-		return (dev.MemorySize - allocated) >= memoryRequest
 	}
+	if dev.mthreadsSgpuInstanceFull() {
+		return false
+	}
+	memoryRequest = dev.hamiMemoryRequest(memoryRequest)
+	allocated, err := dev.getAllocatedMemorySize()
+	if err != nil {
+		log.Errorf("failed getAllocatedMemorySize %s", err)
+		return false
+	}
+	return (dev.MemorySize - allocated) >= memoryRequest
 }
 
 func (dev *SIsolatedDevice) IsFull() bool {
@@ -2046,14 +2072,16 @@ func (dev *SIsolatedDevice) IsFull() bool {
 			return true
 		}
 		return dev.VirtualNum <= cnt
-	} else {
-		allocated, err := dev.getAllocatedMemorySize()
-		if err != nil {
-			log.Errorf("failed getAllocatedMemorySize %s", err)
-			return true
-		}
-		return dev.MemorySize <= allocated
 	}
+	if dev.mthreadsSgpuInstanceFull() {
+		return true
+	}
+	allocated, err := dev.getAllocatedMemorySize()
+	if err != nil {
+		log.Errorf("failed getAllocatedMemorySize %s", err)
+		return true
+	}
+	return dev.MemorySize <= allocated
 }
 
 func (manager *SIsolatedDeviceManager) InitializeData() error {
