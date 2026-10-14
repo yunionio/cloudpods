@@ -2381,6 +2381,9 @@ func (manager *SGuestManager) validateCreateData(
 	if nvidiaVgpuCnt > 1 {
 		return nil, httperrors.NewBadRequestError("Nvidia vGPU count cannot exceed 1")
 	}
+	if api.CountMthreadsHamiDevices(input.IsolatedDevices) > 1 {
+		return nil, httperrors.NewBadRequestError("Moore Threads sGPU does not support multiple cards in one guest; use exclusive mode for multiple cards")
+	}
 	if nvidiaVgpuCnt > 0 && gpuCnt > 0 {
 		return nil, httperrors.NewBadRequestError("Nvidia vGPU cannot passthrough with other gpus")
 	}
