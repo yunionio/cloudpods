@@ -1,13 +1,13 @@
 #RUN yum install -y https://iso.yunion.cn/vm-images/baremetal-pxerom-1.1.0-21092209.x86_64.rpm
 #RUN yum install -y http://192.168.23.50:8083/baremetal-pxerom-1.1.0-21092209.x86_64.rpm
 FROM registry.cn-beijing.aliyuncs.com/yunionio/yunionos:v4.0.0-20251203.0 as yunionos
-FROM registry.cn-beijing.aliyuncs.com/yunionio/telegraf:v1.36-20260227.0 AS telegraf_builder
+FROM registry.cn-beijing.aliyuncs.com/yunionio/telegraf:v1.36-20261013.0 AS telegraf_builder
 FROM registry.cn-beijing.aliyuncs.com/yunionio/supervise:v2.0 AS supervise_builder
 
 FROM registry.cn-beijing.aliyuncs.com/cloudpods/centos:8 as grub-stage
 
 RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
-RUN sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+RUN sed -i 's|#baseurl=http://mirror.centos.org|baseurl=https://mirrors.aliyun.com/centos-vault|g' /etc/yum.repos.d/CentOS-*
 RUN dnf install -y grub2*
 
 # make grub_booti386 firmware
