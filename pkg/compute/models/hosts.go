@@ -4437,21 +4437,26 @@ func (manager *SHostManager) CustomizedTotalCount(ctx context.Context, userCred 
 	results := SHostTotalCount{}
 
 	// allocated: equivalent to usage all.servers.cpu / all.servers.memory on filtered hosts
+	// honor IgnoreNonrunningGuests, same as host list cpu_commit / mem_commit
 	allocated := struct {
 		CPUAllocated    int64
 		MemoryAllocated int64
 	}{}
 	{
 		hostSQ := totalQ.Copy().ResetFields().SubQuery()
-		guests := GuestManager.Query().SubQuery()
-		guestQ := guests.Query(
+		guestQ := GuestManager.Query()
+		if options.Options.IgnoreNonrunningGuests {
+			guestQ = guestQ.Equals("status", api.VM_RUNNING)
+		}
+		guests := guestQ.SubQuery()
+		sumQ := guests.Query(
 			sqlchemy.SUM("cpu_allocated", guests.Field("vcpu_count")),
 			sqlchemy.SUM("memory_allocated", guests.Field("vmem_size")),
 		).Join(hostSQ, sqlchemy.OR(
 			sqlchemy.Equals(guests.Field("host_id"), hostSQ.Field("id")),
 			sqlchemy.Equals(guests.Field("backup_host_id"), hostSQ.Field("id")),
 		))
-		err := guestQ.First(&allocated)
+		err := sumQ.First(&allocated)
 		if err != nil && errors.Cause(err) != sql.ErrNoRows {
 			return -1, nil, errors.Wrapf(err, "query cpu/memory allocated")
 		}
