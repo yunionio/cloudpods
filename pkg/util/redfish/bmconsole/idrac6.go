@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -37,7 +38,8 @@ func (r *SBMCConsole) GetIdrac6ConsoleJNLP(ctx context.Context, sku, model strin
 	if err != nil {
 		return "", errors.Wrap(err, "r.Get start.html")
 	}
-	log.Debugf("start.html hdr %s", hdr)
+	// the header carries the session cookie, do not print it verbatim
+	log.Debugf("start.html hdr %d Set-Cookie", len(hdr["Set-Cookie"]))
 	if setCookies, ok := hdr["Set-Cookie"]; ok {
 		for _, cookieHdr := range setCookies {
 			parts := strings.Split(cookieHdr, ";")
@@ -64,7 +66,7 @@ func (r *SBMCConsole) GetIdrac6ConsoleJNLP(ctx context.Context, sku, model strin
 	if err != nil {
 		return "", errors.Wrap(err, "r.FormPost Login")
 	}
-	log.Debugf("LoginResp: %s", loginResp)
+	log.Debugf("LoginResp: %d bytes", len(loginResp))
 	forwardUrlPattern := regexp.MustCompile(`<forwardUrl>(.*)</forwardUrl>`)
 	matched := forwardUrlPattern.FindAllStringSubmatch(string(loginResp), -1)
 	indexUrlStr := ""
@@ -77,12 +79,11 @@ func (r *SBMCConsole) GetIdrac6ConsoleJNLP(ctx context.Context, sku, model strin
 
 	tokenPattern := regexp.MustCompile(`ST1=(\w+),ST2=`)
 	matched = tokenPattern.FindAllStringSubmatch(indexUrlStr, -1)
-	log.Debugf("%s", matched)
 	token := ""
 	if len(matched) > 0 && len(matched[0]) > 1 {
 		token = matched[0][1]
 	}
-	log.Debugf("token: %s", token)
+	log.Debugf("token: %s", utils.TruncateString(token, 16))
 
 	cookies["batteriesIcon"] = "status_normal"
 	cookies["fansIcon"] = "status_normal"

@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -78,7 +79,8 @@ func (r *SBMCConsole) GetIdrac7ConsoleJNLP(ctx context.Context, sku, model strin
 	if err != nil {
 		return "", errors.Wrap(err, "r.FormPost Login")
 	}
-	log.Debugf("Header: %s %s", hdr, loginResp)
+	// the header carries the session cookie and the body the ST1 token, do not print them verbatim
+	log.Debugf("Header: %d Set-Cookie, loginResp %d bytes", len(hdr["Set-Cookie"]), len(loginResp))
 	if setCookies, ok := hdr["Set-Cookie"]; ok {
 		for _, cookieHdr := range setCookies {
 			parts := strings.Split(cookieHdr, ";")
@@ -104,12 +106,11 @@ func (r *SBMCConsole) GetIdrac7ConsoleJNLP(ctx context.Context, sku, model strin
 
 	tokenPattern := regexp.MustCompile(`ST1=(\w+),ST2=`)
 	matched = tokenPattern.FindAllStringSubmatch(indexUrlStr, -1)
-	log.Debugf("%s", matched)
 	token := ""
 	if len(matched) > 0 && len(matched[0]) > 1 {
 		token = matched[0][1]
 	}
-	log.Debugf("token: %s", token)
+	log.Debugf("token: %s", utils.TruncateString(token, 16))
 	cookies["tokenvalue"] = token
 	cookies["batteriesIcon"] = "status_ok"
 	cookies["fansIcon"] = "status_ok"
