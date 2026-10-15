@@ -433,6 +433,7 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	iluvatar := models.HasIluvatarDevices(llm, sku)
 	thead := models.HasTHeadDevices(llm, sku)
 	kunlunxin := models.HasKunlunxinDevices(llm, sku)
+	mthreads := models.HasMthreadsDevices(llm, sku)
 	startScript := buildVLLMEntrypointScript(modelPath, tensorParallelSize, backendParameters, effSpec, hygon)
 	envs := []*commonapi.ContainerKeyValue{
 		{
@@ -465,7 +466,7 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 			Envs:              envs,
 		},
 	}
-	if hygon || iluvatar || thead || kunlunxin {
+	if hygon || iluvatar || thead || kunlunxin || mthreads {
 		spec.Command = []string{"/bin/bash", "-c"}
 	}
 	if hasMountedModels {
