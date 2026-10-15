@@ -17,6 +17,7 @@ package hostinfo
 import (
 	"context"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -183,4 +184,89 @@ func (h *SHostInfo) HasContainerNvidiaGpu() bool {
 	h.hasNvidiaGpus = &hasNvidiaGpus
 	h.containerNvidiaGpus = nvDevs
 	return *h.hasNvidiaGpus
+}
+
+func (h *SHostInfo) HasContainerMthreadsGpu() bool {
+	if h.hasMthreadsGpus != nil {
+		return *h.hasMthreadsGpus
+	}
+	hasMthreadsGpus := false
+	devs := h.IsolatedDeviceMan.GetDevices()
+	for i := range devs {
+		vendorId := strings.ToLower(strings.Split(devs[i].GetVendorDeviceId(), ":")[0])
+		if vendorId == apis.MTHREADS_VENDOR_ID {
+			hasMthreadsGpus = true
+			break
+		}
+	}
+	h.hasMthreadsGpus = &hasMthreadsGpus
+	return *h.hasMthreadsGpus
+}
+
+func (h *SHostInfo) GetMthreadsGpuIndexes(ids, addrs []string) []int {
+	if len(ids) == 0 && len(addrs) == 0 {
+		return nil
+	}
+	wantId := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		if id != "" {
+			wantId[id] = struct{}{}
+		}
+	}
+	wantAddr := make([]string, 0, len(addrs))
+	for _, addr := range addrs {
+		if addr != "" {
+			wantAddr = append(wantAddr, addr)
+		}
+	}
+	seen := map[int]struct{}{}
+	out := make([]int, 0)
+	devs := h.IsolatedDeviceMan.GetDevices()
+	for i := range devs {
+		dev := devs[i]
+		vendorId := strings.ToLower(strings.Split(dev.GetVendorDeviceId(), ":")[0])
+		if vendorId != apis.MTHREADS_VENDOR_ID {
+			continue
+		}
+		_, idMatch := wantId[dev.GetCloudId()]
+		addrMatch := false
+		if !idMatch {
+			for _, addr := range wantAddr {
+				if samePCIAddr(dev.GetAddr(), addr) {
+					addrMatch = true
+					break
+				}
+			}
+		}
+		if !idMatch && !addrMatch {
+			continue
+		}
+		idx := dev.GetIndex()
+		if idx < 0 {
+			n, err := strconv.Atoi(dev.GetDevicePath())
+			if err != nil {
+				continue
+			}
+			idx = n
+		}
+		if _, ok := seen[idx]; ok {
+			continue
+		}
+		seen[idx] = struct{}{}
+		out = append(out, idx)
+	}
+	sort.Ints(out)
+	return out
+}
+
+func samePCIAddr(a, b string) bool {
+	a = strings.ToLower(strings.TrimSpace(a))
+	b = strings.ToLower(strings.TrimSpace(b))
+	if a == "" || b == "" {
+		return false
+	}
+	if a == b {
+		return true
+	}
+	return strings.HasSuffix(a, ":"+b) || strings.HasSuffix(b, ":"+a)
 }
