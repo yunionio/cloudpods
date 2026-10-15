@@ -105,6 +105,20 @@ func TestNormalizeLLMSkuDeviceLegacyTypes(t *testing.T) {
 			wantVendor:      "KUNLUNXIN",
 		},
 		{
+			name:            "MTHREADS_GPU",
+			in:              api.Device{DevType: computeapi.CONTAINER_DEV_MTHREADS_GPU},
+			wantDevType:     computeapi.GPU_TYPE,
+			wantSharingMode: computeapi.DEVICE_SHARING_MODE_EXCLUSIVE,
+			wantVendor:      "MTHREADS",
+		},
+		{
+			name:            "MTHREADS_GPU_HAMI",
+			in:              api.Device{DevType: computeapi.CONTAINER_DEV_MTHREADS_GPU_HAMI},
+			wantDevType:     computeapi.GPU_TYPE,
+			wantSharingMode: computeapi.DEVICE_SHARING_MODE_HAMI,
+			wantVendor:      "MTHREADS",
+		},
+		{
 			name:            "ILUVATAR vendor preserved and canonicalized",
 			in:              api.Device{DevType: computeapi.GPU_TYPE, Vendor: "iluvatar", Model: "BI-V150S"},
 			wantDevType:     computeapi.GPU_TYPE,
@@ -154,6 +168,30 @@ func TestNormalizeLLMSkuDeviceLegacyTypes(t *testing.T) {
 				t.Fatalf("Vendor = %q, want %q", dev.Vendor, tc.wantVendor)
 			}
 		})
+	}
+}
+
+func TestNormalizeLLMSkuDevicesRejectsMultipleMthreadsHami(t *testing.T) {
+	sliced := api.Devices{
+		{DevType: computeapi.CONTAINER_DEV_MTHREADS_GPU_HAMI, Model: "MTT S5000"},
+		{DevType: computeapi.CONTAINER_DEV_MTHREADS_GPU_HAMI, Model: "MTT S5000"},
+	}
+	if err := normalizeLLMSkuDevices(&sliced); err == nil {
+		t.Fatal("expected multiple Moore Threads sGPU cards to be rejected")
+	}
+	exclusive := api.Devices{
+		{DevType: computeapi.CONTAINER_DEV_MTHREADS_GPU, Model: "MTT S5000"},
+		{DevType: computeapi.CONTAINER_DEV_MTHREADS_GPU, Model: "MTT S5000"},
+	}
+	if err := normalizeLLMSkuDevices(&exclusive); err != nil {
+		t.Fatalf("exclusive multi-card should be allowed: %v", err)
+	}
+	nvidia := api.Devices{
+		{DevType: computeapi.CONTAINER_DEV_NVIDIA_HAMI, Model: "A100"},
+		{DevType: computeapi.CONTAINER_DEV_NVIDIA_HAMI, Model: "A100"},
+	}
+	if err := normalizeLLMSkuDevices(&nvidia); err != nil {
+		t.Fatalf("NVIDIA HAMI multi-card should be allowed: %v", err)
 	}
 }
 

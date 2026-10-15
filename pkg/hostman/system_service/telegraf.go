@@ -41,6 +41,7 @@ const (
 	TELEGRAF_INPUT_IXSMI               = "ixsmi"
 	TELEGRAF_INPUT_PPUSMI              = "ppusmi"
 	TELEGRAF_INPUT_XPUSMI              = "xpusmi"
+	TELEGRAF_INPUT_MTHREADSGMI         = "mthreadsgmi"
 	TELEGRAF_INPUT_NVIDIASMI           = "nvidia-smi"
 	TELEGRAF_INPUT_NPUSMI              = "npu-smi"
 	TELEGRAF_INPUT_CONF_LIB_PATH       = "lib_path"
@@ -377,6 +378,13 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		if libPath, _ := xpusmiMap[TELEGRAF_INPUT_CONF_LIB_PATH].(string); libPath != "" {
 			conf += fmt.Sprintf("  lib_path = \"%s\"\n", libPath)
 		}
+		conf += "\n"
+	}
+
+	if mtgmi, ok := kwargs[TELEGRAF_INPUT_MTHREADSGMI]; ok {
+		mtgmiMap, _ := mtgmi.(map[string]interface{})
+		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_MTHREADSGMI)
+		conf += fmt.Sprintf("  bin_path = \"%s\"\n", mtgmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
 		conf += "\n"
 	}
 

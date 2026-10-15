@@ -2730,6 +2730,32 @@ func (self *SGuest) AttachIsolatedDevices(ctx context.Context, userCred mcclient
 			}
 		}
 	}
+	if sharingMode == api.DEVICE_SHARING_MODE_HAMI {
+		existing := 0
+		for i := range attachedGpus {
+			gdev := attachedGpus[i].GetIsolatedDevice()
+			if gdev != nil && gdev.isMthreads() && gdev.SharingMode == api.DEVICE_SHARING_MODE_HAMI {
+				existing++
+			}
+		}
+		adding := 0
+		for _, count := range devModelCount {
+			adding += count
+		}
+		if existing > 0 || adding > 1 {
+			for devModel := range devModelCount {
+				devs, err := IsolatedDeviceManager.GetAvailableIsolatedDeviceOnHost(host.Id, devModel, sharingMode)
+				if err != nil {
+					return httperrors.NewInternalServerError("fetch gpu failed %s", err)
+				}
+				for i := range devs {
+					if devs[i].isMthreads() && existing+adding > 1 {
+						return httperrors.NewBadRequestError("Moore Threads sGPU does not support multiple cards in one guest; use exclusive mode for multiple cards")
+					}
+				}
+			}
+		}
+	}
 
 	for devModel, count := range devModelCount {
 		devs, err := IsolatedDeviceManager.GetAvailableIsolatedDeviceOnHost(host.Id, devModel, sharingMode)
@@ -2849,6 +2875,14 @@ func (self *SGuest) startAttachIsolatedDevGeneral(ctx context.Context, userCred 
 			}
 		}
 	}
+	if dev.isMthreads() && dev.SharingMode == api.DEVICE_SHARING_MODE_HAMI {
+		for i := range gdevs {
+			gdev := gdevs[i].GetIsolatedDevice()
+			if gdev != nil && gdev.isMthreads() && gdev.SharingMode == api.DEVICE_SHARING_MODE_HAMI {
+				return httperrors.NewBadRequestError("Moore Threads sGPU does not support multiple cards in one guest; use exclusive mode for multiple cards")
+			}
+		}
+	}
 
 	host, _ := self.GetHost()
 	lockman.LockObject(ctx, host)
@@ -2888,8 +2922,9 @@ func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.
 		guestIsolatedDevice.DiskIndex = *diskIndex
 	}
 	if dev.SharingMode == api.DEVICE_SHARING_MODE_HAMI && memoryRequest != nil {
-		guestIsolatedDevice.DeviceMemorySize = *memoryRequest
-		guestIsolatedDevice.SmUtilLimit = int((float64(*memoryRequest) / float64(dev.MemorySize)) * 100.0)
+		req := dev.hamiMemoryRequest(*memoryRequest)
+		guestIsolatedDevice.DeviceMemorySize = req
+		guestIsolatedDevice.SmUtilLimit = int((float64(req) / float64(dev.MemorySize)) * 100.0)
 	}
 	if utils.IsInStringArray(gpuType, []string{api.GPU_HPC, api.GPU_VGA}) {
 		guestIsolatedDevice.GpuType = gpuType
