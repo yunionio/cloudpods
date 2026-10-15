@@ -1,0 +1,12 @@
+Processes:
+ID   PID           Process name                           GPU Memory
+                                                               Usage
++-------------------------------------------------------------------+
+0    1305267       /usr/bin/python                             36MiB
+0    1305830       VLLM::EngineCore                            36MiB
+0    1306725       VLLM::Worker_TP0                          8758MiB
+0    1306726       VLLM::Worker_TP1                            36MiB
+1    1306726       VLLM::Worker_TP1                          8758MiB
+1    1306725       VLLM::Worker_TP0                            36MiB
++-------------------------------------------------------------------+
+|  0%   9081MiB(81920MiB) |
