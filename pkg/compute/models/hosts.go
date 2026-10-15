@@ -4423,24 +4423,98 @@ type SInfrasStatusInfo struct {
 
 type SHostTotalCount struct {
 	SInfrasStatusInfo
-	MemoryUsed  int64
-	MemoryTotal int64
-	CPUUsed     int64
-	CPUTotal    int64
+	MemoryUsed      int64
+	MemoryTotal     int64
+	CPUUsed         int64
+	CPUTotal        int64
+	MemoryVirtual   int64
+	CPUVirtual      int64
+	CPUAllocated    int64
+	MemoryAllocated int64
 }
 
 func (manager *SHostManager) CustomizedTotalCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error) {
 	results := SHostTotalCount{}
 
+	// allocated: equivalent to usage all.servers.cpu / all.servers.memory on filtered hosts
+	allocated := struct {
+		CPUAllocated    int64
+		MemoryAllocated int64
+	}{}
+	{
+		hostSQ := totalQ.Copy().ResetFields().SubQuery()
+		guests := GuestManager.Query().SubQuery()
+		guestQ := guests.Query(
+			sqlchemy.SUM("cpu_allocated", guests.Field("vcpu_count")),
+			sqlchemy.SUM("memory_allocated", guests.Field("vmem_size")),
+		).Join(hostSQ, sqlchemy.OR(
+			sqlchemy.Equals(guests.Field("host_id"), hostSQ.Field("id")),
+			sqlchemy.Equals(guests.Field("backup_host_id"), hostSQ.Field("id")),
+		))
+		err := guestQ.First(&allocated)
+		if err != nil && errors.Cause(err) != sql.ErrNoRows {
+			return -1, nil, errors.Wrapf(err, "query cpu/memory allocated")
+		}
+	}
+
+	// CASE WHEN uses Field.Reference(); intermediate expressions must have empty alias
+	// so Reference() returns the expression instead of a non-existent column name.
+	usableCpu := sqlchemy.NewFunction(
+		sqlchemy.NewCase().When(
+			sqlchemy.AND(
+				sqlchemy.GT(totalQ.Field("cpu_reserved"), 0),
+				sqlchemy.LT(totalQ.Field("cpu_reserved"), totalQ.Field("cpu_count")),
+			),
+			sqlchemy.SUB("", totalQ.Field("cpu_count"), totalQ.Field("cpu_reserved")),
+		).Else(totalQ.Field("cpu_count")),
+		"",
+		false,
+	)
+	cpuCmtbound := sqlchemy.NewFunction(
+		sqlchemy.NewCase().When(
+			sqlchemy.GT(totalQ.Field("cpu_cmtbound"), 0),
+			totalQ.Field("cpu_cmtbound"),
+		).Else(sqlchemy.NewConstField(options.Options.DefaultCPUOvercommitBound)),
+		"",
+		false,
+	)
+	usableMem := sqlchemy.NewFunction(
+		sqlchemy.NewCase().When(
+			sqlchemy.AND(
+				sqlchemy.GT(totalQ.Field("mem_reserved"), 0),
+				sqlchemy.LT(totalQ.Field("mem_reserved"), totalQ.Field("mem_size")),
+			),
+			sqlchemy.SUB("", totalQ.Field("mem_size"), totalQ.Field("mem_reserved")),
+		).Else(totalQ.Field("mem_size")),
+		"",
+		false,
+	)
+	memCmtbound := sqlchemy.NewFunction(
+		sqlchemy.NewCase().When(
+			sqlchemy.GT(totalQ.Field("page_size_kb"), 4),
+			sqlchemy.NewConstField(1.0),
+		).When(
+			sqlchemy.GT(totalQ.Field("mem_cmtbound"), 0),
+			totalQ.Field("mem_cmtbound"),
+		).Else(sqlchemy.NewConstField(options.Options.DefaultMemoryOvercommitBound)),
+		"",
+		false,
+	)
+
 	totalQ = totalQ.AppendField(sqlchemy.SUM("cpu_total", totalQ.Field("cpu_count")))
 	totalQ = totalQ.AppendField(sqlchemy.SUM("memory_total", totalQ.Field("mem_size")))
 	totalQ = totalQ.AppendField(sqlchemy.SUM("memory_used", totalQ.Field("memory_used_mb")))
 	totalQ = totalQ.AppendField(sqlchemy.CASTInt(sqlchemy.SUM("cpu_used", sqlchemy.MUL("use_cpu", totalQ.Field("cpu_usage_percent"), totalQ.Field("cpu_count"), sqlchemy.NewConstField(0.01))), "cpu_used"))
+	// virtual: equivalent to usage hosts.cpu.virtual / hosts.memory.virtual
+	totalQ = totalQ.AppendField(sqlchemy.CASTInt(sqlchemy.SUM("cpu_virtual", sqlchemy.MUL("cpu_v", usableCpu, cpuCmtbound)), "cpu_virtual"))
+	totalQ = totalQ.AppendField(sqlchemy.CASTInt(sqlchemy.SUM("memory_virtual", sqlchemy.MUL("mem_v", usableMem, memCmtbound)), "memory_virtual"))
 
 	err := totalQ.First(&results)
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return -1, nil, errors.Wrapf(err, "First")
 	}
+	results.CPUAllocated = allocated.CPUAllocated
+	results.MemoryAllocated = allocated.MemoryAllocated
 
 	_, statusInfo, err := manager.SEnabledStatusInfrasResourceBaseManager.CustomizedTotalCount(ctx, userCred, query, totalQ)
 	if err != nil {
