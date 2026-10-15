@@ -130,7 +130,7 @@ func PushContainerdImage(input *hostapi.ContainerPushImageInput) error {
 		// try http protocol
 		errs = append(errs, errors.Wrap(err, "pushImageByCtrCmd: %s"))
 		opt.PlainHttp = true
-		log.Infof("try push image %s by http", input.Image)
+		log.Warningf("push image to %s error: %v, try to push it by http", input.Image, err)
 		if err := imgTool.Push(input.Image, opt); err != nil {
 			errs = append(errs, errors.Wrapf(err, "pushImageByCtrCmd by http"))
 			return errors.NewAggregate(errs)

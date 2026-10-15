@@ -201,3 +201,60 @@ func TestHasKunlunxinDevices(t *testing.T) {
 		t.Fatal("expected normalized GPU+KUNLUNXIN vendor sku to be detected as Kunlunxin")
 	}
 }
+
+func TestHasMthreadsDevices(t *testing.T) {
+	mthreadsSku := &SLLMSku{
+		SLLMSkuBase: SLLMSkuBase{
+			Devices: &api.Devices{
+				{DevType: computeapi.CONTAINER_DEV_MTHREADS_GPU},
+			},
+		},
+	}
+	if !HasMthreadsDevices(nil, mthreadsSku) {
+		t.Fatal("expected Moore Threads GPU sku to be detected")
+	}
+
+	hamiSku := &SLLMSku{
+		SLLMSkuBase: SLLMSkuBase{
+			Devices: &api.Devices{
+				{DevType: computeapi.CONTAINER_DEV_MTHREADS_GPU_HAMI},
+			},
+		},
+	}
+	if !HasMthreadsDevices(nil, hamiSku) {
+		t.Fatal("expected Moore Threads HAMI sku to be detected")
+	}
+
+	nvSku := &SLLMSku{
+		SLLMSkuBase: SLLMSkuBase{
+			Devices: &api.Devices{
+				{DevType: computeapi.CONTAINER_DEV_NVIDIA_GPU},
+			},
+		},
+	}
+	if HasMthreadsDevices(nil, nvSku) {
+		t.Fatal("expected NVIDIA sku not to be detected as Moore Threads")
+	}
+
+	llm := &SLLM{
+		SLLMBase: SLLMBase{
+			Devices: &api.Devices{
+				{DevType: computeapi.CONTAINER_DEV_MTHREADS_GPU},
+			},
+		},
+	}
+	if !HasMthreadsDevices(llm, nvSku) {
+		t.Fatal("expected llm device override to win over sku")
+	}
+
+	normalizedSku := &SLLMSku{
+		SLLMSkuBase: SLLMSkuBase{
+			Devices: &api.Devices{
+				{DevType: computeapi.GPU_TYPE, Vendor: "MTHREADS", Model: "MTT S5000"},
+			},
+		},
+	}
+	if !HasMthreadsDevices(nil, normalizedSku) {
+		t.Fatal("expected normalized GPU+MTHREADS vendor sku to be detected as Moore Threads")
+	}
+}

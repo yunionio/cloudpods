@@ -809,6 +809,10 @@ func getIsolatedDevicesInfo(cli *ssh.Client, ip net.IP) ([]*isolated_device.PCID
 					log.Infof("skip kunlunxin dev %s with class code %s", dev.Addr, dev.ClassCode)
 					continue
 				}
+				if dev.VendorId == api.MTHREADS_VENDOR_ID && dev.ClassCode != isolated_device.CLASS_CODE_PA {
+					log.Infof("skip mthreads dev %s with class code %s", dev.Addr, dev.ClassCode)
+					continue
+				}
 				log.Infof("append dev %s", dev.Addr)
 				devs = append(devs, dev)
 			}

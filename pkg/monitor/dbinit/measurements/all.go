@@ -41,6 +41,7 @@ var All = []SMeasurement{
 	ixsmi,
 	ppusmi,
 	xpusmi,
+	mthreadsGmi,
 
 	worker,
 	serviceHttpCode,
