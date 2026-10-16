@@ -336,6 +336,91 @@ func (r *SContainerRegistry) GetDetailsConfig(ctx context.Context, userCred mccl
 	return r.GetConfig()
 }
 
+func registryConfigUsername(conf *api.ContainerRegistryConfig) string {
+	if conf == nil {
+		return ""
+	}
+	switch {
+	case conf.Common != nil && conf.Common.Username != "":
+		return conf.Common.Username
+	case conf.Custom != nil && conf.Custom.Username != "":
+		return conf.Custom.Username
+	case conf.Harbor != nil && conf.Harbor.Username != "":
+		return conf.Harbor.Username
+	default:
+		return ""
+	}
+}
+
+// PerformUpdateCredential updates the registry login password (and optionally
+// username). Credentials are verified with the docker login challenge before
+// the stored container_image secret is changed.
+func (r *SContainerRegistry) PerformUpdateCredential(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ContainerRegistryUpdateCredentialInput) (jsonutils.JSONObject, error) {
+	password := strings.TrimSpace(input.Password)
+	if password == "" {
+		return nil, httperrors.NewInputParameterError("password is required")
+	}
+	username := strings.TrimSpace(input.Username)
+	if username == "" {
+		conf, err := r.GetConfig()
+		if err != nil {
+			return nil, errors.Wrap(err, "get registry config")
+		}
+		username = strings.TrimSpace(registryConfigUsername(conf))
+	}
+	if username == "" {
+		return nil, httperrors.NewInputParameterError("username is required")
+	}
+	if err := client.LoginRegistry(ctx, r.Url, client.DockerAuthConfig{
+		Username: username,
+		Password: password,
+	}); err != nil {
+		return nil, httperrors.NewInputParameterError("login registry %q failed: %v", r.Url, err)
+	}
+
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	if s == nil {
+		return nil, errors.Error("get user session nil")
+	}
+	blob := jsonutils.Marshal(&identityapi.CredentialContainerImageBlob{
+		Username: username,
+		Password: password,
+	}).String()
+	if r.CredentialId != "" {
+		params := jsonutils.NewDict()
+		params.Set("blob", jsonutils.NewString(blob))
+		if _, err := identitymodules.Credentials.Update(s, r.CredentialId, params); err != nil {
+			return nil, errors.Wrapf(err, "update credential %s", r.CredentialId)
+		}
+		return jsonutils.Marshal(map[string]string{"credential_id": r.CredentialId}), nil
+	}
+
+	ownerId := r.GetOwnerId()
+	projectId := ""
+	if ownerId != nil {
+		projectId = ownerId.GetProjectId()
+	}
+	obj, err := identitymodules.Credentials.CreateContainerImageSecret(s, projectId, r.Name, &identityapi.CredentialContainerImageBlob{
+		Username: username,
+		Password: password,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "create container image credential")
+	}
+	credId, _ := obj.GetString("id")
+	if credId == "" {
+		return nil, errors.Error("create credential returned empty id")
+	}
+	if _, err := db.Update(r, func() error {
+		r.CredentialId = credId
+		r.Config = nil
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "save credential_id")
+	}
+	return jsonutils.Marshal(map[string]string{"credential_id": credId}), nil
+}
+
 func (m *SContainerRegistryManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
 	m.SSharableVirtualResourceBaseManager.CustomizeHandlerInfo(info)
 
