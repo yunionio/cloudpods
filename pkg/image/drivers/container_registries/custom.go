@@ -41,6 +41,20 @@ func (c customImpl) GetType() api.ContainerRegistryType {
 }
 
 func (c customImpl) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *api.ContainerRegistryCreateInput) (*api.ContainerRegistryCreateInput, error) {
+	config := data.Config.Custom
+	var username, password string
+	if config != nil {
+		username, password = config.Username, config.Password
+	}
+	hasAuth, err := validateRegistryAuthPair(username, password)
+	if err != nil {
+		return nil, err
+	}
+	if hasAuth {
+		if err := loginRegistryWithAuth(ctx, data.Url, username, password); err != nil {
+			return nil, err
+		}
+	}
 	return data, nil
 }
 
