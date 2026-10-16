@@ -171,6 +171,7 @@ func AddUsageHandler(prefix string, app *appsrv.Application) {
 	} {
 		addHandler(prefix, key, f, app)
 	}
+	app.AddHandler2("GET", fmt.Sprintf("%s/resource-distribution", prefix), auth.Authenticate(resourceDistributionHandler), nil, "get_resource_distribution", nil)
 }
 
 func response(w http.ResponseWriter, key string, obj interface{}) {
