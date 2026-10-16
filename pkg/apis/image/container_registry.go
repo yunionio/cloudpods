@@ -72,6 +72,14 @@ type ContainerRegistryCreateInput struct {
 	CredentialId string `json:"credential_id"`
 }
 
+// ContainerRegistryUpdateCredentialInput updates the username/password stored
+// on the registry's container_image credential. Empty username keeps the
+// existing one. Password is required and is verified with docker login first.
+type ContainerRegistryUpdateCredentialInput struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 type ContainerRegistryUploadImageInput struct {
 	// Repository is the path on server, e.g. 'yunion/influxdb'
 	Repository string `json:"repository"`
