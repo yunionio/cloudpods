@@ -81,6 +81,19 @@ func (this *UsageManager) GetGeneralUsage(session *mcclient.ClientSession, param
 	return modulebase.Get(this.ResourceManager, session, url, this.Keyword)
 }
 
+// GetResourceDistribution maps to GET /v2/rpc/usages/resource-distribution
+func (this *UsageManager) GetResourceDistribution(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	url := "/usages/resource-distribution"
+	if params != nil {
+		qs := params.QueryString()
+		if len(qs) > 0 {
+			url = fmt.Sprintf("%s?%s", url, qs)
+		}
+	}
+	// region returns the distribution object directly (no "usage" wrapper)
+	return modulebase.Get(this.ResourceManager, session, url, "")
+}
+
 func (this *UsageManager) GetManagerByType(t TUsageManager) IUsageManager {
 	return this.managers[t]
 }
