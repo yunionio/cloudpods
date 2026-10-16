@@ -731,10 +731,33 @@ func applyResolvedGpuMemoryLLMSpec(current *api.LLMSpec, resolved *api.LLMSpec, 
 	return out
 }
 
+// llmRestartRequiresDeployment reports inference backends whose restart must
+// resolve the linked deployment. A missing row fails the restart.
+func llmRestartRequiresDeployment(llmType string) bool {
+	switch api.LLMContainerType(llmType) {
+	case api.LLM_CONTAINER_VLLM, api.LLM_CONTAINER_OLLAMA, api.LLM_CONTAINER_SGLANG:
+		return true
+	default:
+		return false
+	}
+}
+
 // RefreshLLMGpuMemorySpecFromDeployment rewrites instance LLMSpec GPU util args from the
 // current deployment+SKU rules so restart applies the latest SKU backend parameters.
+// vLLM, Ollama and SGLang fail when the linked deployment is missing.
+// Other types, such as hermes-agent, skip this step.
 func RefreshLLMGpuMemorySpecFromDeployment(ctx context.Context, userCred mcclient.TokenCredential, llm *SLLM, sku *SLLMSku) error {
 	if llm == nil || llm.LLMDeploymentId == "" {
+		return nil
+	}
+	var err error
+	if sku == nil {
+		sku, err = llm.GetLLMSku(llm.LLMSkuId)
+		if err != nil {
+			return errors.Wrap(err, "GetLLMSku")
+		}
+	}
+	if !llmRestartRequiresDeployment(sku.LLMType) {
 		return nil
 	}
 	depObj, err := GetLLMDeploymentManager().FetchById(llm.LLMDeploymentId)
@@ -742,12 +765,6 @@ func RefreshLLMGpuMemorySpecFromDeployment(ctx context.Context, userCred mcclien
 		return errors.Wrap(err, "fetch deployment")
 	}
 	deploy := depObj.(*SLLMDeployment)
-	if sku == nil {
-		sku, err = llm.GetLLMSku(llm.LLMSkuId)
-		if err != nil {
-			return errors.Wrap(err, "GetLLMSku")
-		}
-	}
 	resolved, err := BuildDeploymentResolvedGpuMemoryLLMSpec(ctx, userCred, deploy, sku)
 	if err != nil {
 		return err
