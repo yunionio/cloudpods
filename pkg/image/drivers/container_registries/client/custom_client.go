@@ -32,6 +32,12 @@ func (c *customClient) Ping(ctx context.Context) error {
 	return nil
 }
 
+// Login is unused for the noop custom client; credential validation during
+// create goes through LoginRegistry with a real registry client.
+func (c *customClient) Login(ctx context.Context) error {
+	return nil
+}
+
 func (c *customClient) ListImages(ctx context.Context, input *api.ContainerRegistryListImagesInput) (jsonutils.JSONObject, error) {
 	return nil, nil
 }
