@@ -100,6 +100,36 @@ func TestValidateLocalPathSkuCreateRequiresContainerMount(t *testing.T) {
 	}
 }
 
+func TestSchedulableCheckMissingVram(t *testing.T) {
+	hostPaths := llm.HostPaths{
+		{
+			Type: "directory",
+			Path: "/data/models/Qwen3-8B",
+			Containers: llm.ContainerHostPathRelations{
+				"0": {MountPath: "/data/models/huggingface/Qwen3-8B"},
+			},
+		},
+	}
+	local := &SLLMSku{
+		Source:    llm.LLM_MODEL_SOURCE_LOCAL_PATH,
+		LocalPath: "/data/models/Qwen3-8B",
+	}
+	local.HostPaths = &hostPaths
+	if schedulableCheckMissingVram(local, 0, 0) {
+		t.Fatal("local path exclusive with zero vram should continue to forecast")
+	}
+	instant := &SLLMSku{}
+	if !schedulableCheckMissingVram(instant, 0, 0) {
+		t.Fatal("instant model with zero vram should fail the schedulable check")
+	}
+	if schedulableCheckMissingVram(instant, 8192, 0) {
+		t.Fatal("positive vram claim should not fail")
+	}
+	if schedulableCheckMissingVram(instant, 0, 8192) {
+		t.Fatal("positive per-device memory should not fail")
+	}
+}
+
 func TestSkuHasLocalHostPathModel(t *testing.T) {
 	hostPaths := llm.HostPaths{
 		{
