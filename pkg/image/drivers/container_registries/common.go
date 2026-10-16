@@ -81,13 +81,17 @@ func (c commonImpl) ValidateCreateData(ctx context.Context, userCred mcclient.To
 		return nil, err
 	}
 	config := data.Config.Common
-	if config != nil && config.Username != "" && config.Password != "" {
-		cli, err := c.GetDockerRegistryClient(data.Url, &data.Config)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("Get docker registry client: %v", err)
-		}
-		if err := cli.Ping(ctx); err != nil {
-			return nil, httperrors.NewInputParameterError("Ping docker registry %q: %v", data.Url, err)
+	var username, password string
+	if config != nil {
+		username, password = config.Username, config.Password
+	}
+	hasAuth, err := validateRegistryAuthPair(username, password)
+	if err != nil {
+		return nil, err
+	}
+	if hasAuth {
+		if err := loginRegistryWithAuth(ctx, data.Url, username, password); err != nil {
+			return nil, err
 		}
 	}
 	return data, nil

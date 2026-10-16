@@ -42,6 +42,8 @@ import (
 
 type Client interface {
 	Ping(ctx context.Context) error
+	// Login validates username/password via the docker login auth challenge flow.
+	Login(ctx context.Context) error
 	ListImages(ctx context.Context, input *api.ContainerRegistryListImagesInput) (jsonutils.JSONObject, error)
 	ListImageTags(ctx context.Context, image string) (jsonutils.JSONObject, error)
 	AnalysisImageTarMetadata(tarPath string) (*ImageMetadata, error)
