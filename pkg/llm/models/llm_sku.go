@@ -485,6 +485,17 @@ func skuForecastDisks(volumes *api.Volumes) []*computeapi.DiskConfig {
 	return disks
 }
 
+// schedulableCheckMissingVram is true when neither InstantModel weights nor a
+// per-device memory_mb produced a VRAM floor. Local-path SKUs mount a host
+// directory and have no InstantModel weight; exclusive whole cards do not need
+// that estimate and should continue to host forecast.
+func schedulableCheckMissingVram(sku *SLLMSku, vramClaimMb, perDevMinMb int) bool {
+	if vramClaimMb > 0 || perDevMinMb > 0 {
+		return false
+	}
+	return !SkuHasLocalHostPathModel(sku)
+}
+
 // PerformSchedulableCheck is POST /llm_skus/{id}/schedulable-check.
 // Specs are read from the SKU (cpu/memory/volumes/devices). SKUs without
 // GPUs still run forecast for CPU/memory/disk. Isolated-device VRAM checks
@@ -513,7 +524,7 @@ func (sku *SLLMSku) PerformSchedulableCheck(
 			return out, nil
 		}
 		out.PerDevMinMb = perDevMinMb
-		if vramClaimMb <= 0 && perDevMinMb <= 0 {
+		if schedulableCheckMissingVram(sku, vramClaimMb, perDevMinMb) {
 			out.Reason = "Auto VRAM calculation failed — mounted instant models have unknown weight (not yet backfilled)"
 			return out, nil
 		}
