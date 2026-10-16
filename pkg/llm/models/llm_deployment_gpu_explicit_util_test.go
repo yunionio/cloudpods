@@ -84,6 +84,37 @@ func TestApplyResolvedGpuMemoryLLMSpecStripsStaleAutoArg(t *testing.T) {
 	}
 }
 
+func TestLLMRestartRequiresDeployment(t *testing.T) {
+	for _, llmType := range []api.LLMContainerType{
+		api.LLM_CONTAINER_VLLM,
+		api.LLM_CONTAINER_OLLAMA,
+		api.LLM_CONTAINER_SGLANG,
+	} {
+		if !llmRestartRequiresDeployment(string(llmType)) {
+			t.Fatalf("%s restart should require deployment", llmType)
+		}
+	}
+	if llmRestartRequiresDeployment(string(api.LLM_CONTAINER_HERMES_AGENT)) {
+		t.Fatal("hermes-agent restart should not require deployment")
+	}
+}
+
+func TestRefreshLLMGpuMemorySpecFromDeploymentSkipsHermesAgent(t *testing.T) {
+	llm := &SLLM{
+		LLMDeploymentId: "missing-deployment",
+		LLMSpec: &api.LLMSpec{
+			HermesAgent: &api.LLMSpecHermesAgent{Model: "qwen"},
+		},
+	}
+	sku := &SLLMSku{LLMType: string(api.LLM_CONTAINER_HERMES_AGENT)}
+	if err := RefreshLLMGpuMemorySpecFromDeployment(context.Background(), nil, llm, sku); err != nil {
+		t.Fatalf("hermes-agent restart should skip gpu memory refresh, got %v", err)
+	}
+	if llm.LLMSpec == nil || llm.LLMSpec.HermesAgent == nil || llm.LLMSpec.HermesAgent.Model != "qwen" {
+		t.Fatalf("hermes spec should stay unchanged, got %#v", llm.LLMSpec)
+	}
+}
+
 func TestApplyResolvedGpuMemoryLLMSpecWritesResolvedArg(t *testing.T) {
 	current := &api.LLMSpec{
 		Vllm: &api.LLMSpecVllm{
