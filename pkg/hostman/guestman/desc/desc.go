@@ -194,6 +194,7 @@ type PCIController struct {
 type SGuestMachine struct {
 	Accel string
 
+	Acpi *string `json:",omitempty"`
 	// arm only
 	GicVersion *string `json:",omitempty"`
 }
