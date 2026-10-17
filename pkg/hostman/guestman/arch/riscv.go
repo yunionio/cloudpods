@@ -35,8 +35,10 @@ type RISCV struct {
 }
 
 func (*RISCV) GenerateMachineDesc(accel string) *desc.SGuestMachine {
+	acpi := "off"
 	return &desc.SGuestMachine{
 		Accel: accel,
+		Acpi:  &acpi,
 	}
 }
 

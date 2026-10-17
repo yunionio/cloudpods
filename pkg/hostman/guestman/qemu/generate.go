@@ -186,6 +186,9 @@ func generateMachineOption(drvOpt QemuOptions, desc *desc.SGuestDesc) string {
 	if desc.MachineDesc.GicVersion != nil {
 		cmd += fmt.Sprintf(",gic-version=%s", *desc.MachineDesc.GicVersion)
 	}
+	if desc.MachineDesc.Acpi != nil {
+		cmd += fmt.Sprintf(",acpi=%s", *desc.MachineDesc.Acpi)
+	}
 	if desc.NoHpet != nil && *desc.NoHpet {
 		machineOpts, noHpetCmd := drvOpt.NoHpet()
 		if machineOpts {
