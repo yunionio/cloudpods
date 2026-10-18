@@ -639,7 +639,7 @@ func (cluster *SLoadbalancerCluster) inferWireId() (string, error) {
 		return "", errors.Wrap(err, "LoadbalancerAgentManager.getByClusterId")
 	}
 	if len(lbAgents) == 0 {
-		return "", errors.Wrap(err, "no lbagents")
+		return "", errors.Wrap(errors.ErrNotFound, "no lbagents")
 	}
 	return lbAgents[0].inferWireId()
 }
