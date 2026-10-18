@@ -36,6 +36,8 @@ type LbagentCommonOptions struct {
 
 	ApiListBatchSize int `default:"1024"`
 
+	FetchDataFromComputeService bool `default:"true" help:"fetch data from compute service"`
+
 	DataPreserveN int `default:"8" help:"number of recent data to preserve on disk"`
 
 	BaseDataDir      string // `required:"true"`

@@ -86,7 +86,6 @@ func NewModelSetsService(opts *options.SOptions) (*ModelSetsService, error) {
 
 		// apimap only ever pulls from the region API
 		FetchFromComputeService: true,
-		IncludeDetails:          false,
 		IncludeOtherCloudEnv:    false,
 		OnSyncDone:              svc.onSyncDone,
 	}
