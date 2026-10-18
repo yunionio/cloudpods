@@ -43,7 +43,6 @@ func NewWorker(opts *options.AlerterOptions) (worker.IWorker, error) {
 		SyncIntervalSeconds:  opts.APISyncIntervalSeconds,
 		RunDelayMilliseconds: opts.APIRunDelayMilliseconds,
 		ListBatchSize:        opts.APIListBatchSize,
-		IncludeDetails:       true,
 		IncludeOtherCloudEnv: true,
 	}
 	apih, err := apihelper.NewAPIHelper(apiOpts, modelSets)
