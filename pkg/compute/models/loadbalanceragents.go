@@ -738,16 +738,18 @@ func (lbagent *SLoadbalancerAgent) PerformJoinCluster(
 		return nil, errors.Wrap(httperrors.ErrTooLarge, "too many agents")
 	}
 
-	clusterWireId, err := cluster.inferWireId()
-	if err != nil {
-		return nil, errors.Wrap(err, "cluster.inferWireId")
-	}
-	agentWireId, err := lbagent.inferWireId()
-	if err != nil {
-		return nil, errors.Wrap(err, "lbagent.inferWireId")
-	}
-	if clusterWireId != agentWireId {
-		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cluster and agent must be on the same wire")
+	if len(peerAgents) > 0 {
+		clusterWireId, err := cluster.inferWireId()
+		if err != nil {
+			return nil, errors.Wrap(err, "cluster.inferWireId")
+		}
+		agentWireId, err := lbagent.inferWireId()
+		if err != nil {
+			return nil, errors.Wrap(err, "lbagent.inferWireId")
+		}
+		if clusterWireId != agentWireId {
+			return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cluster and agent must be on the same wire")
+		}
 	}
 
 	priority := 200
