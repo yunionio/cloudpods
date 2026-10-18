@@ -24,7 +24,6 @@ type Options struct {
 	SyncIntervalSeconds     int
 	RunDelayMilliseconds    int
 	ListBatchSize           int
-	IncludeDetails          bool
 	IncludeOtherCloudEnv    bool
 	FetchFromComputeService bool
 }

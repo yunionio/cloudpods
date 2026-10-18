@@ -107,7 +107,7 @@ func syncModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options) (
 			ModelSet:      msNew,
 			BatchListSize: opt.ListBatchSize,
 
-			IncludeDetails:       opt.IncludeDetails,
+			IncludeDetails:       false,
 			IncludeEmulated:      includeEmulated,
 			InCludeOtherCloudEnv: opt.IncludeOtherCloudEnv,
 		})
@@ -134,7 +134,7 @@ func SyncDBModelSets(mssOld IModelSets, s *mcclient.ClientSession, opt *Options)
 			ModelSet:      msNew,
 			BatchListSize: opt.ListBatchSize,
 
-			IncludeDetails:       opt.IncludeDetails,
+			IncludeDetails:       false,
 			IncludeEmulated:      includeEmulated,
 			InCludeOtherCloudEnv: opt.IncludeOtherCloudEnv,
 		}

@@ -60,10 +60,14 @@ type ApiHelper struct {
 func NewApiHelper(opts *Options, lbagentId string) (*ApiHelper, error) {
 	corpus := agentmodels.NewEmptyLoadbalancerCorpus()
 	apiOpts := &apihelper.Options{
-		CommonOptions:        opts.CommonOptions,
+		CommonOptions: opts.CommonOptions,
+
 		SyncIntervalSeconds:  opts.ApiSyncIntervalSeconds,
 		RunDelayMilliseconds: opts.ApiRunDelayMilliseconds,
 		ListBatchSize:        opts.ApiListBatchSize,
+		IncludeOtherCloudEnv: false,
+
+		FetchFromComputeService: opts.FetchDataFromComputeService,
 	}
 	apih, err := apihelper.NewAPIHelper(apiOpts, corpus.ModelSets)
 	if err != nil {

@@ -51,7 +51,6 @@ func NewWorker(opts *options.Options) worker.IWorker {
 		RunDelayMilliseconds:    opts.APIRunDelayMilliseconds,
 		ListBatchSize:           opts.APIListBatchSize,
 		FetchFromComputeService: opts.FetchDataFromComputeService,
-		IncludeDetails:          false,
 
 		IncludeOtherCloudEnv: false,
 	}
