@@ -581,16 +581,24 @@ func (guest *SGuest) GetSshPort(ctx context.Context, userCred mcclient.TokenCred
 	if portStr == "" {
 		return 22
 	}
-	port, _ := strconv.Atoi(portStr)
+	port, err := strconv.Atoi(portStr)
+	// Treat missing/invalid/zero ports as the SSH default. Metadata may have
+	// been incorrectly written as "0" by a previous PostUpdate bug.
+	if err != nil || port <= 0 {
+		return 22
+	}
 	return port
 }
 
 func (guest *SGuest) SetSshPort(ctx context.Context, userCred mcclient.TokenCredential, port int) error {
+	if port <= 0 {
+		return httperrors.NewInputParameterError("invalid ssh port %d", port)
+	}
 	return guest.SetMetadata(ctx, compute_api.SSH_PORT, port, userCred)
 }
 
 func (guest *SGuest) PerformSetSshport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input compute_api.GuestSetSshportInput) (jsonutils.JSONObject, error) {
-	if input.Port < 0 {
+	if input.Port <= 0 {
 		return nil, httperrors.NewInputParameterError("invalid port")
 	}
 	return nil, guest.SetSshPort(ctx, userCred, input.Port)
