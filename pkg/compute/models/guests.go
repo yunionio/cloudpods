@@ -2785,9 +2785,12 @@ func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 			log.Errorf("StartRemoteUpdateTask fail: %s", err)
 		}
 	}
-	if port, err := data.Int("ssh_port"); err != nil {
-		err := self.SetSshPort(ctx, userCred, int(port))
-		if err != nil {
+	// Only persist ssh_port when the update payload actually provides a valid
+	// positive port. The previous condition used `err != nil`, which wrote
+	// __ssh_port=0 on every update that omitted ssh_port and broke sshable
+	// probing (dial :0 / cloudproxy missing remote_port).
+	if port, err := data.Int("ssh_port"); err == nil && port > 0 {
+		if err := self.SetSshPort(ctx, userCred, int(port)); err != nil {
 			log.Errorf("unable to set sshport for guest %s", self.GetId())
 		}
 	}
