@@ -923,7 +923,9 @@ func (task *sBaremetalPrepareTask) sendIsolatedDevicesInfo(
 			}
 		}
 		if notFound {
-			_, err := modules.IsolatedDevices.PerformAction(session, info.Id, "purge", nil)
+			params := jsonutils.NewDict()
+			params.Set("purge", jsonutils.JSONTrue)
+			_, err := modules.IsolatedDevices.PerformAction(session, info.Id, "purge", params)
 			if err != nil {
 				return errors.Wrap(err, "purge unknown isolated devices")
 			}
