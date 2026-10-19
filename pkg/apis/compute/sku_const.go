@@ -118,7 +118,7 @@ type ElasticcacheSkuListInput struct {
 	// 引擎版本 3.0
 	EngineVersion []string `json:"engine_version"`
 
-	// CPU 架构 x86|ARM
+	// CPU 架构 x86|arm|riscv
 	CpuArch []string `json:"cpu_arch"`
 
 	// 存储类型 DRAM|SCM
