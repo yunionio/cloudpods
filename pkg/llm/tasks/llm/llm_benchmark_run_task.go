@@ -146,7 +146,7 @@ func (task *LLMBenchmarkRunTask) run(ctx context.Context, b *models.SLLMBenchmar
 	if err != nil {
 		return errors.Wrap(err, "GuideLLMEnvs")
 	}
-	podInput, err := b.RunnerPodInput(image.ToContainerImage(), targetServer, tokenizerMount)
+	podInput, err := b.RunnerPodInput(image, targetServer, tokenizerMount)
 	if err != nil {
 		return err
 	}

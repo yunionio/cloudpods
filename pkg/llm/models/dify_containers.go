@@ -82,12 +82,23 @@ func getPVCMount(name, subDir, mountPath string) *apis.ContainerVolumeMount {
 	return pvc
 }
 
-func _getRegistryImage(imageId string) string {
-	image, err := GetLLMImageManager().FetchById(imageId)
-	if err != nil {
-		return ""
+func _fetchLLMImage(imageId string) *SLLMImage {
+	if imageId == "" {
+		return nil
 	}
-	return image.(*SLLMImage).ToContainerImage()
+	obj, err := GetLLMImageManager().FetchById(imageId)
+	if err != nil {
+		return nil
+	}
+	return obj.(*SLLMImage)
+}
+
+func applyLLMImageToPodContainer(ctr *computeapi.PodContainerCreateInput, imageId string) {
+	img := _fetchLLMImage(imageId)
+	if img == nil || ctr == nil {
+		return
+	}
+	img.ApplyToContainerSpec(&ctr.ContainerSpec.ContainerSpec)
 }
 
 // getDifySpecFromSku returns the Dify spec from the SKU via the container driver, or nil.
@@ -106,27 +117,27 @@ func getDifyContainerByNameKeyAndSku(name, key string, difySpec *api.LLMSpecDify
 	}
 	switch key {
 	case api.DIFY_REDIS_KEY:
-		return getRedisContainer(name, key, _getRegistryImage(difySpec.RedisImageId), customEnvs), nil
+		return getRedisContainer(name, key, difySpec.RedisImageId, customEnvs), nil
 	case api.DIFY_POSTGRES_KEY:
-		return getPostgresContainer(name, key, _getRegistryImage(difySpec.PostgresImageId), customEnvs), nil
+		return getPostgresContainer(name, key, difySpec.PostgresImageId, customEnvs), nil
 	case api.DIFY_API_KEY:
-		return getApiContainer(name, key, _getRegistryImage(difySpec.DifyApiImageId), customEnvs), nil
+		return getApiContainer(name, key, difySpec.DifyApiImageId, customEnvs), nil
 	case api.DIFY_WORKER_KEY:
-		return getWorkerContainer(name, key, _getRegistryImage(difySpec.DifyApiImageId), customEnvs), nil
+		return getWorkerContainer(name, key, difySpec.DifyApiImageId, customEnvs), nil
 	case api.DIFY_WORKER_BEAT_KEY:
-		return getWorkerBeatContainer(name, key, _getRegistryImage(difySpec.DifyApiImageId), customEnvs), nil
+		return getWorkerBeatContainer(name, key, difySpec.DifyApiImageId, customEnvs), nil
 	case api.DIFY_PLUGIN_KEY:
-		return getPluginContainer(name, key, _getRegistryImage(difySpec.DifyPluginImageId), customEnvs), nil
+		return getPluginContainer(name, key, difySpec.DifyPluginImageId, customEnvs), nil
 	case api.DIFY_WEB_KEY:
-		return getWebContainer(name, key, _getRegistryImage(difySpec.DifyWebImageId), customEnvs), nil
+		return getWebContainer(name, key, difySpec.DifyWebImageId, customEnvs), nil
 	case api.DIFY_SSRF_KEY:
-		return getSsrfContainer(name, key, _getRegistryImage(difySpec.DifySSRFImageId), customEnvs), nil
+		return getSsrfContainer(name, key, difySpec.DifySSRFImageId, customEnvs), nil
 	case api.DIFY_NGINX_KEY:
-		return getNginxContainer(name, key, _getRegistryImage(difySpec.NginxImageId), customEnvs), nil
+		return getNginxContainer(name, key, difySpec.NginxImageId, customEnvs), nil
 	case api.DIFY_WEAVIATE_KEY:
-		return getWeaviateContainer(name, key, _getRegistryImage(difySpec.DifyWeaviateImageId), customEnvs), nil
+		return getWeaviateContainer(name, key, difySpec.DifyWeaviateImageId, customEnvs), nil
 	case api.DIFY_SANDBOX_KEY:
-		return getSandboxContainer(name, key, _getRegistryImage(difySpec.DifySandboxImageId), customEnvs), nil
+		return getSandboxContainer(name, key, difySpec.DifySandboxImageId, customEnvs), nil
 	default:
 		return nil, errors.New("unsupported container key")
 	}
@@ -199,7 +210,7 @@ func getRedisContainer(name, key, image string, customEnvs *DifyContainerEnv) *c
 	ctr := &computeapi.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = image
+	applyLLMImageToPodContainer(ctr, image)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -225,7 +236,7 @@ func getPostgresContainer(name, key, image string, customEnvs *DifyContainerEnv)
 	ctr := &computeapi.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = image
+	applyLLMImageToPodContainer(ctr, image)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -259,7 +270,7 @@ func getApiContainer(name, key, image string, customEnvs *DifyContainerEnv) *com
 	ctr := &computeapi.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = image
+	applyLLMImageToPodContainer(ctr, image)
 
 	// set depends on
 	ctr.DependsOn = []string{
@@ -293,7 +304,7 @@ func getWorkerContainer(name, key, image string, customEnvs *DifyContainerEnv) *
 	ctr := &computeapi.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = image
+	applyLLMImageToPodContainer(ctr, image)
 
 	// set depends on
 	ctr.DependsOn = []string{
@@ -325,7 +336,7 @@ func getWorkerBeatContainer(name, key, image string, customEnvs *DifyContainerEn
 	ctr := &computeapi.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = image
+	applyLLMImageToPodContainer(ctr, image)
 
 	// set depends on
 	ctr.DependsOn = []string{
@@ -347,7 +358,7 @@ func getPluginContainer(name, key, image string, customEnvs *DifyContainerEnv) *
 	ctr := &computeapi.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = image
+	applyLLMImageToPodContainer(ctr, image)
 
 	// set depends on
 	ctr.DependsOn = []string{
@@ -391,7 +402,7 @@ func getWebContainer(name, key, image string, customEnvs *DifyContainerEnv) *com
 	ctr := &computeapi.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = image
+	applyLLMImageToPodContainer(ctr, image)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -427,7 +438,7 @@ func getSsrfContainer(name, key, image string, customEnvs *DifyContainerEnv) *co
 	ctr := &computeapi.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = image
+	applyLLMImageToPodContainer(ctr, image)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -459,7 +470,7 @@ func getNginxContainer(name, key, image string, customEnvs *DifyContainerEnv) *c
 	ctr := &computeapi.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = image
+	applyLLMImageToPodContainer(ctr, image)
 
 	// set depends on
 	ctr.DependsOn = []string{
@@ -498,7 +509,7 @@ func getWeaviateContainer(name, key, image string, customEnvs *DifyContainerEnv)
 	ctr := &computeapi.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = image
+	applyLLMImageToPodContainer(ctr, image)
 
 	// set container environments
 	envs := &DifyContainerEnv{
@@ -528,7 +539,7 @@ func getSandboxContainer(name, key, image string, customEnvs *DifyContainerEnv) 
 	ctr := &computeapi.PodContainerCreateInput{
 		Name: name + "-" + key,
 	}
-	ctr.Image = image
+	applyLLMImageToPodContainer(ctr, image)
 
 	// set container environments
 	envs := &DifyContainerEnv{

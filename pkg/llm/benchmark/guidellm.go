@@ -46,6 +46,7 @@ type LLMBenchmarkMetrics struct {
 type RunnerPodInput struct {
 	Name                   string
 	Image                  string
+	ContainerImageId       string
 	NetworkId              string
 	HostId                 string
 	CPU                    int
@@ -185,6 +186,19 @@ func shellQuote(value string) string {
 
 func BuildRunnerPodInput(input RunnerPodInput) *computeapi.ServerCreateInput {
 	root := int64(0)
+	ctrSpec := commonapi.ContainerSpec{
+		Command:       []string{"sh", "-lc", "while true; do sleep 3600; done"},
+		AlwaysRestart: false,
+		SecurityContext: &commonapi.ContainerSecurityContext{
+			RunAsUser:  &root,
+			RunAsGroup: &root,
+		},
+	}
+	if input.ContainerImageId != "" {
+		ctrSpec.ContainerImageId = input.ContainerImageId
+	} else {
+		ctrSpec.Image = input.Image
+	}
 	ret := &computeapi.ServerCreateInput{
 		ServerConfigs: computeapi.NewServerConfigs(),
 		VcpuCount:     input.CPU,
@@ -195,15 +209,7 @@ func BuildRunnerPodInput(input RunnerPodInput) *computeapi.ServerCreateInput {
 				{
 					Name: "guidellm",
 					ContainerSpec: computeapi.ContainerSpec{
-						ContainerSpec: commonapi.ContainerSpec{
-							Image:         input.Image,
-							Command:       []string{"sh", "-lc", "while true; do sleep 3600; done"},
-							AlwaysRestart: false,
-							SecurityContext: &commonapi.ContainerSecurityContext{
-								RunAsUser:  &root,
-								RunAsGroup: &root,
-							},
-						},
+						ContainerSpec: ctrSpec,
 					},
 				},
 			},
