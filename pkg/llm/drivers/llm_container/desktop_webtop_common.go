@@ -15,14 +15,14 @@ import (
 
 // desktopWebtopImageBaseContainerSpec 返回 OpenClaw / Hermes 等桌面栈共用的镜像与运行时字段（不含 Envs）。
 func desktopWebtopImageBaseContainerSpec(image *models.SLLMImage) commonapi.ContainerSpec {
-	return commonapi.ContainerSpec{
-		Image:             image.ToContainerImage(),
-		ImageCredentialId: image.CredentialId,
+	spec := commonapi.ContainerSpec{
 		EnableLxcfs:       true,
 		AlwaysRestart:     true,
 		ShmSizeMB:         2048,
 		DisableNoNewPrivs: true,
 	}
+	image.ApplyToContainerSpec(&spec)
+	return spec
 }
 
 // desktopWebtopCommonEnvs 返回 webtop / Selkies 等桌面容器共用的环境变量（时区、locale、admin 登录、Homebrew、侧边栏等）。

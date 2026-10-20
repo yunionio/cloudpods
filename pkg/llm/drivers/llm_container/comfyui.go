@@ -75,10 +75,8 @@ func (c *comfyui) GetContainerSpec(ctx context.Context, llm *models.SLLM, image 
 
 	spec := computeapi.ContainerSpec{
 		ContainerSpec: commonapi.ContainerSpec{
-			Image:             image.ToContainerImage(),
-			ImageCredentialId: image.CredentialId,
-			EnableLxcfs:       true,
-			AlwaysRestart:     true,
+			EnableLxcfs:   true,
+			AlwaysRestart: true,
 			Envs: []*commonapi.ContainerKeyValue{
 				{
 					Key:   "CLI_ARGS",
@@ -87,6 +85,7 @@ func (c *comfyui) GetContainerSpec(ctx context.Context, llm *models.SLLM, image 
 			},
 		},
 	}
+	image.ApplyToContainerSpec(&spec.ContainerSpec)
 
 	appendContainerIsolatedDevices(&spec, llm, sku, devices)
 
