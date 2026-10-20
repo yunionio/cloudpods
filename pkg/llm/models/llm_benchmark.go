@@ -1381,7 +1381,7 @@ func (b *SLLMBenchmark) ResolveTokenizerMount() (*LLMBenchmarkTokenizerMount, er
 	return resolveBenchmarkTokenizerMount(obj.(*SLLM), b.Model)
 }
 
-func (b *SLLMBenchmark) RunnerPodInput(image string, server *computeapi.ServerDetails, tokenizer *LLMBenchmarkTokenizerMount) (*computeapi.ServerCreateInput, error) {
+func (b *SLLMBenchmark) RunnerPodInput(image *SLLMImage, server *computeapi.ServerDetails, tokenizer *LLMBenchmarkTokenizerMount) (*computeapi.ServerCreateInput, error) {
 	if len(server.Nics) == 0 || server.Nics[0].NetworkId == "" {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "target server network is empty")
 	}
@@ -1395,11 +1395,17 @@ func (b *SLLMBenchmark) RunnerPodInput(image string, server *computeapi.ServerDe
 	}
 	input := bench.RunnerPodInput{
 		Name:      "llm-bench-" + b.Id,
-		Image:     image,
 		NetworkId: server.Nics[0].NetworkId,
 		HostId:    server.HostId,
 		CPU:       cpu,
 		MemoryMB:  mem,
+	}
+	if image != nil {
+		if image.ContainerImageId != "" {
+			input.ContainerImageId = image.ContainerImageId
+		} else {
+			input.Image = image.ToContainerImage()
+		}
 	}
 	if b.BenchmarkPackageId != "" {
 		obj, err := GetLLMBenchmarkPackageManager().FetchById(b.BenchmarkPackageId)

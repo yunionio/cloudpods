@@ -18,7 +18,9 @@ func (o *LLMImageShowOptions) Params() (jsonutils.JSONObject, error) {
 type LLMImageListOptions struct {
 	options.BaseListOptions
 
-	LLMType string `json:"llm_type" choices:"ollama|dify|comfyui|vllm|sglang|hermes-agent|desktop|benchmark" help:"filter by llm type"`
+	LLMType     string `json:"llm_type" choices:"ollama|dify|comfyui|vllm|sglang|hermes-agent|desktop|benchmark" help:"filter by llm type"`
+	ImageName   string `json:"image_name" help:"filter by image name (substring match)"`
+	ImageSource string `json:"image_source" choices:"manual|container_image" help:"filter by image source"`
 }
 
 func (o *LLMImageListOptions) Params() (jsonutils.JSONObject, error) {
@@ -27,10 +29,12 @@ func (o *LLMImageListOptions) Params() (jsonutils.JSONObject, error) {
 
 type LLMImageCreateOptions struct {
 	apis.SharableVirtualResourceCreateInput
-	IMAGE_NAME   string `json:"image_name"`
-	IMAGE_LABEL  string `json:"image_label"`
-	CredentialId string `json:"credential_id"`
-	LLM_TYPE     string `json:"llm_type" choices:"ollama|dify|comfyui|vllm|sglang|hermes-agent|desktop|benchmark" help:"llm type: ollama, comfyui, vllm, sglang, hermes-agent, desktop, benchmark or dify"`
+	IMAGE_NAME       string `json:"image_name"`
+	IMAGE_LABEL      string `json:"image_label"`
+	CredentialId     string `json:"credential_id"`
+	LLM_TYPE         string `json:"llm_type" choices:"ollama|dify|comfyui|vllm|sglang|hermes-agent|desktop|benchmark" help:"llm type: ollama, comfyui, vllm, sglang, hermes-agent, desktop, benchmark or dify"`
+	ImageSource      string `json:"image_source" choices:"manual|container_image" help:"image source: manual or container_image"`
+	ContainerImageId string `json:"container_image_id" help:"linked container_image id when image_source is container_image"`
 }
 
 func (o *LLMImageCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -40,12 +44,14 @@ func (o *LLMImageCreateOptions) Params() (jsonutils.JSONObject, error) {
 type LLMImageUpdateOptions struct {
 	apis.SharableVirtualResourceBaseUpdateInput
 
-	ID           string
-	ImageName    string `json:"image_name"`
-	ImageLabel   string `json:"image_label"`
-	CredentialId string `json:"credential_id"`
-	LlmType      string `json:"llm_type" choices:"ollama|dify|vllm|sglang|comfyui|hermes-agent|desktop|benchmark" help:"llm type: ollama, comfyui, vllm, sglang, hermes-agent, desktop, benchmark or dify"`
-	AppName      string `json:"app_name" help:"desktop application identifier (LinuxServer image id), e.g. firefox, chromium, steam, webtop-ubuntu-xfce"`
+	ID               string
+	ImageName        string `json:"image_name"`
+	ImageLabel       string `json:"image_label"`
+	CredentialId     string `json:"credential_id"`
+	LlmType          string `json:"llm_type" choices:"ollama|dify|vllm|sglang|comfyui|hermes-agent|desktop|benchmark" help:"llm type: ollama, comfyui, vllm, sglang, hermes-agent, desktop, benchmark or dify"`
+	AppName          string `json:"app_name" help:"desktop application identifier (LinuxServer image id), e.g. firefox, chromium, steam, webtop-ubuntu-xfce"`
+	ImageSource      string `json:"image_source" choices:"manual|container_image" help:"image source: manual or container_image"`
+	ContainerImageId string `json:"container_image_id" help:"linked container_image id when image_source is container_image"`
 }
 
 func (o *LLMImageUpdateOptions) GetId() string {
