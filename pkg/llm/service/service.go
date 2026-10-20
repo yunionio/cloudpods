@@ -11,6 +11,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	bench "yunion.io/x/onecloud/pkg/llm/benchmark"
@@ -69,9 +70,13 @@ func StartService() {
 		time.Duration(opts.LLMCatalogRefreshIntervalMinutes)*time.Minute,
 	)
 
-	// if !opts.IsSlaveNode {
-	// 	models.InitializeCronjobs(app.GetContext())
-	// }
+	if !opts.IsSlaveNode {
+		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount, opts.TimeZone)
+		cron.AddJobEveryFewDays("SyncLLMImageContainerImageMeta", 1, 3, 0, 0,
+			models.GetLLMImageManager().SyncContainerImageMeta, true)
+		cron.Start()
+		defer cron.Stop()
+	}
 
 	app_common.ServeForeverWithCleanup(app, baseOpts, func() {
 		cloudcommon.CloseDB()
