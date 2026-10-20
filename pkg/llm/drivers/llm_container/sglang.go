@@ -241,15 +241,14 @@ func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	}
 	spec := computeapi.ContainerSpec{
 		ContainerSpec: commonapi.ContainerSpec{
-			Image:             image.ToContainerImage(),
-			ImageCredentialId: image.CredentialId,
-			Command:           []string{"/bin/sh", "-c"},
-			Args:              []string{startScript},
-			EnableLxcfs:       true,
-			AlwaysRestart:     true,
-			Envs:              envs,
+			Command:       []string{"/bin/sh", "-c"},
+			Args:          []string{startScript},
+			EnableLxcfs:   true,
+			AlwaysRestart: true,
+			Envs:          envs,
 		},
 	}
+	image.ApplyToContainerSpec(&spec.ContainerSpec)
 	if hasMountedModels {
 		spec.StartupProbe = newLLMHTTPStartupProbe(api.LLM_SGLANG_DEFAULT_PORT, "/v1/models")
 	}
