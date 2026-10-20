@@ -74,13 +74,12 @@ func (o *ollama) GetEffectiveSpec(llm *models.SLLM, sku *models.SLLMSku) interfa
 func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
 	spec := computeapi.ContainerSpec{
 		ContainerSpec: commonapi.ContainerSpec{
-			Image:             image.ToContainerImage(),
-			ImageCredentialId: image.CredentialId,
-			EnableLxcfs:       true,
-			AlwaysRestart:     true,
-			StartupProbe:      newLLMHTTPStartupProbe(api.LLM_OLLAMA_DEFAULT_PORT, "/api/tags"),
+			EnableLxcfs:   true,
+			AlwaysRestart: true,
+			StartupProbe:  newLLMHTTPStartupProbe(api.LLM_OLLAMA_DEFAULT_PORT, "/api/tags"),
 		},
 	}
+	image.ApplyToContainerSpec(&spec.ContainerSpec)
 
 	appendContainerIsolatedDevices(&spec, llm, sku, devices)
 
