@@ -38,33 +38,52 @@ func IsLLMImageType(t string) bool {
 	return LLM_IMAGE_TYPES.Has(t)
 }
 
+// LLM image source: how image_name/image_label are provided.
+const (
+	LLM_IMAGE_SOURCE_MANUAL          = "manual"
+	LLM_IMAGE_SOURCE_CONTAINER_IMAGE = "container_image"
+)
+
 type LLMImageListInput struct {
 	apis.SharableVirtualResourceListInput
 
-	ImageLabel string `json:"image_label"`
-	ImageName  string `json:"image_name"`
-	LLMType    string `json:"llm_type"`
-	AppName    string `json:"app_name"`
+	ImageLabel       string `json:"image_label"`
+	ImageName        string `json:"image_name"`
+	LLMType          string `json:"llm_type"`
+	AppName          string `json:"app_name"`
+	ImageSource      string `json:"image_source"`
+	ContainerImageId string `json:"container_image_id"`
 }
 
 type LLMImageCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 
-	ImageName     string                 `json:"image_name"`
-	ImageLabel    string                 `json:"image_label"`
-	CredentialId  string                 `json:"credential_id"`
-	LLMType       string                 `json:"llm_type"`
-	AppName       string                 `json:"app_name"`
-	DesktopConfig *LLMImageDesktopConfig `json:"desktop_config,omitempty"`
+	ImageName        string                 `json:"image_name"`
+	ImageLabel       string                 `json:"image_label"`
+	CredentialId     string                 `json:"credential_id"`
+	LLMType          string                 `json:"llm_type"`
+	AppName          string                 `json:"app_name"`
+	DesktopConfig    *LLMImageDesktopConfig `json:"desktop_config,omitempty"`
+	ImageSource      string                 `json:"image_source"`
+	ContainerImageId string                 `json:"container_image_id"`
 }
 
 type LLMImageUpdateInput struct {
 	apis.SharableVirtualResourceCreateInput
 
-	ImageName     *string                `json:"image_name,omitempty"`
-	ImageLabel    *string                `json:"image_label,omitempty"`
-	CredentialId  *string                `json:"credential_id,omitempty"`
-	LLMType       *string                `json:"llm_type,omitempty"`
-	AppName       *string                `json:"app_name,omitempty"`
-	DesktopConfig *LLMImageDesktopConfig `json:"desktop_config,omitempty"`
+	ImageName        *string                `json:"image_name,omitempty"`
+	ImageLabel       *string                `json:"image_label,omitempty"`
+	CredentialId     *string                `json:"credential_id,omitempty"`
+	LLMType          *string                `json:"llm_type,omitempty"`
+	AppName          *string                `json:"app_name,omitempty"`
+	DesktopConfig    *LLMImageDesktopConfig `json:"desktop_config,omitempty"`
+	ImageSource      *string                `json:"image_source,omitempty"`
+	ContainerImageId *string                `json:"container_image_id,omitempty"`
+}
+
+type LLMImageDetails struct {
+	apis.SharableVirtualResourceDetails
+
+	// ContainerImage is the linked container_image resource name (for UI link text).
+	ContainerImage string `json:"container_image"`
 }
