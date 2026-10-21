@@ -493,6 +493,10 @@ func (s *SKVMGuestInstance) initGuestVga(pciRoot *desc.PCIController) {
 	} else if s.Desc.Vga == "" {
 		s.Desc.Vga = "std"
 	}
+	if s.Desc.LightMode {
+		s.Desc.Vga = "std"
+	}
+
 	s.Desc.VgaDevice = new(desc.SGuestVga)
 
 	var vgaDevName string
