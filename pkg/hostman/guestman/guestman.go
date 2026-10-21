@@ -56,6 +56,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils/cpuset"
@@ -320,6 +321,32 @@ func (m *SGuestManager) OnVerifyExistingGuestsSucc(servers []jsonutils.JSONObjec
 			m.RemoveCandidateServer(server)
 		}
 	}
+	timeutils2.AddTimeout(60*time.Second, func() { m.checkDaemonGuestsIsRunning() })
+}
+
+func (m *SGuestManager) checkDaemonGuestsIsRunning() {
+	m.Servers.Range(func(k, v interface{}) bool {
+		guest := v.(*SKVMGuestInstance)
+		if !guest.IsDaemon() {
+			return true
+		}
+		if guest.IsRunning() || guest.IsSuspend() {
+			return true
+		}
+
+		if guest.StartupTask != nil {
+			return true
+		}
+		if guest.isDaemonGuestManualStop() {
+			return true
+		}
+		if err := guest.StartGuest(context.Background(), auth.AdminCredential(), jsonutils.NewDict()); err != nil {
+			log.Errorf("checkDaemonGuestsIsRunning start guest %s failed: %s", guest.GetName(), err.Error())
+		}
+		return true
+	})
+
+	timeutils2.AddTimeout(60*time.Second, func() { m.checkDaemonGuestsIsRunning() })
 }
 
 func (m *SGuestManager) RemoveCandidateServer(server *SKVMGuestInstance) {
@@ -963,8 +990,12 @@ func (m *SGuestManager) GuestStart(ctx context.Context, userCred mcclient.TokenC
 	}
 }
 
-func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64) error {
+func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64, daemonGuestManualStop bool) error {
 	if guest, ok := m.GetServer(sid); ok {
+		if daemonGuestManualStop {
+			guest.Desc.Metadata[compute.DAEMON_GUEST_MANUAL_STOP] = "true"
+			guest.SaveLiveDesc(guest.Desc)
+		}
 		hostutils.DelayTaskWithoutReqctx(ctx, guest.ExecStopTask, timeout)
 		return nil
 	} else {

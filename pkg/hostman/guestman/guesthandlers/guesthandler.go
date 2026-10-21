@@ -231,11 +231,12 @@ func guestStart(ctx context.Context, userCred mcclient.TokenCredential, sid stri
 }
 
 func guestStop(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	daemonGuestManualStop := jsonutils.QueryBoolean(body, "daemon_guest_manual_stop", false)
 	timeout, err := body.Int("timeout")
 	if err != nil {
 		timeout = 30
 	}
-	return nil, guestman.GetGuestManager().GuestStop(ctx, sid, timeout)
+	return nil, guestman.GetGuestManager().GuestStop(ctx, sid, timeout, daemonGuestManualStop)
 }
 
 func guestMonitor(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
