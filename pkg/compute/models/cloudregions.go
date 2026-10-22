@@ -1072,7 +1072,7 @@ func (self *SCloudregion) ValidateUpdateCondition(ctx context.Context) error {
 }
 
 func (self *SCloudregion) SyncVpcs(ctx context.Context, userCred mcclient.TokenCredential, iregion cloudprovider.ICloudRegion, provider *SCloudprovider) error {
-	syncResults, syncRange := SSyncResultSet{}, &SSyncRange{}
+	syncResults, syncRange := NewSSyncResultSet(), &SSyncRange{}
 	syncRegionVPCs(ctx, userCred, syncResults, provider, self, iregion, syncRange)
 	return nil
 }

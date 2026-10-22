@@ -216,6 +216,7 @@ func startMasterTasks(opts *options.ComputeOptions, dbOpts *common_options.DBOpt
 		cron.AddJobEveryFewDays("SyncElasticCacheSkus", opts.SyncSkusDay, opts.SyncSkusHour, 0, 0, models.SyncElasticCacheSkus, true)
 
 		cron.AddJobEveryFewDays("SnapshotDataCleaning", 1, 0, 0, 0, models.SnapshotManager.DataCleaning, true)
+		cron.AddJobEveryFewDays("CloudaccountSyncTaskCleanup", 1, 3, 0, 0, models.CloudaccountSyncTaskManager.CleanupExpiredTasks, true)
 
 		cron.AddJobAtIntervalsWithStartRun("SyncCloudImages", time.Duration(opts.CloudImagesSyncIntervalHours)*time.Hour, models.SyncPublicCloudImages, true)
 

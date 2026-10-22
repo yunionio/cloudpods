@@ -1651,7 +1651,7 @@ func (self *SDBInstance) SyncAllWithCloudDBInstance(ctx context.Context, userCre
 	if err != nil {
 		return errors.Wrapf(err, "SyncWithCloudDBInstance")
 	}
-	syncDBInstanceResource(ctx, userCred, SSyncResultSet{}, self, extInstance, &SSyncRange{})
+	syncDBInstanceResource(ctx, userCred, NewSSyncResultSet(), self, extInstance, &SSyncRange{})
 	return nil
 }
 
