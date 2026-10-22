@@ -55,6 +55,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		models.ScriptApplyRecordManager,
 		models.SshInfoManager,
 		models.ServiceUrlManager,
+		models.EditionSwitchManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
