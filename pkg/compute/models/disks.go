@@ -544,7 +544,27 @@ func (man *SDiskManager) BatchCreateValidateCreateData(ctx context.Context, user
 }
 
 func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclient.IIdentityProvider) (SComputeResourceKeys, error) {
-	return serverCreateInput2ComputeQuotaKeys(*input.ToServerCreateInput(), ownerId)
+	serverInput := input.ToServerCreateInput()
+	// Create disk from snapshot without prefer_*/storage: resolve quota scope from snapshot storage
+	if input.DiskConfig != nil && len(input.SnapshotId) > 0 &&
+		len(serverInput.PreferHost) == 0 && len(serverInput.PreferWire) == 0 &&
+		len(serverInput.PreferZone) == 0 && len(serverInput.PreferZones) == 0 &&
+		len(serverInput.PreferRegion) == 0 && len(serverInput.PreferManager) == 0 {
+		if snapObj, err := SnapshotManager.FetchById(input.SnapshotId); err == nil {
+			snap := snapObj.(*SSnapshot)
+			if storage := StorageManager.FetchStorageById(snap.StorageId); storage != nil {
+				if zone, zErr := storage.getZone(); zErr == nil && zone != nil {
+					serverInput.PreferZone = zone.Id
+					serverInput.PreferRegion = zone.CloudregionId
+				}
+				if provider := storage.GetCloudprovider(); provider != nil {
+					serverInput.PreferManager = provider.Id
+					serverInput.Provider = provider.Provider
+				}
+			}
+		}
+	}
+	return serverCreateInput2ComputeQuotaKeys(*serverInput, ownerId)
 }
 
 func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DiskCreateInput) (api.DiskCreateInput, error) {
