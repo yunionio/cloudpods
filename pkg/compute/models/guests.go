@@ -1573,6 +1573,10 @@ func serverCreateInput2ComputeQuotaKeys(input api.ServerCreateInput, ownerId mcc
 	if len(providerStr) == 0 {
 		providerStr = brand
 	}
+	// align with guest validateCreateData: disk/server create without prefer_* leaves provider empty
+	if len(providerStr) == 0 {
+		providerStr = api.CLOUD_PROVIDER_ONECLOUD
+	}
 
 	driver, err := GetDriver(hypervisor, providerStr)
 	if err != nil {
