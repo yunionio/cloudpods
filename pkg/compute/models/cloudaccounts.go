@@ -932,6 +932,18 @@ func (acnt *SCloudaccount) StartSyncCloudAccountInfoTask(ctx context.Context, us
 			syncRange.SkipSyncResources = append(syncRange.SkipSyncResources, res)
 		}
 	}
+
+	mode := api.CloudaccountSyncTaskModeManual
+	if data != nil && jsonutils.QueryBoolean(data, "auto_sync", false) {
+		mode = api.CloudaccountSyncTaskModeAuto
+	}
+	syncTask, err := CloudaccountSyncTaskManager.StartAccountSyncTask(ctx, userCred, acnt, syncRange, mode)
+	if err != nil {
+		log.Errorf("StartAccountSyncTask fail: %v", err)
+	} else if syncTask != nil {
+		syncRange.AccountSyncTaskId = syncTask.Id
+	}
+
 	params.Add(jsonutils.Marshal(syncRange), "sync_range")
 
 	task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncInfoTask", acnt, userCred, params, "", "", nil)
