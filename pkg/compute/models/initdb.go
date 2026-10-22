@@ -38,6 +38,7 @@ func InitDB() error {
 		QuotaManager,
 
 		CloudaccountManager,
+		CloudaccountSyncTaskManager,
 		CloudproviderManager,
 		CloudregionManager,
 		ZoneManager,

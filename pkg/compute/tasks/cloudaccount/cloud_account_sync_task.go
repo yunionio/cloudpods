@@ -17,6 +17,7 @@ package cloudaccount
 import (
 	"context"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -110,6 +111,15 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReady(ctx context.Contex
 
 	syncRange := self.GetSyncRange(ctx)
 
+	if len(syncRange.AccountSyncTaskId) > 0 {
+		if aObj, err := db.FetchById(models.CloudaccountSyncTaskManager, syncRange.AccountSyncTaskId); err == nil {
+			if aObj.(*models.SCloudaccountSyncTask).IsCanceled() {
+				self.OnCloudaccountSyncComplete(ctx, obj, nil)
+				return
+			}
+		}
+	}
+
 	if !syncRange.NeedSyncInfo() {
 		self.OnCloudaccountSyncComplete(ctx, obj, nil)
 		return
@@ -127,10 +137,50 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReady(ctx context.Contex
 	}
 }
 
+func (self *CloudAccountSyncInfoTask) finishAccountSyncTask(ctx context.Context, syncRange models.SSyncRange, fail bool, reason string) {
+	if len(syncRange.AccountSyncTaskId) == 0 {
+		return
+	}
+	obj, err := db.FetchById(models.CloudaccountSyncTaskManager, syncRange.AccountSyncTaskId)
+	if err != nil {
+		return
+	}
+	task := obj.(*models.SCloudaccountSyncTask)
+	// only close account task when it has no active children (probe-only / no provider sync)
+	children, _ := models.CloudaccountSyncTaskManager.FetchChildren(task.Id)
+	active := 0
+	for i := range children {
+		if children[i].Status == api.CloudaccountSyncTaskStatusQueued || children[i].Status == api.CloudaccountSyncTaskStatusRunning {
+			active++
+		}
+	}
+	if active > 0 {
+		return
+	}
+	status := api.CloudaccountSyncTaskStatusDone
+	if fail {
+		status = api.CloudaccountSyncTaskStatusFail
+	}
+	if task.Status == api.CloudaccountSyncTaskStatusCancel {
+		return
+	}
+	_, _ = db.Update(task, func() error {
+		task.Status = status
+		now := time.Now().UTC()
+		if task.StartedAt.IsZero() {
+			task.StartedAt = now
+		}
+		task.EndedAt = now
+		return nil
+	})
+	_ = reason
+}
+
 func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	cloudaccount := obj.(*models.SCloudaccount)
 	syncRange := self.GetSyncRange(ctx)
 	cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred, syncRange.NeedSyncInfo())
+	self.finishAccountSyncTask(ctx, syncRange, false, "")
 	db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_HOST_COMPLETE, "", self.UserCred)
 	self.SetStageComplete(ctx, nil)
 	logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, syncRange, self.UserCred, true)
@@ -140,6 +190,7 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncCompleteFailed(ctx conte
 	cloudaccount := obj.(*models.SCloudaccount)
 	syncRange := self.GetSyncRange(ctx)
 	cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred, syncRange.NeedSyncInfo())
+	self.finishAccountSyncTask(ctx, syncRange, true, err.String())
 	db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_HOST_FAILED, err, self.UserCred)
 	self.SetStageFailed(ctx, err)
 	logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, err, self.UserCred, false)
