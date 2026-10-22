@@ -504,6 +504,32 @@ func (m *SGuestManager) OnVerifyExistingGuestsSucc(servers []jsonutils.JSONObjec
 			m.RemoveCandidateServer(server)
 		}
 	}
+	timeutils2.AddTimeout(60*time.Second, func() { m.checkDaemonGuestsIsRunning() })
+}
+
+func (m *SGuestManager) checkDaemonGuestsIsRunning() {
+	m.Servers.Range(func(k, v interface{}) bool {
+		guest := v.(*SKVMGuestInstance)
+		if !guest.IsDaemon() {
+			return true
+		}
+		if guest.IsRunning() || guest.IsSuspend() {
+			return true
+		}
+
+		if guest.StartupTask != nil {
+			return true
+		}
+		if guest.isDaemonGuestManualStop() {
+			return true
+		}
+		if err := guest.StartGuest(context.Background(), auth.AdminCredential(), jsonutils.NewDict()); err != nil {
+			log.Errorf("checkDaemonGuestsIsRunning start guest %s failed: %s", guest.GetName(), err.Error())
+		}
+		return true
+	})
+
+	timeutils2.AddTimeout(60*time.Second, func() { m.checkDaemonGuestsIsRunning() })
 }
 
 func (m *SGuestManager) RemoveCandidateServer(server GuestRuntimeInstance) {
@@ -1186,9 +1212,9 @@ func (m *SGuestManager) GuestStart(ctx context.Context, userCred mcclient.TokenC
 	}
 }
 
-func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64, isForce bool) error {
+func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64, isForce, daemonGuestManualStop bool) error {
 	if server, ok := m.GetServer(sid); ok {
-		if err := server.HandleStop(ctx, timeout, isForce); err != nil {
+		if err := server.HandleStop(ctx, timeout, isForce, daemonGuestManualStop); err != nil {
 			return errors.Wrap(err, "Do stop")
 		}
 	} else {
