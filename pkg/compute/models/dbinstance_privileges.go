@@ -68,6 +68,17 @@ func (self *SDBInstancePrivilege) BeforeInsert() {
 	}
 }
 
+func (self *SDBInstancePrivilege) GetId() string {
+	return self.Id
+}
+
+func (self *SDBInstancePrivilege) GetName() string {
+	if len(self.Privilege) > 0 {
+		return self.Privilege
+	}
+	return self.Id
+}
+
 func (manager *SDBInstancePrivilegeManager) CreateByInsertOrUpdate() bool {
 	return false
 }
@@ -170,6 +181,15 @@ func (manager *SDBInstancePrivilegeManager) SyncDBInstanceAccountPrivileges(ctx 
 		}
 	}
 
+	for i := 0; i < len(commondb); i++ {
+		err := commondb[i].syncWithCloudPrivilege(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(err)
+		} else {
+			result.Update()
+		}
+	}
+
 	for i := 0; i < len(added); i++ {
 		err = manager.newFromCloudPrivileges(ctx, userCred, account, added[i])
 		if err != nil {
@@ -181,6 +201,15 @@ func (manager *SDBInstancePrivilegeManager) SyncDBInstanceAccountPrivileges(ctx 
 	return result
 }
 
+func (self *SDBInstancePrivilege) syncWithCloudPrivilege(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudDBInstanceAccountPrivilege) error {
+	_, err := db.Update(self, func() error {
+		self.Privilege = ext.GetPrivilege()
+		self.ExternalId = ext.GetGlobalId()
+		return nil
+	})
+	return err
+}
+
 func (manager *SDBInstancePrivilegeManager) newFromCloudPrivileges(ctx context.Context, userCred mcclient.TokenCredential, account *SDBInstanceAccount, ext cloudprovider.ICloudDBInstanceAccountPrivilege) error {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
@@ -188,6 +217,7 @@ func (manager *SDBInstancePrivilegeManager) newFromCloudPrivileges(ctx context.C
 	privilege := SDBInstancePrivilege{}
 	privilege.SetModelManager(manager, &privilege)
 
+	privilege.Id = db.DefaultUUIDGenerator()
 	privilege.DBInstanceaccountId = account.Id
 	privilege.ExternalId = ext.GetGlobalId()
 	privilege.Privilege = ext.GetPrivilege()
