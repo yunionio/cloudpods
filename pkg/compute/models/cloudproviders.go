@@ -476,6 +476,10 @@ func (cprvd *SCloudprovider) saveProject(userCred mcclient.TokenCredential, doma
 
 type SSyncRange struct {
 	api.SyncRangeInput
+
+	// internal: visualization sync task ids (not API input)
+	AccountSyncTaskId  string `json:"account_sync_task_id"`
+	ProviderSyncTaskId string `json:"provider_sync_task_id"`
 }
 
 func (sr *SSyncRange) GetRegionIds() ([]string, error) {
@@ -644,7 +648,7 @@ func (cprvd *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.
 	if !account.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Cloudaccount disabled")
 	}
-	syncRange := SSyncRange{input}
+	syncRange := SSyncRange{SyncRangeInput: input}
 	if syncRange.FullSync || len(syncRange.Region) > 0 || len(syncRange.Zone) > 0 || len(syncRange.Host) > 0 || len(syncRange.Resources) > 0 {
 		syncRange.DeepSync = true
 	}
@@ -662,9 +666,41 @@ func (cprvd *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.
 
 func (cprvd *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, parentTaskId string) error {
 	params := jsonutils.NewDict()
-	if syncRange != nil {
-		params.Add(jsonutils.Marshal(syncRange), "sync_range")
+	if syncRange == nil {
+		syncRange = &SSyncRange{}
 	}
+	var accountTask *SCloudaccountSyncTask
+	if len(syncRange.AccountSyncTaskId) > 0 {
+		if aObj, err := db.FetchById(CloudaccountSyncTaskManager, syncRange.AccountSyncTaskId); err == nil {
+			accountTask = aObj.(*SCloudaccountSyncTask)
+		}
+	}
+	if accountTask == nil {
+		if cloudaccount, _ := cprvd.GetCloudaccount(); cloudaccount != nil {
+			at, err := CloudaccountSyncTaskManager.StartAccountSyncTask(ctx, userCred, cloudaccount, syncRange, api.CloudaccountSyncTaskModeManual)
+			if err != nil {
+				log.Errorf("StartAccountSyncTask from provider fail: %v", err)
+			} else {
+				accountTask = at
+				if at != nil {
+					syncRange.AccountSyncTaskId = at.Id
+				}
+			}
+		}
+	}
+	if accountTask != nil {
+		providerTask, err := CloudaccountSyncTaskManager.StartProviderSyncTask(ctx, userCred, accountTask, cprvd, syncRange)
+		if err != nil {
+			if errors.Cause(err) == context.Canceled {
+				log.Infof("skip provider sync %s because sync task cancelled", cprvd.Name)
+				return nil
+			}
+			log.Errorf("StartProviderSyncTask fail: %v", err)
+		} else if providerTask != nil {
+			syncRange.ProviderSyncTaskId = providerTask.Id
+		}
+	}
+	params.Add(jsonutils.Marshal(syncRange), "sync_range")
 	task, err := taskman.TaskManager.NewTask(ctx, "CloudProviderSyncInfoTask", cprvd, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrapf(err, "NewTask")
