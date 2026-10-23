@@ -404,6 +404,9 @@ func (set SSyncResultSet) Add(manager db.IModelManager, result compare.SyncResul
 }
 
 func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) error {
+	if err := CheckCloudaccountSyncCanceled(ctx); err != nil {
+		return err
+	}
 	syncResults := SSyncResultSet{}
 
 	localRegion, err := self.GetRegion()
@@ -463,12 +466,26 @@ func (self *SCloudproviderregion) getSyncTaskKey() string {
 
 func (self *SCloudproviderregion) submitSyncTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) {
 	self.markStartSync(userCred)
+	var leaf *SCloudaccountSyncTask
+	if len(syncRange.ProviderSyncTaskId) > 0 {
+		pObj, err := db.FetchById(CloudaccountSyncTaskManager, syncRange.ProviderSyncTaskId)
+		if err != nil {
+			log.Errorf("submitSyncTask fetch provider task %s: %v", syncRange.ProviderSyncTaskId, err)
+			resetCloudproviderregionAfterCancel(ctx, userCred, self)
+			return
+		}
+		leafTask, err := CloudaccountSyncTaskManager.StartRegionSyncTask(ctx, userCred, pObj.(*SCloudaccountSyncTask), self)
+		if err != nil {
+			log.Errorf("StartRegionSyncTask fail: %v", err)
+			// 父任务已取消或建叶子失败：勿再入队 DoSync，并收回 queued
+			resetCloudproviderregionAfterCancel(ctx, userCred, self)
+			return
+		}
+		leaf = leafTask
+	}
 	RunSyncCloudproviderRegionTask(ctx, self.getSyncTaskKey(), func() {
 		ctx = context.WithValue(ctx, "provider-region", fmt.Sprintf("%d", self.RowId))
-		err := self.DoSync(ctx, userCred, syncRange)
-		if err != nil {
-			log.Errorf("DoSync faild %v", err)
-		}
+		RunRegionSyncWithTask(ctx, userCred, leaf, self, syncRange)
 	})
 }
 

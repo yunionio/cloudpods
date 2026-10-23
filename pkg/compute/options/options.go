@@ -213,6 +213,9 @@ type ComputeOptions struct {
 	DefaultIPAllocationDirection string `help:"default IP allocation direction" default:"stepdown"`
 
 	KeepDeletedSnapshotDays int `help:"The day of cleanup snapshot" default:"30"`
+
+	// 账号同步任务保留天数，到期后定期清理终态任务；0 表示不清理
+	CloudaccountSyncTaskKeepDays int `help:"Days to keep finished cloudaccount sync tasks, 0 means never cleanup" default:"7"`
 	// 弹性伸缩中的ecs一般会有特殊的系统标签，通过指定这些标签可以忽略这部分ecs的同步, 指定多个key需要以 ',' 分隔
 	SkipServerBySysTagKeys         string   `help:"skip server,disk sync and create with system tags" default:""`
 	SkipServerByUserTagKeys        string   `help:"skip server,disk sync and create with user tags" default:""`
