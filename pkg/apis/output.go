@@ -201,7 +201,9 @@ func (self ProjectizedResourceInfo) GetMetricTags() map[string]string {
 			if strings.Contains(v, "=") {
 				continue
 			}
-			ret["project:"+k] = v
+			k = strings.TrimPrefix(k, "user:")
+			k = strings.TrimPrefix(k, "org:")
+			ret[k] = v
 		}
 	}
 	return ret
