@@ -35,6 +35,7 @@ func init() {
 	cmd.Perform("clone", &options.SecgroupCloneOptions{})
 	cmd.Perform("change-owner", &options.SecgroupChangeOwnerOptions{})
 	cmd.Perform("import-rules", &options.SecgroupImportRulesOptions{})
+	cmd.Perform("set-user-metadata", &baseoptions.ResourceMetadataOptions{})
 	cmd.PerformClass("clean", &options.SecgroupCleanOptions{})
 
 	scmd := shell.NewResourceCmd(&modules.Servernetworksecgroups)

@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
@@ -31,4 +32,5 @@ func init() {
 	cmd.Perform("syncstauts", &compute.NatGatewayIdOptions{})
 	cmd.Perform("cancel-expire", &compute.NatGatewayIdOptions{})
 	cmd.Perform("postpaid-expire", &compute.NatPostpaidExpireOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
 }
