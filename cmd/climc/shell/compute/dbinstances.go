@@ -42,6 +42,7 @@ func init() {
 	cmd.Perform("change-owner", &compute.DBInstanceChangeOwnerOptions{})
 	cmd.PerformWithKeyword("add-tag", "user-metadata", &options.ResourceMetadataOptions{})
 	cmd.PerformWithKeyword("set-tag", "set-user-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("remote-update", &compute.DBInstanceRemoteUpdateOptions{})
 	cmd.Perform("set-secgroup", &compute.DBInstanceSetSecgroupOptions{})
 

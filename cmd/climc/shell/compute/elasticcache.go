@@ -39,6 +39,7 @@ func init() {
 	cmd.Perform("allocate-public-connection", &compute.ElasticCacheIdOption{})
 	cmd.PerformWithKeyword("enable-auth", "update-auth-mode", &compute.ElasticCacheEnableAuthOptions{})
 	cmd.PerformWithKeyword("disable-auth", "update-auth-mode", &compute.ElasticCacheDisableAuthOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
 
 	type ElasticCacheAccountResetPasswordOptions struct {
 		compute.ElasticCacheIdOptions

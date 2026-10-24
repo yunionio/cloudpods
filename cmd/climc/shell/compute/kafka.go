@@ -29,4 +29,5 @@ func init() {
 	cmd.Get("topics", &options.BaseIdOptions{})
 	cmd.Delete(&compute.KafkaIdOption{})
 	cmd.Perform("syncstatus", &compute.KafkaIdOption{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
 }

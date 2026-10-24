@@ -35,4 +35,5 @@ func init() {
 	cmd.Perform("syncstatus", &options.BaseIdOptions{})
 	cmd.Perform("change-bandwidth", &compute.EipChangeBandwidthOptions{})
 	cmd.Perform("change-owner", &compute.EipChangeOwnerOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
 }
