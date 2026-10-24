@@ -31,5 +31,6 @@ func init() {
 	cmd.Perform("clear-cache", &compute.CDNClearCacheOptions{})
 	cmd.Perform("change-config", &compute.CDNChangeConfigOptions{})
 	cmd.Perform("delete-custom-hostname", &compute.CDNDeleteCustomHostnameOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
 	cmd.Get("custom-hostnames", &compute.CDNCustomHostnameOptions{})
 }
