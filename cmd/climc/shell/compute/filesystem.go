@@ -29,4 +29,5 @@ func init() {
 	cmd.Create(&compute.FileSystemCreateOptions{})
 	cmd.Perform("syncstatus", &compute.FileSystemIdOption{})
 	cmd.Perform("set-quota", &compute.FileSystemSetQuotaOption{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
 }
