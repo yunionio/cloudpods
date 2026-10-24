@@ -17,6 +17,7 @@ package compute
 import (
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
@@ -25,6 +26,7 @@ func init() {
 	cmd.List(&compute.AppListOptions{})
 	cmd.Show(&compute.AppIdOptions{})
 	cmd.Perform("syncstatus", &compute.AppIdOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
 	cmd.Get("hybird-connections", &compute.AppIdOptions{})
 	cmd.Get("certificates", &compute.AppIdOptions{})
 	cmd.Get("backups", &compute.AppIdOptions{})

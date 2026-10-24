@@ -45,6 +45,7 @@ func init() {
 	cmd.Perform("purge", &compute_options.NetworkIdOptions{})
 	cmd.Get("change-owner-candidate-domains", &compute_options.NetworkIdOptions{})
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("switch-wire", &compute_options.NetworkSwitchWireOptions{})
 	cmd.Perform("sync-additional-wires", &compute_options.NetworkSyncAdditionalWiresOptions{})
 	cmd.Get("available-addresses", &compute_options.NetworkIdOptions{})

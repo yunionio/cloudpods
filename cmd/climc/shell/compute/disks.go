@@ -49,6 +49,7 @@ func init() {
 	cmd.Perform("change-owner-candidate-domains", &compute_options.DiskIdOptions{})
 	cmd.Perform("disk-cancel-delete", &compute_options.DiskIdOptions{})
 	cmd.Perform("set-class-metadata", &options.ResourceMetadataOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
 	cmd.Perform("rebuild", &compute_options.DiskRebuildOptions{})
 	cmd.Perform("migrate", &compute_options.DiskMigrateOptions{})
 	cmd.Perform("reset-template", &compute_options.DiskResetTemplateOptions{})

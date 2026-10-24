@@ -37,6 +37,7 @@ func init() {
 	cmd.Perform("associate-eip", &options.LoadbalancerAssociateEipOptions{})
 	cmd.Perform("create-eip", &options.LoadbalancerCreateEipOptions{})
 	cmd.Perform("dissociate-eip", &options.LoadbalancerDissociateEipOptions{})
+	cmd.Perform("set-user-metadata", &baseoptions.ResourceMetadataOptions{})
 
 	R(&baseoptions.ResourceMetadataOptions{}, "lb-add-tag", "Set tag of a lb", func(s *mcclient.ClientSession, opts *baseoptions.ResourceMetadataOptions) error {
 		params, err := opts.Params()
