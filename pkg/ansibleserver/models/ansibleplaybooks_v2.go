@@ -273,9 +273,18 @@ func (apb *SAnsiblePlaybookV2) runPlaybook(ctx context.Context, userCred mcclien
 			files[name] = []byte(content)
 		}
 	}
-	// init private key
-	if privateKeys, err = compute.Sshkeypairs.FetchProjectPrivateKeys(ctx, userCred); err != nil {
-		return errors.Wrap(err, "fetch private key")
+	{
+		// init private key
+		if keys, err := compute.Sshkeypairs.FetchProjectPrivateKeys(ctx, userCred); err != nil {
+			return errors.Wrap(err, "fetch private key")
+		} else {
+			privateKeys = append(privateKeys, keys...)
+		}
+		if keys, err := compute.Sshkeypairs.FetchAdminPrivateKeys(ctx); err != nil {
+			return errors.Wrap(err, "fetch admin private key")
+		} else {
+			privateKeys = append(privateKeys, keys...)
+		}
 	}
 
 	_, err = db.Update(apb, func() error {
