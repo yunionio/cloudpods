@@ -18,6 +18,7 @@ import (
 	"context"
 	"os/exec"
 	"testing"
+	"time"
 
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
@@ -27,7 +28,8 @@ import (
 )
 
 type testSessionData struct {
-	id string
+	id       string
+	protocol string
 }
 
 func (s *testSessionData) GetId() string {
@@ -43,6 +45,9 @@ func (s *testSessionData) GetDisplayInfo(ctx context.Context) (*SDisplayInfo, er
 }
 
 func (s *testSessionData) GetProtocol() string {
+	if s.protocol != "" {
+		return s.protocol
+	}
 	return "tty"
 }
 
@@ -149,5 +154,46 @@ func TestSessionEmptyIdReplacement(t *testing.T) {
 	}
 	if got != s2 {
 		t.Fatalf("token resolved to wrong session")
+	}
+}
+
+func TestRemoteConsoleInfoSessionId(t *testing.T) {
+	info := &RemoteConsoleInfo{}
+	info.Id = "guest-uuid"
+	info.sessionId = stringutils.UUID4()
+	if info.GetId() == info.Id {
+		t.Fatalf("session id must not be the guest id")
+	}
+	if info.GetId() != info.sessionId {
+		t.Fatalf("GetId = %s, want %s", info.GetId(), info.sessionId)
+	}
+}
+
+func TestSessionExpiration(t *testing.T) {
+	man := NewSessionManager()
+	s, err := man.Save(&testSessionData{id: stringutils.UUID4()})
+	if err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+	s.CreatedAt = time.Now().Add(-AccessInterval - time.Second)
+	if _, ok := man.Get(s.AccessToken); ok {
+		t.Fatalf("expired session accepted")
+	}
+	if _, ok := man.Load(s.Id); ok {
+		t.Fatalf("expired session not removed")
+	}
+}
+
+func TestSessionAccessInterval(t *testing.T) {
+	man := NewSessionManager()
+	s, err := man.Save(&testSessionData{id: stringutils.UUID4(), protocol: SPICE})
+	if err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+	if _, ok := man.Get(s.AccessToken); !ok {
+		t.Fatalf("first access rejected")
+	}
+	if _, ok := man.Get(s.AccessToken); ok {
+		t.Fatalf("reuse within interval accepted")
 	}
 }
