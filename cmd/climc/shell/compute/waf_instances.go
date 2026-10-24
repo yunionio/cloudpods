@@ -29,5 +29,6 @@ func init() {
 	cmd.Update(&options.BaseUpdateOptions{})
 	cmd.Get("cloud-resources", &options.BaseIdOptions{})
 	cmd.Perform("syncstatus", &options.BaseIdOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
 	cmd.Create(&compute.WafInstanceCreateOptions{})
 }
