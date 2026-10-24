@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 	computeoptions "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 )
 
@@ -36,6 +37,7 @@ func init() {
 	cmd.GetProperty(&computeoptions.BucketGetPropertyOptions{})
 	cmd.Show(&computeoptions.BucketIdOptions{})
 	cmd.Perform("syncstatus", &computeoptions.BucketIdOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
 	cmd.Update(&computeoptions.BucketUpdateOptions{})
 	cmd.Delete(&computeoptions.BucketIdOptions{})
 	cmd.Create(&computeoptions.BucketCreateOptions{})

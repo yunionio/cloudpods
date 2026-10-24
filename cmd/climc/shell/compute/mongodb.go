@@ -29,4 +29,5 @@ func init() {
 	cmd.Delete(&options.BaseIdOptions{})
 	cmd.Get("backups", &options.BaseIdOptions{})
 	cmd.Perform("syncstatus", &options.BaseIdOptions{})
+	cmd.Perform("set-user-metadata", &options.ResourceMetadataOptions{})
 }
