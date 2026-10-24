@@ -128,8 +128,18 @@ func (ai *SAnsiblePlaybookInstance) runPlaybook(ctx context.Context, userCred mc
 		privateKeys []string
 		err         error
 	)
-	if privateKeys, err = compute.Sshkeypairs.FetchProjectPrivateKeys(ctx, userCred); err != nil {
-		return errors.Wrap(err, "unable to fetch private keys")
+	{
+		// init private key
+		if keys, err := compute.Sshkeypairs.FetchProjectPrivateKeys(ctx, userCred); err != nil {
+			return errors.Wrap(err, "unable to fetch private keys")
+		} else {
+			privateKeys = append(privateKeys, keys...)
+		}
+		if keys, err := compute.Sshkeypairs.FetchAdminPrivateKeys(ctx); err != nil {
+			return errors.Wrap(err, "unable to fetch admin private keys")
+		} else {
+			privateKeys = append(privateKeys, keys...)
+		}
 	}
 	_, err = db.Update(ai, func() error {
 		ai.StartTime = time.Now()
