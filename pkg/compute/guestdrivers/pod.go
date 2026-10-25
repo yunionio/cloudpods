@@ -349,8 +349,8 @@ func (p *SPodDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.Toke
 	return nil, p.newUnsupportOperationError("VNC")
 }
 
-func (p *SPodDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
-	//guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
+func (p *SPodDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data api.SDeployGuestFsResponse) error {
+	//guest.SaveDeployInfo(ctx, task.GetUserCred(), data, api.SGuestDeployTaskParam{})
 	// do nothing here
 	return nil
 }
@@ -407,7 +407,7 @@ func (p *SPodDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *mode
 	return err
 }
 
-func (p *SPodDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+func (p *SPodDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *api.SGuestDeployTaskParam) (jsonutils.JSONObject, error) {
 	desc := guest.GetJsonDescAtHypervisor(ctx, host)
 	ctrs, err := models.GetContainerManager().GetContainersByPod(guest.GetId())
 	if err != nil {
@@ -451,16 +451,18 @@ func (p *SPodDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models
 			return errors.Wrap(err, "create containers on pod")
 		}
 	}
-	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	deployParam, err := models.NewGuestDeployTaskParam(task.GetParams())
 	if err != nil {
 		log.Errorf("GetDeployConfigOnHost error: %v", err)
 		return err
 	}
-	action, err := config.GetString("action")
+	deployConfig, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, deployParam)
 	if err != nil {
+		log.Errorf("GetDeployConfigOnHost error: %v", err)
 		return err
 	}
-	url := fmt.Sprintf("%s/servers/%s/%s", host.ManagerUri, guest.Id, action)
+	config := jsonutils.Marshal(deployConfig).(*jsonutils.JSONDict)
+	url := fmt.Sprintf("%s/servers/%s/%s", host.ManagerUri, guest.Id, deployConfig.Action)
 	header := p.getTaskRequestHeader(task)
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, config, false)
 	return err

@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/disktool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/ssh"
@@ -35,7 +36,7 @@ type IBaremetalServer interface {
 	NewConfigedSSHPartitionTool(term *ssh.Client) (*disktool.SSHPartitionTool, error)
 	DoRebuildRootDisk(tool *disktool.SSHPartitionTool, term *ssh.Client, disableImageCache bool) (*disktool.DiskPartitions, []*disktool.Partition, error)
 	SyncPartitionSize(term *ssh.Client, rootDisk *disktool.DiskPartitions, parts []*disktool.Partition) ([]jsonutils.JSONObject, error)
-	DoDeploy(tool *disktool.SSHPartitionTool, term *ssh.Client, data jsonutils.JSONObject, isInit bool) (jsonutils.JSONObject, error)
+	DoDeploy(tool *disktool.SSHPartitionTool, term *ssh.Client, data *compute.SGuestDeployConfigOnHost, isInit bool) (*compute.SDeployGuestFsResponse, error)
 	SaveDesc(desc jsonutils.JSONObject) error
 	GetNics() []types.SServerNic
 	GetNicByMac(mac net.HardwareAddr) *types.SNic
