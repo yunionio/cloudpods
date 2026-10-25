@@ -2117,17 +2117,31 @@ func (b *SBaremetalInstance) DelayedServerReset(ctx context.Context, _ jsonutils
 	return nil, err
 }
 
-func (b *SBaremetalInstance) StartServerCreateTask(ctx context.Context, userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
+func deployDescDict(desc jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	if desc == nil {
+		return nil, errors.Error("desc is empty")
+	}
+	dict, ok := desc.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, errors.Errorf("desc is %T", desc)
+	}
+	return dict, nil
+}
+
+func (b *SBaremetalInstance) StartServerCreateTask(ctx context.Context, userCred mcclient.TokenCredential, taskId string, data *api.SGuestDeployConfigOnHost) error {
 	b.serverLock.Lock()
 	defer b.serverLock.Unlock()
 	if b.server != nil {
 		return fmt.Errorf("Baremetal %s already have server %s", b.GetName(), b.server.GetName())
 	}
-	descData, err := data.Get("desc")
+	if data == nil {
+		data = &api.SGuestDeployConfigOnHost{}
+	}
+	desc, err := deployDescDict(data.Desc)
 	if err != nil {
 		return fmt.Errorf("Create data not found server desc: %v", err)
 	}
-	server, err := newBaremetalServer(b, descData.(*jsonutils.JSONDict))
+	server, err := newBaremetalServer(b, desc)
 	if err != nil {
 		return fmt.Errorf("New server error: %v", err)
 	}
@@ -2136,36 +2150,42 @@ func (b *SBaremetalInstance) StartServerCreateTask(ctx context.Context, userCred
 	if err := b.AutoSaveDesc(ctx); err != nil {
 		return err
 	}
-	if jsonutils.QueryBoolean(data, "fake_create_from_bm_import", false) {
+	if data.FakeCreateFromBmImport {
 		log.Infof("guest %s is fake_create_from_bm_import", b.GetName())
 		timeutils2.AddTimeout(time.Second*3, func() { modules.ComputeTasks.TaskComplete(b.GetClientSession(), taskId, nil) })
 		return nil
 	}
-	b.StartNewTask(tasks.NewBaremetalServerCreateTask, userCred, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalServerCreateTask, userCred, taskId, jsonutils.Marshal(data))
 	return nil
 }
 
-func (b *SBaremetalInstance) StartServerDeployTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
-	desc, err := data.Get("desc")
+func (b *SBaremetalInstance) StartServerDeployTask(userCred mcclient.TokenCredential, taskId string, data *api.SGuestDeployConfigOnHost) error {
+	if data == nil {
+		data = &api.SGuestDeployConfigOnHost{}
+	}
+	desc, err := deployDescDict(data.Desc)
 	if err != nil {
 		return fmt.Errorf("Not found desc in data")
 	}
 	if err := b.GetServer().SaveDesc(desc); err != nil {
 		return fmt.Errorf("Save server desc: %v", err)
 	}
-	b.StartNewTask(tasks.NewBaremetalServerDeployTask, userCred, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalServerDeployTask, userCred, taskId, jsonutils.Marshal(data))
 	return nil
 }
 
-func (b *SBaremetalInstance) StartServerRebuildTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
-	desc, err := data.Get("desc")
+func (b *SBaremetalInstance) StartServerRebuildTask(userCred mcclient.TokenCredential, taskId string, data *api.SGuestDeployConfigOnHost) error {
+	if data == nil {
+		data = &api.SGuestDeployConfigOnHost{}
+	}
+	desc, err := deployDescDict(data.Desc)
 	if err != nil {
 		return fmt.Errorf("Not found desc in data")
 	}
 	if err := b.GetServer().SaveDesc(desc); err != nil {
 		return fmt.Errorf("Save server desc: %v", err)
 	}
-	b.StartNewTask(tasks.NewBaremetalServerRebuildTask, userCred, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalServerRebuildTask, userCred, taskId, jsonutils.Marshal(data))
 	return nil
 }
 
@@ -3144,26 +3164,38 @@ func (s *SBaremetalServer) SyncPartitionSize(term *ssh.Client, rootDisk *disktoo
 	return disks, nil
 }
 
-func (s *SBaremetalServer) DoDeploy(tool *disktool.SSHPartitionTool, term *ssh.Client, data jsonutils.JSONObject, isInit bool) (jsonutils.JSONObject, error) {
-	publicKey := deployapi.GetKeys(data)
+func (s *SBaremetalServer) DoDeploy(tool *disktool.SSHPartitionTool, term *ssh.Client, data *api.SGuestDeployConfigOnHost, isInit bool) (*api.SDeployGuestFsResponse, error) {
+	if data == nil {
+		data = &api.SGuestDeployConfigOnHost{}
+	}
+	publicKey := &deployapi.SSHKeys{
+		PublicKey:        data.PublicKey,
+		DeletePublicKey:  data.DeletePublicKey,
+		AdminPublicKey:   data.AdminPublicKey,
+		ProjectPublicKey: data.ProjectPublicKey,
+	}
 	isRandomPassword := false
-	password, _ := data.GetString("password")
-	resetPassword := jsonutils.QueryBoolean(data, "reset_password", false)
+	password := data.Password
+	resetPassword := data.ResetPassword != nil && *data.ResetPassword
 	if resetPassword && len(password) == 0 {
 		password = seclib.RandomPassword(12)
 		isRandomPassword = true
 	}
-	deployArray := make([]*deployapi.DeployContent, 0)
-	if data.Contains("deploys") {
-		err := data.Unmarshal(&deployArray, "deploys")
-		if err != nil {
-			return nil, errors.Wrapf(err, "unmarshal to array of deployapi.DeployContent")
+	deployArray := make([]*deployapi.DeployContent, 0, len(data.Deploys))
+	for _, cfg := range data.Deploys {
+		if cfg == nil {
+			continue
 		}
+		deployArray = append(deployArray, &deployapi.DeployContent{
+			Path:    cfg.Path,
+			Content: cfg.Content,
+			Action:  cfg.Action,
+		})
 	}
 	userData, _ := s.desc.GetString("user_data")
 
-	deployTelegraf := jsonutils.QueryBoolean(data, "deploy_telegraf", false)
-	telegrafConfig, _ := data.GetString("telegraf_conf")
+	deployTelegraf := data.DeployTelegraf
+	telegrafConfig := data.TelegrafConf
 
 	deployInfo := deployapi.NewDeployInfo(publicKey, deployArray,
 		password, isRandomPassword, isInit, true, o.Options.LinuxDefaultRootUser, o.Options.WindowsDefaultAdminUser, false, "",
@@ -3172,7 +3204,7 @@ func (s *SBaremetalServer) DoDeploy(tool *disktool.SSHPartitionTool, term *ssh.C
 	return s.deployFs(tool, term, deployInfo)
 }
 
-func (s *SBaremetalServer) deployFs(tool *disktool.SSHPartitionTool, term *ssh.Client, deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
+func (s *SBaremetalServer) deployFs(tool *disktool.SSHPartitionTool, term *ssh.Client, deployInfo *deployapi.DeployInfo) (*api.SDeployGuestFsResponse, error) {
 	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
 	if err != nil {
 		return nil, err

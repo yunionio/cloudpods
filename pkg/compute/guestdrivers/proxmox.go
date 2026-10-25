@@ -194,7 +194,7 @@ func (self *SProxmoxGuestDriver) RequestRemoteUpdate(ctx context.Context, guest 
 	return nil
 }
 
-func (self *SProxmoxGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+func (self *SProxmoxGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *api.SGuestDeployTaskParam) (jsonutils.JSONObject, error) {
 	desc := guest.GetJsonDescAtHypervisor(ctx, host)
 	if len(desc.Disks) > 0 && len(desc.Disks[0].TemplateId) == 0 {
 		cdrom := guest.GetCdrom()
@@ -209,10 +209,15 @@ func (self *SProxmoxGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred
 }
 
 func (self *SProxmoxGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	deployParam, err := models.NewGuestDeployTaskParam(task.GetParams())
+	if err != nil {
+		return errors.Wrap(err, "NewGuestDeployTaskParam")
+	}
+	deployConfig, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, deployParam)
 	if err != nil {
 		return errors.Wrap(err, "GetDeployConfigOnHost")
 	}
+	config := jsonutils.Marshal(deployConfig).(*jsonutils.JSONDict)
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
 
 	if !host.IsEsxiAgentReady() {

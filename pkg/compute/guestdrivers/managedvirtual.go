@@ -62,7 +62,7 @@ func (d SManagedVirtualizedGuestDriver) DoScheduleStorageFilter() bool { return 
 
 func (d SManagedVirtualizedGuestDriver) DoScheduleCloudproviderTagFilter() bool { return true }
 
-func (drv *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+func (drv *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *api.SGuestDeployTaskParam) (jsonutils.JSONObject, error) {
 	driver, err := guest.GetDriver()
 	if err != nil {
 		return nil, err
@@ -82,7 +82,8 @@ func (drv *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context
 	config.Description = guest.Description
 	config.EnableMonitorAgent = options.Options.EnableMonitorAgent
 	if params != nil {
-		params.Unmarshal(&config.SPublicIpInfo)
+		config.PublicIpBw = params.PublicIpBw
+		config.PublicIpChargeType = cloudprovider.TElasticipChargeType(params.PublicIpChargeType)
 	}
 
 	config.InstanceType = guest.InstanceType
@@ -534,10 +535,15 @@ func (drv *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Contex
 }
 
 func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	deployParam, err := models.NewGuestDeployTaskParam(task.GetParams())
+	if err != nil {
+		return errors.Wrap(err, "NewGuestDeployTaskParam")
+	}
+	deployConfig, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, deployParam)
 	if err != nil {
 		return errors.Wrapf(err, "GetDeployConfigOnHost")
 	}
+	config := jsonutils.Marshal(deployConfig).(*jsonutils.JSONDict)
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
 
 	desc := cloudprovider.SManagedVMCreateConfig{}
@@ -566,11 +572,6 @@ func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.
 		return errors.Wrapf(err, "GetUserData")
 	}
 
-	action, err := config.GetString("action")
-	if err != nil {
-		return err
-	}
-
 	ihost, err := host.GetIHost(ctx)
 	if err != nil {
 		return err
@@ -581,8 +582,8 @@ func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.
 		return errors.Wrapf(err, "GetRegion")
 	}
 
-	switch action {
-	case "create":
+	switch deployConfig.Action {
+	case api.TDeployActionCreate:
 		if len(desc.InstanceType) == 0 && region != nil && utils.IsInStringArray(region.Provider, api.PUBLIC_CLOUD_PROVIDERS) {
 			sku, err := models.ServerSkuManager.GetMatchedSku(region.GetId(), int64(desc.Cpu), int64(desc.MemoryMB))
 			if err != nil {
@@ -599,17 +600,17 @@ func (drv *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 			return driver.RemoteDeployGuestForCreate(ctx, task.GetUserCred(), guest, host, desc)
 		})
-	case "deploy":
+	case api.TDeployActionDeploy:
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 			return driver.RemoteDeployGuestForDeploy(ctx, guest, ihost, task, desc)
 		})
-	case "rebuild":
+	case api.TDeployActionRebuild:
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 			return driver.RemoteDeployGuestForRebuildRoot(ctx, guest, ihost, task, desc)
 		})
 	default:
-		log.Errorf("RequestDeployGuestOnHost: Action %s not supported", action)
-		return fmt.Errorf("Action %s not supported", action)
+		log.Errorf("RequestDeployGuestOnHost: Action %s not supported", deployConfig.Action)
+		return fmt.Errorf("Action %s not supported", deployConfig.Action)
 	}
 	return nil
 }
@@ -1238,11 +1239,10 @@ func (drv *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Con
 	return nil
 }
 
-func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
+func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data api.SDeployGuestFsResponse) error {
 
-	uuid, _ := data.GetString("uuid")
-	if len(uuid) > 0 {
-		db.SetExternalId(guest, task.GetUserCred(), uuid)
+	if len(data.Uuid) > 0 {
+		db.SetExternalId(guest, task.GetUserCred(), data.Uuid)
 	}
 
 	recycle := false
@@ -1250,43 +1250,38 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 		recycle = true
 	}
 
-	if data.Contains("disks") {
-		diskInfo := make([]SDiskInfo, 0)
-		err := data.Unmarshal(&diskInfo, "disks")
-		if err != nil {
-			return err
-		}
-
+	if len(data.Disks) > 0 {
 		disks, _ := guest.GetGuestDisks()
-		if len(disks) != len(diskInfo) {
+		if len(disks) != len(data.Disks) {
 			// 公有云镜像可能包含数据盘, 若忽略设置磁盘的external id, 会导致部分磁盘状态异常
-			log.Warningf("inconsistent disk number: guest have %d disks, data contains %d disks", len(disks), len(diskInfo))
+			log.Warningf("inconsistent disk number: guest have %d disks, data contains %d disks", len(disks), len(data.Disks))
 		}
-		for i := 0; i < len(diskInfo) && i < len(disks); i += 1 {
+		for i := 0; i < len(data.Disks) && i < len(disks); i += 1 {
+			diskInfo := data.Disks[i]
 			disk := disks[i].GetDisk()
-			_, err = db.Update(disk, func() error {
-				disk.DiskSize = diskInfo[i].Size
-				disk.ExternalId = diskInfo[i].Uuid
-				disk.DiskType = diskInfo[i].DiskType
+			_, err := db.Update(disk, func() error {
+				disk.DiskSize = diskInfo.Size
+				disk.ExternalId = diskInfo.Uuid
+				disk.DiskType = diskInfo.DiskType
 				disk.Status = api.DISK_READY
-				disk.Device = diskInfo[i].Device
+				disk.Device = diskInfo.Device
 
-				disk.FsFormat = diskInfo[i].FsFromat
-				if diskInfo[i].AutoDelete {
+				disk.FsFormat = diskInfo.FsFromat
+				if diskInfo.AutoDelete {
 					disk.AutoDelete = true
 				}
-				// disk.TemplateId = diskInfo[i].TemplateId
-				disk.AccessPath = diskInfo[i].Path
+				// disk.TemplateId = diskInfo.TemplateId
+				disk.AccessPath = diskInfo.Path
 
 				if !recycle {
-					if len(diskInfo[i].BillingType) > 0 {
-						disk.BillingType = diskInfo[i].BillingType
-						disk.ExpiredAt = diskInfo[i].ExpiredAt
+					if len(diskInfo.BillingType) > 0 {
+						disk.BillingType = diskInfo.BillingType
+						disk.ExpiredAt = diskInfo.ExpiredAt
 					}
 				}
 
-				if len(diskInfo[i].StorageExternalId) > 0 {
-					storage, err := db.FetchByExternalIdAndManagerId(models.StorageManager, diskInfo[i].StorageExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+				if len(diskInfo.StorageExternalId) > 0 {
+					storage, err := db.FetchByExternalIdAndManagerId(models.StorageManager, diskInfo.StorageExternalId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 						host, _ := guest.GetHost()
 						if host != nil {
 							return q.Equals("manager_id", host.ManagerId)
@@ -1294,14 +1289,14 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 						return q
 					})
 					if err != nil {
-						log.Warningf("failed to found storage by externalId %s error: %v", diskInfo[i].StorageExternalId, err)
+						log.Warningf("failed to found storage by externalId %s error: %v", diskInfo.StorageExternalId, err)
 					} else if disk.StorageId != storage.GetId() {
 						disk.StorageId = storage.GetId()
 					}
 				}
 
-				if len(diskInfo[i].Metadata) > 0 {
-					for key, value := range diskInfo[i].Metadata {
+				if len(diskInfo.Metadata) > 0 {
+					for key, value := range diskInfo.Metadata {
 						if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
 							log.Errorf("set disk %s mata %s => %s error: %v", disk.Name, key, value, err)
 						}
@@ -1317,8 +1312,8 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.GetUserCred())
 			guestdisk := guest.GetGuestDisk(disk.Id)
 			_, err = db.Update(guestdisk, func() error {
-				guestdisk.Driver = diskInfo[i].Driver
-				guestdisk.CacheMode = diskInfo[i].CacheMode
+				guestdisk.Driver = diskInfo.Driver
+				guestdisk.CacheMode = diskInfo.CacheMode
 				return nil
 			})
 			if err != nil {
@@ -1329,31 +1324,27 @@ func (drv *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx con
 		}
 	}
 
-	if metaData, _ := data.Get("metadata"); metaData != nil {
-		meta := make(map[string]string, 0)
-		if err := metaData.Unmarshal(meta); err != nil {
-			log.Errorf("Get guest %s metadata error: %v", guest.Name, err)
-		} else {
-			for key, value := range meta {
-				if err := guest.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
-					log.Errorf("set guest %s mata %s => %s error: %v", guest.Name, key, value, err)
-				}
-			}
+	for key, value := range data.Metadata {
+		if err := guest.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
+			log.Errorf("set guest %s mata %s => %s error: %v", guest.Name, key, value, err)
 		}
 	}
 
-	exp, err := data.GetTime("expired_at")
-	if err == nil && !guest.IsPrepaidRecycle() {
+	if !data.ExpiredAt.IsZero() && !guest.IsPrepaidRecycle() {
+		exp := data.ExpiredAt
 		models.SaveRenewInfo(ctx, task.GetUserCred(), guest, nil, &exp, "")
 	}
 
 	driver, _ := guest.GetDriver()
 	if driver != nil && driver.IsSupportSetAutoRenew() {
-		autoRenew, _ := data.Bool("auto_renew")
-		guest.SetAutoRenew(autoRenew)
+		guest.SetAutoRenew(data.AutoRenew)
 	}
 
-	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
+	deployParams, err := guestDeployTaskParam(task)
+	if err != nil {
+		return err
+	}
+	guest.SaveDeployInfo(ctx, task.GetUserCred(), data, deployParams)
 
 	iVM, err := guest.GetIVM(ctx)
 	if err != nil {
