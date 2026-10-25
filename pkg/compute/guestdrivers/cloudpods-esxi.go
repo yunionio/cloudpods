@@ -305,7 +305,7 @@ func (self *SCloudpodsESXiGuestDriver) ValidateResizeDisk(guest *models.SGuest, 
 	return nil
 }
 
-func (self *SCloudpodsESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+func (self *SCloudpodsESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *api.SGuestDeployTaskParam) (jsonutils.JSONObject, error) {
 	desc := guest.GetJsonDescAtHypervisor(ctx, host)
 	// add image_info
 	if len(desc.Disks) == 0 {
@@ -400,11 +400,17 @@ func (self *SCloudpodsESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, us
 }
 
 func (self *SCloudpodsESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	deployParam, err := models.NewGuestDeployTaskParam(task.GetParams())
 	if err != nil {
 		log.Errorf("GetDeployConfigOnHost error: %v", err)
 		return err
 	}
+	deployConfig, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, deployParam)
+	if err != nil {
+		log.Errorf("GetDeployConfigOnHost error: %v", err)
+		return err
+	}
+	config := jsonutils.Marshal(deployConfig).(*jsonutils.JSONDict)
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
 
 	if !host.IsEsxiAgentReady() {
@@ -438,8 +444,7 @@ func (self *SCloudpodsESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Cont
 
 	provider := host.GetCloudprovider()
 
-	action, _ := config.GetString("action")
-	if action == "create" {
+	if deployConfig.Action == api.TDeployActionCreate {
 		project, err := db.TenantCacheManager.FetchTenantById(ctx, guest.ProjectId)
 		if err != nil {
 			return errors.Wrapf(err, "FetchTenantById(%s)", guest.ProjectId)
@@ -503,12 +508,11 @@ func (self *SCloudpodsESXiGuestDriver) RequestResumeOnHost(ctx context.Context, 
 	return nil
 }
 
-func (self *SCloudpodsESXiGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
+func (self *SCloudpodsESXiGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data api.SDeployGuestFsResponse) error {
 
-	if data.Contains("host_ip") {
+	if len(data.HostIp) > 0 {
 		oldHost, _ := guest.GetHost()
-		hostIp, _ := data.GetString("host_ip")
-		host, err := models.HostManager.GetHostByIp(oldHost.ManagerId, api.HOST_TYPE_ESXI, hostIp)
+		host, err := models.HostManager.GetHostByIp(oldHost.ManagerId, api.HOST_TYPE_ESXI, data.HostIp)
 		if err != nil {
 			return err
 		}
@@ -524,21 +528,13 @@ func (self *SCloudpodsESXiGuestDriver) OnGuestDeployTaskDataReceived(ctx context
 		return nil
 	}
 
-	osInfo := struct {
-		Arch    string
-		Distro  string
-		Os      string
-		Version string
-	}{}
-	data.Unmarshal(&osInfo)
-
 	osinfo := map[string]interface{}{}
 	for k, v := range map[string]string{
-		"os_arch":         osInfo.Arch,
-		"os_distribution": osInfo.Distro,
-		"os_type":         osInfo.Os,
-		"os_name":         osInfo.Os,
-		"os_version":      osInfo.Version,
+		"os_arch":         data.Arch,
+		"os_distribution": data.Distro,
+		"os_type":         data.Os,
+		"os_name":         data.Os,
+		"os_version":      data.Version,
 	} {
 		if len(v) > 0 {
 			osinfo[k] = v

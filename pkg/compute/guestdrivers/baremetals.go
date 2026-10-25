@@ -468,7 +468,7 @@ func (self *SBaremetalGuestDriver) ValidateCreateDataOnHost(ctx context.Context,
 	return input, nil
 }
 
-func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *api.SGuestDeployTaskParam) (jsonutils.JSONObject, error) {
 	desc := guest.GetJsonDescAtBaremetal(ctx, host)
 	return jsonutils.Marshal(desc), nil
 }
@@ -499,43 +499,41 @@ func (self *SBaremetalGuestDriver) CheckDiskTemplateOnStorage(ctx context.Contex
 	return nil
 }
 
-func (self *SBaremetalGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
-	if data.Contains("disks") {
-		disks, _ := data.GetArray("disks")
-		for i := 0; i < len(disks); i++ {
-			diskId, _ := disks[i].GetString("disk_id")
-			iDisk, _ := models.DiskManager.FetchById(diskId)
-			if iDisk == nil {
-				return fmt.Errorf("OnGuestDeployTaskDataReceived fetch disk error")
+func (self *SBaremetalGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data api.SDeployGuestFsResponse) error {
+	for i := range data.Disks {
+		diskInfo := data.Disks[i]
+		iDisk, _ := models.DiskManager.FetchById(diskInfo.DiskId)
+		if iDisk == nil {
+			return fmt.Errorf("OnGuestDeployTaskDataReceived fetch disk error")
+		}
+		disk := iDisk.(*models.SDisk)
+		notes := fmt.Sprintf("%s=>%s", disk.Status, api.DISK_READY)
+		_, err := db.Update(disk, func() error {
+			if disk.DiskSize < diskInfo.Size {
+				disk.DiskSize = diskInfo.Size
 			}
-			disk := iDisk.(*models.SDisk)
-			diskSize, _ := disks[i].Int("size")
-			pciPath, _ := disks[i].GetString("pci_path")
-			notes := fmt.Sprintf("%s=>%s", disk.Status, api.DISK_READY)
-			_, err := db.Update(disk, func() error {
-				if disk.DiskSize < int(diskSize) {
-					disk.DiskSize = int(diskSize)
-				}
-				if len(pciPath) > 0 {
-					disk.PCIPath = pciPath
-				}
-				disk.DiskFormat = "raw"
-				disk.Status = api.DISK_READY
-				return nil
-			})
-			if err != nil {
-				return err
+			if len(diskInfo.PciPath) > 0 {
+				disk.PCIPath = diskInfo.PciPath
 			}
-			db.OpsLog.LogEvent(disk, db.ACT_UPDATE_STATUS, notes, task.GetUserCred())
-			logclient.AddActionLogWithStartable(task, disk, logclient.ACT_VM_SYNC_STATUS, nil, task.GetUserCred(), false)
-			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.GetUserCred())
-			if disks[i].Contains("dev") {
-				dev, _ := disks[i].GetString("dev")
-				disk.SetMetadata(ctx, "dev", dev, task.GetUserCred())
-			}
+			disk.DiskFormat = "raw"
+			disk.Status = api.DISK_READY
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		db.OpsLog.LogEvent(disk, db.ACT_UPDATE_STATUS, notes, task.GetUserCred())
+		logclient.AddActionLogWithStartable(task, disk, logclient.ACT_VM_SYNC_STATUS, nil, task.GetUserCred(), false)
+		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.GetUserCred())
+		if len(diskInfo.Dev) > 0 {
+			disk.SetMetadata(ctx, "dev", diskInfo.Dev, task.GetUserCred())
 		}
 	}
-	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
+	deployParams, err := guestDeployTaskParam(task)
+	if err != nil {
+		return err
+	}
+	guest.SaveDeployInfo(ctx, task.GetUserCred(), data, deployParams)
 	return nil
 }
 
@@ -552,32 +550,35 @@ func (self *SBaremetalGuestDriver) IsDisableImageCache(gst *models.SGuest) (bool
 }
 
 func (self *SBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	deployParam, err := models.NewGuestDeployTaskParam(task.GetParams())
 	if err != nil {
 		log.Errorf("GetDeployConfigOnHost error: %v", err)
 		return err
 	}
-	val, _ := config.GetString("action")
-	if len(val) == 0 {
-		val = "deploy"
+	deployConfig, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, deployParam)
+	if err != nil {
+		log.Errorf("GetDeployConfigOnHost error: %v", err)
+		return err
 	}
-	if val == "rebuild" && jsonutils.QueryBoolean(task.GetParams(), "auto_start", false) {
-		config.Set("on_finish", jsonutils.NewString("restart"))
-	} else if val == "deploy" && jsonutils.QueryBoolean(task.GetParams(), "restart", false) {
-		config.Set("on_finish", jsonutils.NewString("shutdown"))
+
+	if deployConfig.Action == api.TDeployActionRebuild && deployParam.AutoStart {
+		deployConfig.OnFinish = "restart"
+	} else if deployConfig.Action == api.TDeployActionDeploy && deployParam.Restart {
+		deployConfig.OnFinish = "shutdown"
 	}
-	if jsonutils.QueryBoolean(task.GetParams(), "fake_create_from_bm_import", false) {
-		config.Set("fake_create_from_bm_import", jsonutils.JSONTrue)
+	if deployParam.FakeCreateFromBmImport {
+		deployConfig.FakeCreateFromBmImport = true
 	}
 
 	disableCache, err := self.IsDisableImageCache(guest)
 	if err != nil {
 		return errors.Wrap(err, "check IsDisableImageCache")
 	}
-	config.Set("disable_image_cache", jsonutils.NewBool(disableCache))
+	deployConfig.DisableImageCache = disableCache
 
-	url := fmt.Sprintf("/baremetals/%s/servers/%s/%s", host.Id, guest.Id, val)
+	url := fmt.Sprintf("/baremetals/%s/servers/%s/%s", host.Id, guest.Id, deployConfig.Action)
 	headers := task.GetTaskRequestHeader()
+	config := jsonutils.Marshal(deployConfig).(*jsonutils.JSONDict)
 	_, err = host.BaremetalSyncRequest(ctx, "POST", url, headers, config)
 	return err
 }

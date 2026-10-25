@@ -57,5 +57,9 @@ func (self *SBaremetalServerDeployTask) DoDeploys(ctx context.Context, term *ssh
 	if err != nil {
 		return nil, errors.Wrap(err, "NewConfigedSSHPartitionTool")
 	}
-	return self.Baremetal.GetServer().DoDeploy(tool, term, self.data, false)
+	resp, err := self.Baremetal.GetServer().DoDeploy(tool, term, self.deployConfig, false)
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(resp), nil
 }

@@ -68,11 +68,13 @@ func (self *SBaremetalServerRebuildTask) DoDeploys(ctx context.Context, term *ss
 	}
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewArray(disks...), "disks")
-	deployInfo, err := self.Baremetal.GetServer().DoDeploy(tool, term, self.data, true)
+	deployInfo, err := self.Baremetal.GetServer().DoDeploy(tool, term, self.deployConfig, true)
 	if err != nil {
 		return nil, fmt.Errorf("DoDeploy: %v", err)
 	}
-	data.Update(deployInfo)
+	if deployInfo != nil {
+		data.Update(jsonutils.Marshal(deployInfo))
+	}
 	return data, nil
 }
 

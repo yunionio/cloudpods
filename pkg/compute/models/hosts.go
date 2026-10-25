@@ -6039,9 +6039,9 @@ func (hh *SHost) PerformCreateFromImportBaremetal(
 	if guest == nil {
 		return nil, errors.Errorf("failed get guest")
 	}
-	params := jsonutils.NewDict()
-	params.Set("fake_create_from_bm_import", jsonutils.JSONTrue)
-	return nil, guest.StartGuestDeployTask(ctx, userCred, params, "create", "")
+	return nil, guest.StartGuestDeployTask(ctx, userCred, &api.SGuestDeployTaskParam{
+		FakeCreateFromBmImport: true,
+	}, "create", "")
 }
 
 func (hh *SHost) PerformAttachIsolatedDevices(

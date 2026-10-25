@@ -967,7 +967,11 @@ func (self *SGuest) PerformDeploy(
 			// 避免前端直接传restart参数, 越过校验
 			input.Restart = false
 		}
-		err := self.StartGuestDeployTask(ctx, userCred, jsonutils.Marshal(input).(*jsonutils.JSONDict), "deploy", "")
+		param, err := NewGuestDeployTaskParam(jsonutils.Marshal(input))
+		if err != nil {
+			return nil, errors.Wrap(err, "NewGuestDeployTaskParam")
+		}
+		err = self.StartGuestDeployTask(ctx, userCred, param, "deploy", "")
 		if err != nil {
 			return nil, err
 		}
@@ -1293,13 +1297,17 @@ func (self *SGuest) PerformStart(
 
 func (self *SGuest) StartGuestDeployTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
-	kwargs *jsonutils.JSONDict, action string, parentTaskId string,
+	param *api.SGuestDeployTaskParam, action api.TDeployAction, parentTaskId string,
 ) error {
 	self.SetStatus(ctx, userCred, api.VM_START_DEPLOY, "")
-	if kwargs == nil {
-		kwargs = jsonutils.NewDict()
+	if param == nil {
+		param = &api.SGuestDeployTaskParam{}
+	} else {
+		copied := *param
+		param = &copied
 	}
-	kwargs.Add(jsonutils.NewString(action), "deploy_action")
+	param.DeployAction = action
+	kwargs := jsonutils.Marshal(param).(*jsonutils.JSONDict)
 
 	taskName := "GuestDeployTask"
 	if self.BackupHostId != "" {
@@ -1931,9 +1939,9 @@ func (self *SGuest) StartGuestCreateTask(ctx context.Context, userCred mcclient.
 			if err := self.fixFakeServerCreateFromBmImport(ctx, userCred); err != nil {
 				return err
 			}
-			params := jsonutils.NewDict()
-			params.Set("fake_create_from_bm_import", jsonutils.JSONTrue)
-			return self.StartGuestDeployTask(ctx, userCred, params, "create", parentTaskId)
+			return self.StartGuestDeployTask(ctx, userCred, &api.SGuestDeployTaskParam{
+				FakeCreateFromBmImport: true,
+			}, "create", parentTaskId)
 		}
 		return nil
 	}
