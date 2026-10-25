@@ -53,6 +53,11 @@ func (this *SSshkeypairManager) FetchProjectPrivateKeys(ctx context.Context, use
 	return this.FetchProjectPrivateKeysBySession(ctx, s)
 }
 
+func (this *SSshkeypairManager) FetchAdminPrivateKeys(ctx context.Context) ([]string, error) {
+	s := auth.GetAdminSession(ctx, "")
+	return this.FetchAdminPrivateKeysBySession(ctx, s)
+}
+
 func (this *SSshkeypairManager) FetchProjectPrivateKeysBySession(ctx context.Context, s *mcclient.ClientSession) ([]string, error) {
 	kp, err := this.FetchProjectKeypairsBySession(ctx, s)
 	if err != nil {
@@ -66,12 +71,12 @@ func (this *SSshkeypairManager) FetchProjectPrivateKeysBySession(ctx context.Con
 }
 
 func (this *SSshkeypairManager) FetchAdminPrivateKeysBySession(ctx context.Context, s *mcclient.ClientSession) ([]string, error) {
-	kp, err := this.FetchAdminKeypairsBySession(ctx, s)
+	kps, err := this.FetchAdminKeypairsBySession(ctx, s)
 	if err != nil {
 		return nil, errors.Wrap(err, "FetchAdminKeypairsBySession")
 	}
-	keys := make([]string, 0, len(kp))
-	for _, kp := range kp {
+	keys := make([]string, 0, len(kps))
+	for _, kp := range kps {
 		keys = append(keys, kp.PrivateKey)
 	}
 	return keys, nil
