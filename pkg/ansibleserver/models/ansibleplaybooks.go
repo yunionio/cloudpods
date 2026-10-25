@@ -280,7 +280,12 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 		if keys, err := compute.Sshkeypairs.FetchProjectPrivateKeys(ctx, userCred); err != nil {
 			return errors.Wrap(err, "unable to fetch private keys")
 		} else {
-			pb.PrivateKeys = keys
+			pb.PrivateKeys = append(pb.PrivateKeys, keys...)
+		}
+		if keys, err := compute.Sshkeypairs.FetchAdminPrivateKeys(ctx); err != nil {
+			return errors.Wrap(err, "unable to fetch admin private keys")
+		} else {
+			pb.PrivateKeys = append(pb.PrivateKeys, keys...)
 		}
 	}
 	// init tmpdir clean policy
