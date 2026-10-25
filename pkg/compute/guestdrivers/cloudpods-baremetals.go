@@ -377,12 +377,18 @@ func (self *SCloudpodsBaremetalGuestDriver) GetGuestVncInfo(ctx context.Context,
 }
 
 func (self *SCloudpodsBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	deployParam, err := models.NewGuestDeployTaskParam(task.GetParams())
 	if err != nil {
 		log.Errorf("GetDeployConfigOnHost error: %v", err)
 		return err
 	}
-	val, _ := config.GetString("action")
+	deployConfig, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, deployParam)
+	if err != nil {
+		log.Errorf("GetDeployConfigOnHost error: %v", err)
+		return err
+	}
+	config := jsonutils.Marshal(deployConfig).(*jsonutils.JSONDict)
+	val := string(deployConfig.Action)
 	if len(val) == 0 {
 		val = "deploy"
 	}

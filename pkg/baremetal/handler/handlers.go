@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	baremetalapi "yunion.io/x/onecloud/pkg/apis/baremetal"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
 	"yunion.io/x/onecloud/pkg/baremetal/options"
@@ -236,8 +237,24 @@ func handleBaremetalValidateIPMI() appsrv.FilterHandler {
 	})
 }
 
+func deployConfigFromCtx(ctx *Context) (*computeapi.SGuestDeployConfigOnHost, error) {
+	input := new(computeapi.SGuestDeployConfigOnHost)
+	if ctx.Data() == nil {
+		return input, nil
+	}
+	if err := ctx.Data().Unmarshal(input); err != nil {
+		return nil, httperrors.NewBadRequestError("unmarshal deploy config: %s", err)
+	}
+	return input, nil
+}
+
 func handleServerCreate(ctx *Context, bm *baremetal.SBaremetalInstance) {
-	err := bm.StartServerCreateTask(ctx, ctx.UserCred(), ctx.TaskId(), ctx.Data())
+	input, err := deployConfigFromCtx(ctx)
+	if err != nil {
+		ctx.ResponseError(err)
+		return
+	}
+	err = bm.StartServerCreateTask(ctx, ctx.UserCred(), ctx.TaskId(), input)
 	if err != nil {
 		ctx.ResponseError(httperrors.NewGeneralError(err))
 		return
@@ -251,7 +268,12 @@ func handleServerDelete(ctx *Context, bm *baremetal.SBaremetalInstance, _ bareme
 }
 
 func handleServerDeploy(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremetaltypes.IBaremetalServer) {
-	if err := bm.StartServerDeployTask(ctx.UserCred(), ctx.TaskId(), ctx.Data()); err != nil {
+	input, err := deployConfigFromCtx(ctx)
+	if err != nil {
+		ctx.ResponseError(err)
+		return
+	}
+	if err := bm.StartServerDeployTask(ctx.UserCred(), ctx.TaskId(), input); err != nil {
 		ctx.ResponseError(httperrors.NewGeneralError(err))
 		return
 	}
@@ -259,7 +281,12 @@ func handleServerDeploy(ctx *Context, bm *baremetal.SBaremetalInstance, _ bareme
 }
 
 func handleServerRebuild(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremetaltypes.IBaremetalServer) {
-	if err := bm.StartServerRebuildTask(ctx.UserCred(), ctx.TaskId(), ctx.Data()); err != nil {
+	input, err := deployConfigFromCtx(ctx)
+	if err != nil {
+		ctx.ResponseError(err)
+		return
+	}
+	if err := bm.StartServerRebuildTask(ctx.UserCred(), ctx.TaskId(), input); err != nil {
 		ctx.ResponseError(httperrors.NewGeneralError(err))
 		return
 	}

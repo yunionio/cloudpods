@@ -251,12 +251,14 @@ func (task *GuestConvertEsxiToKvmTask) OnHostCreateGuest(
 		return
 	}
 
-	deployParams := jsonutils.NewDict()
-	deployParams.Set("reset_password", jsonutils.JSONFalse)
-	if jsonutils.QueryBoolean(task.Params, "deploy_telegraf", false) {
-		deployParams.Set("deploy_telegraf", jsonutils.JSONTrue)
+	resetPassword := false
+	param := &api.SGuestDeployTaskParam{
+		ResetPassword: &resetPassword,
 	}
-	targetGuest.StartGuestDeployTask(ctx, task.UserCred, deployParams, "deploy", task.GetTaskId())
+	if jsonutils.QueryBoolean(task.Params, "deploy_telegraf", false) {
+		param.DeployTelegraf = true
+	}
+	targetGuest.StartGuestDeployTask(ctx, task.UserCred, param, "deploy", task.GetTaskId())
 }
 
 func (task *GuestConvertEsxiToKvmTask) OnHostCreateGuestFailed(
