@@ -41,6 +41,7 @@ import (
 
 type strDict map[string]string
 type actionFunc func(context.Context, mcclient.TokenCredential, string, jsonutils.JSONObject) (interface{}, error)
+type guestDeployActionFunc func(context.Context, mcclient.TokenCredential, string, *computeapi.SGuestDeployConfigOnHost) (interface{}, error)
 
 var (
 	keyWords = []string{"servers"}
@@ -68,10 +69,18 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			fmt.Sprintf("%s/%s/<sid>", prefix, keyWord),
 			auth.Authenticate(deleteGuest))
 
+		for action, f := range map[string]guestDeployActionFunc{
+			"create":  guestCreate,
+			"deploy":  guestDeploy,
+			"rebuild": guestRebuild,
+		} {
+			app.AddHandler("POST",
+				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
+				auth.Authenticate(guestDeployActions(f)),
+			)
+		}
+
 		for action, f := range map[string]actionFunc{
-			"create":                   guestCreate,
-			"deploy":                   guestDeploy,
-			"rebuild":                  guestRebuild,
 			"start":                    guestStart,
 			"stop":                     guestStop,
 			"monitor":                  guestMonitor,
@@ -130,6 +139,16 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 	}
 }
 
+func guestDeployActions(f guestDeployActionFunc) appsrv.FilterHandler {
+	return guestActions(func(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+		input := new(computeapi.SGuestDeployConfigOnHost)
+		if err := body.Unmarshal(input); err != nil {
+			return nil, httperrors.NewBadRequestError("unmarshal deploy config: %s", err)
+		}
+		return f(ctx, userCred, sid, input)
+	})
+}
+
 func guestActions(f actionFunc) appsrv.FilterHandler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		params, _, body := appsrv.FetchEnv(ctx, w, r)
@@ -177,7 +196,7 @@ func deleteGuest(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func guestCreate(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestCreate(ctx context.Context, userCred mcclient.TokenCredential, sid string, body *computeapi.SGuestDeployConfigOnHost) (interface{}, error) {
 	if guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewBadRequestError("Guest %s is exist", sid)
 	}
@@ -195,7 +214,7 @@ func guestCreate(ctx context.Context, userCred mcclient.TokenCredential, sid str
 	return nil, nil
 }
 
-func guestDeploy(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestDeploy(ctx context.Context, userCred mcclient.TokenCredential, sid string, body *computeapi.SGuestDeployConfigOnHost) (interface{}, error) {
 	err := guestman.GetGuestManager().PrepareDeploy(sid)
 	if err != nil {
 		return nil, err
@@ -214,7 +233,7 @@ func guestDeploy(ctx context.Context, userCred mcclient.TokenCredential, sid str
 	return nil, nil
 }
 
-func guestRebuild(ctx context.Context, userCred mcclient.TokenCredential, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestRebuild(ctx context.Context, userCred mcclient.TokenCredential, sid string, body *computeapi.SGuestDeployConfigOnHost) (interface{}, error) {
 	err := guestman.GetGuestManager().PrepareDeploy(sid)
 	if err != nil {
 		return nil, err
