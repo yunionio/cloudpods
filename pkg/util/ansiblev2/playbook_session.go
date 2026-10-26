@@ -236,6 +236,11 @@ func (r runnable) Run(ctx context.Context) (err error) {
 		cmd.Dir = tmpdir
 		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, "ANSIBLE_HOST_KEY_CHECKING=False")
+		// ocboot.py runs inside the playbook and SSHes with -k. Each private-key
+		// retry writes a different file, so the path must follow the current try.
+		if privateKey != "" {
+			cmd.Env = append(cmd.Env, "OCBOOT_SSH_KEY="+privateKey)
+		}
 		// for debug
 		os.WriteFile(path.Join(tmpdir, "run_cmd"), []byte(cmd.String()), os.ModePerm)
 		stdout, _ := cmd.StdoutPipe()
