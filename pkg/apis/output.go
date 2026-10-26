@@ -141,6 +141,7 @@ func (self MetadataResourceInfo) GetMetricTags() map[string]string {
 			if strings.Contains(k, "login_key") || strings.Contains(v, "=") {
 				continue
 			}
+			k = strings.TrimPrefix(k, "user:")
 			ret[k] = v
 		}
 	}
@@ -201,7 +202,9 @@ func (self ProjectizedResourceInfo) GetMetricTags() map[string]string {
 			if strings.Contains(v, "=") {
 				continue
 			}
-			ret["project:"+k] = v
+			k = strings.TrimPrefix(k, "user:")
+			k = strings.TrimPrefix(k, "org:")
+			ret[k] = v
 		}
 	}
 	return ret
