@@ -55,6 +55,7 @@ const (
 	ContainerDeviceTypeKunlunxinXpu    ContainerDeviceType = api.CONTAINER_DEV_KUNLUNXIN_XPU
 	ContainerDeviceTypeMthreadsGpu     ContainerDeviceType = api.CONTAINER_DEV_MTHREADS_GPU
 	ContainerDeviceTypeMthreadsGpuHami ContainerDeviceType = api.CONTAINER_DEV_MTHREADS_GPU_HAMI
+	ContainerDeviceTypeAmdGpu          ContainerDeviceType = api.CONTAINER_DEV_AMD_GPU
 )
 
 func GetContainerDeviceManager(devType ContainerDeviceType) (IContainerDeviceManager, error) {
