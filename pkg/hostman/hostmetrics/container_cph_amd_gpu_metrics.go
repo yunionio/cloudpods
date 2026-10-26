@@ -39,7 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
-type CphAmdGpuProcessMetrics struct {
+type AmdGpuProcessMetrics struct {
 	Pid     string // Process ID
 	DevId   string
 	Mem     float64 // Memory Utilization
@@ -56,14 +56,14 @@ pid  2088269 command allocator@2.0-s:
         0x00000007:      2097152 byte  GTT CPU_ACCESS_REQUIRED VRAM_CLEARED
 */
 
-func GetCphAmdGpuProcessMetrics() ([]CphAmdGpuProcessMetrics, error) {
+func GetAmdGpuProcessMetrics() ([]AmdGpuProcessMetrics, error) {
 	debugDriDir := "/sys/kernel/debug/dri"
 	entrys, err := os.ReadDir(debugDriDir)
 	if err != nil {
 		return nil, errors.Wrap(err, "os.ReadDir")
 	}
 
-	res := make([]CphAmdGpuProcessMetrics, 0)
+	res := make([]AmdGpuProcessMetrics, 0)
 	for i := range entrys {
 		if entrys[i].IsDir() {
 			fpath := path.Join(debugDriDir, entrys[i].Name(), "amdgpu_gem_info")
@@ -78,7 +78,7 @@ func GetCphAmdGpuProcessMetrics() ([]CphAmdGpuProcessMetrics, error) {
 				if err != nil {
 					log.Errorf("failed getVramTotalSizeMb %s", err)
 				}
-				metrics := parseCphAmdGpuGemInfo(content, entrys[i].Name(), memTotalSize)
+				metrics := parseAmdGpuGemInfo(content, entrys[i].Name(), memTotalSize)
 				if len(metrics) > 0 {
 					res = append(res, metrics...)
 				}
@@ -111,8 +111,8 @@ func getVramTotalSizeMb(vramInfoPath string) (int, error) {
 	return 0, errors.Errorf("failed parse pages count: %s", str)
 }
 
-func parseCphAmdGpuGemInfo(content string, devId string, memTotalSizeMB int) []CphAmdGpuProcessMetrics {
-	res := make([]CphAmdGpuProcessMetrics, 0)
+func parseAmdGpuGemInfo(content string, devId string, memTotalSizeMB int) []AmdGpuProcessMetrics {
+	res := make([]AmdGpuProcessMetrics, 0)
 	lines := strings.Split(content, "\n")
 	var i, length = 0, len(lines)
 	for i < length {
@@ -154,7 +154,7 @@ func parseCphAmdGpuGemInfo(content string, devId string, memTotalSizeMB int) []C
 			j++
 		}
 		memSize := float64(vramTotal) / 1024.0 / 1024.0
-		res = append(res, CphAmdGpuProcessMetrics{
+		res = append(res, AmdGpuProcessMetrics{
 			Pid:     pid,
 			DevId:   devId,
 			Mem:     memSize,

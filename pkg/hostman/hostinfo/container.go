@@ -24,7 +24,6 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	hostapi "yunion.io/x/onecloud/pkg/apis/host"
@@ -135,6 +134,9 @@ func (h *SHostInfo) GetNvidiaGpuIndexByDeviceIds(ids []string) map[string]int {
 }
 
 func (h *SHostInfo) HasContainerVastaitechGpu() bool {
+	if !h.IsContainerHost() {
+		return false
+	}
 	if h.hasVastaitechGpus != nil {
 		return *h.hasVastaitechGpus
 	}
@@ -142,7 +144,7 @@ func (h *SHostInfo) HasContainerVastaitechGpu() bool {
 	devs := h.IsolatedDeviceMan.GetDevices()
 	for i := range devs {
 		vendorId := strings.Split(devs[i].GetVendorDeviceId(), ":")[0]
-		if utils.IsInStringArray(devs[i].GetSharingMode(), apis.VIRTUAL_SHARING_MODES) && vendorId == apis.VASTAITECH_VENDOR_ID {
+		if vendorId == apis.VASTAITECH_VENDOR_ID {
 			hasVastaitechGpus = true
 		}
 	}
@@ -150,23 +152,107 @@ func (h *SHostInfo) HasContainerVastaitechGpu() bool {
 	return *h.hasVastaitechGpus
 }
 
-func (h *SHostInfo) HasContainerCphAmdGpu() bool {
-	if h.hasCphAmdGpus != nil {
-		return *h.hasCphAmdGpus
+func (h *SHostInfo) HasContainerAscendNpu() bool {
+	if !h.IsContainerHost() {
+		return false
 	}
-	hasCphAmdGpus := false
+	if h.hasAscendNpus != nil {
+		return *h.hasAscendNpus
+	}
+	hasAscendNpus := false
 	devs := h.IsolatedDeviceMan.GetDevices()
 	for i := range devs {
 		vendorId := strings.Split(devs[i].GetVendorDeviceId(), ":")[0]
-		if utils.IsInStringArray(devs[i].GetSharingMode(), apis.VIRTUAL_SHARING_MODES) && vendorId == apis.AMD_VENDOR_ID {
-			hasCphAmdGpus = true
+		if vendorId == apis.ASCEND_VENDOR_ID {
+			hasAscendNpus = true
 		}
 	}
-	h.hasCphAmdGpus = &hasCphAmdGpus
-	return *h.hasCphAmdGpus
+	h.hasAscendNpus = &hasAscendNpus
+	return *h.hasAscendNpus
+}
+
+func (h *SHostInfo) HasContainerKunlunxinXpu() bool {
+	if !h.IsContainerHost() {
+		return false
+	}
+	if h.hasKunlunxinXpu != nil {
+		return *h.hasKunlunxinXpu
+	}
+	hasKunlunxinXpu := false
+	devs := h.IsolatedDeviceMan.GetDevices()
+	for i := range devs {
+		vendorId := strings.Split(devs[i].GetVendorDeviceId(), ":")[0]
+		if vendorId == apis.KUNLUNXIN_VENDOR_ID {
+			hasKunlunxinXpu = true
+		}
+	}
+	h.hasKunlunxinXpu = &hasKunlunxinXpu
+	return *h.hasKunlunxinXpu
+}
+
+func (h *SHostInfo) HasContainerAmdGpu() bool {
+	if !h.IsContainerHost() {
+		return false
+	}
+	if h.hasAmdGpus != nil {
+		return *h.hasAmdGpus
+	}
+	hasAmdGpus := false
+	devs := h.IsolatedDeviceMan.GetDevices()
+	for i := range devs {
+		vendorId := strings.Split(devs[i].GetVendorDeviceId(), ":")[0]
+		if vendorId == apis.AMD_VENDOR_ID {
+			hasAmdGpus = true
+		}
+	}
+	h.hasAmdGpus = &hasAmdGpus
+	return *h.hasAmdGpus
+}
+
+func (h *SHostInfo) HasContainerIluvatarGpu() bool {
+	if !h.IsContainerHost() {
+		return false
+	}
+	if h.hasIluvatarGpus != nil {
+		return *h.hasIluvatarGpus
+	}
+	hasIluvatarGpus := false
+	devs := h.IsolatedDeviceMan.GetDevices()
+	for i := range devs {
+		vendorId := strings.Split(devs[i].GetVendorDeviceId(), ":")[0]
+		if vendorId == apis.ILUVATAR_VENDOR_ID {
+			hasIluvatarGpus = true
+		}
+	}
+	h.hasIluvatarGpus = &hasIluvatarGpus
+	return *h.hasIluvatarGpus
+}
+
+func (h *SHostInfo) GetContainerIluvatarGpuMemSizeByIndex(index int) int {
+	if h.iluvatarGpuMemSize != nil {
+		if size, ok := h.iluvatarGpuMemSize[index]; ok {
+			return size
+		}
+	} else {
+		h.iluvatarGpuMemSize = map[int]int{}
+	}
+
+	retSize := -1
+	devs := h.IsolatedDeviceMan.GetDevices()
+	for i := range devs {
+		vendorId := strings.Split(devs[i].GetVendorDeviceId(), ":")[0]
+		if vendorId == apis.ILUVATAR_VENDOR_ID && devs[i].GetIndex() == index {
+			retSize = devs[i].GetMemorySize()
+		}
+	}
+	h.iluvatarGpuMemSize[index] = retSize
+	return retSize
 }
 
 func (h *SHostInfo) HasContainerNvidiaGpu() bool {
+	if !h.IsContainerHost() {
+		return false
+	}
 	if h.hasNvidiaGpus != nil {
 		return *h.hasNvidiaGpus
 	}
@@ -175,7 +261,7 @@ func (h *SHostInfo) HasContainerNvidiaGpu() bool {
 	devs := h.IsolatedDeviceMan.GetDevices()
 	for i := range devs {
 		vendorId := strings.Split(devs[i].GetVendorDeviceId(), ":")[0]
-		if utils.IsInStringArray(devs[i].GetSharingMode(), apis.VIRTUAL_SHARING_MODES) && vendorId == apis.NVIDIA_VENDOR_ID {
+		if vendorId == apis.NVIDIA_VENDOR_ID {
 			hasNvidiaGpus = true
 			nvDevs = append(nvDevs, devs[i])
 		}
