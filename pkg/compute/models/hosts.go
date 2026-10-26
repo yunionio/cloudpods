@@ -30,6 +30,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -1437,24 +1438,76 @@ func (hh *SHostManager) IsNewNameUnique(name string, userCred mcclient.TokenCred
 	return cnt == 0, nil
 }
 
+func listControlPlaneNodes(cli typedcorev1.CoreV1Interface) ([]v1.Node, error) {
+	selectors := []string{
+		"node-role.kubernetes.io/master",
+		"node-role.kubernetes.io/control-plane",
+	}
+	seen := map[string]v1.Node{}
+	for _, sel := range selectors {
+		nodes, err := cli.Nodes().List(context.Background(), metav1.ListOptions{
+			LabelSelector: sel,
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "list nodes with %s", sel)
+		}
+		for i := range nodes.Items {
+			seen[nodes.Items[i].Name] = nodes.Items[i]
+		}
+	}
+	ret := make([]v1.Node, 0, len(seen))
+	for _, node := range seen {
+		ret = append(ret, node)
+	}
+	return ret, nil
+}
+
 func (hh *SHostManager) GetPropertyK8sMasterNodeIps(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	cli, err := tokens.GetCoreClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "get k8s client")
 	}
-	nodes, err := cli.Nodes().List(context.Background(), metav1.ListOptions{
-		LabelSelector: "node-role.kubernetes.io/master",
-	})
+	nodes, err := listControlPlaneNodes(cli)
 	if err != nil {
 		return nil, errors.Wrap(err, "list master nodes")
 	}
 	ips := map[string]struct{}{}
-	for i := range nodes.Items {
-		for j := range nodes.Items[i].Status.Addresses {
-			if nodes.Items[i].Status.Addresses[j].Type == v1.NodeInternalIP {
-				ips[nodes.Items[i].Status.Addresses[j].Address] = struct{}{}
+	type masterNode struct {
+		name string
+		ip   string
+		ts   time.Time
+	}
+	masters := make([]masterNode, 0, len(nodes))
+	for i := range nodes {
+		var internal string
+		for j := range nodes[i].Status.Addresses {
+			addr := nodes[i].Status.Addresses[j]
+			if addr.Type != v1.NodeInternalIP || len(addr.Address) == 0 {
+				continue
+			}
+			ips[addr.Address] = struct{}{}
+			if len(internal) == 0 {
+				internal = addr.Address
 			}
 		}
+		if len(internal) == 0 {
+			continue
+		}
+		masters = append(masters, masterNode{
+			name: nodes[i].Name,
+			ip:   internal,
+			ts:   nodes[i].CreationTimestamp.Time,
+		})
+	}
+	sort.Slice(masters, func(i, j int) bool {
+		if masters[i].ts.Equal(masters[j].ts) {
+			return masters[i].name < masters[j].name
+		}
+		return masters[i].ts.Before(masters[j].ts)
+	})
+	primaryIP := ""
+	if len(masters) > 0 {
+		primaryIP = masters[0].ip
 	}
 	log.Infof("k8s master nodes ips %v", ips)
 	if jsonutils.QueryBoolean(query, "kvm_hosts", false) {
@@ -1477,6 +1530,7 @@ func (hh *SHostManager) GetPropertyK8sMasterNodeIps(ctx context.Context, userCre
 	}
 	res := jsonutils.NewDict()
 	res.Set("ips", jsonutils.Marshal(ipArr))
+	res.Set("primary_ip", jsonutils.NewString(primaryIP))
 	return res, nil
 }
 

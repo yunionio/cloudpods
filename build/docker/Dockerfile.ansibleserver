@@ -12,4 +12,9 @@ COPY --from=file-repo /opt/yunion/ansible-install-pkg /opt/yunion/ansible-instal
 RUN mkdir -p /opt/yunion/playbook
 RUN git clone -b master https://github.com/yunionio/monitor-agent.git /opt/yunion/playbook/monitor-agent --recurse-submodules
 
+# Full ocboot tree. The runner only execs ocboot.py; switch-edition and later subcommands stay in ocboot.
+RUN git clone -b fix/switch-edition-fail-fast https://github.com/zexi/ocboot.git /opt/yunion/ocboot
+COPY build/docker/playbooks/ocboot-run/playbook.yaml /opt/yunion/playbook/ocboot-run/playbook.yaml
+RUN pip3 install --no-cache-dir -r /opt/yunion/ocboot/requirements.txt
+
 ADD ./_output/alpine-build/bin/ansibleserver /opt/yunion/bin/ansibleserver
