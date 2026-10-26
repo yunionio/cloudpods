@@ -686,8 +686,7 @@ func (d *QemuBaseDriver) startCmds(
 	cmd += __("-m %dM", memSizeMB)
 	cmd += __("-initrd %s", initrdPath)
 	cmd += __("-kernel %s", kernelPath)
-	cmd += __("-append rootfstype=ramfs")
-	cmd += __("-append vsyscall=emulate")
+	cmd += __("-append 'rootfstype=ramfs vsyscall=emulate'")
 	cmd += fwOpts
 	cmd += __("-device virtio-serial-pci")
 	cmd += __("-netdev user,id=hostnet0,hostfwd=tcp:127.0.0.1:%d-:22", sshPort)
