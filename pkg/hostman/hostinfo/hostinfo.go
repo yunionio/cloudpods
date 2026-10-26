@@ -134,8 +134,12 @@ type SHostInfo struct {
 	containerNvidiaGpus            []isolated_device.IDevice
 	hasNvidiaGpus                  *bool
 	hasVastaitechGpus              *bool
-	hasCphAmdGpus                  *bool
+	hasAmdGpus                     *bool
 	hasMthreadsGpus                *bool
+	hasAscendNpus                  *bool
+	hasKunlunxinXpu                *bool
+	hasIluvatarGpus                *bool
+	iluvatarGpuMemSize             map[int]int
 
 	guestManager hostutils.IGuestManager
 }
@@ -2723,6 +2727,7 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 	hasMthreads := false
 	hasNvidiasmi := false
 	hasNpusmi := false
+	hasRocmsmi := false
 	for _, dev := range devs {
 		vendorId := strings.Split(dev.GetVendorDeviceId(), ":")[0]
 		if vendorId == api.HYGON_VENDOR_ID {
@@ -2750,19 +2755,24 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 
 		switch vendorId {
 		case api.AMD_VENDOR_ID:
-			confMap, ok := conf[system_service.TELEGRAF_INPUT_RADEONTOP].(map[string]interface{})
-			if !ok {
-				conf[system_service.TELEGRAF_INPUT_RADEONTOP] = map[string]interface{}{
-					system_service.TELEGRAF_INPUT_CONF_BIN_PATH:       "/usr/bin/radeontop",
-					system_service.TELEGRAF_INPUT_RADEONTOP_DEV_PATHS: []string{dev.GetDevicePath()},
-				}
+			if _, err := procutils.RemoteStat("/opt/rocm/bin/rocm-smi"); err == nil {
+				hasRocmsmi = true
 			} else {
-				devPaths := confMap[system_service.TELEGRAF_INPUT_RADEONTOP_DEV_PATHS].([]string)
-				if !utils.IsInStringArray(dev.GetDevicePath(), devPaths) {
-					devPaths = append(devPaths, dev.GetDevicePath())
-					confMap[system_service.TELEGRAF_INPUT_RADEONTOP_DEV_PATHS] = devPaths
+				confMap, ok := conf[system_service.TELEGRAF_INPUT_RADEONTOP].(map[string]interface{})
+				if !ok {
+					conf[system_service.TELEGRAF_INPUT_RADEONTOP] = map[string]interface{}{
+						system_service.TELEGRAF_INPUT_CONF_BIN_PATH:       "/usr/bin/radeontop",
+						system_service.TELEGRAF_INPUT_RADEONTOP_DEV_PATHS: []string{dev.GetDevicePath()},
+					}
+				} else {
+					devPaths := confMap[system_service.TELEGRAF_INPUT_RADEONTOP_DEV_PATHS].([]string)
+					if !utils.IsInStringArray(dev.GetDevicePath(), devPaths) {
+						devPaths = append(devPaths, dev.GetDevicePath())
+						confMap[system_service.TELEGRAF_INPUT_RADEONTOP_DEV_PATHS] = devPaths
+					}
 				}
 			}
+
 		case api.VASTAITECH_VENDOR_ID:
 			hasVasmi = true
 		case api.NVIDIA_VENDOR_ID:
@@ -2849,6 +2859,11 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 	if hasNpusmi {
 		conf[system_service.TELEGRAF_INPUT_NPUSMI] = map[string]interface{}{
 			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: "/usr/local/bin/npu-smi",
+		}
+	}
+	if hasRocmsmi {
+		conf[system_service.TELEGRAF_INPUT_ROCM_SMI] = map[string]interface{}{
+			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: "/opt/rocm/bin/rocm-smi",
 		}
 	}
 }
