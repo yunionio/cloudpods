@@ -34,6 +34,7 @@ var All = []SMeasurement{
 	nvidia,
 	processes,
 	radeontop,
+	rocmSmi,
 	system,
 	vasmi,
 	npuSmi,
