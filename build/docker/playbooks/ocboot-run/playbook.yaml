@@ -1,0 +1,38 @@
+---
+# Runs ocboot.py inside the ansibleserver container. ocboot then SSHes to the
+# control node itself. ocboot_argv is the argument list after ocboot.py, without
+# -k. The current private key path is exported as OCBOOT_SSH_KEY by ansibleserver.
+#
+# stock ocboot (release/4.0) ignores the inner ansible exit code and exits 0.
+# Treat a run as success only when onecloud-switch-edition.sh actually ran and
+# the inner recap has no failed or unreachable hosts.
+- hosts: all
+  connection: local
+  gather_facts: false
+  tasks:
+    - block:
+        - name: run ocboot
+          command:
+            argv: "{{ ['python3', '/opt/yunion/ocboot/ocboot.py'] + ocboot_argv + ['-k', lookup('env', 'OCBOOT_SSH_KEY')] }}"
+            chdir: /opt/yunion/ocboot
+          # ocboot's own ssh uses -k. The nested ansible-playbook does not:
+          # its inventory has no ansible_ssh_private_key_file, and the container
+          # has no default identity. Pass the same key through the environment
+          # so the child ansible-playbook inherits it.
+          environment:
+            ANSIBLE_PRIVATE_KEY_FILE: "{{ lookup('env', 'OCBOOT_SSH_KEY') }}"
+          register: ocboot_run
+
+        - name: require the switch script to have run
+          fail:
+            msg: ocboot.py finished without a successful onecloud-switch-edition.sh run
+          when: >-
+            (ocboot_run.rc | default(1) | int) != 0
+            or (ocboot_run.stdout | default('') | regex_replace('\u001b\[[0-9;]*m', '') is not search('onecloud-switch-edition\.sh'))
+            or (ocboot_run.stdout | default('') | regex_replace('\u001b\[[0-9;]*m', '') is search('failed=[1-9]'))
+            or (ocboot_run.stdout | default('') | regex_replace('\u001b\[[0-9;]*m', '') is search('unreachable=[1-9]'))
+      always:
+        - name: show ocboot output
+          debug:
+            msg: "{{ ocboot_run.stdout | default('') }}\n{{ ocboot_run.stderr | default('') }}"
+          when: ocboot_run is defined

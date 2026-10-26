@@ -26,6 +26,7 @@ var (
 	DevToolScriptApplyRecords modulebase.ResourceManager
 	DevToolSshInfos           modulebase.ResourceManager
 	DevToolServiceUrls        modulebase.ResourceManager
+	DevToolEditionSwitches    modulebase.ResourceManager
 )
 
 func init() {
@@ -77,4 +78,12 @@ func init() {
 		[]string{},
 	)
 	modules.Register(&DevToolServiceUrls)
+
+	DevToolEditionSwitches = modules.NewDevtoolManager(
+		"editionswitch",
+		"editionswitches",
+		[]string{"Id", "Name", "Status", "Edition", "Host", "Reason"},
+		[]string{},
+	)
+	modules.Register(&DevToolEditionSwitches)
 }

@@ -40,6 +40,9 @@ func StartService() {
 
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
+		if !opts.IsSlaveNode {
+			go models.EnsureOcbootPlaybookReferenceLoop()
+		}
 	})
 
 	app := app_common.InitApp(&opts.BaseOptions, false)
