@@ -97,12 +97,19 @@ func (self *ApplyScriptTask) taskSuccess(ctx context.Context, sa *models.SScript
 
 func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	sa := obj.(*models.SScriptApply)
-	// create record
-	sar, err := models.ScriptApplyRecordManager.CreateRecord(ctx, sa.GetId())
-	if err != nil {
-		self.taskFailed(ctx, sa, nil, err)
+	// The record is created in StartApply and passed in, so it can be queried
+	// before this task runs. Restore it instead of inserting another one.
+	sarId, _ := self.Params.GetString("script_apply_record_id")
+	if len(sarId) == 0 {
+		self.taskFailed(ctx, sa, nil, errors.Error("missing script_apply_record_id"))
 		return
 	}
+	osar, err := models.ScriptApplyRecordManager.FetchById(sarId)
+	if err != nil {
+		self.taskFailed(ctx, sa, nil, errors.Wrapf(err, "unable to fetch script apply record %s", sarId))
+		return
+	}
+	sar := osar.(*models.SScriptApplyRecord)
 	s, err := sa.Script()
 	if err != nil {
 		self.taskFailed(ctx, sa, sar, err)
