@@ -16,7 +16,8 @@ package arch
 
 import (
 	"fmt"
-	"strings"
+
+	"yunion.io/x/pkg/util/version"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
@@ -116,15 +117,17 @@ func (*X86) GenerateMemDesc() *desc.SGuestMem {
 }
 
 func (*X86) IsKernelVersionEnableHyperv(kernelVersion string) bool {
-	return strings.HasPrefix(kernelVersion, "5.4")
+	return version.GE(kernelVersion, "5.4")
 }
 
-func (*X86) enableHypervFeatures(features map[string]bool) {
+func (*X86) enableHypervFeatures(features map[string]interface{}) {
 	for _, feat := range []string{
 		"hv_relaxed", "hv_vpindex", "hv_time",
-		"hv_vapic", "hv_runtime", "hv_synic", "hv_stimer"} {
+		"hv_vapic", "hv_runtime", "hv_synic", "hv_stimer",
+		"hv_tlbflush", "hv_ipi", "hv_frequencies"} {
 		features[feat] = true
 	}
+	features["hv_spinlocks"] = "0x1fff"
 }
 
 func (x86 *X86) GenerateCpuDesc(cpus uint, cpuMax uint, s KVMGuestInstance) (*desc.SGuestCpu, error) {
@@ -135,7 +138,7 @@ func (x86 *X86) GenerateCpuDesc(cpus uint, cpuMax uint, s KVMGuestInstance) (*de
 	var isCPUAMD = sysutils.IsProcessorAmd()
 
 	var accel, cpuType, vendor, level string
-	var features = make(map[string]bool, 0)
+	var features = make(map[string]interface{}, 0)
 	if s.IsKvmSupport() {
 		if isCPUIntel {
 			vendor = "GenuineIntel"

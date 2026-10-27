@@ -220,11 +220,17 @@ func generateSMPOption(guestDesc *desc.SGuestDesc, isSupportHotplug bool) string
 
 func generateCPUOption(cpu *desc.SGuestCpu) string {
 	cmd := fmt.Sprintf("-cpu %s", cpu.Model)
-	for feat, enable := range cpu.Features {
-		if enable {
-			cmd += "," + feat + "=on"
-		} else {
-			cmd += "," + feat + "=off"
+	for feat, val := range cpu.Features {
+		switch val.(type) {
+		case string:
+			cmd += "," + feat + "=" + val.(string)
+		case bool:
+			enable := val.(bool)
+			if enable {
+				cmd += "," + feat + "=on"
+			} else {
+				cmd += "," + feat + "=off"
+			}
 		}
 	}
 	if len(cpu.Vendor) > 0 {
