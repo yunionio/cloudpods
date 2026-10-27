@@ -31,7 +31,7 @@ type SGuestCpu struct {
 	Model    string
 	Vendor   string
 	Level    string
-	Features map[string]bool `json:",omitempty"`
+	Features map[string]interface{} `json:",omitempty"`
 
 	Accel string
 	// emulate, passthrough, disable
