@@ -647,13 +647,13 @@ func (w *SWindowsRootFs) DeployTelegraf(config string) (bool, error) {
 		return false, errors.Wrap(err, "mkdir telegraf path")
 	}
 
-	winTelegrafPath := w.rootFs.GetLocalPath(WIN_TELEGRAF_PATH, true)
-	telegrafConfPath := path.Join(winTelegrafPath, "telegraf.conf")
+	telegrafConfPath := path.Join(WIN_TELEGRAF_PATH, "telegraf.conf")
 	if err := w.rootFs.FilePutContents(telegrafConfPath, config, false, true); err != nil {
 		return false, errors.Wrap(err, "write boot script")
 	}
 	telegrafConfPath = strings.ReplaceAll(path.Join("%PROGRAMFILES%", "Telegraf", "telegraf.conf"), "/", "\\")
 
+	winTelegrafPath := w.rootFs.GetLocalPath(WIN_TELEGRAF_PATH, true)
 	telegrafBinaryPath := path.Join(winTelegrafPath, "telegraf.exe")
 	output, err := procutils.NewCommand("cp", "-f", WIN_TELEGRAF_BINARY_PATH, telegrafBinaryPath).Output()
 	if err != nil {
