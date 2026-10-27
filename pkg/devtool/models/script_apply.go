@@ -97,20 +97,29 @@ func (sa *SScriptApply) StartApply(ctx context.Context, userCred mcclient.TokenC
 		return errors.Wrap(err, "unable to update scriptapply")
 	}
 
-	err = sa.startApplyScriptTask(ctx, userCred, "")
+	// The record has to exist before the task is queued. The frontend lists it and
+	// opens ansible-log as soon as apply returns, while the task is still waiting
+	// to run or still checking SSH.
+	sar, err := ScriptApplyRecordManager.CreateRecord(ctx, sa.GetId())
 	if err != nil {
-		f := false
-		_, err = ScriptApplyRecordManager.createRecordWithResult(ctx, sa.GetId(), &f, fmt.Sprintf("unabel to start ApplyScriptTask: %v", err))
-		if err != nil {
-			return errors.Wrap(err, "unable to record")
+		return errors.Wrap(err, "unable to create script apply record")
+	}
+	err = sa.startApplyScriptTask(ctx, userCred, "", sar.GetId())
+	if err != nil {
+		failErr := sar.Fail(api.SCRIPT_APPLY_RECORD_FAILCODE_OTHERS, fmt.Sprintf("unable to start ApplyScriptTask: %v", err))
+		if failErr != nil {
+			return errors.Wrap(failErr, "unable to record")
 		}
 		ScriptApplyManager.Session.Remove(sa.Id)
+		err = nil
 	}
 	return nil
 }
 
-func (sa *SScriptApply) startApplyScriptTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "ApplyScriptTask", sa, userCred, nil, "", parentTaskId)
+func (sa *SScriptApply) startApplyScriptTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, recordId string) error {
+	params := jsonutils.NewDict()
+	params.Set("script_apply_record_id", jsonutils.NewString(recordId))
+	task, err := taskman.TaskManager.NewTask(ctx, "ApplyScriptTask", sa, userCred, params, "", parentTaskId)
 	if err != nil {
 		return err
 	}
