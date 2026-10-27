@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/sqlchemy"
 
+	ansible_api "yunion.io/x/onecloud/pkg/apis/ansibleserver"
 	api "yunion.io/x/onecloud/pkg/apis/devtool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -197,6 +198,13 @@ func (sar *SScriptApplyRecord) PerformAnsibleLog(ctx context.Context, userCred m
 		AnsiblePlaybookInstanceId: sar.AnsiblePlaybookInstanceId,
 	}
 	if len(sar.AnsiblePlaybookInstanceId) == 0 {
+		// The id is written only after the SSH check, once the playbook run call returns.
+		// While this attempt is still applying, tell the caller to keep polling
+		// instead of treating the empty id as a finished attempt with no log.
+		if sar.Status == api.SCRIPT_APPLY_RECORD_APPLYING {
+			output.Status = ansible_api.AnsiblePlaybookStatusInit
+			return output, nil
+		}
 		return output, httperrors.NewNotSupportedError("no ansible playbook instance is recorded for this attempt")
 	}
 	// The ansible playbook instances are internal ansibleserver resources that a
