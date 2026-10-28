@@ -98,6 +98,9 @@ func (job *SStatusProbeJob) Do(ctx context.Context, now time.Time) error {
 		return nil
 	}
 	bStatus := job.baremetal.GetStatus()
+	if jsonutils.QueryBoolean(job.baremetal.desc, "is_import", false) && job.baremetal.GetIPMIConfig() == nil {
+		return nil
+	}
 	if bStatus == api.BAREMETAL_READY || bStatus == api.BAREMETAL_RUNNING || bStatus == api.BAREMETAL_UNKNOWN {
 		ps, err := job.baremetal.GetPowerStatus()
 		if err != nil {
