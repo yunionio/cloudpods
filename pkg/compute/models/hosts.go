@@ -5295,6 +5295,10 @@ func (hh *SHost) PerformStart(
 	if !utils.IsInStringArray(hh.Status, []string{api.BAREMETAL_READY}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot start baremetal with active guest")
 	}
+	if hh.IsImport && hh.IpmiInfo == nil {
+		return nil, httperrors.NewBadRequestError("Baremetal no ipmi info")
+	}
+
 	guest := hh.GetBaremetalServer()
 	if guest != nil {
 		if hh.HostType == api.HOST_TYPE_BAREMETAL && utils.ToBool(guest.GetMetadata(ctx, "is_fake_baremetal_server", userCred)) {
@@ -5327,6 +5331,9 @@ func (hh *SHost) PerformStop(ctx context.Context, userCred mcclient.TokenCredent
 	}
 	if !utils.IsInStringArray(hh.Status, []string{api.BAREMETAL_RUNNING}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot stop baremetal with non-active guest")
+	}
+	if hh.IsImport && hh.IpmiInfo == nil {
+		return nil, httperrors.NewBadRequestError("Baremetal no ipmi info")
 	}
 	guest := hh.GetBaremetalServer()
 	if guest != nil {
@@ -5372,6 +5379,9 @@ func (hh *SHost) PerformMaintenance(ctx context.Context, userCred mcclient.Token
 	if guest != nil && !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_ADMIN}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot do maintenance while guest status %s", guest.Status)
 	}
+	if hh.IsImport && (hh.EnablePxeBoot.IsFalse() || hh.IpmiInfo == nil) {
+		return nil, httperrors.NewBadRequestError("Baremetal no ipmi disabled")
+	}
 	params := jsonutils.NewDict()
 	if guest != nil {
 		if guest.Status == api.VM_RUNNING {
@@ -5402,6 +5412,9 @@ func (hh *SHost) PerformUnmaintenance(ctx context.Context, userCred mcclient.Tok
 	guest := hh.GetBaremetalServer()
 	if guest != nil && guest.Status != api.VM_ADMIN {
 		return nil, httperrors.NewInvalidStatusError("Wrong guest status %s", guest.Status)
+	}
+	if hh.IsImport && (hh.EnablePxeBoot.IsFalse() || hh.IpmiInfo == nil) {
+		return nil, httperrors.NewBadRequestError("Baremetal no ipmi disabled")
 	}
 	action, _ := data.GetString("action")
 	if len(action) == 0 {
@@ -5996,11 +6009,11 @@ func (hh *SHost) PerformInitialize(
 	if len(name) == 0 {
 		name = hh.Name + "-server"
 	}
-
-	if hh.IpmiInfo == nil || !hh.IpmiInfo.Contains("ip_addr") ||
-		!hh.IpmiInfo.Contains("password") {
-		return nil, httperrors.NewBadRequestError("IPMI infomation not configured")
-	}
+	//
+	//if hh.IpmiInfo == nil || !hh.IpmiInfo.Contains("ip_addr") ||
+	//	!hh.IpmiInfo.Contains("password") {
+	//	return nil, httperrors.NewBadRequestError("IPMI infomation not configured")
+	//}
 	if err := hh.CreateFakeBaremetalServer(ctx, userCred, name, userCred); err != nil {
 		log.Errorf("CreateFakeBaremetalServer failed %s", err)
 	}
