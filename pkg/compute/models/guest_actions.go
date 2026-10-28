@@ -4280,7 +4280,7 @@ func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCred
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDriver")
 	}
-	if !input.IsForce {
+	if !input.IsForce || self.Hypervisor == api.HYPERVISOR_BAREMETAL {
 		err := drv.CanStop(self)
 		if err != nil {
 			return nil, errors.Wrap(err, "Cannot stop server")
