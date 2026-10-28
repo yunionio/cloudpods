@@ -242,15 +242,12 @@ func (self *KVMGuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Conte
 	self.SetStage("OnGuestDeployComplete", nil)
 	guest.SetStatus(ctx, self.UserCred, api.VM_DEPLOYING, "")
 	deployParams, _ := self.Params.Get("deploy_params")
-	var params *jsonutils.JSONDict
-	if deployParams != nil {
-		params = deployParams.(*jsonutils.JSONDict)
-	} else {
-		params = jsonutils.NewDict()
+	param, err := models.NewGuestDeployTaskParam(deployParams)
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
 	}
-	// params := jsonutils.NewDict()
-	// params.Set("reset_password", jsonutils.JSONTrue)
-	guest.StartGuestDeployTask(ctx, self.UserCred, params, "rebuild", self.GetTaskId())
+	guest.StartGuestDeployTask(ctx, self.UserCred, param, "rebuild", self.GetTaskId())
 }
 
 func (self *KVMGuestRebuildRootTask) OnRebuildRootDiskCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -289,13 +286,12 @@ func (self *ManagedGuestRebuildRootTask) OnHostCacheImageComplete(ctx context.Co
 	self.SetStage("OnGuestDeployComplete", nil)
 	guest.SetStatus(ctx, self.UserCred, api.VM_DEPLOYING, "rebuild deploy")
 	deployParams, _ := self.Params.Get("deploy_params")
-	var params *jsonutils.JSONDict
-	if deployParams != nil {
-		params = deployParams.(*jsonutils.JSONDict)
-	} else {
-		params = jsonutils.NewDict()
+	param, err := models.NewGuestDeployTaskParam(deployParams)
+	if err != nil {
+		self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
+		return
 	}
-	guest.StartGuestDeployTask(ctx, self.UserCred, params, "rebuild", self.GetTaskId())
+	guest.StartGuestDeployTask(ctx, self.UserCred, param, "rebuild", self.GetTaskId())
 }
 
 func (self *ManagedGuestRebuildRootTask) OnHostCacheImageCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

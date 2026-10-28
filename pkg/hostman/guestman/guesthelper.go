@@ -58,7 +58,7 @@ type SGuestDeploy struct {
 	UserCred mcclient.TokenCredential
 
 	Sid    string
-	Body   jsonutils.JSONObject
+	Body   *compute.SGuestDeployConfigOnHost
 	IsInit bool
 }
 

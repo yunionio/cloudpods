@@ -953,6 +953,17 @@ func (m *SGuestManager) ListForward(ctx context.Context, sid string, req *hostap
 	return output, nil
 }
 
+func guestDescFromDeployConfig(body *compute.SGuestDeployConfigOnHost) (*desc.SGuestDesc, error) {
+	if body == nil || body.Desc == nil {
+		return nil, nil
+	}
+	guestDesc := new(desc.SGuestDesc)
+	if err := body.Desc.Unmarshal(guestDesc); err != nil {
+		return nil, err
+	}
+	return guestDesc, nil
+}
+
 func (m *SGuestManager) GuestCreate(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	deployParams, ok := params.(*SGuestDeploy)
 	if !ok {
@@ -966,16 +977,12 @@ func (m *SGuestManager) GuestCreate(ctx context.Context, params interface{}) (js
 		if _, ok := m.GetServer(deployParams.Sid); ok {
 			return httperrors.NewBadRequestError("Guest %s exists", deployParams.Sid)
 		}
-		var (
-			descInfo   *desc.SGuestDesc = nil
-			hypervisor                  = ""
-		)
-		if deployParams.Body.Contains("desc") {
-			descInfo = new(desc.SGuestDesc)
-			err := deployParams.Body.Unmarshal(descInfo, "desc")
-			if err != nil {
-				return httperrors.NewBadRequestError("Guest desc unmarshal failed %s", err)
-			}
+		descInfo, err := guestDescFromDeployConfig(deployParams.Body)
+		if err != nil {
+			return httperrors.NewBadRequestError("Guest desc unmarshal failed %s", err)
+		}
+		hypervisor := ""
+		if descInfo != nil {
 			hypervisor = descInfo.GetHypervisor()
 		}
 		//guest = NewKVMGuestInstance(deployParams.Sid, m)
@@ -999,26 +1006,39 @@ func (m *SGuestManager) GuestCreate(ctx context.Context, params interface{}) (js
 
 func (m *SGuestManager) startDeploy(
 	ctx context.Context, deployParams *SGuestDeploy, guest GuestRuntimeInstance) (jsonutils.JSONObject, error) {
-	publicKey := deployapi.GetKeys(deployParams.Body)
-	deployArray := make([]*deployapi.DeployContent, 0)
-	if deployParams.Body.Contains("deploys") {
-		err := deployParams.Body.Unmarshal(&deployArray, "deploys")
-		if err != nil {
-			return nil, errors.Wrapf(err, "unmarshal to array of deployapi.DeployContent")
+	body := deployParams.Body
+	if body == nil {
+		body = &compute.SGuestDeployConfigOnHost{}
+	}
+	publicKey := &deployapi.SSHKeys{
+		PublicKey:        body.PublicKey,
+		DeletePublicKey:  body.DeletePublicKey,
+		AdminPublicKey:   body.AdminPublicKey,
+		ProjectPublicKey: body.ProjectPublicKey,
+	}
+	deployArray := make([]*deployapi.DeployContent, 0, len(body.Deploys))
+	for _, cfg := range body.Deploys {
+		if cfg == nil {
+			continue
 		}
+		deployArray = append(deployArray, &deployapi.DeployContent{
+			Path:    cfg.Path,
+			Content: cfg.Content,
+			Action:  cfg.Action,
+		})
 	}
 
 	isRandomPassword := false
-	password, _ := deployParams.Body.GetString("password")
-	resetPassword := jsonutils.QueryBoolean(deployParams.Body, "reset_password", false)
+	password := body.Password
+	resetPassword := body.ResetPassword != nil && *body.ResetPassword
 	if resetPassword && len(password) == 0 {
 		password = seclib.RandomPassword2(14)
 		isRandomPassword = true
 	}
-	enableCloudInit := jsonutils.QueryBoolean(deployParams.Body, "enable_cloud_init", false)
-	loginAccount, _ := deployParams.Body.GetString("login_account")
-	deployTelegraf := jsonutils.QueryBoolean(deployParams.Body, "deploy_telegraf", false)
-	telegrafConfig, _ := deployParams.Body.GetString("telegraf_conf")
+	enableCloudInit := body.EnableCloudInit
+	loginAccount := body.LoginAccount
+	deployTelegraf := body.DeployTelegraf
+	telegrafConfig := body.TelegrafConf
 	if deployTelegraf && telegrafConfig == "" {
 		return nil, errors.Errorf("missing telegraf_conf")
 	}
@@ -1053,12 +1073,11 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 
 	guest, ok := m.GetServer(deployParams.Sid)
 	if ok {
-		if deployParams.Body.Contains("desc") {
-			var guestDesc = new(desc.SGuestDesc)
-			err := deployParams.Body.Unmarshal(guestDesc, "desc")
-			if err != nil {
-				return nil, httperrors.NewBadRequestError("Failed unmarshal guest desc %s", err)
-			}
+		guestDesc, err := guestDescFromDeployConfig(deployParams.Body)
+		if err != nil {
+			return nil, httperrors.NewBadRequestError("Failed unmarshal guest desc %s", err)
+		}
+		if guestDesc != nil {
 			if err := SaveDesc(guest, guestDesc); err != nil {
 				return nil, errors.Wrap(err, "failed save desc")
 			}

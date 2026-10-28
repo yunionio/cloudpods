@@ -97,6 +97,9 @@ func (self *ApplyScriptTask) taskSuccess(ctx context.Context, sa *models.SScript
 
 func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	sa := obj.(*models.SScriptApply)
+	// try to set metadata for guest
+	self.setAgentInstallStatus(ctx, sa, agentInstallingValue)
+
 	// The record is created in StartApply and passed in, so it can be queried
 	// before this task runs. Restore it instead of inserting another one.
 	sarId, _ := self.Params.GetString("script_apply_record_id")
@@ -186,30 +189,31 @@ func (self *ApplyScriptTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	}
 }
 
-func mapStringSlice(f func(string) string, a []string) []string {
-	for i := range a {
-		a[i] = f(a[i])
-	}
-	return a
-}
-
 const (
 	agentInstalledKey   = "__monitor_agent"
 	agentInstalledValue = "true"
+
+	agentInstallingValue = "installing"
+
+	agentStatusKey = "monitor_agent_status"
 )
 
-func (self *ApplyScriptTask) OnAnsiblePlaybookComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	// try to delete local forward
-	session := auth.GetAdminSession(ctx, "")
-
-	sa := obj.(*models.SScriptApply)
+func (t *ApplyScriptTask) setAgentInstallStatus(ctx context.Context, sa *models.SScriptApply, status string) {
 	// try to set metadata for guest
+	session := auth.GetAdminSession(ctx, "")
 	metadata := jsonutils.NewDict()
-	metadata.Set(agentInstalledKey, jsonutils.NewString(agentInstalledValue))
+	metadata.Set(agentInstalledKey, jsonutils.NewString(status))
+	metadata.Set(agentStatusKey, jsonutils.NewString(status))
 	_, err := compute.Servers.PerformAction(session, sa.GuestId, "metadata", metadata)
 	if err != nil {
 		log.Errorf("set metadata '%s:%s' for guest %s failed: %v", agentInstalledKey, agentInstalledValue, sa.GuestId, err)
 	}
+}
+
+func (self *ApplyScriptTask) OnAnsiblePlaybookComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	sa := obj.(*models.SScriptApply)
+	// try to set metadata for guest
+	self.setAgentInstallStatus(ctx, sa, agentInstalledValue)
 
 	sarId, _ := self.Params.GetString("script_apply_record_id")
 	osar, err := models.ScriptApplyRecordManager.FetchById(sarId)

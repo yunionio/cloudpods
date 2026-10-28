@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/uefi"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -39,7 +40,8 @@ type IServerBaseDeployTask interface {
 type SBaremetalServerBaseDeployTask struct {
 	SBaremetalPXEBootTaskBase
 
-	needPXEBoot bool
+	needPXEBoot  bool
+	deployConfig *api.SGuestDeployConfigOnHost
 }
 
 func newBaremetalServerBaseDeployTask(
@@ -51,6 +53,7 @@ func newBaremetalServerBaseDeployTask(
 	task := SBaremetalServerBaseDeployTask{
 		SBaremetalPXEBootTaskBase: newBaremetalPXEBootTaskBase(userCred, baremetal, taskId, data),
 		needPXEBoot:               true,
+		deployConfig:              parseGuestDeployConfig(data),
 	}
 	// any inheritance must call:
 	// task.SetStage(task.InitPXEBootTask)
@@ -69,16 +72,26 @@ func (self *SBaremetalServerBaseDeployTask) NeedPXEBoot() bool {
 	return self.needPXEBoot
 }
 
+func parseGuestDeployConfig(data jsonutils.JSONObject) *api.SGuestDeployConfigOnHost {
+	cfg := &api.SGuestDeployConfigOnHost{}
+	if data == nil {
+		return cfg
+	}
+	if err := data.Unmarshal(cfg); err != nil {
+		log.Errorf("unmarshal SGuestDeployConfigOnHost: %v", err)
+	}
+	return cfg
+}
+
 func (self *SBaremetalServerBaseDeployTask) IsDisableImageCache() bool {
-	return jsonutils.QueryBoolean(self.data, "disable_image_cache", false)
+	return self.deployConfig != nil && self.deployConfig.DisableImageCache
 }
 
 func (self *SBaremetalServerBaseDeployTask) GetFinishAction() string {
-	if self.data != nil {
-		action, _ := self.data.GetString("on_finish")
-		return action
+	if self.deployConfig == nil {
+		return ""
 	}
-	return ""
+	return self.deployConfig.OnFinish
 }
 
 func (self *SBaremetalServerBaseDeployTask) RemoveEFIOSEntry() bool {
