@@ -189,7 +189,12 @@ func (self *GuestCreateTask) OnCdromPreparedFailed(ctx context.Context, obj db.I
 
 func (self *GuestCreateTask) StartDeployGuest(ctx context.Context, guest *models.SGuest) {
 	self.SetStage("OnDeployGuestDescComplete", nil)
-	guest.StartGuestDeployTask(ctx, self.UserCred, self.Params, "create", self.GetId())
+	param, err := models.NewGuestDeployTaskParam(self.Params)
+	if err != nil {
+		self.OnDeployGuestDescCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+		return
+	}
+	guest.StartGuestDeployTask(ctx, self.UserCred, param, "create", self.GetId())
 }
 
 func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

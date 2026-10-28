@@ -77,12 +77,12 @@ func (self *SBaremetalServerCreateTask) DoDeploys(ctx context.Context, term *ssh
 	data.Add(jsonutils.Marshal(disks), "disks")
 	rootImageId := self.Baremetal.GetServer().GetRootTemplateId()
 	if len(rootImageId) > 0 {
-		deployInfo, err := self.Baremetal.GetServer().DoDeploy(tool, term, self.data, true)
+		deployInfo, err := self.Baremetal.GetServer().DoDeploy(tool, term, self.deployConfig, true)
 		if err != nil {
 			return nil, self.onError(ctx, term, err)
 		}
 		if deployInfo != nil {
-			data.Update(deployInfo)
+			data.Update(jsonutils.Marshal(deployInfo))
 		}
 	}
 	return data, nil
