@@ -299,7 +299,7 @@ func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 	return nil
 }
 
-func (self *SKVMGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+func (self *SKVMGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, params *api.SGuestDeployTaskParam) (jsonutils.JSONObject, error) {
 	desc := guest.GetJsonDescAtHypervisor(ctx, host)
 	if len(desc.UserData) > 0 {
 		// host 需要加密后的user-data以提供 http://169.254.169.254/latest/user-data 解密访问
@@ -309,17 +309,19 @@ func (self *SKVMGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcc
 }
 
 func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	deployParam, err := models.NewGuestDeployTaskParam(task.GetParams())
 	if err != nil {
 		log.Errorf("GetDeployConfigOnHost error: %v", err)
 		return err
 	}
-	log.Debugf("RequestDeployGuestOnHost: %s", config)
-	action, err := config.GetString("action")
+	deployConfig, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, deployParam)
 	if err != nil {
+		log.Errorf("GetDeployConfigOnHost error: %v", err)
 		return err
 	}
-	url := fmt.Sprintf("%s/servers/%s/%s", host.ManagerUri, guest.Id, action)
+	config := jsonutils.Marshal(deployConfig).(*jsonutils.JSONDict)
+	log.Debugf("RequestDeployGuestOnHost: %s", config)
+	url := fmt.Sprintf("%s/servers/%s/%s", host.ManagerUri, guest.Id, deployConfig.Action)
 	header := self.getTaskRequestHeader(task)
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, config, false)
 	if err != nil {
@@ -328,8 +330,24 @@ func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 	return nil
 }
 
-func (self *SKVMGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
-	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
+func guestDeployTaskParam(task taskman.ITask) (api.SGuestDeployTaskParam, error) {
+	param := api.SGuestDeployTaskParam{}
+	params := task.GetParams()
+	if params == nil {
+		return param, nil
+	}
+	if err := params.Unmarshal(&param); err != nil {
+		return param, errors.Wrap(err, "unmarshal SGuestDeployTaskParam")
+	}
+	return param, nil
+}
+
+func (self *SKVMGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data api.SDeployGuestFsResponse) error {
+	deployParams, err := guestDeployTaskParam(task)
+	if err != nil {
+		return err
+	}
+	guest.SaveDeployInfo(ctx, task.GetUserCred(), data, deployParams)
 	return nil
 }
 

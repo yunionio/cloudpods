@@ -61,7 +61,7 @@ type IGuestDriver interface {
 
 	RequestRenewInstance(ctx context.Context, guest *SGuest, bc billing.SBillingCycle) (time.Time, error)
 
-	GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost, params *jsonutils.JSONDict) (jsonutils.JSONObject, error)
+	GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost, params *api.SGuestDeployTaskParam) (jsonutils.JSONObject, error)
 
 	ValidateImage(ctx context.Context, image *cloudprovider.SImage) error
 	ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *api.ServerCreateInput) (*api.ServerCreateInput, error)
@@ -102,7 +102,7 @@ type IGuestDriver interface {
 	GetDefaultAccount(osType, osDist, imageType string) string
 	GetInstanceCapability() cloudprovider.SInstanceCapability
 
-	OnGuestDeployTaskDataReceived(ctx context.Context, guest *SGuest, task taskman.ITask, data jsonutils.JSONObject) error
+	OnGuestDeployTaskDataReceived(ctx context.Context, guest *SGuest, task taskman.ITask, data api.SDeployGuestFsResponse) error
 
 	StartGuestSyncstatusTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error
 
