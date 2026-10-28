@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"math/rand"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
@@ -220,16 +219,33 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 	return ret, nil
 }
 
+func toDeployGuestFsResponse(ret *deployapi.DeployGuestFsResponse) *comapi.SDeployGuestFsResponse {
+	if ret == nil {
+		return nil
+	}
+	return &comapi.SDeployGuestFsResponse{
+		Os:               ret.Os,
+		Account:          ret.Account,
+		Key:              ret.Key,
+		Distro:           ret.Distro,
+		Version:          ret.Version,
+		Arch:             ret.Arch,
+		Language:         ret.Language,
+		TelegrafDeployed: ret.TelegrafDeployed,
+		CurrentVersion:   ret.CurrentVersion,
+	}
+}
+
 func DeployGuestFs(
 	rootfs fsdriver.IRootFsDriver,
 	desc *deployapi.GuestDesc,
 	deployInfo *deployapi.DeployInfo,
-) (jsonutils.JSONObject, error) {
+) (*comapi.SDeployGuestFsResponse, error) {
 	ret, err := DoDeployGuestFs(rootfs, desc, deployInfo)
 	if err != nil {
 		return nil, err
 	}
-	return jsonutils.Marshal(ret), nil
+	return toDeployGuestFsResponse(ret), nil
 }
 
 func IsPartitionReadonly(rootfs fsdriver.IDiskPartition) bool {

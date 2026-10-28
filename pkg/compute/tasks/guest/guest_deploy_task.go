@@ -95,7 +95,13 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 		self.OnDeployGuestCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		return
 	}
-	drv.OnGuestDeployTaskDataReceived(ctx, guest, self, data)
+	deployInfo := api.SDeployGuestFsResponse{}
+	if data != nil {
+		if err := data.Unmarshal(&deployInfo); err != nil {
+			log.Errorf("unmarshal SDeployGuestFsResponse: %v", err)
+		}
+	}
+	drv.OnGuestDeployTaskDataReceived(ctx, guest, self, deployInfo)
 	action, _ := self.Params.GetString("deploy_action")
 	keypair, _ := self.Params.GetString("keypair")
 	reset_password := jsonutils.QueryBoolean(self.Params, "reset_password", false)
