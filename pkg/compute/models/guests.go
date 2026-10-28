@@ -5655,8 +5655,10 @@ func (self *SGuest) IsSchedulerNumaAllocate() bool {
 	return cpuNumaPinType == api.VM_CPU_NUMA_PIN_SCHEDULER && self.CpuNumaPin != nil
 }
 
-func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, params *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	config := jsonutils.NewDict()
+func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, params *api.SGuestDeployTaskParam) (*api.SGuestDeployConfigOnHost, error) {
+	if params == nil {
+		params = &api.SGuestDeployTaskParam{}
+	}
 
 	drv, err := self.GetDriver()
 	if err != nil {
@@ -5667,53 +5669,47 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetJsonDescAtHost")
 	}
-	config.Add(desc, "desc")
 
-	deploys, err := cmdline.FetchDeployConfigsByJSON(params)
-	if err != nil {
-		return nil, err
-	}
+	deploys := params.DeployConfigs
 	if err := ValidateDeployConfigs(deploys); err != nil {
 		return nil, err
 	}
 
-	if len(deploys) > 0 {
-		config.Add(jsonutils.Marshal(deploys), "deploys")
-	}
-
-	deployAction, _ := params.GetString("deploy_action")
+	deployAction := params.DeployAction
 	if len(deployAction) == 0 {
-		deployAction = "deploy"
+		deployAction = api.TDeployActionDeploy
 	}
 
-	config.Add(jsonutils.NewBool(jsonutils.QueryBoolean(params, "enable_cloud_init", false)), "enable_cloud_init")
-
-	if account, _ := params.GetString("login_account"); len(account) > 0 {
-		config.Set("login_account", jsonutils.NewString(account))
+	resetPasswd := true
+	if params.ResetPassword != nil {
+		resetPasswd = *params.ResetPassword
 	}
-
-	resetPasswd := jsonutils.QueryBoolean(params, "reset_password", true)
-	if deployAction == "create" && resetPasswd {
+	if deployAction == api.TDeployActionCreate && resetPasswd {
 		resetPasswd = self.isNeedDoResetPasswd()
 	}
 
+	config := &api.SGuestDeployConfigOnHost{
+		Desc:            desc,
+		EnableCloudInit: params.EnableCloudInit,
+		LoginAccount:    params.LoginAccount,
+		Action:          deployAction,
+	}
+	if len(deploys) > 0 {
+		config.Deploys = deploys
+	}
 	if resetPasswd {
-		config.Add(jsonutils.JSONTrue, "reset_password")
-		passwd, _ := params.GetString("password")
-		if len(passwd) > 0 {
-			config.Add(jsonutils.NewString(passwd), "password")
-		}
+		reset := true
+		config.ResetPassword = &reset
+		config.Password = params.Password
 		keypair := self.getKeypair()
 		if keypair != nil {
-			config.Add(jsonutils.NewString(keypair.PublicKey), "public_key")
-			config.Add(jsonutils.NewString(keypair.Name), "keypair_name")
+			config.PublicKey = keypair.PublicKey
+			config.KeypairName = keypair.Name
 		}
-		deletePubKey, _ := params.GetString("delete_public_key")
-		if len(deletePubKey) > 0 {
-			config.Add(jsonutils.NewString(deletePubKey), "delete_public_key")
-		}
+		config.DeletePublicKey = params.DeletePublicKey
 	} else {
-		config.Add(jsonutils.JSONFalse, "reset_password")
+		reset := false
+		config.ResetPassword = &reset
 	}
 
 	// add default public keys
@@ -5728,23 +5724,19 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		log.Errorf("fail to get ssh project public key %s", err)
 	}
 
-	config.Add(jsonutils.NewString(adminPubKey[0]), "admin_public_key")
-	config.Add(jsonutils.NewString(projPubKey[0]), "project_public_key")
+	config.AdminPublicKey = adminPubKey[0]
+	config.ProjectPublicKey = projPubKey[0]
 
-	config.Add(jsonutils.NewString(deployAction), "action")
-
-	onFinish := "shutdown"
-	if jsonutils.QueryBoolean(params, "auto_start", false) || jsonutils.QueryBoolean(params, "restart", false) {
-		onFinish = "none"
+	config.OnFinish = "shutdown"
+	if params.AutoStart || params.Restart {
+		config.OnFinish = "none"
 	} else if utils.IsInStringArray(self.Status, []string{api.VM_ADMIN}) {
-		onFinish = "none"
+		config.OnFinish = "none"
 	}
 
-	config.Add(jsonutils.NewString(onFinish), "on_finish")
-
-	if jsonutils.QueryBoolean(params, "deploy_telegraf", false) {
+	if params.DeployTelegraf {
 		influxdbUrl := drv.FetchMonitorUrl(ctx, self)
-		config.Add(jsonutils.JSONTrue, "deploy_telegraf")
+		config.DeployTelegraf = true
 		serverDetails, err := self.getDetails(ctx, userCred)
 		if err != nil {
 			return nil, errors.Wrap(err, "get details")
@@ -5754,7 +5746,7 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		if err != nil {
 			return nil, errors.Wrap(err, "get telegraf conf")
 		}
-		config.Add(jsonutils.NewString(telegrafConf), "telegraf_conf")
+		config.TelegrafConf = telegrafConf
 	}
 
 	return config, nil
@@ -6385,57 +6377,58 @@ func (self *SGuest) saveOsType(userCred mcclient.TokenCredential, osType string)
 	return err
 }
 
-type sDeployInfo struct {
-	Os               string
-	Account          string
-	Key              string
-	Distro           string
-	Version          string
-	Arch             string
-	Language         string
-	TelegrafDeployed bool
-	CurrentVersion   string
-}
-
-func (self *SGuest) SaveDeployInfo(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
-	deployInfo := sDeployInfo{}
-	data.Unmarshal(&deployInfo)
+func (self *SGuest) SaveDeployInfo(ctx context.Context, userCred mcclient.TokenCredential, data api.SDeployGuestFsResponse, deployParams api.SGuestDeployTaskParam) {
+	// create / rebuild 会换系统，返回值为空字符串或 false 时清掉上一份部署留下的字段。
+	resetEmpty := deployParams.DeployAction == api.TDeployActionRebuild
 	info := make(map[string]interface{})
-	if len(deployInfo.Os) > 0 {
-		self.saveOsType(userCred, deployInfo.Os)
-		info["os_name"] = deployInfo.Os
-	}
-	driver, _ := self.GetDriver()
-	if len(deployInfo.Account) > 0 {
-		info["login_account"] = deployInfo.Account
-		if len(deployInfo.Key) > 0 {
-			info["login_key"] = deployInfo.Key
-			if len(self.KeypairId) > 0 && (driver != nil && !driver.IsSupportdDcryptPasswordFromSecretKey()) { // Tencent Cloud does not support simultaneous setting of secret keys and passwords
-				info["login_key"], _ = seclib2.EncryptBase64(self.GetKeypairPublicKey(), "")
-			}
-			info["login_key_timestamp"] = timeutils.UtcNow()
-		} else {
-			info["login_key"] = "none"
-			info["login_key_timestamp"] = "none"
+	setString := func(key, value string) {
+		if len(value) > 0 {
+			info[key] = value
+			return
+		}
+		if resetEmpty {
+			info[key] = "none"
 		}
 	}
-	if len(deployInfo.Distro) > 0 {
-		info["os_distribution"] = deployInfo.Distro
+	if len(data.Os) > 0 {
+		self.saveOsType(userCred, data.Os)
+	} else if resetEmpty {
+		self.saveOsType(userCred, "")
 	}
-	if len(deployInfo.Version) > 0 {
-		info["os_version"] = deployInfo.Version
+	setString("os_name", data.Os)
+
+	driver, _ := self.GetDriver()
+	saveLoginKey := func() {
+		if len(data.Key) == 0 {
+			info["login_key"] = "none"
+			info["login_key_timestamp"] = "none"
+			return
+		}
+		loginKey := data.Key
+		if len(self.KeypairId) > 0 && (driver != nil && !driver.IsSupportdDcryptPasswordFromSecretKey()) { // Tencent Cloud does not support simultaneous setting of secret keys and passwords
+			loginKey, _ = seclib2.EncryptBase64(self.GetKeypairPublicKey(), "")
+		}
+		info["login_key"] = loginKey
+		info["login_key_timestamp"] = timeutils.UtcNow()
 	}
-	if len(deployInfo.Arch) > 0 {
-		info["os_arch"] = deployInfo.Arch
+	if len(data.Account) > 0 {
+		info["login_account"] = data.Account
+		saveLoginKey()
+	} else if resetEmpty {
+		info["login_account"] = "none"
+		saveLoginKey()
 	}
-	if len(deployInfo.Language) > 0 {
-		info["os_language"] = deployInfo.Language
-	}
-	if deployInfo.TelegrafDeployed {
+	setString("os_distribution", data.Distro)
+	setString("os_version", data.Version)
+	setString("os_arch", data.Arch)
+	setString("os_language", data.Language)
+	setString("current_version", data.CurrentVersion)
+	if data.TelegrafDeployed {
 		info["telegraf_deployed"] = true
-	}
-	if len(deployInfo.CurrentVersion) > 0 {
-		info["current_version"] = deployInfo.CurrentVersion
+	} else if resetEmpty {
+		info["telegraf_deployed"] = "none"
+		info["__monitor_agent"] = "none"
+		info["monitor_agent_status"] = "none"
 	}
 	self.SetAllMetadata(ctx, info, userCred)
 	self.saveOldPassword(ctx, userCred)

@@ -15,12 +15,34 @@
 package models
 
 import (
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/sets"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
+
+func NewGuestDeployTaskParam(data jsonutils.JSONObject) (*api.SGuestDeployTaskParam, error) {
+	if gotypes.IsNil(data) {
+		return nil, nil
+	}
+	param := &api.SGuestDeployTaskParam{}
+	if err := data.Unmarshal(param); err != nil {
+		return nil, errors.Wrap(err, "unmarshal SGuestDeployTaskParam")
+	}
+	if len(param.DeployConfigs) == 0 {
+		deploys, err := cmdline.FetchDeployConfigsByJSON(data)
+		if err != nil {
+			return nil, errors.Wrap(err, "FetchDeployConfigsByJSON")
+		}
+		param.DeployConfigs = deploys
+	}
+	return param, nil
+}
 
 var deployConfigActions = sets.NewString("", "create", "append")
 
