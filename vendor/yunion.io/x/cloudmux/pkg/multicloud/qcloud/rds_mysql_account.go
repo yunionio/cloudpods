@@ -16,6 +16,7 @@ package qcloud
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"gopkg.in/fatih/set.v0"
@@ -65,7 +66,7 @@ type sPrivilege struct {
 }
 
 func (p sPrivilege) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s-%s-%s", p.User, p.Host, p.Database, p.Privilege)
+	return fmt.Sprintf("%s-%s-%s", p.User, p.Host, p.Database)
 }
 
 func (p sPrivilege) GetDBName() string {
@@ -214,17 +215,19 @@ func (self *SMySQLInstanceAccount) GetIDBInstanceAccountPrivileges() ([]cloudpro
 		for _, v := range p.Privileges {
 			pSet.Add(v)
 		}
-		priv := strings.Join(p.Privileges, ",")
+		sorted := append([]string{}, p.Privileges...)
+		sort.Strings(sorted)
+		privStr := strings.Join(sorted, ",")
 		if pSet.IsEqual(rSet) {
-			priv = api.DATABASE_PRIVILEGE_R
+			privStr = api.DATABASE_PRIVILEGE_R
 		} else if pSet.IsEqual(rwSet) {
-			priv = api.DATABASE_PRIVILEGE_RW
+			privStr = api.DATABASE_PRIVILEGE_RW
 		}
 		privilege := &sPrivilege{
 			Database:  p.Database,
 			User:      self.User,
 			Host:      self.Host,
-			Privilege: priv,
+			Privilege: privStr,
 		}
 		ret = append(ret, privilege)
 	}
