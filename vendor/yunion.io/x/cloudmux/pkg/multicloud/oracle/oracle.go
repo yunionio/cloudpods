@@ -49,11 +49,13 @@ const (
 
 	NEXT_TOKEN = "opc-next-page"
 
-	SERVICE_IAAS              = "iaas"
-	SERVICE_IDENTITY          = "identity"
-	SERVICE_TELEMETRY         = "telemetry"
-	SERVICE_ANNOUNCEMENTS     = "announcements"
-	ANNOUNCEMENTS_API_VERSION = "20180904"
+	SERVICE_IAAS                = "iaas"
+	SERVICE_IDENTITY            = "identity"
+	SERVICE_TELEMETRY           = "telemetry"
+	SERVICE_ANNOUNCEMENTS       = "announcements"
+	SERVICE_ONESUBSCRIPTION     = "onesubscription"
+	ANNOUNCEMENTS_API_VERSION   = "20180904"
+	ONESUBSCRIPTION_API_VERSION = "20190111"
 )
 
 type OracleClientConfig struct {
@@ -204,6 +206,9 @@ func (self *SOracleClient) getUrl(service, regionId, resource string) (string, e
 		return fmt.Sprintf("https://%s.%s.oraclecloud.com/%s/%s", service, regionId, MONITORY_API_VERSION, strings.TrimPrefix(resource, "/")), nil
 	case SERVICE_ANNOUNCEMENTS:
 		return fmt.Sprintf("https://%s.%s.oraclecloud.com/%s/%s", service, regionId, ANNOUNCEMENTS_API_VERSION, strings.TrimPrefix(resource, "/")), nil
+	case SERVICE_ONESUBSCRIPTION:
+		// OneSubscription APIs are served from the identity host (see OCI SDK endpoint template).
+		return fmt.Sprintf("https://identity.%s.oci.oraclecloud.com/%s/%s", regionId, ONESUBSCRIPTION_API_VERSION, strings.TrimPrefix(resource, "/")), nil
 	default:
 		return "", errors.Wrapf(cloudprovider.ErrNotSupported, "%s", service)
 	}
