@@ -17,7 +17,9 @@ package models
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -361,16 +363,115 @@ type SyncResult struct {
 	compare.SyncResult
 }
 
-type SSyncResultSet map[string]*SyncResult
+// SSyncResultSet 汇总各类资源同步结果；mu/data 为指针以便按值传递时仍并发安全。
+type SSyncResultSet struct {
+	mu   *sync.Mutex
+	data map[string]*SyncResult
+}
+
+func NewSSyncResultSet() SSyncResultSet {
+	return SSyncResultSet{
+		mu:   &sync.Mutex{},
+		data: make(map[string]*SyncResult),
+	}
+}
+
+// Enabled 表示是否需要记录同步结果；零值/未初始化时为 false（兼容原 map nil 语义）。
+func (set SSyncResultSet) Enabled() bool {
+	return set.data != nil
+}
+
+func (set SSyncResultSet) lock() func() {
+	if set.mu == nil {
+		return func() {}
+	}
+	set.mu.Lock()
+	return set.mu.Unlock
+}
+
+func (set SSyncResultSet) getOrCreate(key string) *SyncResult {
+	if set.data == nil {
+		return &SyncResult{}
+	}
+	if _, ok := set.data[key]; !ok {
+		set.data[key] = &SyncResult{}
+	}
+	return set.data[key]
+}
+
+// syncResultGroupKey 将具体 model 归并为资源大类，便于前端展示（对齐 cloud capability）。
+func syncResultGroupKey(manager db.IModelManager) string {
+	if manager == nil {
+		return "unknown"
+	}
+	return syncResultGroupByKeyword(manager.KeywordPlural())
+}
+
+func syncResultGroupByKeyword(kw string) string {
+	switch kw {
+	case "cloudproviderquotas":
+		return "quota"
+	case "zones":
+		return "zone"
+	case "serverskus", "dbinstanceskus", "nat_skus", "natskus", "elasticcacheskus", "elasticcache_skus":
+		return "sku"
+	case "vpcs", "wires", "networks", "eips", "route_tables", "routetables",
+		"natgateways", "vpc_peering_connections", "vpcpeeringconnections",
+		"ipv6_gateways", "ipv6gateways", "secgroups", "securitygroups",
+		"ipsets", "networkinterfaces", "netinterfaces":
+		return "network"
+	case "hosts", "hoststorages", "storages", "disks", "servers", "guests",
+		"snapshots", "snapshotpolicies":
+		return "compute"
+	case "buckets":
+		return "objectstore"
+	case "access_groups", "accessgroups", "file_systems", "filesystems":
+		return "nas"
+	case "loadbalancers", "loadbalanceracls", "loadbalancercertificates",
+		"loadbalancer_health_checks", "loadbalancerhealthchecks",
+		"loadbalancerlisteners", "loadbalancerbackendgroups", "loadbalancerbackends":
+		return "loadbalancer"
+	case "dbinstances", "dbinstancebackups":
+		return "rds"
+	case "elasticcaches", "elasticcacheaccounts", "elasticcacheacls",
+		"elasticcachebackups", "elasticcacheparameters", "elasticcachesecgroups":
+		return "cache"
+	case "waf_instances", "wafinstances", "waf_ipsets", "wafipsets",
+		"waf_regexsets", "wafregexsets", "waf_rules", "wafrules":
+		return "waf"
+	case "mongodbs":
+		return "mongodb"
+	case "elastic_searchs", "elasticsearchs":
+		return "es"
+	case "kafkas":
+		return "kafka"
+	case "apps":
+		return "app"
+	case "cloud_kube_clusters", "kube_clusters", "kubeclusters",
+		"kube_nodes", "kubenodes", "kube_node_pools", "kubenodepools":
+		return "container"
+	case "tablestores":
+		return "tablestore"
+	case "cachedimages", "images":
+		return "image"
+	case "externalprojects", "projects":
+		return "project"
+	case "modelarts", "modelarts_pools", "misc":
+		return "misc"
+	default:
+		return kw
+	}
+}
 
 func (set SSyncResultSet) AddRequestCost(manager db.IModelManager) func() {
 	start := time.Now()
-	key := manager.KeywordPlural()
-	if _, ok := set[key]; !ok {
-		set[key] = &SyncResult{}
-	}
-	res := set[key]
+	key := syncResultGroupKey(manager)
+	unlock := set.lock()
+	res := set.getOrCreate(key)
+	unlock()
 	return func() {
+		unlock := set.lock()
+		defer unlock()
 		res.rc += time.Since(start)
 		res.RequestCost = res.rc.String()
 	}
@@ -378,23 +479,22 @@ func (set SSyncResultSet) AddRequestCost(manager db.IModelManager) func() {
 
 func (set SSyncResultSet) AddSqlCost(manager db.IModelManager) func() {
 	start := time.Now()
-	key := manager.KeywordPlural()
-	if _, ok := set[key]; !ok {
-		set[key] = &SyncResult{}
-	}
-	res := set[key]
+	key := syncResultGroupKey(manager)
+	unlock := set.lock()
+	res := set.getOrCreate(key)
+	unlock()
 	return func() {
+		unlock := set.lock()
+		defer unlock()
 		res.sc += time.Since(start)
 		res.SqlCost = res.sc.String()
 	}
 }
 
 func (set SSyncResultSet) Add(manager db.IModelManager, result compare.SyncResult) {
-	key := manager.KeywordPlural()
-	if _, ok := set[key]; !ok {
-		set[key] = &SyncResult{}
-	}
-	res := set[key]
+	unlock := set.lock()
+	defer unlock()
+	res := set.getOrCreate(syncResultGroupKey(manager))
 	res.AddCnt += result.AddCnt
 	res.AddErrCnt += result.AddErrCnt
 	res.UpdateCnt += result.UpdateCnt
@@ -403,8 +503,20 @@ func (set SSyncResultSet) Add(manager db.IModelManager, result compare.SyncResul
 	res.DelErrCnt += result.DelErrCnt
 }
 
+func (set SSyncResultSet) MarshalJSON() ([]byte, error) {
+	unlock := set.lock()
+	defer unlock()
+	if set.data == nil {
+		return []byte("{}"), nil
+	}
+	return json.Marshal(set.data)
+}
+
 func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) error {
-	syncResults := SSyncResultSet{}
+	if err := CheckCloudaccountSyncCanceled(ctx); err != nil {
+		return err
+	}
+	syncResults := NewSSyncResultSet()
 
 	localRegion, err := self.GetRegion()
 	if err != nil {
@@ -463,12 +575,26 @@ func (self *SCloudproviderregion) getSyncTaskKey() string {
 
 func (self *SCloudproviderregion) submitSyncTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) {
 	self.markStartSync(userCred)
+	var leaf *SCloudaccountSyncTask
+	if len(syncRange.ProviderSyncTaskId) > 0 {
+		pObj, err := db.FetchById(CloudaccountSyncTaskManager, syncRange.ProviderSyncTaskId)
+		if err != nil {
+			log.Errorf("submitSyncTask fetch provider task %s: %v", syncRange.ProviderSyncTaskId, err)
+			resetCloudproviderregionAfterCancel(ctx, userCred, self)
+			return
+		}
+		leafTask, err := CloudaccountSyncTaskManager.StartRegionSyncTask(ctx, userCred, pObj.(*SCloudaccountSyncTask), self)
+		if err != nil {
+			log.Errorf("StartRegionSyncTask fail: %v", err)
+			// 父任务已取消或建叶子失败：勿再入队 DoSync，并收回 queued
+			resetCloudproviderregionAfterCancel(ctx, userCred, self)
+			return
+		}
+		leaf = leafTask
+	}
 	RunSyncCloudproviderRegionTask(ctx, self.getSyncTaskKey(), func() {
 		ctx = context.WithValue(ctx, "provider-region", fmt.Sprintf("%d", self.RowId))
-		err := self.DoSync(ctx, userCred, syncRange)
-		if err != nil {
-			log.Errorf("DoSync faild %v", err)
-		}
+		RunRegionSyncWithTask(ctx, userCred, leaf, self, syncRange)
 	})
 }
 

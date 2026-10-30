@@ -84,6 +84,23 @@ func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderPreInfoComplete(ctx co
 	provider := obj.(*models.SCloudprovider)
 	syncRange := self.GetSyncRange(ctx)
 
+	if len(syncRange.ProviderSyncTaskId) > 0 {
+		if pObj, err := db.FetchById(models.CloudaccountSyncTaskManager, syncRange.ProviderSyncTaskId); err == nil {
+			if pObj.(*models.SCloudaccountSyncTask).IsCanceled() {
+				self.OnSyncCloudProviderInfoComplete(ctx, obj, nil)
+				return
+			}
+		}
+	}
+	if len(syncRange.AccountSyncTaskId) > 0 {
+		if aObj, err := db.FetchById(models.CloudaccountSyncTaskManager, syncRange.AccountSyncTaskId); err == nil {
+			if aObj.(*models.SCloudaccountSyncTask).IsCanceled() {
+				self.OnSyncCloudProviderInfoComplete(ctx, obj, nil)
+				return
+			}
+		}
+	}
+
 	db.OpsLog.LogEvent(provider, db.ACT_SYNCING_HOST, "", self.UserCred)
 	self.SetStage("OnSyncCloudProviderInfoComplete", nil)
 

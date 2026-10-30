@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
@@ -640,6 +641,9 @@ func syncIPv6Gateways(ctx context.Context, userCred mcclient.TokenCredential, sy
 		return remoteVpc.GetICloudIPv6Gateways()
 	}()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return
+		}
 		msg := fmt.Sprintf("GetICloudIPv6Gateways for vpc %s provider %s failed %s", remoteVpc.GetId(), provider.Name, err)
 		log.Errorf("%s", msg)
 		return
@@ -777,7 +781,7 @@ func syncNatSTable(
 func syncVpcWires(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, zone *SZone, syncRange *SSyncRange) {
 	wires, err := func() ([]cloudprovider.ICloudWire, error) {
 		defer func() {
-			if syncResults != nil {
+			if syncResults.Enabled() {
 				syncResults.AddRequestCost(WireManager)()
 			}
 		}()
@@ -790,14 +794,14 @@ func syncVpcWires(ctx context.Context, userCred mcclient.TokenCredential, syncRe
 	}
 	localWires, remoteWires, result := func() ([]SWire, []cloudprovider.ICloudWire, compare.SyncResult) {
 		defer func() {
-			if syncResults != nil {
+			if syncResults.Enabled() {
 				syncResults.AddSqlCost(WireManager)()
 			}
 		}()
 		return WireManager.SyncWires(ctx, userCred, localVpc, wires, provider, syncRange.Xor, zone)
 	}()
 
-	if syncResults != nil {
+	if syncResults.Enabled() {
 		syncResults.Add(WireManager, result)
 	}
 
@@ -830,7 +834,7 @@ func syncVpcWires(ctx context.Context, userCred mcclient.TokenCredential, syncRe
 func syncWireNetworks(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localWire *SWire, remoteWire cloudprovider.ICloudWire, syncRange *SSyncRange) {
 	nets, err := func() ([]cloudprovider.ICloudNetwork, error) {
 		defer func() {
-			if syncResults != nil {
+			if syncResults.Enabled() {
 				syncResults.AddRequestCost(NetworkManager)()
 			}
 		}()
@@ -843,14 +847,14 @@ func syncWireNetworks(ctx context.Context, userCred mcclient.TokenCredential, sy
 	}
 	_, _, result := func() ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
 		defer func() {
-			if syncResults != nil {
+			if syncResults.Enabled() {
 				syncResults.AddSqlCost(NetworkManager)()
 			}
 		}()
 		return NetworkManager.SyncNetworks(ctx, userCred, localWire, nets, provider, syncRange.Xor)
 	}()
 
-	if syncResults != nil {
+	if syncResults.Enabled() {
 		syncResults.Add(NetworkManager, result)
 	}
 
@@ -1012,13 +1016,18 @@ func syncZoneHosts(
 	if result.IsError() {
 		return nil
 	}
-	var newCachePairs []sStoragecacheSyncPair
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
+
+	// SyncHosts 集合对齐后，各 host 细节（storage/nic/vm）有限并行；host 内仍先 storage 再 vm
+	var pairsMu sync.Mutex
+	allNewPairs := make([]sStoragecacheSyncPair, 0)
+	hostTasks := make([]func(), 0, len(localHosts))
 	for i := 0; i < len(localHosts); i += 1 {
 		if len(syncRange.Host) > 0 && !utils.IsInStringArray(localHosts[i].Id, syncRange.Host) {
 			continue
 		}
-		func() {
+		i := i
+		hostTasks = append(hostTasks, func() {
 			lockman.LockObject(ctx, &localHosts[i])
 			defer lockman.ReleaseObject(ctx, &localHosts[i])
 
@@ -1026,7 +1035,17 @@ func syncZoneHosts(
 				return
 			}
 
-			newCachePairs = syncHostStorages(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i], storageCachePairs, syncRange.Xor)
+			pairsMu.Lock()
+			pairsSnap := append([]sStoragecacheSyncPair(nil), storageCachePairs...)
+			pairsSnap = append(pairsSnap, allNewPairs...)
+			pairsMu.Unlock()
+
+			newPairs := syncHostStorages(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i], pairsSnap, syncRange.Xor)
+			if len(newPairs) > 0 {
+				pairsMu.Lock()
+				allNewPairs = append(allNewPairs, newPairs...)
+				pairsMu.Unlock()
+			}
 
 			if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
 				syncHostNics(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i])
@@ -1034,9 +1053,10 @@ func syncZoneHosts(
 				syncHostVMs(ctx, userCred, syncResults, provider, driver, &localHosts[i], remoteHosts[i], syncRange)
 				syncHostIsolateDevices(ctx, userCred, syncResults, provider, driver, &localHosts[i], remoteHosts[i], syncRange)
 			}
-		}()
+		})
 	}
-	return newCachePairs
+	runSyncTasksParallel(ctx, hostTasks)
+	return allNewPairs
 }
 
 func syncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localHost *SHost, remoteHost cloudprovider.ICloudHost, storageCachePairs []sStoragecacheSyncPair, xor bool) []sStoragecacheSyncPair {
@@ -1084,7 +1104,7 @@ func syncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 /*func syncHostWires(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localHost *SHost, remoteHost cloudprovider.ICloudHost) {
 	netifs, err := func() ([]cloudprovider.ICloudHostNetInterface, error) {
 		defer func() {
-			if syncResults != nil {
+			if syncResults.Enabled() {
 				syncResults.AddRequestCost(NetInterfaceManager)()
 			}
 		}()
@@ -1097,14 +1117,14 @@ func syncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 	}
 	result := func() compare.SyncResult {
 		defer func() {
-			if syncResults != nil {
+			if syncResults.Enabled() {
 				syncResults.AddSqlCost(NetInterfaceManager)()
 			}
 		}()
 		return localHost.SyncHostNetInterfaces(ctx, userCred, netifs)
 	}()
 
-	if syncResults != nil {
+	if syncResults.Enabled() {
 		syncResults.Add(NetInterfaceManager, result)
 	}
 
@@ -1141,11 +1161,14 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 	log.Infof("%s", notes)
 	provider.SyncError(result, notes, userCred)
 
+	// SyncHostVMs 集合对齐后，各 VM 外设（nic/disk/eip…）有限并行
+	vmTasks := make([]func(), 0, len(syncVMPairs))
 	for i := 0; i < len(syncVMPairs); i += 1 {
 		if !syncVMPairs[i].IsNew && !syncRange.DeepSync {
 			continue
 		}
-		func() {
+		i := i
+		vmTasks = append(vmTasks, func() {
 			lockman.LockObject(ctx, syncVMPairs[i].Local)
 			defer lockman.ReleaseObject(ctx, syncVMPairs[i].Local)
 
@@ -1160,9 +1183,9 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 			}
 
 			SyncVMPeripherals(ctx, userCred, syncVMPairs[i].Local, syncVMPairs[i].Remote, localHost, provider, driver)
-		}()
+		})
 	}
-
+	runSyncTasksParallel(ctx, vmTasks)
 }
 
 func syncHostIsolateDevices(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider, localHost *SHost, remoteHost cloudprovider.ICloudHost, syncRange *SSyncRange) {
@@ -1605,8 +1628,12 @@ func syncRegionDBInstances(
 		return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
+
+	// 集合对齐后，各 RDS 实例细节（参数/账号/库/备份等）有限并行
+	rdsTasks := make([]func(), 0, len(localInstances))
 	for i := 0; i < len(localInstances); i++ {
-		func() {
+		i := i
+		rdsTasks = append(rdsTasks, func() {
 			lockman.LockObject(ctx, &localInstances[i])
 			defer lockman.ReleaseObject(ctx, &localInstances[i])
 
@@ -1615,8 +1642,9 @@ func syncRegionDBInstances(
 			}
 
 			syncDBInstanceResource(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i], syncRange)
-		}()
+		})
 	}
+	runSyncTasksParallel(ctx, rdsTasks)
 }
 
 func syncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
@@ -1786,6 +1814,9 @@ func syncDBInstanceSecgroups(ctx context.Context, userCred mcclient.TokenCredent
 func syncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) error {
 	backups, err := remoteInstance.GetIDBInstanceBackups()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		return errors.Wrapf(err, "GetIDBInstanceBackups")
 	}
 
@@ -1809,6 +1840,9 @@ func syncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredentia
 func syncDBInstanceParameters(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) error {
 	parameters, err := remoteInstance.GetIDBInstanceParameters()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		return errors.Wrapf(err, "GetIDBInstanceParameters")
 	}
 
@@ -1837,6 +1871,9 @@ func syncRegionDBInstanceBackups(
 		return remoteRegion.GetIDBInstanceBackups()
 	}()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		return errors.Wrapf(err, "GetIDBInstanceBackups")
 	}
 
@@ -1858,6 +1895,9 @@ func syncRegionDBInstanceBackups(
 func syncDBInstanceDatabases(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) error {
 	databases, err := remoteInstance.GetIDBInstanceDatabases()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		return errors.Wrapf(err, "GetIDBInstanceDatabases")
 	}
 
@@ -1875,6 +1915,9 @@ func syncDBInstanceDatabases(ctx context.Context, userCred mcclient.TokenCredent
 func syncDBInstanceAccounts(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) error {
 	accounts, err := remoteInstance.GetIDBInstanceAccounts()
 	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotImplemented || errors.Cause(err) == cloudprovider.ErrNotSupported {
+			return nil
+		}
 		return errors.Wrapf(err, "GetIDBInstanceAccounts")
 	}
 
@@ -2480,8 +2523,13 @@ func syncPublicCloudProviderInfo(
 	log.Debugf("Start sync cloud provider %s(%s) on region %s(%s)",
 		provider.Name, provider.Provider, remoteRegion.GetName(), remoteRegion.GetId())
 
+	if err := CheckCloudaccountSyncCanceled(ctx); err != nil {
+		return err
+	}
+
 	storageCachePairs := make([]sStoragecacheSyncPair, 0)
 
+	// Wave 1: foundations (serial)
 	if cloudprovider.IsSupportQuota(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_QUOTA) {
 		syncRegionQuotas(ctx, userCred, syncResults, driver, provider, localRegion, remoteRegion, syncRange.Xor)
 	}
@@ -2515,177 +2563,252 @@ func syncPublicCloudProviderInfo(
 		}
 	}
 
-	// no need to lock public cloud region as cloud region for public cloud is readonly
+	if err := CheckCloudaccountSyncCanceled(ctx); err != nil {
+		return err
+	}
 
-	if cloudprovider.IsSupportObjectstore(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE) {
-		if syncRange.IsNotSkipSyncResource(BucketManager) {
-			syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+	// Wave 2: VPC first (serial), then independent types in parallel
+	needNetworkBlock := cloudprovider.IsSupportCompute(driver) &&
+		(syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK) ||
+			syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NAT) ||
+			syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_IMAGE) ||
+			syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_EIP))
+
+	if needNetworkBlock {
+		// 需要先同步vpc，避免私有云eip找不到network
+		if !(driver.GetFactory().IsPublicCloud() && !syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK)) && syncRange.IsNotSkipSyncResource(VpcManager) {
+			syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 		}
 	}
 
-	if cloudprovider.IsSupportCompute(driver) {
-		if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK) ||
-			syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NAT) ||
-			syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_IMAGE) ||
-			syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_EIP) {
-			// 需要先同步vpc，避免私有云eip找不到network
-			if !(driver.GetFactory().IsPublicCloud() && !syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK)) && syncRange.IsNotSkipSyncResource(VpcManager) {
-				syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-			}
-			if syncRange.IsNotSkipSyncResource(ElasticipManager) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_EIP) {
+	if err := CheckCloudaccountSyncCanceled(ctx); err != nil {
+		return err
+	}
+
+	wave2 := make([]func(), 0, 8)
+	if needNetworkBlock {
+		if syncRange.IsNotSkipSyncResource(ElasticipManager) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_EIP) {
+			wave2 = append(wave2, func() {
 				syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-			}
-
-			if syncRange.IsNotSkipSyncResource(IpSetManager) {
-				syncRegionIpSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-			}
-			if syncRange.IsNotSkipSyncResource(SecurityGroupManager) {
-				syncRegionSecGroup(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-			}
-
+			})
 		}
+		if syncRange.IsNotSkipSyncResource(IpSetManager) {
+			wave2 = append(wave2, func() {
+				syncRegionIpSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			})
+		}
+		if syncRange.IsNotSkipSyncResource(SecurityGroupManager) {
+			wave2 = append(wave2, func() {
+				syncRegionSecGroup(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			})
+		}
+	}
+	if cloudprovider.IsSupportObjectstore(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE) {
+		if syncRange.IsNotSkipSyncResource(BucketManager) {
+			wave2 = append(wave2, func() {
+				syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			})
+		}
+	}
+	if cloudprovider.IsSupportNAS(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NAS) {
+		if syncRange.IsNotSkipSyncResource(AccessGroupManager) {
+			wave2 = append(wave2, func() {
+				syncRegionAccessGroups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			})
+		}
+	}
+	if cloudprovider.IsSupportLoadbalancer(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_LOADBALANCER) {
+		if syncRange.IsNotSkipSyncResource(LoadbalancerAclManager) {
+			wave2 = append(wave2, func() {
+				syncRegionLoadbalancerAcls(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			})
+		}
+		if syncRange.IsNotSkipSyncResource(LoadbalancerCertificateManager) {
+			wave2 = append(wave2, func() {
+				syncRegionLoadbalancerCertificates(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			})
+		}
+		if syncRange.IsNotSkipSyncResource(LoadbalancerHealthCheckManager) {
+			wave2 = append(wave2, func() {
+				syncRegionLoadbalancerHealthChecks(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			})
+		}
+	}
+	runSyncTasksParallel(ctx, wave2)
 
+	if err := CheckCloudaccountSyncCanceled(ctx); err != nil {
+		return err
+	}
+
+	// Wave 3: compute — zones 有限并行；每个 zone 内仍 storage→host 串行（保留 hoststorage/VM 对 storage 依赖）
+	if cloudprovider.IsSupportCompute(driver) {
 		if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) || syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_IMAGE) {
-
+			var pairsMu sync.Mutex
+			wave3 := make([]func(), 0, len(localZones))
 			for j := 0; j < len(localZones); j += 1 {
-
 				if len(syncRange.Zone) > 0 && !utils.IsInStringArray(localZones[j].Id, syncRange.Zone) {
 					continue
 				}
-				// no need to lock zone as public cloud zone is read-only
+				j := j
+				wave3 = append(wave3, func() {
+					pairsMu.Lock()
+					pairsSnap := append([]sStoragecacheSyncPair(nil), storageCachePairs...)
+					pairsMu.Unlock()
 
-				newPairs := syncZoneStorages(ctx, userCred, syncResults, provider, driver, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
-				if len(newPairs) > 0 {
-					storageCachePairs = append(storageCachePairs, newPairs...)
-				}
-				newPairs = syncZoneHosts(ctx, userCred, syncResults, provider, driver, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
-				if len(newPairs) > 0 {
-					storageCachePairs = append(storageCachePairs, newPairs...)
-				}
+					newPairs := syncZoneStorages(ctx, userCred, syncResults, provider, driver, &localZones[j], remoteZones[j], syncRange, pairsSnap)
+					if len(newPairs) > 0 {
+						pairsMu.Lock()
+						storageCachePairs = append(storageCachePairs, newPairs...)
+						pairsMu.Unlock()
+					}
+
+					pairsMu.Lock()
+					pairsSnap = append([]sStoragecacheSyncPair(nil), storageCachePairs...)
+					pairsMu.Unlock()
+
+					newPairs = syncZoneHosts(ctx, userCred, syncResults, provider, driver, &localZones[j], remoteZones[j], syncRange, pairsSnap)
+					if len(newPairs) > 0 {
+						pairsMu.Lock()
+						storageCachePairs = append(storageCachePairs, newPairs...)
+						pairsMu.Unlock()
+					}
+				})
 			}
+			runSyncTasksParallel(ctx, wave3)
 
 			if syncRange.IsNotSkipSyncResource(SnapshotPolicyManager) {
-				// sync snapshot policies after sync disks
 				syncRegionSnapshotPolicies(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 			}
-
-			// sync snapshots after sync disks
 			if syncRange.IsNotSkipSyncResource(SnapshotManager) {
 				syncRegionSnapshots(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 			}
 		}
 	}
 
+	if err := CheckCloudaccountSyncCanceled(ctx); err != nil {
+		return err
+	}
+
+	// Wave 4: product types in parallel (internal deps stay serial inside each task)
+	wave4 := make([]func(), 0, 16)
 	if cloudprovider.IsSupportNAS(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NAS) {
-		if syncRange.IsNotSkipSyncResource(AccessGroupManager) {
-			syncRegionAccessGroups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-		}
 		if syncRange.IsNotSkipSyncResource(FileSystemManager) {
-			syncRegionFileSystems(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			wave4 = append(wave4, func() {
+				syncRegionFileSystems(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			})
 		}
 	}
-
 	if cloudprovider.IsSupportLoadbalancer(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_LOADBALANCER) {
-		if syncRange.IsNotSkipSyncResource(LoadbalancerAclManager) {
-			syncRegionLoadbalancerAcls(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-		}
-		if syncRange.IsNotSkipSyncResource(LoadbalancerCertificateManager) {
-			syncRegionLoadbalancerCertificates(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-		}
-		if syncRange.IsNotSkipSyncResource(LoadbalancerHealthCheckManager) {
-			syncRegionLoadbalancerHealthChecks(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-		}
 		if syncRange.IsNotSkipSyncResource(LoadbalancerManager) {
-			syncRegionLoadbalancers(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			wave4 = append(wave4, func() {
+				syncRegionLoadbalancers(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			})
 		}
 	}
-
 	if cloudprovider.IsSupportCompute(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) {
 		if syncRange.IsNotSkipSyncResource(NetworkInterfaceManager) {
-			syncRegionNetworkInterfaces(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			wave4 = append(wave4, func() {
+				syncRegionNetworkInterfaces(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			})
 		}
 	}
-
 	if cloudprovider.IsSupportRds(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_RDS) {
-		if syncRange.IsNotSkipSyncResource(DBInstanceManager) {
-			syncRegionDBInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-		}
-		if syncRange.IsNotSkipSyncResource(DBInstanceBackupManager) {
-			syncRegionDBInstanceBackups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-		}
+		wave4 = append(wave4, func() {
+			if syncRange.IsNotSkipSyncResource(DBInstanceManager) {
+				syncRegionDBInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			}
+			if syncRange.IsNotSkipSyncResource(DBInstanceBackupManager) {
+				syncRegionDBInstanceBackups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			}
+		})
 	}
-
 	if cloudprovider.IsSupportElasticCache(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CACHE) {
 		if syncRange.IsNotSkipSyncResource(ElasticcacheManager) {
-			syncElasticcaches(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			wave4 = append(wave4, func() {
+				syncElasticcaches(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			})
 		}
 	}
-
 	if cloudprovider.IsSupportWaf(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_WAF) {
-		if syncRange.IsNotSkipSyncResource(WafIPSetManager) {
-			syncWafIPSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
-		}
-		if syncRange.IsNotSkipSyncResource(WafRegexSetManager) {
-			syncWafRegexSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
-		}
-		if syncRange.IsNotSkipSyncResource(WafInstanceManager) {
-			syncWafInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
-		}
+		wave4 = append(wave4, func() {
+			if syncRange.IsNotSkipSyncResource(WafIPSetManager) {
+				syncWafIPSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			}
+			if syncRange.IsNotSkipSyncResource(WafRegexSetManager) {
+				syncWafRegexSets(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			}
+			if syncRange.IsNotSkipSyncResource(WafInstanceManager) {
+				syncWafInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			}
+		})
 	}
-
 	if cloudprovider.IsSupportMongoDB(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_MONGO_DB) {
 		if syncRange.IsNotSkipSyncResource(MongoDBManager) {
-			syncMongoDBs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			wave4 = append(wave4, func() {
+				syncMongoDBs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			})
 		}
 	}
-
 	if cloudprovider.IsSupportElasticSearch(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_ES) {
 		if syncRange.IsNotSkipSyncResource(ElasticSearchManager) {
-			syncElasticSearchs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			wave4 = append(wave4, func() {
+				syncElasticSearchs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			})
 		}
 	}
-
 	if cloudprovider.IsSupportKafka(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_KAFKA) {
 		if syncRange.IsNotSkipSyncResource(KafkaManager) {
-			syncKafkas(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			wave4 = append(wave4, func() {
+				syncKafkas(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			})
 		}
 	}
-
 	if cloudprovider.IsSupportApp(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_APP) {
 		if syncRange.IsNotSkipSyncResource(AppManager) {
-			syncApps(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			wave4 = append(wave4, func() {
+				syncApps(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			})
 		}
 	}
-
 	if cloudprovider.IsSupportContainer(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CONTAINER) {
 		if syncRange.IsNotSkipSyncResource(KubeClusterManager) {
-			syncKubeClusters(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			wave4 = append(wave4, func() {
+				syncKubeClusters(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			})
 		}
 	}
-
 	if cloudprovider.IsSupportTablestore(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_TABLESTORE) {
 		if syncRange.IsNotSkipSyncResource(TablestoreManager) {
-			syncTablestore(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			wave4 = append(wave4, func() {
+				syncTablestore(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			})
 		}
 	}
-
 	if cloudprovider.IsSupportModelartsPool(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_MODELARTES) {
 		if syncRange.IsNotSkipSyncResource(ModelartsPoolManager) {
-			syncModelartsPoolSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
-			syncModelartsPools(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			wave4 = append(wave4, func() {
+				syncModelartsPoolSkus(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+				syncModelartsPools(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			})
 		}
 	}
-
 	if cloudprovider.IsSupportMiscResources(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_MISC) {
 		if syncRange.IsNotSkipSyncResource(MiscResourceManager) {
-			syncMiscResources(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			wave4 = append(wave4, func() {
+				syncMiscResources(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange.Xor)
+			})
 		}
 	}
+	runSyncTasksParallel(ctx, wave4)
 
+	if err := CheckCloudaccountSyncCanceled(ctx); err != nil {
+		return err
+	}
+
+	// Wave 5: cached images (serial)
 	if cloudprovider.IsSupportCompute(driver) && (syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_COMPUTE) || syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_IMAGE)) {
 		log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 		for i := range storageCachePairs {
-			// always sync private cloud cached images
 			if storageCachePairs[i].isNew || syncRange.DeepSync || !driver.GetFactory().IsPublicCloud() {
 				result := func() compare.SyncResult {
 					defer syncResults.AddRequestCost(CachedimageManager)()
@@ -2899,12 +3022,12 @@ func syncOnPremiseCloudProviderInfo(
 
 func syncHostNics(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localHost *SHost, remoteHost cloudprovider.ICloudHost) {
 	defer func() {
-		if syncResults != nil {
+		if syncResults.Enabled() {
 			syncResults.AddSqlCost(NetInterfaceManager)()
 		}
 	}()
 	result := localHost.SyncHostExternalNics(ctx, userCred, remoteHost, provider)
-	if syncResults != nil {
+	if syncResults.Enabled() {
 		syncResults.Add(NetInterfaceManager, result)
 	}
 	notes := fmt.Sprintf("SyncHostExternalNics for host %s provider %s result: %s", localHost.Name, provider.Name, result.Result())
@@ -3039,53 +3162,53 @@ func SyncCloudproviderResources(ctx context.Context, userCred mcclient.TokenCred
 	}
 
 	if cloudprovider.IsSupportProject(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_PROJECT) {
-		err = syncProjects(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+		err = syncProjects(ctx, userCred, NewSSyncResultSet(), provider, driver, syncRange.Xor)
 		if err != nil {
 			log.Errorf("Sync project for manager %s error: %v", provider.Name, err)
 		}
 	}
 
 	if cloudprovider.IsSupportCDN(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CDN) {
-		err = syncCdnDomains(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+		err = syncCdnDomains(ctx, userCred, NewSSyncResultSet(), provider, driver, syncRange.Xor)
 		if err != nil {
 			log.Errorf("syncCdnDomains error: %v", err)
 		}
 	}
 
 	if cloudprovider.IsSupportInterVpcNetwork(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_INTERVPCNETWORK) {
-		err = syncInterVpcNetworks(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+		err = syncInterVpcNetworks(ctx, userCred, NewSSyncResultSet(), provider, driver, syncRange.Xor)
 		if err != nil {
 			log.Errorf("syncInterVpcNetworks error: %v", err)
 		}
 	}
 
 	if cloudprovider.IsSupportDnsZone(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_DNSZONE) {
-		err = syncDnsZones(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+		err = syncDnsZones(ctx, userCred, NewSSyncResultSet(), provider, driver, syncRange.Xor)
 		if err != nil {
 			log.Errorf("syncDnsZones error: %v", err)
 		}
 	}
 
 	if cloudprovider.IsSupportAiGateway(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_AI_GATEWAY) {
-		err = syncAiGateways(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+		err = syncAiGateways(ctx, userCred, NewSSyncResultSet(), provider, driver, syncRange.Xor)
 		if err != nil {
 			log.Errorf("syncAiGateways error: %v", err)
 		}
 	}
 
 	if syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_NETWORK) {
-		err = syncGlobalVpcs(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+		err = syncGlobalVpcs(ctx, userCred, NewSSyncResultSet(), provider, driver, syncRange.Xor)
 		if err != nil {
 			log.Errorf("syncGlobalVpcs error: %v", err)
 		}
 	}
 
 	if cloudprovider.IsSupportSSLCertificate(driver) && syncRange.NeedSyncResource(cloudprovider.CLOUD_CAPABILITY_CERT) {
-		syncSSLCertificates(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+		syncSSLCertificates(ctx, userCred, NewSSyncResultSet(), provider, driver, syncRange.Xor)
 	}
 
 	if syncRange.IsNotSkipSyncResource(IpSetManager) {
-		err = syncProviderIpSets(ctx, userCred, SSyncResultSet{}, provider, driver, syncRange.Xor)
+		err = syncProviderIpSets(ctx, userCred, NewSSyncResultSet(), provider, driver, syncRange.Xor)
 		if err != nil {
 			log.Errorf("syncProviderIpSets error: %v", err)
 		}
