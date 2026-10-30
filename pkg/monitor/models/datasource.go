@@ -803,7 +803,8 @@ func getTagValues(userCred mcclient.TokenCredential, output *monitor.InfluxMeasu
 		tagMap := s.Tags
 		for key, valStr := range tagMap {
 			valStr = renderTagVal(valStr)
-			if len(valStr) == 0 || valStr == "null" || filterTagValue(valStr) {
+			// vm_id、host_id 的值是 UUID，不能按普通标签值滤掉，否则分组选项里不会出现这两个键
+			if len(valStr) == 0 || valStr == "null" || (key != "vm_id" && key != "host_id" && filterTagValue(valStr)) {
 				continue
 			}
 			if filterTagKey(key) {
@@ -930,7 +931,7 @@ func floatEquals(a, b float64) bool {
 var filterKey = []string{"perf_instance", "res_type", "status", "cloudregion", "os_type", "is_vm"}
 
 func filterTagKey(key string) bool {
-	whiteListIdKeys := sets.NewString("dev_id", "die_id")
+	whiteListIdKeys := sets.NewString("dev_id", "die_id", "vm_id", "host_id")
 	if whiteListIdKeys.Has(key) {
 		return false
 	}
