@@ -1470,7 +1470,7 @@ func (svpc *SVpc) SyncRemoteWires(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	provider := CloudproviderManager.FetchCloudproviderById(svpc.ManagerId)
-	syncVpcWires(ctx, userCred, nil, provider, svpc, ivpc, nil, &SSyncRange{})
+	syncVpcWires(ctx, userCred, SSyncResultSet{}, provider, svpc, ivpc, nil, &SSyncRange{})
 
 	hosts := HostManager.GetHostsByManagerAndRegion(provider.Id, svpc.CloudregionId)
 	for i := 0; i < len(hosts); i += 1 {
@@ -1478,7 +1478,7 @@ func (svpc *SVpc) SyncRemoteWires(ctx context.Context, userCred mcclient.TokenCr
 		if err != nil {
 			return err
 		}
-		syncHostNics(ctx, userCred, nil, provider, &hosts[i], ihost)
+		syncHostNics(ctx, userCred, SSyncResultSet{}, provider, &hosts[i], ihost)
 	}
 	return nil
 }
