@@ -124,7 +124,7 @@ func (self *SRegion) GetKubeConfig(clusterId string, private bool) (*cloudprovid
 func (self *SRegion) GetICloudKubeClusters() ([]cloudprovider.ICloudKubeCluster, error) {
 	clusters := []SKubeCluster{}
 	for {
-		part, total, err := self.GetKubeClusters(nil, 100, len(clusters)/100)
+		part, total, err := self.GetKubeClusters(nil, 100, len(clusters))
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetKubeClusters")
 		}

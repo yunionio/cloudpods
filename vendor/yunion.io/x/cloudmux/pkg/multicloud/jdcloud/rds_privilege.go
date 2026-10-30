@@ -33,7 +33,7 @@ func (self *SDBInstanceAccountPrivilege) GetDBName() string {
 }
 
 func (self *SDBInstanceAccountPrivilege) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s-%s", self.GetDBName(), self.Account, self.GetPrivilege())
+	return fmt.Sprintf("%s-%s", self.GetDBName(), self.Account)
 }
 
 func (self *SDBInstanceAccountPrivilege) GetPrivilege() string {
