@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/rbacscope"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -440,20 +441,74 @@ func (manager *SCloudaccountSyncTaskManager) cancelActiveAccountTasks(ctx contex
 	return nil
 }
 
-// StartAccountSyncTask creates L1 account sync task and cancels previous active ones.
+// syncRangeTargetsSpecificRegions 表示本次同步限定了 region/zone/host，可与账号下其它 region 并行。
+func syncRangeTargetsSpecificRegions(syncRange *SSyncRange) bool {
+	if syncRange == nil {
+		return false
+	}
+	return len(syncRange.Region) > 0 || len(syncRange.Zone) > 0 || len(syncRange.Host) > 0
+}
+
+func (manager *SCloudaccountSyncTaskManager) findActiveAccountTask(accountId string) (*SCloudaccountSyncTask, error) {
+	tasks, err := manager.fetchTasksByFilter(accountId, "", api.CloudaccountSyncTaskLevelAccount, api.CloudaccountSyncTaskStatusActive)
+	if err != nil {
+		return nil, err
+	}
+	if len(tasks) == 0 {
+		return nil, nil
+	}
+	// 优先复用 running，其次任意 active（按创建时间取最后一个更接近当前同步）
+	var picked *SCloudaccountSyncTask
+	for i := range tasks {
+		t := &tasks[i]
+		if t.Status == api.CloudaccountSyncTaskStatusRunning {
+			return t, nil
+		}
+		picked = t
+	}
+	return picked, nil
+}
+
+func (manager *SCloudaccountSyncTaskManager) findActiveProviderTask(parentId, providerId string) (*SCloudaccountSyncTask, error) {
+	tasks, err := manager.fetchTasksByFilter("", parentId, api.CloudaccountSyncTaskLevelProvider, api.CloudaccountSyncTaskStatusActive)
+	if err != nil {
+		return nil, err
+	}
+	for i := range tasks {
+		if tasks[i].CloudproviderId == providerId {
+			return &tasks[i], nil
+		}
+	}
+	return nil, nil
+}
+
+// StartAccountSyncTask 创建或复用 L1 账号同步任务。
+// replaceActive=false（订阅/region 同步）：复用已有 active L1，不取消其它订阅或 region。
+// replaceActive=true（账号全量同步）：取消旧 active L1 后再建新任务。
 func (manager *SCloudaccountSyncTaskManager) StartAccountSyncTask(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	account *SCloudaccount,
 	syncRange *SSyncRange,
 	mode string,
+	replaceActive bool,
 ) (*SCloudaccountSyncTask, error) {
 	lockman.LockRawObject(ctx, manager.Keyword(), account.Id)
 	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), account.Id)
 
-	err := manager.cancelActiveAccountTasks(ctx, userCred, account.Id, "cancel old tasks because of new sync")
-	if err != nil {
-		log.Errorf("cancelActiveAccountTasks: %v", err)
+	if !replaceActive {
+		existing, err := manager.findActiveAccountTask(account.Id)
+		if err != nil {
+			return nil, errors.Wrap(err, "findActiveAccountTask")
+		}
+		if existing != nil {
+			return existing, nil
+		}
+	} else {
+		err := manager.cancelActiveAccountTasks(ctx, userCred, account.Id, "cancel old tasks because of new sync")
+		if err != nil {
+			log.Errorf("cancelActiveAccountTasks: %v", err)
+		}
 	}
 
 	now := time.Now().UTC()
@@ -469,7 +524,7 @@ func (manager *SCloudaccountSyncTaskManager) StartAccountSyncTask(
 	if syncRange != nil {
 		task.SyncRange = jsonutils.Marshal(syncRange.SyncRangeInput)
 	}
-	err = manager.TableSpec().Insert(ctx, task)
+	err := manager.TableSpec().Insert(ctx, task)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert account sync task")
 	}
@@ -491,6 +546,13 @@ func (manager *SCloudaccountSyncTaskManager) StartProviderSyncTask(
 	if parent.IsCanceled() {
 		return nil, errors.Wrap(context.Canceled, "account sync task cancelled")
 	}
+	existing, err := manager.findActiveProviderTask(parent.Id, provider.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "findActiveProviderTask")
+	}
+	if existing != nil {
+		return existing, nil
+	}
 	now := time.Now().UTC()
 	task := &SCloudaccountSyncTask{}
 	task.SetModelManager(manager, task)
@@ -506,7 +568,7 @@ func (manager *SCloudaccountSyncTaskManager) StartProviderSyncTask(
 	if syncRange != nil {
 		task.SyncRange = jsonutils.Marshal(syncRange.SyncRangeInput)
 	}
-	err := manager.TableSpec().Insert(ctx, task)
+	err = manager.TableSpec().Insert(ctx, task)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert provider sync task")
 	}
@@ -534,6 +596,18 @@ func (manager *SCloudaccountSyncTaskManager) StartRegionSyncTask(
 			}
 		}
 	}
+	// 同一 region 重复点击：只取消该 region 旧叶子，不影响其它 region
+	siblings, err := manager.fetchTasksByFilter("", parent.Id, api.CloudaccountSyncTaskLevelRegion, api.CloudaccountSyncTaskStatusActive)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetch active region siblings")
+	}
+	for i := range siblings {
+		if siblings[i].CloudproviderId == cpr.CloudproviderId && siblings[i].CloudregionId == cpr.CloudregionId {
+			if cerr := siblings[i].cancelCascade(ctx, userCred, "cancel old region task because of new region sync"); cerr != nil {
+				log.Errorf("cancel old region sync task %s: %v", siblings[i].Id, cerr)
+			}
+		}
+	}
 	region, _ := cpr.GetRegion()
 	regionName := cpr.CloudregionId
 	if region != nil {
@@ -553,7 +627,7 @@ func (manager *SCloudaccountSyncTaskManager) StartRegionSyncTask(
 	task.QueuedAt = now
 	task.Mode = parent.Mode
 	task.SyncRange = parent.SyncRange
-	err := manager.TableSpec().Insert(ctx, task)
+	err = manager.TableSpec().Insert(ctx, task)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert region sync task")
 	}
@@ -645,6 +719,35 @@ func (task *SCloudaccountSyncTask) markLeafRunning(ctx context.Context, userCred
 	}
 	db.OpsLog.LogEvent(task, db.ACT_START, nil, userCred)
 	return nil
+}
+
+// completeProviderSyncTaskIfNoRegionLeaves 在订阅同步未挂上任何 region 叶子时收口 L2（并聚合 L1）。
+// 典型场景：订阅下无 cloudproviderregion、均 disabled、或 StartRegionSyncTask 全部失败。
+func completeProviderSyncTaskIfNoRegionLeaves(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	syncRange *SSyncRange,
+) {
+	if syncRange == nil || len(syncRange.ProviderSyncTaskId) == 0 {
+		return
+	}
+	obj, err := db.FetchById(CloudaccountSyncTaskManager, syncRange.ProviderSyncTaskId)
+	if err != nil {
+		return
+	}
+	providerTask := obj.(*SCloudaccountSyncTask)
+	if providerTask.IsCanceled() {
+		return
+	}
+	children, err := CloudaccountSyncTaskManager.fetchTasksByFilter("", providerTask.Id, api.CloudaccountSyncTaskLevelRegion, nil)
+	if err != nil {
+		log.Errorf("completeProviderSyncTaskIfNoRegionLeaves fetch children: %v", err)
+		return
+	}
+	if len(children) > 0 {
+		return
+	}
+	_ = providerTask.completeLeaf(ctx, userCred, api.CloudaccountSyncTaskStatusDone, nil, "no region to sync", true)
 }
 
 func (task *SCloudaccountSyncTask) completeLeaf(
@@ -750,9 +853,9 @@ func (task *SCloudaccountSyncTask) tryAggregate(ctx context.Context, userCred mc
 		log.Errorf("tryAggregate update %s: %v", task.Id, err)
 		return
 	}
-	// 账号级汇总终态时兜底收回残留 sync_status（例如某叶子取消未进 DoSync）
+	// 账号级汇总终态时兜底收回本树残留 sync_status（例如某叶子取消未进 DoSync）；勿 idle 账号下其它无关订阅
 	if task.Level == api.CloudaccountSyncTaskLevelAccount && len(task.ParentId) == 0 {
-		resetAccountSyncStatuses(ctx, userCred, task.CloudaccountId)
+		resetAccountTaskSyncStatuses(ctx, userCred, task)
 	}
 	task.aggregateParent(ctx, userCred)
 }
@@ -798,9 +901,11 @@ func (task *SCloudaccountSyncTask) cancelCascade(ctx context.Context, userCred m
 			resetCloudproviderregionAfterCancel(ctx, userCred, cpr)
 		}
 	case api.CloudaccountSyncTaskLevelProvider:
+		// 只收口本订阅，不影响同账号其它订阅
 		resetProviderSyncStatuses(ctx, userCred, task.CloudproviderId)
 	case api.CloudaccountSyncTaskLevelAccount:
-		resetAccountSyncStatuses(ctx, userCred, task.CloudaccountId)
+		// 只收口本 L1 树下出现过的订阅，禁止 idle 账号下全部 provider
+		resetAccountTaskSyncStatuses(ctx, userCred, task)
 	}
 	task.aggregateParent(ctx, userCred)
 	return nil
@@ -964,21 +1069,31 @@ func (task *SCloudaccountSyncTask) getCloudproviderregion() *SCloudproviderregio
 	return cpr
 }
 
+// forceIdleCloudproviderregion 无条件将关节表置 idle，避免与 markSyncing 的 db.Update 竞态丢更新。
+func forceIdleCloudproviderregion(cpr *SCloudproviderregion) {
+	if cpr == nil {
+		return
+	}
+	now := timeutils.UtcNow()
+	table := CloudproviderRegionManager.TableSpec().Name()
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf("UPDATE %s SET sync_status=?, last_sync_end_at=? WHERE cloudprovider_id=? AND cloudregion_id=? AND sync_status<>?", table),
+		api.CLOUD_PROVIDER_SYNC_STATUS_IDLE, now, cpr.CloudproviderId, cpr.CloudregionId, api.CLOUD_PROVIDER_SYNC_STATUS_IDLE,
+	)
+	if err != nil {
+		log.Errorf("forceIdleCloudproviderregion %s/%s: %v", cpr.CloudproviderId, cpr.CloudregionId, err)
+		return
+	}
+	cpr.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+	cpr.LastSyncEndAt = now
+}
+
 // resetCloudproviderregionAfterCancel 将未跑完 DoSync 的关节表收回 idle，并尝试收口 provider/account。
 func resetCloudproviderregionAfterCancel(ctx context.Context, userCred mcclient.TokenCredential, cpr *SCloudproviderregion) {
 	if cpr == nil {
 		return
 	}
-	if cpr.SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
-		_, err := db.Update(cpr, func() error {
-			cpr.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
-			return nil
-		})
-		if err != nil {
-			log.Errorf("resetCloudproviderregionAfterCancel update %s/%s: %v", cpr.CloudproviderId, cpr.CloudregionId, err)
-			return
-		}
-	}
+	forceIdleCloudproviderregion(cpr)
 	provider, err := cpr.GetProvider()
 	if err != nil {
 		return
@@ -1014,21 +1129,33 @@ func resetProviderSyncStatuses(ctx context.Context, userCred mcclient.TokenCrede
 	_ = provider.markEndSyncWithLock(ctx, userCred, false)
 }
 
-// resetAccountSyncStatuses 强制将账号下仍非 idle 的 provider/region 收回，避免「任务已终态但账号仍同步中」。
-func resetAccountSyncStatuses(ctx context.Context, userCred mcclient.TokenCredential, accountId string) {
-	accountObj, err := CloudaccountManager.FetchById(accountId)
+// resetAccountTaskSyncStatuses 账号级取消后，仅收回该 L1 任务树下的订阅/region 状态。
+func resetAccountTaskSyncStatuses(ctx context.Context, userCred mcclient.TokenCredential, accountTask *SCloudaccountSyncTask) {
+	if accountTask == nil {
+		return
+	}
+	providers, err := CloudaccountSyncTaskManager.fetchTasksByFilter("", accountTask.Id, api.CloudaccountSyncTaskLevelProvider, nil)
+	if err != nil {
+		log.Errorf("resetAccountTaskSyncStatuses fetch providers: %v", err)
+		return
+	}
+	seen := make(map[string]struct{}, len(providers))
+	for i := range providers {
+		pid := providers[i].CloudproviderId
+		if len(pid) == 0 {
+			continue
+		}
+		if _, ok := seen[pid]; ok {
+			continue
+		}
+		seen[pid] = struct{}{}
+		resetProviderSyncStatuses(ctx, userCred, pid)
+	}
+	accountObj, err := CloudaccountManager.FetchById(accountTask.CloudaccountId)
 	if err != nil {
 		return
 	}
-	account := accountObj.(*SCloudaccount)
-	providers := account.GetCloudproviders()
-	for i := range providers {
-		bulkIdleCloudproviderRegions(ctx, providers[i].Id)
-		if providers[i].SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
-			_ = providers[i].markEndSync(userCred)
-		}
-	}
-	_ = account.MarkEndSync(userCred, false)
+	_ = accountObj.(*SCloudaccount).MarkEndSyncWithLock(ctx, userCred, false)
 }
 
 func (task *SCloudaccountSyncTask) LogProgress(ctx context.Context, act string, notes interface{}) {
