@@ -17,6 +17,7 @@ package redfish
 import (
 	"context"
 	"encoding/base64"
+	stderrors "errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -173,7 +174,18 @@ func (r *SBaseRedfishClient) ParseRoot(root jsonutils.JSONObject) error {
 func (r *SBaseRedfishClient) Probe(ctx context.Context) error {
 	resp, err := r.Get(ctx, r.IRedfishDriver().BasePath())
 	if err != nil {
-		return errors.Wrap(err, "r.get")
+		origErr := err
+		if !r.shouldProbeSessionFallback(err) {
+			return errors.Wrap(err, "r.get")
+		}
+		err = r.Login(ctx)
+		if err != nil {
+			return errors.Wrap(origErr, "r.get")
+		}
+		resp, err = r.Get(ctx, r.IRedfishDriver().BasePath())
+		if err != nil {
+			return errors.Wrap(err, "r.get")
+		}
 	}
 	if r.IsDebug {
 		log.Debugf("%s", resp.PrettyString())
@@ -206,6 +218,17 @@ func (r *SBaseRedfishClient) Probe(ctx context.Context) error {
 		return errors.Wrap(httperrors.ErrNotFound, "no url found")
 	}
 	return nil
+}
+
+func (r *SBaseRedfishClient) shouldProbeSessionFallback(err error) bool {
+	if len(r.SessionToken) > 0 {
+		return false
+	}
+	var jerr *httputils.JSONClientError
+	if !stderrors.As(err, &jerr) {
+		return false
+	}
+	return jerr.Code == http.StatusUnauthorized || jerr.Code == http.StatusForbidden
 }
 
 func (r *SBaseRedfishClient) Login(ctx context.Context) error {
