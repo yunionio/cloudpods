@@ -296,16 +296,26 @@ func (self *SCloudproviderregion) markSyncing(userCred mcclient.TokenCredential)
 	if !self.Enabled {
 		return fmt.Errorf("Cloudprovider(%s)region(%s) disabled", self.CloudproviderId, self.CloudregionId)
 	}
-	_, err := db.Update(self, func() error {
-		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
-		self.LastSync = timeutils.UtcNow()
-		self.LastSyncEndAt = time.Time{}
-		return nil
-	})
+	// 仅允许 queued/queuing → syncing，避免与「取消同步」竞态：取消已置 idle 后不能再被 markSyncing 写回 syncing
+	now := timeutils.UtcNow()
+	table := CloudproviderRegionManager.TableSpec().Name()
+	result, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf("UPDATE %s SET sync_status=?, last_sync=?, last_sync_end_at=? WHERE cloudprovider_id=? AND cloudregion_id=? AND sync_status IN (?, ?)", table),
+		api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING, now, time.Time{},
+		self.CloudproviderId, self.CloudregionId,
+		api.CLOUD_PROVIDER_SYNC_STATUS_QUEUED, api.CLOUD_PROVIDER_SYNC_STATUS_QUEUING,
+	)
 	if err != nil {
 		log.Errorf("Failed to markSyncing error: %v", err)
 		return err
 	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return errors.Wrapf(httperrors.ErrInvalidStatus, "cloudproviderregion %s/%s not in queued/queuing (likely cancelled)", self.CloudproviderId, self.CloudregionId)
+	}
+	self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
+	self.LastSync = now
+	self.LastSyncEndAt = time.Time{}
 	return nil
 }
 
@@ -527,7 +537,13 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 		return errors.Wrapf(err, "GetProvider")
 	}
 
-	self.markSyncing(userCred)
+	// 进入 syncing 前再查一次取消，缩小与 cancel 的竞态窗口
+	if err := CheckCloudaccountSyncCanceled(ctx); err != nil {
+		return err
+	}
+	if err := self.markSyncing(userCred); err != nil {
+		return err
+	}
 
 	defer func() {
 		err := self.markEndSync(ctx, userCred, syncResults, &syncRange.DeepSync)

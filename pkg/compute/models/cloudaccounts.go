@@ -937,7 +937,9 @@ func (acnt *SCloudaccount) StartSyncCloudAccountInfoTask(ctx context.Context, us
 	if data != nil && jsonutils.QueryBoolean(data, "auto_sync", false) {
 		mode = api.CloudaccountSyncTaskModeAuto
 	}
-	syncTask, err := CloudaccountSyncTaskManager.StartAccountSyncTask(ctx, userCred, acnt, syncRange, mode)
+	// 账号全量（未限定 region/zone/host）才替换旧树；限定范围时复用 L1，避免误伤并行中的订阅/region
+	replaceActive := !syncRangeTargetsSpecificRegions(syncRange)
+	syncTask, err := CloudaccountSyncTaskManager.StartAccountSyncTask(ctx, userCred, acnt, syncRange, mode, replaceActive)
 	if err != nil {
 		log.Errorf("StartAccountSyncTask fail: %v", err)
 	} else if syncTask != nil {
