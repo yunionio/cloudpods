@@ -677,7 +677,8 @@ func (cprvd *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context,
 	}
 	if accountTask == nil {
 		if cloudaccount, _ := cprvd.GetCloudaccount(); cloudaccount != nil {
-			at, err := CloudaccountSyncTaskManager.StartAccountSyncTask(ctx, userCred, cloudaccount, syncRange, api.CloudaccountSyncTaskModeManual)
+			// 订阅级同步不得 replaceActive：否则会 cancel 整棵账号树，把其它正在同步的订阅/region 误标 idle
+			at, err := CloudaccountSyncTaskManager.StartAccountSyncTask(ctx, userCred, cloudaccount, syncRange, api.CloudaccountSyncTaskModeManual, false)
 			if err != nil {
 				log.Errorf("StartAccountSyncTask from provider fail: %v", err)
 			} else {
@@ -1649,6 +1650,8 @@ func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, us
 			log.Errorf("markEndSyncWithLock for %s error: %v", provider.Name, err)
 		}
 	}
+	// 无可用 region / 建叶子失败时不会产生 L3，须主动收口 L2，否则会一直停在 queued（等待执行）
+	completeProviderSyncTaskIfNoRegionLeaves(ctx, userCred, &syncRange)
 }
 
 func (provider *SCloudprovider) SyncCallSyncCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) {
