@@ -181,8 +181,7 @@ func (self *SOracleProvider) GetIRegionById(extId string) (cloudprovider.ICloudR
 }
 
 func (self *SOracleProvider) GetBalance() (*cloudprovider.SBalanceInfo, error) {
-	ret := &cloudprovider.SBalanceInfo{Currency: "CNY", Status: api.CLOUD_PROVIDER_HEALTH_UNKNOWN}
-	return ret, cloudprovider.ErrNotSupported
+	return self.client.GetBalance()
 }
 
 func (self *SOracleProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
