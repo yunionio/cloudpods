@@ -105,7 +105,7 @@ func (self *SMongoDB) GetIBackups() ([]cloudprovider.SMongoDBBackup, error) {
 	}
 	now := time.Now().Add(time.Minute * -1)
 	for {
-		part, total, err := self.region.GetMongoDBBackups(self.DBInstanceId, "", self.CreationTime, now, 100, len(backups)/100)
+		part, total, err := self.region.GetMongoDBBackups(self.DBInstanceId, "", self.CreationTime, now, 100, len(backups)/100+1)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetMongoDBBackups")
 		}
