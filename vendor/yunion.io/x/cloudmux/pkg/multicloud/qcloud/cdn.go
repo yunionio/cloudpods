@@ -17,6 +17,7 @@ package qcloud
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -698,5 +699,13 @@ func (self *SCdnDomain) GetMaxAge() (*cloudprovider.SCDNMaxAge, error) {
 }
 
 func (self *SCdnDomain) GetProjectId() string {
-	return self.ProjectId
+	// DescribeDomains 返回的 ProjectId 常为 number，jsonutils 解到 string 会变成 "1353996.000000"
+	id := strings.TrimSpace(self.ProjectId)
+	if id == "" {
+		return id
+	}
+	if f, err := strconv.ParseFloat(id, 64); err == nil && f == float64(int64(f)) {
+		return strconv.FormatInt(int64(f), 10)
+	}
+	return id
 }
