@@ -290,7 +290,7 @@ func (self *SMongoDB) GetNetworkAddress() string {
 func (self *SRegion) GetMongoDBsByType(mongoType string) ([]SMongoDB, error) {
 	dbs := []SMongoDB{}
 	for {
-		part, total, err := self.GetMongoDBs(mongoType, 100, len(dbs)/100)
+		part, total, err := self.GetMongoDBs(mongoType, 100, len(dbs)/100+1)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetMongoDB")
 		}

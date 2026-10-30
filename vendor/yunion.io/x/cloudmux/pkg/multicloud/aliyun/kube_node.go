@@ -96,7 +96,7 @@ func (self *SRegion) GetKubeNodes(clusterId string, pageSize, pageNumber int) ([
 func (self *SKubeCluster) GetIKubeNodes() ([]cloudprovider.ICloudKubeNode, error) {
 	nodes := []SKubeNode{}
 	for {
-		part, total, err := self.region.GetKubeNodes(self.ClusterId, 100, len(nodes)/100)
+		part, total, err := self.region.GetKubeNodes(self.ClusterId, 100, len(nodes)/100+1)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetKubeNodes")
 		}
