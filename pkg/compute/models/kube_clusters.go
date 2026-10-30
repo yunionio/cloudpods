@@ -311,12 +311,12 @@ func (self *SKubeCluster) SyncAllWithCloudKubeCluster(ctx context.Context, userC
 		return errors.Wrapf(err, "SyncWithCloudKubeCluster")
 	}
 
-	err = syncKubeClusterNodePools(ctx, userCred, SSyncResultSet{}, self, ext)
+	err = syncKubeClusterNodePools(ctx, userCred, NewSSyncResultSet(), self, ext)
 	if err != nil {
 		return errors.Wrapf(err, "syncKubeClusterNodePools")
 	}
 
-	return syncKubeClusterNodes(ctx, userCred, SSyncResultSet{}, self, ext)
+	return syncKubeClusterNodes(ctx, userCred, NewSSyncResultSet(), self, ext)
 }
 
 func (self *SKubeCluster) SyncWithCloudKubeCluster(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudKubeCluster, provider *SCloudprovider) error {
