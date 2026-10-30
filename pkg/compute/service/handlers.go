@@ -123,6 +123,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 
 		models.BucketManager,
 		models.CloudaccountManager,
+		models.CloudaccountSyncTaskManager,
 		models.CloudproviderManager,
 		models.CloudregionManager,
 		models.ZoneManager,

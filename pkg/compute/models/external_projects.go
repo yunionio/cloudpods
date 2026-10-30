@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -213,7 +214,22 @@ func (manager *SExternalProjectManager) FetchCustomizeColumns(
 	return rows
 }
 
+// normalizeExternalProjectId 纠正 jsonutils 将 JSON number 解到 string 时产生的 "1353996.000000"。
+func normalizeExternalProjectId(externalId string) string {
+	externalId = strings.TrimSpace(externalId)
+	if externalId == "" {
+		return externalId
+	}
+	if f, err := strconv.ParseFloat(externalId, 64); err == nil {
+		if f == float64(int64(f)) {
+			return strconv.FormatInt(int64(f), 10)
+		}
+	}
+	return externalId
+}
+
 func (manager *SExternalProjectManager) GetProject(externalId string, providerId string) (*SExternalProject, error) {
+	externalId = normalizeExternalProjectId(externalId)
 	project := &SExternalProject{}
 	project.SetModelManager(manager, project)
 	q := manager.Query().Equals("external_id", externalId).Equals("manager_id", providerId)
