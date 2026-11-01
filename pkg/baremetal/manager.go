@@ -500,7 +500,7 @@ func (m *SBaremetalManager) checkSshInfo(input *BmRegisterInput) (*ssh.Client, e
 }
 
 func (m *SBaremetalManager) checkIpmiInfo(ctx context.Context, username, password, ipAddr string) (uint8, net.HardwareAddr, error) {
-	lanPlusTool, err := ipmitool.NewLanPlusIPMI(ipAddr, username, password)
+	lanPlusTool, err := ipmitool.NewLanPlusIPMIWithPort(ipAddr, username, password, api.DefaultIpmiPort)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "NewLanPlusIPMI")
 	}
@@ -1498,7 +1498,7 @@ func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nic
 	return modules.Hosts.PerformAction(session, b.GetId(), "enable-netif", params)
 }
 
-func (b *SBaremetalInstance) GetIPMIConfig() *types.SIPMIInfo {
+func (b *SBaremetalInstance) GetIPMIConfig() *api.SIpmiInfo {
 	conf := b.GetRawIPMIConfig()
 	if conf == nil {
 		log.Debugf("GetIPMIConfig conf is nil")
@@ -1525,8 +1525,8 @@ func (b *SBaremetalInstance) GetIPMIConfig() *types.SIPMIInfo {
 	return conf
 }
 
-func (b *SBaremetalInstance) GetRawIPMIConfig() *types.SIPMIInfo {
-	ipmiInfo := types.SIPMIInfo{}
+func (b *SBaremetalInstance) GetRawIPMIConfig() *api.SIpmiInfo {
+	ipmiInfo := api.SIpmiInfo{}
 	err := b.desc.Unmarshal(&ipmiInfo, "ipmi_info")
 	if err != nil {
 		log.Errorf("Unmarshal IPMIInfo error: %v", err)
@@ -1843,7 +1843,7 @@ func (b *SBaremetalInstance) GetIPMITool() *ipmitool.LanPlusIPMI {
 		log.Debugf("GetIPMIConfig is nil")
 		return nil
 	}
-	tool, err := ipmitool.NewLanPlusIPMIWithCipher(conf.IpAddr, conf.Username, conf.Password, 623, conf.CipherSuite)
+	tool, err := ipmitool.NewLanPlusIPMIWithCipher(conf.IpAddr, conf.Username, conf.Password, conf.GetIpmiPort(), conf.CipherSuite)
 	if err != nil {
 		log.Errorf("NewLanPlusIPMIWithCipher for %s: %v", conf.IpAddr, err)
 		return nil
@@ -1870,11 +1870,7 @@ func (b *SBaremetalInstance) GetRedfishCli(ctx context.Context) redfish.IRedfish
 		return nil
 	}
 	conf := b.GetIPMIConfig()
-	var endpoint = "https://" + conf.IpAddr
-	if strings.Contains(conf.IpAddr, ":") {
-		endpoint = fmt.Sprintf("https://[%s]", conf.IpAddr)
-	}
-	return redfish.NewRedfishDriver(ctx, endpoint, conf.Username, conf.Password, false)
+	return redfish.NewRedfishDriver(ctx, conf.RedfishEndpoint(), conf.Username, conf.Password, false)
 }
 
 func (b *SBaremetalInstance) GetIPMILanChannel() uint8 {
