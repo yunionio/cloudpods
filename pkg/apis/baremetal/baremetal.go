@@ -15,9 +15,11 @@
 package baremetal
 
 type ValidateIPMIRequest struct {
-	Ip       string `json:"ip"`
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Ip          string `json:"ip"`
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+	IpmiPort    int    `json:"ipmi_port"`
+	RedfishPort int    `json:"redfish_port"`
 }
 
 type RedfishSystemInfo struct {

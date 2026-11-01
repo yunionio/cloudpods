@@ -34,6 +34,7 @@ import (
 
 	jsonutils "yunion.io/x/jsonutils"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/apis/scheduler"
 	types "yunion.io/x/onecloud/pkg/cloudcommon/types"
 	baremetal "yunion.io/x/onecloud/pkg/compute/baremetal"
@@ -219,10 +220,10 @@ func (mr *MockCandidatePropertyGetterMockRecorder) GetFreeStorageSizeOfType(arg0
 }
 
 // GetIpmiInfo mocks base method
-func (m *MockCandidatePropertyGetter) GetIpmiInfo() types.SIPMIInfo {
+func (m *MockCandidatePropertyGetter) GetIpmiInfo() computeapi.SIpmiInfo {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetIpmiInfo")
-	ret0, _ := ret[0].(types.SIPMIInfo)
+	ret0, _ := ret[0].(computeapi.SIpmiInfo)
 	return ret0
 }
 
