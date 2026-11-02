@@ -71,6 +71,33 @@ func TestDecryptLegacyCiphertextWithoutPrefix(t *testing.T) {
 	}
 }
 
+func TestHexApiKeyNotFalselyDecrypted(t *testing.T) {
+	// 64-char hex is valid StdEncoding alphabet; CFB decrypt "succeeds" with garbage.
+	id := "36f1831c-b0b4-43d2-85fe-8ed61b759361"
+	plain := "341810532e6e8e92167beafc37627831122384b5e597cdcb0ef45bfb526e4117"
+	if _, err := utils.DescryptAESBase64(id, plain); err != nil {
+		t.Fatalf("precondition: DescryptAESBase64 should not error on hex key: %v", err)
+	}
+	if got := decryptAtRest(id, plain); got != plain {
+		t.Fatalf("hex plaintext must stay intact, got len=%d", len(got))
+	}
+	k := &SAiKey{Secret: plain}
+	k.Id = id
+	if err := k.sealSecret(); err != nil {
+		t.Fatal(err)
+	}
+	if !secretLooksEncrypted(k.Secret) {
+		t.Fatal("sealed secret should use aescfb64 prefix")
+	}
+	got := k.GetSecret()
+	if got != plain {
+		t.Fatalf("GetSecret after seal=%q want original hex key", got)
+	}
+	if !secretPlaintextPlausible(got) {
+		t.Fatal("sealed round-trip must remain plausible for Authorization header")
+	}
+}
+
 func TestAiKeySealAndGetSecret(t *testing.T) {
 	k := &SAiKey{Secret: "sk-plain-secret"}
 	k.Id = "key-id-1"
