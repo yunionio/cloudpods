@@ -17,14 +17,7 @@ package measurements
 import "yunion.io/x/onecloud/pkg/apis/monitor"
 
 var internalMemstats = SMeasurement{
-	Context: []SMonitorContext{
-		{
-			Name:         "internal_memstats",
-			DisplayName:  "Memory usage statistics of telegraf agent",
-			ResourceType: monitor.METRIC_RES_TYPE_HOST,
-			Database:     monitor.METRIC_DATABASE_TELE,
-		},
-	},
+	Context: newHostAgentMonitorContext("internal_memstats", "Memory usage statistics of telegraf agent"),
 	Metrics: []SMetric{
 		{
 			Name:        "alloc_bytes",
@@ -71,14 +64,7 @@ var internalMemstats = SMeasurement{
 }
 
 var internalAgent = SMeasurement{
-	Context: []SMonitorContext{
-		{
-			Name:         "internal_agent",
-			DisplayName:  "Agent wide statistics of telegraf agent",
-			ResourceType: monitor.METRIC_RES_TYPE_HOST,
-			Database:     monitor.METRIC_DATABASE_TELE,
-		},
-	},
+	Context: newHostAgentMonitorContext("internal_agent", "Agent wide statistics of telegraf agent"),
 	Metrics: []SMetric{
 		{
 			Name: "gather_errors",
@@ -96,14 +82,7 @@ var internalAgent = SMeasurement{
 }
 
 var internalGather = SMeasurement{
-	Context: []SMonitorContext{
-		{
-			Name:         "internal_gather",
-			DisplayName:  "Gather statistics of telegraf agent",
-			ResourceType: monitor.METRIC_RES_TYPE_HOST,
-			Database:     monitor.METRIC_DATABASE_TELE,
-		},
-	},
+	Context: newHostAgentMonitorContext("internal_gather", "Gather statistics of telegraf agent"),
 	Metrics: []SMetric{
 		{
 			Name: "gather_time_ns",
@@ -115,14 +94,7 @@ var internalGather = SMeasurement{
 }
 
 var internalWrite = SMeasurement{
-	Context: []SMonitorContext{
-		{
-			Name:         "internal_write",
-			DisplayName:  "Write statistics of telegraf agent",
-			ResourceType: monitor.METRIC_RES_TYPE_HOST,
-			Database:     monitor.METRIC_DATABASE_TELE,
-		},
-	},
+	Context: newHostAgentMonitorContext("internal_write", "Write statistics of telegraf agent"),
 	Metrics: []SMetric{
 		{
 			Name: "buffer_limit",
