@@ -188,6 +188,8 @@ func (s *SKVMGuestInstance) IsVdiSpice() bool {
 func (s *SKVMGuestInstance) GetOsName() string {
 	if osName, ok := s.Desc.Metadata["os_name"]; ok {
 		return osName
+	} else if s.Desc.OsName != "" {
+		return s.Desc.OsName
 	}
 	return OS_NAME_LINUX
 }
