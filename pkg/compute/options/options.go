@@ -218,6 +218,11 @@ type ComputeOptions struct {
 
 	// 账号同步任务保留天数，到期后定期清理终态任务；0 表示不清理
 	CloudaccountSyncTaskKeepDays int `help:"Days to keep finished cloudaccount sync tasks, 0 means never cleanup" default:"7"`
+
+	// 清理同步竞态产生的重复资源：同 manager 下同 external_id，保留 source=local，删除 source=cloud 的库记录（不删云上实体）
+	EnableAutoCleanupDuplicateExternalResources   bool `help:"auto cleanup duplicate guest/disk records with same external_id (keep local, purge cloud DB record)" default:"true"`
+	AutoCleanupDuplicateExternalIntervalHours     int  `help:"interval hours to cleanup duplicate external_id guest/disk records" default:"6"`
+	AutoCleanupDuplicateExternalMaxCleanBatchSize int  `help:"max duplicate cloud guest/disk records to cleanup per run" default:"50"`
 	// 弹性伸缩中的ecs一般会有特殊的系统标签，通过指定这些标签可以忽略这部分ecs的同步, 指定多个key需要以 ',' 分隔
 	SkipServerBySysTagKeys         string   `help:"skip server,disk sync and create with system tags" default:""`
 	SkipServerByUserTagKeys        string   `help:"skip server,disk sync and create with user tags" default:""`
