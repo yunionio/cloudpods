@@ -218,6 +218,8 @@ func startMasterTasks(opts *options.ComputeOptions, dbOpts *common_options.DBOpt
 		cron.AddJobEveryFewDays("SnapshotDataCleaning", 1, 0, 0, 0, models.SnapshotManager.DataCleaning, true)
 		cron.AddJobEveryFewDays("CloudaccountSyncTaskCleanup", 1, 3, 0, 0, models.CloudaccountSyncTaskManager.CleanupExpiredTasks, true)
 
+		cron.AddJobEveryFewHour("CleanupDuplicateExternalResources", 1, 25, 0, models.CleanupDuplicateExternalResources, true)
+
 		cron.AddJobAtIntervalsWithStartRun("SyncCloudImages", time.Duration(opts.CloudImagesSyncIntervalHours)*time.Hour, models.SyncPublicCloudImages, true)
 
 		cron.AddJobEveryFewHour("InspectAllTemplate", 1, 0, 0, models.GuestTemplateManager.InspectAllTemplate, true)
