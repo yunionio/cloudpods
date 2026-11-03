@@ -82,32 +82,23 @@ func (k *SAiKey) BeforeInsert() {
 	k.SVirtualResourceBase.BeforeInsert()
 }
 
-func (k *SAiKey) BeforeUpdate() {
-	if err := k.sealSecret(); err != nil {
-		log.Errorf("ai_key sealSecret: %v", err)
-	}
-}
-
 func (k *SAiKey) GetSecret() string {
 	return decryptAtRest(k.Id, k.Secret)
 }
 
+// sealSecret encrypts k.Secret as plaintext. Callers must only pass unencrypted
+// material (create / migrate of unprefixed rows). Do not run on DB-loaded ciphertext.
 func (k *SAiKey) sealSecret() error {
 	if len(k.Id) == 0 {
 		k.Id = db.DefaultUUIDGenerator()
 	}
-	plain := strings.TrimSpace(decryptAtRest(k.Id, k.Secret))
-	if plain == "" {
-		return nil
-	}
-	if secretLooksEncrypted(k.Secret) {
-		return nil
-	}
-	enc, err := encryptAtRest(k.Id, plain)
+	enc, err := encryptAtRest(k.Id, k.Secret)
 	if err != nil {
 		return err
 	}
-	k.Secret = enc
+	if enc != "" {
+		k.Secret = enc
+	}
 	return nil
 }
 
@@ -266,6 +257,15 @@ func (k *SAiKey) ValidateUpdateData(
 			return input, err
 		}
 		input.AiProviderId = prov.Id
+	}
+	// Update payload secret is always plaintext from the client; encrypt here
+	// (BeforeUpdate must not reseal DB ciphertext).
+	if s := strings.TrimSpace(input.Secret); s != "" {
+		enc, err := encryptAtRest(k.Id, s)
+		if err != nil {
+			return input, err
+		}
+		input.Secret = enc
 	}
 	return input, nil
 }
