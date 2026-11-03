@@ -296,7 +296,7 @@ func (awscli *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 				subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_SUSPENDED
 			}
 			if account.IsMaster {
-				subAccount.Name = fmt.Sprintf("%s/%s", account.Name, awscli.cpcfg.Name)
+				subAccount.Name = account.Name
 				subAccount.Account = awscli.accessKey
 				subAccount.Id = account.ID
 			} else {
@@ -306,7 +306,7 @@ func (awscli *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 				}
 				subAccount.Name = account.ID
 				if len(account.Name) > 0 && account.Name != account.ID {
-					subAccount.Name = fmt.Sprintf("%s/%s", account.Name, account.ID)
+					subAccount.Name = account.Name
 				}
 				subAccount.Account = fmt.Sprintf("%s/%s", awscli.accessKey, account.ID)
 				subAccount.Id = account.ID

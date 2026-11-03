@@ -294,6 +294,10 @@ func (self *SRegion) DescribeMySQLAccounts(instanceId string, offset, limit int)
 }
 
 func (self *SMySQLInstance) GetIDBInstanceAccounts() ([]cloudprovider.ICloudDBInstanceAccount, error) {
+	// 只读/灾备不支持；BASIC 等会 OperationDenied.InstTypeNotSupport，直接跳过
+	if !self.isMasterInstance() || self.DeviceType == "BASIC" {
+		return []cloudprovider.ICloudDBInstanceAccount{}, nil
+	}
 	accounts := []SMySQLInstanceAccount{}
 	for {
 		part, total, err := self.region.DescribeMySQLAccounts(self.InstanceId, len(accounts), 100)
