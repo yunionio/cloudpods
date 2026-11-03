@@ -55,7 +55,7 @@ type BaseHostDesc struct {
 	Tenants map[string]int64 `json:"tenants"`
 
 	InstanceGroups map[string]*api.CandidateGroup `json:"instance_groups"`
-	IpmiInfo       types.SIPMIInfo                `json:"ipmi_info"`
+	IpmiInfo       computeapi.SIpmiInfo           `json:"ipmi_info"`
 
 	Nics []*types.SNic `json:"nics"`
 
@@ -280,7 +280,7 @@ func (b baseHostGetter) GetFreePort(netId string) int {
 	return b.h.GetFreePort(netId)
 }
 
-func (b baseHostGetter) GetIpmiInfo() types.SIPMIInfo {
+func (b baseHostGetter) GetIpmiInfo() computeapi.SIpmiInfo {
 	return b.h.IpmiInfo
 }
 

@@ -498,6 +498,10 @@ type HostIpmiAttributes struct {
 	IpmiPassword string `json:"ipmi_password"`
 	// ip address
 	IpmiIpAddr string `json:"ipmi_ip_addr"`
+	// IPMI RMCP port, default 623
+	IpmiPort *int `json:"ipmi_port"`
+	// Redfish HTTPS port, default 443
+	IpmiRedfishPort *int `json:"ipmi_redfish_port"`
 	// presence
 	IpmiPresent *bool `json:"ipmi_present"`
 	// lan channel
@@ -574,7 +578,7 @@ type HostUpdateInput struct {
 	HostnameInput
 
 	// IPMI info
-	IpmiInfo jsonutils.JSONObject `json:"ipmi_info"`
+	IpmiInfo *SIpmiInfo `json:"ipmi_info"`
 
 	// 机架
 	Rack string `json:"rack"`

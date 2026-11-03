@@ -214,10 +214,11 @@ func (s *sBaremetalRegisterTask) UpdateBaremetal(ctx context.Context) (string, e
 }
 
 func (s *sBaremetalRegisterTask) doRedfishProbe(ctx context.Context) (redfishSupport bool, cdromBoot bool) {
-	var endpoint = "https://" + s.IpmiIpAddr
-	if strings.Contains(s.IpmiIpAddr, ":") {
-		endpoint = fmt.Sprintf("https://[%s]", s.IpmiIpAddr)
+	var info *api.SIpmiInfo
+	if s.baremetal != nil {
+		info = s.baremetal.GetRawIPMIConfig()
 	}
+	endpoint := api.RedfishEndpoint(s.IpmiIpAddr, info.GetRedfishPort())
 	redfishCli := redfish.NewRedfishDriver(ctx, endpoint, s.IpmiUsername, s.IpmiPassword, false)
 	if redfishCli != nil {
 		_, cdInfo, _ := redfishCli.GetVirtualCdromInfo(ctx)
