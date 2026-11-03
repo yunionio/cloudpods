@@ -170,17 +170,24 @@ func bmRegisterMiddleware(h bmRegisterFunc) appsrv.FilterHandler {
 			newCtx.ResponseError(httperrors.NewMissingParameterError("ssh_port"))
 			return
 		}
-		username, err := newCtx.Data().GetString("username")
-		if err != nil {
-			newCtx.ResponseError(httperrors.NewMissingParameterError("username"))
-			return
-		}
-		password, err := newCtx.Data().GetString("password")
-		if err != nil {
-			newCtx.ResponseError(httperrors.NewMissingParameterError("password"))
-			return
-		}
+		noIpmi := false
+		ipmiUsername := ""
+		ipmiPassword := ""
+		if jsonutils.QueryBoolean(newCtx.Data(), "no_ipmi", false) {
+			noIpmi = true
+		} else {
+			ipmiUsername, err = newCtx.Data().GetString("username")
+			if err != nil {
+				newCtx.ResponseError(httperrors.NewMissingParameterError("username"))
+				return
+			}
+			ipmiPassword, err = newCtx.Data().GetString("password")
+			if err != nil {
+				newCtx.ResponseError(httperrors.NewMissingParameterError("password"))
+				return
+			}
 
+		}
 		ctx, cancel := context.WithTimeout(ctx, time.Second*298)
 		defer cancel()
 
@@ -193,8 +200,9 @@ func bmRegisterMiddleware(h bmRegisterFunc) appsrv.FilterHandler {
 			SshPasswd: sshPasswd,
 			Hostname:  hostname,
 			RemoteIp:  remoteIp,
-			Username:  username,
-			Password:  password,
+			Username:  ipmiUsername,
+			Password:  ipmiPassword,
+			NoIpmi:    noIpmi,
 		}
 
 		h(newCtx, data)
