@@ -86,8 +86,11 @@ func (m *SAiVirtualKey) BeforeInsert() {
 }
 
 func (m *SAiVirtualKey) BeforeUpdate() {
-	if err := m.sealVirtualKey(); err != nil {
-		log.Errorf("ai_virtual_key sealVirtualKey: %v", err)
+	// Never reseal here: DB-loaded virtual_key is already ciphertext. Only
+	// refresh hash from the current stored value (plaintext or aescfb64).
+	plain := strings.TrimSpace(decryptAtRest(m.Id, m.VirtualKey))
+	if plain != "" {
+		m.VirtualKeyHash = virtualKeyDigest(plain)
 	}
 }
 
@@ -95,18 +98,17 @@ func (m *SAiVirtualKey) GetVirtualKey() string {
 	return decryptAtRest(m.Id, m.VirtualKey)
 }
 
+// sealVirtualKey encrypts VirtualKey as plaintext and sets VirtualKeyHash.
+// Callers must only pass unencrypted material (create / migrate of unprefixed rows).
 func (m *SAiVirtualKey) sealVirtualKey() error {
 	if len(m.Id) == 0 {
 		m.Id = db.DefaultUUIDGenerator()
 	}
-	plain := strings.TrimSpace(decryptAtRest(m.Id, m.VirtualKey))
+	plain := strings.TrimSpace(m.VirtualKey)
 	if plain == "" {
 		return nil
 	}
 	m.VirtualKeyHash = virtualKeyDigest(plain)
-	if secretLooksEncrypted(m.VirtualKey) {
-		return nil
-	}
 	enc, err := encryptAtRest(m.Id, plain)
 	if err != nil {
 		return err
@@ -129,6 +131,13 @@ func migrateAiVirtualKeys() error {
 		m := &keys[i]
 		m.SetModelManager(AiVirtualKeyManager, m)
 		_, err := db.Update(m, func() error {
+			if secretLooksEncrypted(m.VirtualKey) {
+				plain := strings.TrimSpace(decryptAtRest(m.Id, m.VirtualKey))
+				if plain != "" {
+					m.VirtualKeyHash = virtualKeyDigest(plain)
+				}
+				return nil
+			}
 			return m.sealVirtualKey()
 		})
 		if err != nil {
@@ -326,6 +335,47 @@ func (manager *SAiVirtualKeyManager) ValidateCreateData(
 		input.Enabled = tristate.True
 	}
 
+	return input, nil
+}
+
+func (m *SAiVirtualKey) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.AiVirtualKeyUpdateInput,
+) (*api.AiVirtualKeyUpdateInput, error) {
+	var err error
+	input.VirtualResourceBaseUpdateInput, err = m.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
+	if err := validateAiVirtualKeyLimits(ctx, userCred, input.Limits); err != nil {
+		return input, err
+	}
+	// Client virtual_key is always plaintext; encrypt before persist (do not reseal in BeforeUpdate).
+	if vk := strings.TrimSpace(input.VirtualKey); vk != "" {
+		if !strings.HasPrefix(vk, virtualKeyPrefix) {
+			return input, errors.Wrapf(httperrors.ErrInputParameter, "virtual_key must start with %q", virtualKeyPrefix)
+		}
+		if len(vk) > 128 {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "virtual_key too long")
+		}
+		if digest := virtualKeyDigest(vk); digest != strings.TrimSpace(m.VirtualKeyHash) {
+			exists, err := aiVirtualKeyExists(vk)
+			if err != nil {
+				return input, err
+			}
+			if exists {
+				return input, errors.Wrap(httperrors.ErrConflict, "virtual_key already exists")
+			}
+		}
+		enc, err := encryptAtRest(m.Id, vk)
+		if err != nil {
+			return input, err
+		}
+		input.VirtualKey = enc
+		m.VirtualKeyHash = virtualKeyDigest(vk)
+	}
 	return input, nil
 }
 
