@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -89,6 +90,13 @@ const (
 	SERVICE_MRS                = "mrs"
 	SERVICE_DIS                = "dis"
 	SERVICE_LTS                = "lts"
+	SERVICE_ORGANIZATIONS      = "organizations"
+
+	// Organizations 创建成员账号时的默认委托，等价于 AWS OrganizationAccountAccessRole、
+	// 阿里云 ResourceDirectoryAccountAccessRole。创建账号时若改过委托名，通过
+	// huawei_assume_agency_name 覆盖。
+	DefaultAssumeAgencyName     = "OrganizationAccountAccessAgency"
+	assumeAgencyDurationSeconds = 3600
 )
 
 type HuaweiClientConfig struct {
@@ -96,6 +104,8 @@ type HuaweiClientConfig struct {
 
 	accessKey    string
 	accessSecret string
+	accountId    string
+	assumeAgency string
 
 	debug bool
 }
@@ -118,6 +128,23 @@ func (cfg *HuaweiClientConfig) Debug(debug bool) *HuaweiClientConfig {
 	return cfg
 }
 
+func (cfg *HuaweiClientConfig) AccountId(id string) *HuaweiClientConfig {
+	cfg.accountId = id
+	return cfg
+}
+
+func (cfg *HuaweiClientConfig) AssumeAgency(name string) *HuaweiClientConfig {
+	cfg.assumeAgency = name
+	return cfg
+}
+
+func (cfg *HuaweiClientConfig) getAssumeAgencyName() string {
+	if len(cfg.assumeAgency) > 0 {
+		return cfg.assumeAgency
+	}
+	return DefaultAssumeAgencyName
+}
+
 type SHuaweiClient struct {
 	*HuaweiClientConfig
 
@@ -134,6 +161,9 @@ type SHuaweiClient struct {
 	httpClient *http.Client
 
 	orders map[string]SOrderResource
+
+	credLock sync.Mutex
+	tempCred *sAgencyCredential
 }
 
 func NewHuaweiClient(cfg *HuaweiClientConfig) (*SHuaweiClient, error) {
@@ -141,6 +171,10 @@ func NewHuaweiClient(cfg *HuaweiClientConfig) (*SHuaweiClient, error) {
 		HuaweiClientConfig: cfg,
 		regions:            map[string]SRegion{},
 		projects:           map[string]SProject{},
+	}
+	// 成员账号的 domain id 就是组织账号 ID，避免再用管理账号的永久 AK 去查用户。
+	if len(cfg.accountId) > 0 {
+		client.ownerId = cfg.accountId
 	}
 	err := client.init()
 	if err != nil {
@@ -197,6 +231,7 @@ type sPageInfo struct {
 type akClient struct {
 	client *http.Client
 	aksk   Signer
+	token  string
 }
 
 func (self *akClient) Do(req *http.Request) (*http.Response, error) {
@@ -208,17 +243,22 @@ func (self *akClient) Do(req *http.Request) (*http.Response, error) {
 	if strings.HasPrefix(req.Host, "modelarts") && req.Method == string(httputils.PATCH) {
 		req.Header.Set("Content-Type", "application/merge-patch+json")
 	}
+	if len(self.token) > 0 {
+		req.Header.Set("X-Security-Token", self.token)
+	}
 	self.aksk.Sign(req)
 	return self.client.Do(req)
 }
 
 func (self *SHuaweiClient) getAkClient() *akClient {
+	ak, sk, token := self.effectiveCredential()
 	return &akClient{
 		client: self.getDefaultClient(),
 		aksk: Signer{
-			Key:    self.accessKey,
-			Secret: self.accessSecret,
+			Key:    ak,
+			Secret: sk,
 		},
+		token: token,
 	}
 }
 
@@ -236,6 +276,7 @@ type sHuaweiError struct {
 	Errorcode  []string `json:"errorcode"`
 	ConvertMsg string
 	RawMsg     jsonutils.JSONObject
+	StatusCode int `json:"-"`
 }
 
 func (self *sHuaweiError) Error() string {
@@ -253,6 +294,7 @@ var convertMsg = map[string]string{
 }
 
 func (self *sHuaweiError) ParseErrorFromJsonResponse(statusCode int, status string, body jsonutils.JSONObject) error {
+	self.StatusCode = statusCode
 	if body != nil {
 		body.Unmarshal(self)
 		// 特殊错误将返回原始错误信息
@@ -270,6 +312,9 @@ func (self *sHuaweiError) ParseErrorFromJsonResponse(statusCode int, status stri
 }
 
 func (self *SHuaweiClient) request(method httputils.THttpMethod, regionId, service, url string, query url.Values, params map[string]interface{}) (jsonutils.JSONObject, error) {
+	if err := self.ensureAgency(); err != nil {
+		return nil, errors.Wrap(err, "assumeAgency")
+	}
 	client := self.getAkClient()
 	if len(query) > 0 {
 		url = fmt.Sprintf("%s?%s", url, query.Encode())
@@ -354,8 +399,18 @@ func getOBSEndpoint(regionId string) string {
 }
 
 func (self *SHuaweiClient) getOBSClient(regionId string, signType obs.SignatureType) (*obs.ObsClient, error) {
+	if err := self.ensureAgency(); err != nil {
+		return nil, errors.Wrap(err, "assumeAgency")
+	}
+	ak, sk, token := self.effectiveCredential()
 	endpoint := getOBSEndpoint(regionId)
-	cli, err := obs.New(self.accessKey, self.accessSecret, endpoint, obs.WithSignature(signType))
+	var cli *obs.ObsClient
+	var err error
+	if len(token) > 0 {
+		cli, err = obs.New(ak, sk, endpoint, obs.WithSignature(signType), obs.WithSecurityToken(token))
+	} else {
+		cli, err = obs.New(ak, sk, endpoint, obs.WithSignature(signType))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -414,16 +469,6 @@ func (self *SHuaweiClient) fetchBuckets() error {
 	}
 	self.iBuckets = ret
 	return nil
-}
-
-func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	subAccount := cloudprovider.SSubAccount{}
-	subAccount.Id = self.GetAccountId()
-	subAccount.Name = self.cpcfg.Name
-	subAccount.Account = self.accessKey
-	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
-	subAccount.DefaultProjectId = "0"
-	return []cloudprovider.SSubAccount{subAccount}, nil
 }
 
 func (client *SHuaweiClient) GetAccountId() string {
@@ -752,6 +797,8 @@ func (self *SHuaweiClient) getUrl(service, regionId, resource string, method htt
 		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/v2/%s/%s", service, regionId, projectId, resource)
 	case SERVICE_LTS:
 		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/v2/%s/%s", service, regionId, projectId, resource)
+	case SERVICE_ORGANIZATIONS:
+		url = fmt.Sprintf("https://organizations.myhuaweicloud.com/v1/%s", resource)
 	case SERVICE_CCE:
 		url = fmt.Sprintf("https://%s.%s.myhuaweicloud.com/api/v3/projects/%s/%s", service, regionId, projectId, resource)
 	case SERVICE_AS:

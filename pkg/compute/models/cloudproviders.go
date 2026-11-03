@@ -1261,10 +1261,41 @@ func (manager *SCloudproviderManager) initializeDefaultTenantId() error {
 	return nil
 }
 
+func (manager *SCloudproviderManager) initializeProjectSrcLocalForSlashName() error {
+	// 名称带 '/' 的订阅（如阿里云子账户 DisplayName/AccountId），在开启「跟随订阅创建项目」时
+	// 若 project_src 仍为 cloud，后续改名会导致按新名重建/改挂项目。初始化时固定为 local，避免漂移。
+	accounts := CloudaccountManager.Query("id").IsTrue("auto_create_project_for_provider").SubQuery()
+	q := manager.Query().
+		Equals("project_src", string(apis.OWNER_SOURCE_CLOUD)).
+		Contains("name", "/").
+		In("cloudaccount_id", accounts)
+	providers := make([]SCloudprovider, 0)
+	err := db.FetchModelObjects(manager, q, &providers)
+	if err != nil {
+		return errors.Wrap(err, "fetch cloudproviders with slash name")
+	}
+	for i := range providers {
+		provider := providers[i]
+		_, err = db.Update(&provider, func() error {
+			provider.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
+			return nil
+		})
+		if err != nil {
+			return errors.Wrapf(err, "update project_src for provider %s", provider.Id)
+		}
+	}
+	return nil
+}
+
 func (manager *SCloudproviderManager) InitializeData() error {
 	err := manager.initializeDefaultTenantId()
 	if err != nil {
 		log.Errorf("initializeDefaultTenantId %s", err)
+	}
+
+	err = manager.initializeProjectSrcLocalForSlashName()
+	if err != nil {
+		log.Errorf("initializeProjectSrcLocalForSlashName %s", err)
 	}
 
 	return nil

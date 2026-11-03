@@ -858,7 +858,7 @@ func (self *SAliyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 
 	for i := range accounts {
 		account := cloudprovider.SSubAccount{}
-		account.Name = fmt.Sprintf("%s/%s", accounts[i].DisplayName, self.cpcfg.Name)
+		account.Name = accounts[i].DisplayName
 		account.Account = self.accessKey
 		account.Id = accountId
 		account.HealthStatus = api.CLOUD_PROVIDER_HEALTH_SUSPENDED
@@ -866,7 +866,6 @@ func (self *SAliyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 			account.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 		}
 		if accounts[i].AccountId != accountId {
-			account.Name = fmt.Sprintf("%s/%s", accounts[i].DisplayName, accounts[i].AccountId)
 			account.Account = fmt.Sprintf("%s/%s", self.accessKey, accounts[i].AccountId)
 			account.Id = accounts[i].AccountId
 		}
