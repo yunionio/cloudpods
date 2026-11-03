@@ -80,6 +80,10 @@ func (self *SRegion) DescribeMySQLDatabases(instanceId string, offset, limit int
 }
 
 func (rds *SMySQLInstance) GetIDBInstanceDatabases() ([]cloudprovider.ICloudDBInstanceDatabase, error) {
+	// 只读/灾备实例 DescribeDatabases 会 OperationDenied(only supports for master)，直接跳过
+	if !rds.isMasterInstance() {
+		return []cloudprovider.ICloudDBInstanceDatabase{}, nil
+	}
 	ret := []cloudprovider.ICloudDBInstanceDatabase{}
 	for {
 		part, total, err := rds.region.DescribeMySQLDatabases(rds.InstanceId, len(ret), 100)
