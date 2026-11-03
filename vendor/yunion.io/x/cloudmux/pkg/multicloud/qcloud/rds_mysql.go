@@ -256,6 +256,12 @@ func (self *SMySQLInstance) GetMasterInstanceId() string {
 	return self.MasterInfo.InstanceId
 }
 
+// isMasterInstance 腾讯云 CDB InstanceType: 1 主实例 / 2 灾备 / 3 只读。
+// DescribeDatabases 等接口仅支持主实例。
+func (self *SMySQLInstance) isMasterInstance() bool {
+	return self.InstanceType == 1
+}
+
 func (self *SMySQLInstance) GetSecurityGroupIds() ([]string, error) {
 	if len(self.SecurityGroupIds) > 0 {
 		return self.SecurityGroupIds, nil
