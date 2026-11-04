@@ -46,6 +46,8 @@ const (
 	CLASS_CODE_ASSIST = "0b40"
 	// Processing accelerators
 	CLASS_CODE_PA = "1200"
+
+	CLASS_CODE_COMMUNICATION_OTHER = "0780"
 )
 
 var (
