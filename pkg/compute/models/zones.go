@@ -102,37 +102,11 @@ func (manager *SZoneManager) Count() (int, error) {
 }
 
 func (zone *SZone) GeneralUsage(ctx context.Context) (api.ZoneGeneralUsage, error) {
-	usage := api.ZoneGeneralUsage{}
-	var err error
-	usage.Hosts, err = zone.HostCount("", "", tristate.None, "", tristate.None)
+	usage, err := ZoneManager.TotalResourceCount([]string{zone.Id})
 	if err != nil {
-		return usage, errors.Wrapf(err, "Hosts")
+		return api.ZoneGeneralUsage{}, errors.Wrapf(err, "TotalResourceCount")
 	}
-	usage.HostsEnabled, err = zone.HostCount("", "", tristate.True, "", tristate.None)
-	if err != nil {
-		return usage, errors.Wrapf(err, "HostsEnabled")
-	}
-	usage.Baremetals, err = zone.HostCount("", "", tristate.None, "", tristate.True)
-	if err != nil {
-		return usage, errors.Wrapf(err, "Baremetals")
-	}
-	usage.BaremetalsEnabled, err = zone.HostCount("", "", tristate.True, "", tristate.True)
-	if err != nil {
-		return usage, errors.Wrapf(err, "BaremetalsEnabled")
-	}
-	usage.Wires, err = zone.getWireCount()
-	if err != nil {
-		return usage, errors.Wrapf(err, "Wires")
-	}
-	usage.Networks, err = zone.getNetworkCount(ctx)
-	if err != nil {
-		return usage, errors.Wrapf(err, "getNetworkCount")
-	}
-	usage.Storages, err = zone.getStorageCount()
-	if err != nil {
-		return usage, errors.Wrapf(err, "getStorageCount")
-	}
-	return usage, nil
+	return usage[zone.Id], nil
 }
 
 func (zone *SZone) HostCount(status string, hostStatus string, enabled tristate.TriState, hostType string, isBaremetal tristate.TriState) (int, error) {
@@ -173,6 +147,83 @@ func (zone *SZone) getNetworkCount(ctx context.Context) (int, error) {
 	return getNetworkCount(ctx, nil, nil, rbacscope.ScopeSystem, nil, zone)
 }
 
+type SZoneUsageCount struct {
+	Id string
+	api.ZoneGeneralUsage
+}
+
+func (zm *SZoneManager) query(manager db.IModelManager, field string, zoneIds []string, filter func(*sqlchemy.SQuery) *sqlchemy.SQuery) *sqlchemy.SSubQuery {
+	q := manager.Query()
+	if filter != nil {
+		q = filter(q)
+	}
+	sq := q.SubQuery()
+	return sq.Query(
+		sq.Field("zone_id"),
+		sqlchemy.COUNT(field),
+	).In("zone_id", zoneIds).GroupBy(sq.Field("zone_id")).SubQuery()
+}
+
+func (manager *SZoneManager) TotalResourceCount(zoneIds []string) (map[string]api.ZoneGeneralUsage, error) {
+	ret := map[string]api.ZoneGeneralUsage{}
+	if len(zoneIds) == 0 {
+		return ret, nil
+	}
+
+	hostSQ := manager.query(HostManager, "host_cnt", zoneIds, nil)
+	hostEnabledSQ := manager.query(HostManager, "host_enabled_cnt", zoneIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.IsTrue("enabled")
+	})
+	baremetalSQ := manager.query(HostManager, "baremetal_cnt", zoneIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.IsTrue("is_baremetal")
+	})
+	baremetalEnabledSQ := manager.query(HostManager, "baremetal_enabled_cnt", zoneIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.IsTrue("is_baremetal").IsTrue("enabled")
+	})
+	wireSQ := manager.query(WireManager, "wire_cnt", zoneIds, nil)
+	storageSQ := manager.query(StorageManager, "storage_cnt", zoneIds, nil)
+	networkSQ := manager.query(NetworkManager, "network_cnt", zoneIds, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		wires := WireManager.Query().SubQuery()
+		sq := q.SubQuery()
+		return sq.Query(
+			sq.Field("id"),
+			wires.Field("zone_id").Label("zone_id"),
+		).Join(wires, sqlchemy.Equals(sq.Field("wire_id"), wires.Field("id")))
+	})
+
+	zones := manager.Query().SubQuery()
+	zoneQ := zones.Query(
+		sqlchemy.SUM("hosts", hostSQ.Field("host_cnt")),
+		sqlchemy.SUM("hosts_enabled", hostEnabledSQ.Field("host_enabled_cnt")),
+		sqlchemy.SUM("baremetals", baremetalSQ.Field("baremetal_cnt")),
+		sqlchemy.SUM("baremetals_enabled", baremetalEnabledSQ.Field("baremetal_enabled_cnt")),
+		sqlchemy.SUM("wires", wireSQ.Field("wire_cnt")),
+		sqlchemy.SUM("networks", networkSQ.Field("network_cnt")),
+		sqlchemy.SUM("storages", storageSQ.Field("storage_cnt")),
+	)
+	zoneQ.AppendField(zoneQ.Field("id"))
+
+	zoneQ = zoneQ.LeftJoin(hostSQ, sqlchemy.Equals(zoneQ.Field("id"), hostSQ.Field("zone_id")))
+	zoneQ = zoneQ.LeftJoin(hostEnabledSQ, sqlchemy.Equals(zoneQ.Field("id"), hostEnabledSQ.Field("zone_id")))
+	zoneQ = zoneQ.LeftJoin(baremetalSQ, sqlchemy.Equals(zoneQ.Field("id"), baremetalSQ.Field("zone_id")))
+	zoneQ = zoneQ.LeftJoin(baremetalEnabledSQ, sqlchemy.Equals(zoneQ.Field("id"), baremetalEnabledSQ.Field("zone_id")))
+	zoneQ = zoneQ.LeftJoin(wireSQ, sqlchemy.Equals(zoneQ.Field("id"), wireSQ.Field("zone_id")))
+	zoneQ = zoneQ.LeftJoin(networkSQ, sqlchemy.Equals(zoneQ.Field("id"), networkSQ.Field("zone_id")))
+	zoneQ = zoneQ.LeftJoin(storageSQ, sqlchemy.Equals(zoneQ.Field("id"), storageSQ.Field("zone_id")))
+
+	zoneQ = zoneQ.Filter(sqlchemy.In(zoneQ.Field("id"), zoneIds)).GroupBy(zoneQ.Field("id"))
+
+	counts := []SZoneUsageCount{}
+	err := zoneQ.All(&counts)
+	if err != nil {
+		return nil, errors.Wrapf(err, "zoneQ.All")
+	}
+	for i := range counts {
+		ret[counts[i].Id] = counts[i].ZoneGeneralUsage
+	}
+	return ret, nil
+}
+
 func (manager *SZoneManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -186,6 +237,8 @@ func (manager *SZoneManager) FetchCustomizeColumns(
 	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneIds := make([]string, len(objs))
+	regionIds := make([]string, 0, len(objs))
+	regionIdSet := map[string]struct{}{}
 	for i := range rows {
 		rows[i] = api.ZoneDetails{
 			StatusStandaloneResourceDetails: stdRows[i],
@@ -193,98 +246,34 @@ func (manager *SZoneManager) FetchCustomizeColumns(
 		}
 		zone := objs[i].(*SZone)
 		zoneIds[i] = zone.Id
-	}
-	regions := []SCloudregion{}
-	zoneQ := ZoneManager.Query().SubQuery()
-	q := CloudregionManager.Query()
-	q = q.Join(zoneQ, sqlchemy.Equals(zoneQ.Field("cloudregion_id"), q.Field("id"))).Filter(sqlchemy.In(zoneQ.Field("id"), zoneIds))
-	err := db.FetchModelObjects(CloudregionManager, q, &regions)
-	if err != nil {
-		return rows
-	}
-	regionMap := map[string]SCloudregion{}
-	for i := range regions {
-		regionMap[regions[i].Id] = regions[i]
-	}
-	zoneUsages := map[string]*api.ZoneGeneralUsage{}
-	q = HostManager.Query().In("zone_id", zoneIds)
-	hosts := []SHost{}
-	err = db.FetchModelObjects(HostManager, q, &hosts)
-	if err != nil {
-		return rows
-	}
-	for i := range hosts {
-		_, ok := zoneUsages[hosts[i].ZoneId]
-		if !ok {
-			zoneUsages[hosts[i].ZoneId] = &api.ZoneGeneralUsage{}
+		if _, ok := regionIdSet[zone.CloudregionId]; !ok && len(zone.CloudregionId) > 0 {
+			regionIdSet[zone.CloudregionId] = struct{}{}
+			regionIds = append(regionIds, zone.CloudregionId)
 		}
-		zoneUsages[hosts[i].ZoneId].Hosts += 1
-		if hosts[i].GetEnabled() {
-			zoneUsages[hosts[i].ZoneId].HostsEnabled += 1
-		}
-		if hosts[i].IsBaremetal {
-			zoneUsages[hosts[i].ZoneId].Baremetals += 1
-			if hosts[i].GetEnabled() {
-				zoneUsages[hosts[i].ZoneId].BaremetalsEnabled += 1
-			}
-		}
-	}
-	wires := []SWire{}
-	q = WireManager.Query().In("zone_id", zoneIds)
-	err = db.FetchModelObjects(WireManager, q, &wires)
-	if err != nil {
-		return rows
-	}
-	wireMap := map[string]string{}
-	for i := range wires {
-		_, ok := zoneUsages[wires[i].ZoneId]
-		if !ok {
-			zoneUsages[wires[i].ZoneId] = &api.ZoneGeneralUsage{}
-		}
-		zoneUsages[wires[i].ZoneId].Wires += 1
-		wireMap[wires[i].Id] = wires[i].ZoneId
-	}
-	networks := []SNetwork{}
-	wireQ := WireManager.Query().SubQuery()
-	q = NetworkManager.Query()
-	q = q.Join(wireQ, sqlchemy.Equals(q.Field("wire_id"), wireQ.Field("id"))).Filter(sqlchemy.In(wireQ.Field("zone_id"), zoneIds))
-	err = db.FetchModelObjects(NetworkManager, q, &networks)
-	if err != nil {
-		return rows
-	}
-	for i := range networks {
-		zoneId, ok := wireMap[networks[i].WireId]
-		if !ok {
-			continue
-		}
-		_, ok = zoneUsages[zoneId]
-		if !ok {
-			zoneUsages[zoneId] = &api.ZoneGeneralUsage{}
-		}
-		zoneUsages[zoneId].Networks += 1
 	}
 
-	storages := []SStorage{}
-	q = StorageManager.Query().In("zone_id", zoneIds)
-	err = db.FetchModelObjects(StorageManager, q, &storages)
+	regionMap := map[string]SCloudregion{}
+	if len(regionIds) > 0 {
+		regions := []SCloudregion{}
+		err := db.FetchModelObjects(CloudregionManager, CloudregionManager.Query().In("id", regionIds), &regions)
+		if err != nil {
+			log.Errorf("FetchCustomizeColumns fetch cloudregions: %s", err)
+			return rows
+		}
+		for i := range regions {
+			regionMap[regions[i].Id] = regions[i]
+		}
+	}
+
+	count, err := manager.TotalResourceCount(zoneIds)
 	if err != nil {
+		log.Errorf("TotalResourceCount error: %v", err)
 		return rows
 	}
-	for i := range storages {
-		_, ok := zoneUsages[storages[i].ZoneId]
-		if !ok {
-			zoneUsages[storages[i].ZoneId] = &api.ZoneGeneralUsage{}
-		}
-		zoneUsages[storages[i].ZoneId].Storages += 1
-	}
 	for i := range rows {
-		usage, ok := zoneUsages[zoneIds[i]]
-		if ok {
-			rows[i].ZoneGeneralUsage = *usage
-		}
+		rows[i].ZoneGeneralUsage, _ = count[zoneIds[i]]
 		zone := objs[i].(*SZone)
-		region, ok := regionMap[zone.CloudregionId]
-		if ok {
+		if region, ok := regionMap[zone.CloudregionId]; ok {
 			rows[i].CloudenvResourceInfo = region.GetRegionCloudenvInfo()
 		}
 	}
