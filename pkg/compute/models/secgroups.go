@@ -346,6 +346,27 @@ func (self *SSecurityGroup) ClearRuleDirty() error {
 	return err
 }
 
+func secgroupCountByField(q *sqlchemy.SQuery, field string) (map[string]int, error) {
+	ret := map[string]int{}
+	sq := q.SubQuery()
+	cq := sq.Query(
+		sq.Field(field).Label("id"),
+		sqlchemy.COUNT("cnt"),
+	).GroupBy(sq.Field(field))
+	rows := []struct {
+		Id  string
+		Cnt int
+	}{}
+	err := cq.All(&rows)
+	if err != nil {
+		return nil, err
+	}
+	for i := range rows {
+		ret[rows[i].Id] = rows[i].Cnt
+	}
+	return ret, nil
+}
+
 func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -362,7 +383,6 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	globalVpcRows := manager.SGlobalVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	secgroupIds := make([]string, len(objs))
-	secgroups := make([]*SSecurityGroup, len(objs))
 	for i := range rows {
 		rows[i] = api.SecgroupDetails{
 			SharableVirtualResourceDetails: virtRows[i],
@@ -373,15 +393,10 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		rows[i].CloudregionResourceInfo = regionRows[i]
 		secgroup := objs[i].(*SSecurityGroup)
 		secgroupIds[i] = secgroup.Id
-		secgroups[i] = secgroup
 	}
-
-	guests := []SGuest{}
-	q := GuestManager.Query().IsFalse("pending_deleted")
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.In(q.Field("secgrp_id"), secgroupIds),
-		sqlchemy.In(q.Field("admin_secgrp_id"), secgroupIds),
-	))
+	if len(secgroupIds) == 0 {
+		return rows
+	}
 
 	ownerId, queryScope, err, _ := db.FetchCheckQueryOwnerScope(ctx, userCred, query, GuestManager, policy.PolicyActionList, true)
 	if err != nil {
@@ -389,70 +404,60 @@ func (manager *SSecurityGroupManager) FetchCustomizeColumns(
 		return rows
 	}
 
-	q = GuestManager.FilterByOwner(ctx, q, GuestManager, userCred, ownerId, queryScope)
-	err = db.FetchModelObjects(GuestManager, q, &guests)
+	ownerGuestQ := func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		q = q.IsFalse("pending_deleted")
+		return GuestManager.FilterByOwner(ctx, q, GuestManager, userCred, ownerId, queryScope)
+	}
+
+	// non-system guests with secgrp_id
+	normalQ := ownerGuestQ(GuestManager.Query().In("secgrp_id", secgroupIds))
+	normalQ = normalQ.Filter(sqlchemy.OR(
+		sqlchemy.IsNull(normalQ.Field("is_system")),
+		sqlchemy.IsFalse(normalQ.Field("is_system")),
+	))
+	normalGuestMaps, err := secgroupCountByField(normalQ, "secgrp_id")
 	if err != nil {
-		log.Errorf("db.FetchModelObjects error: %v", err)
+		log.Errorf("count normal guests error: %v", err)
 		return rows
 	}
 
-	adminGuestMaps := map[string]int{}
-	systemGuestMaps := map[string]int{}
-	normalGuestMaps := map[string]int{}
-	for i := range guests {
-		if guests[i].IsSystem {
-			if _, ok := systemGuestMaps[guests[i].SecgrpId]; !ok {
-				systemGuestMaps[guests[i].SecgrpId] = 0
-			}
-			systemGuestMaps[guests[i].SecgrpId]++
-		} else {
-			if _, ok := normalGuestMaps[guests[i].SecgrpId]; !ok {
-				normalGuestMaps[guests[i].SecgrpId] = 0
-			}
-			normalGuestMaps[guests[i].SecgrpId]++
-		}
-		if len(guests[i].AdminSecgrpId) > 0 {
-			if _, ok := adminGuestMaps[guests[i].AdminSecgrpId]; !ok {
-				adminGuestMaps[guests[i].AdminSecgrpId] = 0
-			}
-			adminGuestMaps[guests[i].AdminSecgrpId]++
-		}
-	}
-
-	sq := GuestManager.Query("id").IsFalse("pending_deleted")
-	sq = GuestManager.FilterByOwner(ctx, sq, GuestManager, userCred, ownerId, queryScope)
-
-	guestSecgroups := []SGuestsecgroup{}
-	q = GuestsecgroupManager.Query().In("secgroup_id", secgroupIds).In("guest_id", sq.SubQuery())
-	err = db.FetchModelObjects(GuestsecgroupManager, q, &guestSecgroups)
+	// system guests with secgrp_id
+	systemQ := ownerGuestQ(GuestManager.Query().In("secgrp_id", secgroupIds).IsTrue("is_system"))
+	systemGuestMaps, err := secgroupCountByField(systemQ, "secgrp_id")
 	if err != nil {
-		log.Errorf("db.FetchModelObjects error: %v", err)
+		log.Errorf("count system guests error: %v", err)
 		return rows
 	}
 
-	for i := range guestSecgroups {
-		if _, ok := normalGuestMaps[guestSecgroups[i].SecgroupId]; !ok {
-			normalGuestMaps[guestSecgroups[i].SecgroupId] = 0
-		}
-		normalGuestMaps[guestSecgroups[i].SecgroupId]++
+	// admin_secgrp_id guests
+	adminQ := ownerGuestQ(GuestManager.Query().In("admin_secgrp_id", secgroupIds))
+	adminGuestMaps, err := secgroupCountByField(adminQ, "admin_secgrp_id")
+	if err != nil {
+		log.Errorf("count admin guests error: %v", err)
+		return rows
 	}
 
-	rules := []SSecurityGroupRule{}
-	q = SecurityGroupRuleManager.Query().In("secgroup_id", secgroupIds)
-	err = db.FetchModelObjects(SecurityGroupRuleManager, q, &rules)
+	// additional secgroups via guestsecgroups joint
+	guestIdSQ := ownerGuestQ(GuestManager.Query("id")).SubQuery()
+	gsQ := GuestsecgroupManager.Query().In("secgroup_id", secgroupIds).In("guest_id", guestIdSQ)
+	extraGuestMaps, err := secgroupCountByField(gsQ, "secgroup_id")
 	if err != nil {
-		log.Errorf("db.FetchModelObjects error: %v", err)
+		log.Errorf("count guestsecgroups error: %v", err)
 		return rows
+	}
+	for id, cnt := range extraGuestMaps {
+		normalGuestMaps[id] += cnt
 	}
 
 	totalCnt, err := manager.TotalCnt(secgroupIds)
 	if err != nil {
+		log.Errorf("TotalCnt error: %v", err)
 		return rows
 	}
 	for i := range rows {
-		rows[i].GuestCnt, _ = normalGuestMaps[secgroupIds[i]]
-		rows[i].AdminGuestCnt, _ = adminGuestMaps[secgroupIds[i]]
-		rows[i].SystemGuestCnt, _ = systemGuestMaps[secgroupIds[i]]
+		rows[i].GuestCnt = normalGuestMaps[secgroupIds[i]]
+		rows[i].AdminGuestCnt = adminGuestMaps[secgroupIds[i]]
+		rows[i].SystemGuestCnt = systemGuestMaps[secgroupIds[i]]
 		if cnt, ok := totalCnt[secgroupIds[i]]; ok {
 			rows[i].TotalCnt = cnt.TotalCnt
 			rows[i].LoadbalancerCnt = cnt.LoadbalancerCnt

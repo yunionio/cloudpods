@@ -3809,41 +3809,106 @@ func (manager *SHostManager) FetchGuestCnt(hostIds []string) map[string]*sGuestC
 	if len(hostIds) == 0 {
 		return ret
 	}
-	guests := []SGuest{}
-	err := GuestManager.RawQuery().IsFalse("deleted").In("host_id", hostIds).NotEquals("hypervisor", api.HYPERVISOR_CONTAINER).All(&guests)
-	if err != nil {
-		log.Errorf("query host %s guests error: %v", hostIds, err)
-	}
-	for _, guest := range guests {
-		_, ok := ret[guest.HostId]
+	ensure := func(hostId string) *sGuestCnt {
+		cnt, ok := ret[hostId]
 		if !ok {
-			ret[guest.HostId] = &sGuestCnt{}
+			cnt = &sGuestCnt{}
+			ret[hostId] = cnt
 		}
-		if guest.PendingDeleted {
-			ret[guest.HostId].PendingDeletedGuestCnt += 1
-			continue
-		}
-		ret[guest.HostId].GuestCnt += 1
-		switch guest.Status {
-		case api.VM_RUNNING:
-			ret[guest.HostId].RunningGuestCnt += 1
-		case api.VM_READY:
-			ret[guest.HostId].ReadyGuestCnt += 1
-		default:
-			ret[guest.HostId].OtherGuestCnt += 1
-		}
-		if !guest.IsSystem {
-			ret[guest.HostId].NonsystemGuestCnt += 1
+		return cnt
+	}
+
+	guests := GuestManager.RawQuery().IsFalse("deleted").In("host_id", hostIds).NotEquals("hypervisor", api.HYPERVISOR_CONTAINER).SubQuery()
+	pendingCnt := sqlchemy.NewFunction(
+		sqlchemy.NewCase().When(sqlchemy.IsTrue(guests.Field("pending_deleted")), sqlchemy.NewConstField(1)).Else(sqlchemy.NewConstField(0)),
+		"", false,
+	)
+	activeCnt := sqlchemy.NewFunction(
+		sqlchemy.NewCase().When(sqlchemy.IsFalse(guests.Field("pending_deleted")), sqlchemy.NewConstField(1)).Else(sqlchemy.NewConstField(0)),
+		"", false,
+	)
+	runningCnt := sqlchemy.NewFunction(
+		sqlchemy.NewCase().When(
+			sqlchemy.AND(sqlchemy.IsFalse(guests.Field("pending_deleted")), sqlchemy.Equals(guests.Field("status"), api.VM_RUNNING)),
+			sqlchemy.NewConstField(1),
+		).Else(sqlchemy.NewConstField(0)),
+		"", false,
+	)
+	readyCnt := sqlchemy.NewFunction(
+		sqlchemy.NewCase().When(
+			sqlchemy.AND(sqlchemy.IsFalse(guests.Field("pending_deleted")), sqlchemy.Equals(guests.Field("status"), api.VM_READY)),
+			sqlchemy.NewConstField(1),
+		).Else(sqlchemy.NewConstField(0)),
+		"", false,
+	)
+	otherCnt := sqlchemy.NewFunction(
+		sqlchemy.NewCase().When(
+			sqlchemy.AND(
+				sqlchemy.IsFalse(guests.Field("pending_deleted")),
+				sqlchemy.NotEquals(guests.Field("status"), api.VM_RUNNING),
+				sqlchemy.NotEquals(guests.Field("status"), api.VM_READY),
+			),
+			sqlchemy.NewConstField(1),
+		).Else(sqlchemy.NewConstField(0)),
+		"", false,
+	)
+	nonsystemCnt := sqlchemy.NewFunction(
+		sqlchemy.NewCase().When(
+			sqlchemy.AND(
+				sqlchemy.IsFalse(guests.Field("pending_deleted")),
+				sqlchemy.OR(sqlchemy.IsNull(guests.Field("is_system")), sqlchemy.IsFalse(guests.Field("is_system"))),
+			),
+			sqlchemy.NewConstField(1),
+		).Else(sqlchemy.NewConstField(0)),
+		"", false,
+	)
+	q := guests.Query(
+		guests.Field("host_id"),
+		sqlchemy.SUM("pending_deleted_guest_cnt", pendingCnt),
+		sqlchemy.SUM("guest_cnt", activeCnt),
+		sqlchemy.SUM("running_guest_cnt", runningCnt),
+		sqlchemy.SUM("ready_guest_cnt", readyCnt),
+		sqlchemy.SUM("other_guest_cnt", otherCnt),
+		sqlchemy.SUM("nonsystem_guest_cnt", nonsystemCnt),
+	).GroupBy(guests.Field("host_id"))
+	stats := []struct {
+		HostId                 string
+		PendingDeletedGuestCnt int
+		GuestCnt               int
+		RunningGuestCnt        int
+		ReadyGuestCnt          int
+		OtherGuestCnt          int
+		NonsystemGuestCnt      int
+	}{}
+	if err := q.All(&stats); err != nil {
+		log.Errorf("query host %s guests error: %v", hostIds, err)
+	} else {
+		for i := range stats {
+			cnt := ensure(stats[i].HostId)
+			cnt.PendingDeletedGuestCnt = stats[i].PendingDeletedGuestCnt
+			cnt.GuestCnt = stats[i].GuestCnt
+			cnt.RunningGuestCnt = stats[i].RunningGuestCnt
+			cnt.ReadyGuestCnt = stats[i].ReadyGuestCnt
+			cnt.OtherGuestCnt = stats[i].OtherGuestCnt
+			cnt.NonsystemGuestCnt = stats[i].NonsystemGuestCnt
 		}
 	}
 
-	GuestManager.RawQuery().IsFalse("deleted").In("backup_host_id", hostIds).NotEquals("hypervisor", api.HYPERVISOR_CONTAINER).All(&guests)
-	for _, guest := range guests {
-		_, ok := ret[guest.BackupHostId]
-		if !ok {
-			ret[guest.BackupHostId] = &sGuestCnt{}
+	backupGuests := GuestManager.RawQuery().IsFalse("deleted").In("backup_host_id", hostIds).NotEquals("hypervisor", api.HYPERVISOR_CONTAINER).SubQuery()
+	bq := backupGuests.Query(
+		backupGuests.Field("backup_host_id").Label("host_id"),
+		sqlchemy.COUNT("backup_guest_cnt"),
+	).GroupBy(backupGuests.Field("backup_host_id"))
+	backupStats := []struct {
+		HostId         string
+		BackupGuestCnt int
+	}{}
+	if err := bq.All(&backupStats); err != nil {
+		log.Errorf("query host %s backup guests error: %v", hostIds, err)
+	} else {
+		for i := range backupStats {
+			ensure(backupStats[i].HostId).BackupGuestCnt = backupStats[i].BackupGuestCnt
 		}
-		ret[guest.BackupHostId].BackupGuestCnt += 1
 	}
 
 	return ret
