@@ -289,43 +289,47 @@ func (manager *SDnsZoneManager) FetchCustomizeColumns(
 		zoneIds[i] = zone.Id
 	}
 
-	q := DnsZoneVpcManager.Query().In("dns_zone_id", zoneIds)
-	vpcs := []SDnsZoneVpc{}
-	err := q.All(&vpcs)
+	vpcQ := DnsZoneVpcManager.Query().In("dns_zone_id", zoneIds).SubQuery()
+	vpcCntQ := vpcQ.Query(
+		vpcQ.Field("dns_zone_id"),
+		sqlchemy.COUNT("vpc_count"),
+	).GroupBy(vpcQ.Field("dns_zone_id"))
+	vpcCounts := []struct {
+		DnsZoneId string
+		VpcCount  int
+	}{}
+	err := vpcCntQ.All(&vpcCounts)
 	if err != nil {
 		log.Errorf("query dns zone vpcs error: %v", err)
 		return rows
 	}
-	vpcMap := map[string][]string{}
-	for i := range vpcs {
-		_, ok := vpcMap[vpcs[i].DnsZoneId]
-		if !ok {
-			vpcMap[vpcs[i].DnsZoneId] = []string{}
-		}
-		vpcMap[vpcs[i].DnsZoneId] = append(vpcMap[vpcs[i].DnsZoneId], vpcs[i].VpcId)
+	vpcMap := map[string]int{}
+	for i := range vpcCounts {
+		vpcMap[vpcCounts[i].DnsZoneId] = vpcCounts[i].VpcCount
 	}
-	q = DnsRecordManager.Query().In("dns_zone_id", zoneIds)
-	records := []SDnsRecord{}
-	err = q.All(&records)
+
+	recordQ := DnsRecordManager.Query().In("dns_zone_id", zoneIds).SubQuery()
+	recordCntQ := recordQ.Query(
+		recordQ.Field("dns_zone_id"),
+		sqlchemy.COUNT("dns_record_count"),
+	).GroupBy(recordQ.Field("dns_zone_id"))
+	recordCounts := []struct {
+		DnsZoneId      string
+		DnsRecordCount int
+	}{}
+	err = recordCntQ.All(&recordCounts)
 	if err != nil {
 		log.Errorf("query dns zone records error: %v", err)
 		return rows
 	}
-
-	recordMap := map[string][]SDnsRecord{}
-	for i := range records {
-		_, ok := recordMap[records[i].DnsZoneId]
-		if !ok {
-			recordMap[records[i].DnsZoneId] = []SDnsRecord{}
-		}
-		recordMap[records[i].DnsZoneId] = append(recordMap[records[i].DnsZoneId], records[i])
+	recordMap := map[string]int{}
+	for i := range recordCounts {
+		recordMap[recordCounts[i].DnsZoneId] = recordCounts[i].DnsRecordCount
 	}
 
 	for i := range rows {
-		vpcs, _ := vpcMap[zoneIds[i]]
-		rows[i].VpcCount = len(vpcs)
-		records, _ := recordMap[zoneIds[i]]
-		rows[i].DnsRecordCount = len(records)
+		rows[i].VpcCount = vpcMap[zoneIds[i]]
+		rows[i].DnsRecordCount = recordMap[zoneIds[i]]
 	}
 
 	return rows
