@@ -58,7 +58,7 @@ func init() {
 	utils.RegisterArgGenerator(MonitorAgent, utils.GetArgs)
 }
 
-var MonitorAgent = "monitor agent"
+var MonitorAgent = api.SCRIPT_NAME
 
 func (sm *SScriptManager) InitializeData() error {
 	q := sm.Query().Equals("playbook_reference", MonitorAgent)
