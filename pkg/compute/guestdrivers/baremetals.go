@@ -124,7 +124,18 @@ func (self *SBaremetalGuestDriver) PrepareDiskRaidConfig(userCred mcclient.Token
 }
 
 func (self *SBaremetalGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{api.VM_READY, api.VM_ADMIN}, nil
+	return []string{api.VM_READY, api.VM_ADMIN, api.VM_RUNNING}, nil
+}
+
+func (self *SBaremetalGuestDriver) ValidateRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, input *api.ServerRebuildRootInput) (*api.ServerRebuildRootInput, error) {
+	host, err := guest.GetHost()
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to GetHost for guest %q", guest.GetId())
+	}
+	if host.IsImport {
+		return input, httperrors.NewForbiddenError("cannot rebuild root for imported baremetal")
+	}
+	return input, nil
 }
 
 func (self *SBaremetalGuestDriver) IsChangeInstanceTypeWhileRunningSupported(guest *models.SGuest) (bool, error) {
