@@ -109,13 +109,36 @@ func (manager *SGlobalVpcManager) FetchCustomizeColumns(
 	rows := make([]api.GlobalVpcDetails, len(objs))
 	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	gvIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.GlobalVpcDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 			ManagedResourceInfo:                    managerRows[i],
 		}
 		gv := objs[i].(*SGlobalVpc)
-		rows[i].VpcCount, _ = gv.GetVpcCount()
+		gvIds[i] = gv.Id
+	}
+	if len(gvIds) > 0 {
+		vpcQ := VpcManager.Query().In("globalvpc_id", gvIds).SubQuery()
+		cntQ := vpcQ.Query(
+			vpcQ.Field("globalvpc_id"),
+			sqlchemy.COUNT("vpc_count"),
+		).GroupBy(vpcQ.Field("globalvpc_id"))
+		counts := []struct {
+			GlobalvpcId string
+			VpcCount    int
+		}{}
+		if err := cntQ.All(&counts); err != nil {
+			log.Errorf("count globalvpc vpcs error: %v", err)
+		} else {
+			cntMap := map[string]int{}
+			for i := range counts {
+				cntMap[counts[i].GlobalvpcId] = counts[i].VpcCount
+			}
+			for i := range rows {
+				rows[i].VpcCount = cntMap[gvIds[i]]
+			}
+		}
 	}
 	return rows
 }
