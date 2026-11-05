@@ -1214,6 +1214,8 @@ type ServerRebuildRootOptions struct {
 	AutoStart     *bool  `help:"Auto start server after it is created" mcp:"true"`
 	AllDisks      *bool  `help:"Rebuild all disks including data disks" mcp:"true"`
 	UserData      string `hlep:"user data scripts"`
+
+	DeployTelegraf *bool `help:"Deploy telegraf agent" mcp:"true"`
 }
 
 func (o *ServerRebuildRootOptions) GetId() string {
