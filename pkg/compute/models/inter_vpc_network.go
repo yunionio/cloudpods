@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
@@ -192,21 +193,26 @@ func (manager *SInterVpcNetworkManager) FetchCustomizeColumns(
 		vpcNetworkIds[i] = vpcNetwork.Id
 	}
 
-	vpcNetworkVpcs := []SInterVpcNetworkVpc{}
-	q := InterVpcNetworkVpcManager.Query().In("inter_vpc_network_id", vpcNetworkIds)
-	err := db.FetchModelObjects(InterVpcNetworkVpcManager, q, &vpcNetworkVpcs)
+	vpcQ := InterVpcNetworkVpcManager.Query().In("inter_vpc_network_id", vpcNetworkIds).SubQuery()
+	cntQ := vpcQ.Query(
+		vpcQ.Field("inter_vpc_network_id"),
+		sqlchemy.COUNT("vpc_count"),
+	).GroupBy(vpcQ.Field("inter_vpc_network_id"))
+	counts := []struct {
+		InterVpcNetworkId string
+		VpcCount          int
+	}{}
+	err := cntQ.All(&counts)
 	if err != nil {
+		log.Errorf("count inter vpc network vpcs error: %v", err)
 		return rows
 	}
-	vpcMap := map[string][]string{}
-	for i := range vpcNetworkVpcs {
-		if _, ok := vpcMap[vpcNetworkVpcs[i].InterVpcNetworkId]; !ok {
-			vpcMap[vpcNetworkVpcs[i].InterVpcNetworkId] = []string{}
-		}
-		vpcMap[vpcNetworkVpcs[i].InterVpcNetworkId] = append(vpcMap[vpcNetworkVpcs[i].InterVpcNetworkId], vpcNetworkVpcs[i].VpcId)
+	vpcMap := map[string]int{}
+	for i := range counts {
+		vpcMap[counts[i].InterVpcNetworkId] = counts[i].VpcCount
 	}
 	for i := range rows {
-		rows[i].VpcCount = len(vpcMap[vpcNetworkIds[i]])
+		rows[i].VpcCount = vpcMap[vpcNetworkIds[i]]
 	}
 	return rows
 }
