@@ -2,6 +2,8 @@ module yunion.io/x/onecloud
 
 go 1.24
 
+godebug multipathtcp=0
+
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
