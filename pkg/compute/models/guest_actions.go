@@ -2137,14 +2137,6 @@ func (self *SGuest) PerformRebuildRoot(
 		return nil, err
 	}
 
-	if len(input.UserData) > 0 {
-		// validate UserData
-		if err := userdata.ValidateUserdata(input.UserData, self.OsType); err != nil {
-			return nil, httperrors.NewInputParameterError("Invalid userdata: %v", err)
-		}
-		self.setUserData(ctx, userCred, input.UserData)
-	}
-
 	if len(input.ImageId) > 0 {
 		img, err := CachedimageManager.getImageInfo(ctx, userCred, input.ImageId, false)
 		if err != nil {
@@ -2187,7 +2179,7 @@ func (self *SGuest) PerformRebuildRoot(
 		}
 		osType, _ := img.Properties["os_type"]
 		osName := self.GetMetadata(ctx, "os_name", userCred)
-		if len(osName) == 0 && len(osType) == 0 && strings.ToLower(osType) != strings.ToLower(osName) {
+		if len(osName) > 0 && len(osType) > 0 && !strings.EqualFold(osType, osName) {
 			return nil, httperrors.NewBadRequestError("Cannot switch OS between %s-%s", osName, osType)
 		}
 		input.ImageId = img.Id
@@ -2244,6 +2236,16 @@ func (self *SGuest) PerformRebuildRoot(
 		err = seclib2.ValidatePassword(passwd)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidatePassword")
+		}
+	}
+
+	if len(input.UserData) > 0 {
+		// validate UserData
+		if err := userdata.ValidateUserdata(input.UserData, self.OsType); err != nil {
+			return nil, httperrors.NewInputParameterError("Invalid userdata: %v", err)
+		}
+		if err := self.setUserData(ctx, userCred, input.UserData); err != nil {
+			return nil, httperrors.NewGeneralError(err)
 		}
 	}
 
