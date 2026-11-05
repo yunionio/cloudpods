@@ -337,12 +337,6 @@ func (manager *SServerSkuManager) FetchCustomizeColumns(
 		rows[i].CloudEnv = strings.Split(zoneRows[i].RegionExternalId, "/")[0]
 	}
 
-	ret := []struct {
-		InstanceType  string
-		CloudregionId string
-		ZoneId        string
-	}{}
-
 	guestsQ := GuestManager.Query().SubQuery()
 	hostsQ := HostManager.Query().SubQuery()
 	zonesQ := ZoneManager.Query().SubQuery()
@@ -350,10 +344,18 @@ func (manager *SServerSkuManager) FetchCustomizeColumns(
 		guestsQ.Field("instance_type"),
 		hostsQ.Field("zone_id"),
 		zonesQ.Field("cloudregion_id"),
+		sqlchemy.COUNT("cnt"),
 	).
 		Join(hostsQ, sqlchemy.Equals(guestsQ.Field("host_id"), hostsQ.Field("id"))).
 		Join(zonesQ, sqlchemy.Equals(hostsQ.Field("zone_id"), zonesQ.Field("id"))).
-		Filter(sqlchemy.In(guestsQ.Field("instance_type"), instanceTypes))
+		Filter(sqlchemy.In(guestsQ.Field("instance_type"), instanceTypes)).
+		GroupBy(guestsQ.Field("instance_type"), hostsQ.Field("zone_id"), zonesQ.Field("cloudregion_id"))
+	ret := []struct {
+		InstanceType  string
+		CloudregionId string
+		ZoneId        string
+		Cnt           int
+	}{}
 	err := q.All(&ret)
 	if err != nil {
 		log.Errorf("query instance cnt error: %v", err)
@@ -365,16 +367,8 @@ func (manager *SServerSkuManager) FetchCustomizeColumns(
 		if !ok {
 			skuMap[sku.InstanceType] = map[string]int{}
 		}
-		_, ok = skuMap[sku.InstanceType][sku.ZoneId]
-		if !ok {
-			skuMap[sku.InstanceType][sku.ZoneId] = 0
-		}
-		skuMap[sku.InstanceType][sku.ZoneId] += 1
-		_, ok = skuMap[sku.InstanceType][sku.CloudregionId]
-		if !ok {
-			skuMap[sku.InstanceType][sku.CloudregionId] = 0
-		}
-		skuMap[sku.InstanceType][sku.CloudregionId] += 1
+		skuMap[sku.InstanceType][sku.ZoneId] += sku.Cnt
+		skuMap[sku.InstanceType][sku.CloudregionId] += sku.Cnt
 	}
 	for i := range rows {
 		sku := objs[i].(*SServerSku)
