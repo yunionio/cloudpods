@@ -31,6 +31,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/httputils"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 const (
@@ -129,7 +131,7 @@ func (c *client) QueryRange(ctx context.Context, httpCli *http.Client, query str
 				log.Errorf("ctxhttp.Do fail with status %d message %s", resp.StatusCode, errMsg)
 			}
 		}
-		return nil, errors.Wrapf(ErrVMInvalidResponse, "status code: %d (%s)", resp.StatusCode, msg)
+		return nil, vmResponseError(resp.StatusCode, msg)
 	}
 
 	var response Response
@@ -192,7 +194,7 @@ func (c *client) RawQuery(ctx context.Context, httpCli *http.Client, query strin
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode/100 != 2 {
-		return nil, errors.Wrapf(ErrVMInvalidResponse, "status code: %d", resp.StatusCode)
+		return nil, vmResponseError(resp.StatusCode, "")
 	}
 
 	var response Response
@@ -202,6 +204,17 @@ func (c *client) RawQuery(ctx context.Context, httpCli *http.Client, query strin
 		return nil, errors.Wrap(err, "decode json response")
 	}
 	return &response, nil
+}
+
+func vmResponseError(statusCode int, msg string) error {
+	err := error(ErrVMInvalidResponse)
+	if statusCode == http.StatusUnprocessableEntity {
+		err = httperrors.ErrUnprocessableEntity
+	}
+	if len(msg) > 0 {
+		return errors.Wrapf(err, "status code: %d (%s)", statusCode, msg)
+	}
+	return errors.Wrapf(err, "status code: %d", statusCode)
 }
 
 func NewClient(endpoint string) (Client, error) {
