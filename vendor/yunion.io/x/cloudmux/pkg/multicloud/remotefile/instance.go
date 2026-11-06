@@ -289,6 +289,10 @@ func (self *SInstance) GetHealthStatus() string {
 	return ""
 }
 
+func (self *SInstance) GetShutdownMode() string {
+	return api.VM_SHUTDOWN_MODE_KEEP_CHARGING
+}
+
 func (self *SInstance) GetIsolateDeviceIds() ([]string, error) {
 	return nil, cloudprovider.ErrNotSupported
 }

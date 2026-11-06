@@ -353,6 +353,13 @@ func (self *SInstance) GetStatus() string {
 	}
 }
 
+func (self *SInstance) GetShutdownMode() string {
+	if strings.EqualFold(self.StoppedMode, "StopCharging") {
+		return api.VM_SHUTDOWN_MODE_STOP_CHARGING
+	}
+	return api.VM_SHUTDOWN_MODE_KEEP_CHARGING
+}
+
 func (self *SInstance) Refresh() error {
 	new, err := self.host.zone.region.GetInstance(self.InstanceId)
 	if err != nil {
