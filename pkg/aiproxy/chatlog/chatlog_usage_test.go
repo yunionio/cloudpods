@@ -45,3 +45,25 @@ func TestFillUsageFromJSONMissing(t *testing.T) {
 		t.Fatalf("expected missing usage, got ok=%v missing=%v", ok, rec.UsageMissing)
 	}
 }
+
+func TestFillUsageFromJSONCachedTokensOpenAI(t *testing.T) {
+	rec := &Record{}
+	ok := FillUsageFromJSON(rec, []byte(`{"usage":{"prompt_tokens":100,"completion_tokens":10,"total_tokens":110,"prompt_tokens_details":{"cached_tokens":80}}}`))
+	if !ok {
+		t.Fatal("expected usage ok")
+	}
+	if rec.CachedTokens != 80 || rec.CacheReadTokens != 80 {
+		t.Fatalf("cached=%d read=%d", rec.CachedTokens, rec.CacheReadTokens)
+	}
+}
+
+func TestFillUsageFromJSONCachedTokensAnthropic(t *testing.T) {
+	rec := &Record{}
+	ok := FillUsageFromJSON(rec, []byte(`{"usage":{"input_tokens":120,"output_tokens":5,"cache_read_input_tokens":90,"cache_creation_input_tokens":10}}`))
+	if !ok {
+		t.Fatal("expected usage ok")
+	}
+	if rec.CacheReadTokens != 90 || rec.CacheCreationTokens != 10 || rec.CachedTokens != 90 {
+		t.Fatalf("unexpected cache fields: %+v", rec)
+	}
+}
