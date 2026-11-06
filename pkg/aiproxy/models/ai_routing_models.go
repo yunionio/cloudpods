@@ -347,6 +347,107 @@ func fetchAiRoutingModels(routingId string, enabledOnly bool) ([]SAiRoutingModel
 	return entries, nil
 }
 
+func fetchLiveAiModelByProviderAndKey(providerId, modelKey string) (*SAiModel, error) {
+	providerId = strings.TrimSpace(providerId)
+	modelKey = strings.TrimSpace(modelKey)
+	if providerId == "" || modelKey == "" {
+		return nil, nil
+	}
+	obj := SAiModel{}
+	err := AiModelManager.Query().
+		Equals("ai_provider_id", providerId).
+		Equals("model_key", modelKey).
+		First(&obj)
+	if err != nil {
+		if stderrors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Wrap(err, "fetch live ai_model")
+	}
+	return &obj, nil
+}
+
+// remountAiRoutingModelsToModel rewrites ai_routing_models that still reference soft-deleted
+// ai_model rows with the same provider_id + model_key, so delete+set-models keeps routings working.
+func remountAiRoutingModelsToModel(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	mdl *SAiModel,
+) error {
+	_ = ctx
+	_ = userCred
+	if mdl == nil {
+		return nil
+	}
+	providerId := strings.TrimSpace(mdl.AiProviderId)
+	modelKey := strings.TrimSpace(mdl.ModelKey)
+	liveId := strings.TrimSpace(mdl.Id)
+	if providerId == "" || modelKey == "" || liveId == "" {
+		return nil
+	}
+
+	staleIds := make([]string, 0, 8)
+	q := AiModelManager.RawQuery("id").
+		Equals("ai_provider_id", providerId).
+		Equals("model_key", modelKey).
+		NotEquals("id", liveId).
+		IsTrue("deleted")
+	rows, err := q.Rows()
+	if err != nil {
+		return errors.Wrap(err, "list soft-deleted ai_models")
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return errors.Wrap(err, "scan soft-deleted ai_model id")
+		}
+		id = strings.TrimSpace(id)
+		if id != "" {
+			staleIds = append(staleIds, id)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return errors.Wrap(err, "iterate soft-deleted ai_models")
+	}
+	if len(staleIds) == 0 {
+		return nil
+	}
+
+	bindings := make([]SAiRoutingModel, 0, 8)
+	bq := AiRoutingModelManager.Query().
+		Equals("ai_provider_id", providerId).
+		In("ai_model_id", staleIds)
+	if err := bq.All(&bindings); err != nil {
+		return errors.Wrap(err, "list stale ai_routing_models")
+	}
+	pending := selectAiRoutingModelsPendingRemount(bindings, liveId)
+	for _, binding := range pending {
+		binding.SetModelManager(AiRoutingModelManager, binding)
+		_, err := db.Update(binding, func() error {
+			binding.AiModelId = liveId
+			return nil
+		})
+		if err != nil {
+			return errors.Wrapf(err, "update ai_routing_model %s ai_model_id", binding.Id)
+		}
+	}
+	return nil
+}
+
+// selectAiRoutingModelsPendingRemount returns bindings whose ai_model_id is not already liveId.
+func selectAiRoutingModelsPendingRemount(bindings []SAiRoutingModel, liveId string) []*SAiRoutingModel {
+	liveId = strings.TrimSpace(liveId)
+	out := make([]*SAiRoutingModel, 0, len(bindings))
+	for i := range bindings {
+		if strings.TrimSpace(bindings[i].AiModelId) == liveId {
+			continue
+		}
+		out = append(out, &bindings[i])
+	}
+	return out
+}
+
 func fetchEnabledAiRoutingModels(routingId string) ([]SAiRoutingModel, error) {
 	return fetchAiRoutingModels(routingId, true)
 }
