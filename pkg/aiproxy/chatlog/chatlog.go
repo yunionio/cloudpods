@@ -79,10 +79,14 @@ type Record struct {
 	ErrorMessage   string      `json:"error_message,omitempty"`
 	LatencyMs      int64       `json:"latency_ms,omitempty"`
 
-	PromptTokens     int  `json:"prompt_tokens,omitempty"`
-	CompletionTokens int  `json:"completion_tokens,omitempty"`
-	TotalTokens      int  `json:"total_tokens,omitempty"`
-	UsageMissing     bool `json:"usage_missing,omitempty"`
+	PromptTokens        int  `json:"prompt_tokens,omitempty"`
+	CompletionTokens    int  `json:"completion_tokens,omitempty"`
+	TotalTokens         int  `json:"total_tokens,omitempty"`
+	CachedTokens        int  `json:"cached_tokens,omitempty"`
+	CacheReadTokens     int  `json:"cache_read_tokens,omitempty"`
+	CacheCreationTokens int  `json:"cache_creation_tokens,omitempty"`
+	ReasoningTokens     int  `json:"reasoning_tokens,omitempty"`
+	UsageMissing        bool `json:"usage_missing,omitempty"`
 
 	RoutingEnabled       bool                   `json:"routing_enabled"`
 	RoutingCandidates    []string               `json:"routing_candidates,omitempty"`
@@ -364,11 +368,27 @@ func (w *Writer) Flush(ctx context.Context) error {
 func FillUsageFromJSON(rec *Record, data []byte) bool {
 	var wrap struct {
 		Usage *struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
-			TotalTokens      int `json:"total_tokens"`
-			InputTokens      int `json:"input_tokens"`
-			OutputTokens     int `json:"output_tokens"`
+			PromptTokens           int `json:"prompt_tokens"`
+			CompletionTokens       int `json:"completion_tokens"`
+			TotalTokens            int `json:"total_tokens"`
+			InputTokens            int `json:"input_tokens"`
+			OutputTokens           int `json:"output_tokens"`
+			CacheReadInputTokens   int `json:"cache_read_input_tokens"`
+			CacheCreationInputToks int `json:"cache_creation_input_tokens"`
+			PromptCacheHitTokens   int `json:"prompt_cache_hit_tokens"`
+			PromptCacheMissTokens  int `json:"prompt_cache_miss_tokens"`
+			PromptTokensDetails    *struct {
+				CachedTokens int `json:"cached_tokens"`
+			} `json:"prompt_tokens_details"`
+			InputTokensDetails *struct {
+				CachedTokens int `json:"cached_tokens"`
+			} `json:"input_tokens_details"`
+			CompletionTokensDetails *struct {
+				ReasoningTokens int `json:"reasoning_tokens"`
+			} `json:"completion_tokens_details"`
+			OutputTokensDetails *struct {
+				ReasoningTokens int `json:"reasoning_tokens"`
+			} `json:"output_tokens_details"`
 		} `json:"usage"`
 	}
 	if rec == nil || json.Unmarshal(data, &wrap) != nil || wrap.Usage == nil {
@@ -397,6 +417,35 @@ func FillUsageFromJSON(rec *Record, data []byte) bool {
 	rec.PromptTokens = prompt
 	rec.CompletionTokens = completion
 	rec.TotalTokens = total
+
+	cacheRead := u.CacheReadInputTokens
+	if cacheRead <= 0 {
+		cacheRead = u.PromptCacheHitTokens
+	}
+	if cacheRead <= 0 && u.PromptTokensDetails != nil {
+		cacheRead = u.PromptTokensDetails.CachedTokens
+	}
+	if cacheRead <= 0 && u.InputTokensDetails != nil {
+		cacheRead = u.InputTokensDetails.CachedTokens
+	}
+	cacheCreation := u.CacheCreationInputToks
+	cached := cacheRead
+	if cached <= 0 {
+		cached = cacheCreation
+	}
+	rec.CacheReadTokens = cacheRead
+	rec.CacheCreationTokens = cacheCreation
+	rec.CachedTokens = cached
+
+	reasoning := 0
+	if u.CompletionTokensDetails != nil {
+		reasoning = u.CompletionTokensDetails.ReasoningTokens
+	}
+	if reasoning <= 0 && u.OutputTokensDetails != nil {
+		reasoning = u.OutputTokensDetails.ReasoningTokens
+	}
+	rec.ReasoningTokens = reasoning
+
 	rec.UsageMissing = false
 	return true
 }
