@@ -19,6 +19,21 @@ import (
 	"testing"
 )
 
+func TestSelectAiRoutingModelsPendingRemount(t *testing.T) {
+	bindings := []SAiRoutingModel{
+		{AiModelId: "old-deleted"},
+		{AiModelId: "live"},
+		{AiModelId: "other-old"},
+	}
+	pending := selectAiRoutingModelsPendingRemount(bindings, "live")
+	if len(pending) != 2 {
+		t.Fatalf("pending=%d want 2", len(pending))
+	}
+	if pending[0].AiModelId != "old-deleted" || pending[1].AiModelId != "other-old" {
+		t.Fatalf("pending model ids = %s,%s", pending[0].AiModelId, pending[1].AiModelId)
+	}
+}
+
 func TestCatalogPartMatches(t *testing.T) {
 	mdl := &SAiModel{ModelKey: "claude-sonnet-4-6"}
 	entry := &SAiRoutingModel{ModelPattern: "fast"}
