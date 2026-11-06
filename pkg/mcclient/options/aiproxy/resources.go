@@ -15,6 +15,8 @@
 package aiproxy
 
 import (
+	"strings"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
@@ -88,11 +90,20 @@ func (o *AiProviderTestConnectivityOptions) Params() (jsonutils.JSONObject, erro
 
 type AiProviderSetModelsOptions struct {
 	options.BaseIdOptions
-	ModelKeys []string `help:"model keys to import" json:"model_keys"`
+	ModelKeys []string `help:"model keys to import (simple form)" json:"model_keys"`
+	Models    string   `help:"models JSON array: [{model_key,context_window?,input_modalities?}]" json:"-"`
 }
 
 func (o *AiProviderSetModelsOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
+	if strings.TrimSpace(o.Models) != "" {
+		obj, err := jsonutils.ParseString(o.Models)
+		if err != nil {
+			return nil, errors.Wrap(err, "parse --models JSON")
+		}
+		params.Set("models", obj)
+		return params, nil
+	}
 	arr := jsonutils.NewArray()
 	for _, k := range o.ModelKeys {
 		arr.Add(jsonutils.NewString(k))
@@ -154,6 +165,7 @@ type AiModelCreateOptions struct {
 
 	AiProviderId     string `help:"ai_provider id or name" json:"ai_provider_id"`
 	ModelKey         string `help:"model routing key" json:"model_key"`
+	ContextWindow    int    `help:"context window in tokens (0=catalog default when known)" json:"context_window"`
 	VisualProviderId string `help:"ai_provider for tool-delegated vision" json:"visual_provider_id"`
 	VisualModelKey   string `help:"upstream model id for visual analysis" json:"visual_model_key"`
 	VisualEnabled    *bool  `help:"enable visual extension" json:"-"`
@@ -182,6 +194,7 @@ type AiModelUpdateOptions struct {
 	Desc             string `json:"description,omitempty"`
 	AiProviderId     string `json:"ai_provider_id,omitempty"`
 	ModelKey         string `json:"model_key,omitempty"`
+	ContextWindow    *int   `help:"context window in tokens" json:"context_window,omitempty"`
 	VisualProviderId string `json:"visual_provider_id,omitempty"`
 	VisualModelKey   string `json:"visual_model_key,omitempty"`
 	VisualEnabled    *bool  `help:"enable visual extension" json:"-"`
