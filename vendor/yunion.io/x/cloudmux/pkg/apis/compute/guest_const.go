@@ -48,6 +48,9 @@ const (
 	VM_POWER_STATES_OFF = "off"
 	VM_POWER_STATES_ON  = "on"
 
+	VM_SHUTDOWN_MODE_KEEP_CHARGING = "keep_charging"
+	VM_SHUTDOWN_MODE_STOP_CHARGING = "stop_charging"
+
 	HYPERVISOR_ESXI = "esxi"
 
 	HYPERVISOR_ALIYUN         = "aliyun"
