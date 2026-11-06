@@ -16,6 +16,7 @@ package aiproxy
 
 import (
 	"encoding/json"
+	"strings"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
@@ -35,6 +36,7 @@ type AiModelCreateInput struct {
 
 	AiProviderId     string          `json:"ai_provider_id"`
 	ModelKey         string          `json:"model_key"`
+	ContextWindow    int             `json:"context_window"`
 	VisualProviderId string          `json:"visual_provider_id"`
 	VisualModelKey   string          `json:"visual_model_key"`
 	Config           *SAiModelConfig `json:"config"`
@@ -45,6 +47,7 @@ type AiModelUpdateInput struct {
 
 	AiProviderId     string          `json:"ai_provider_id"`
 	ModelKey         string          `json:"model_key"`
+	ContextWindow    *int            `json:"context_window"`
 	VisualProviderId string          `json:"visual_provider_id"`
 	VisualModelKey   string          `json:"visual_model_key"`
 	Enabled          *bool           `json:"enabled"`
@@ -64,11 +67,14 @@ type AiModelDetails struct {
 	VisualActive       bool            `json:"visual_active"`
 	Config             *SAiModelConfig `json:"config"`
 	ContextWindow      int             `json:"context_window,omitempty"`
+	InputModalities    []string        `json:"input_modalities,omitempty"`
 }
 
-// SAiModelConfig stores per-model extension settings.
+// SAiModelConfig stores per-model capability and extension settings.
 type SAiModelConfig struct {
-	Extensions *SAiModelExtensions `json:"extensions,omitempty"`
+	// InputModalities declares native model modalities (e.g. text, image).
+	InputModalities []string            `json:"input_modalities,omitempty"`
+	Extensions      *SAiModelExtensions `json:"extensions,omitempty"`
 }
 
 type SAiModelExtensions struct {
@@ -100,6 +106,9 @@ func (c *SAiModelConfig) IsZero() bool {
 	if c == nil {
 		return true
 	}
+	if len(c.InputModalities) > 0 {
+		return false
+	}
 	return c.Extensions == nil || c.Extensions.Visual == nil
 }
 
@@ -108,8 +117,43 @@ func (cfg *SAiModelConfig) VisualEnabled() bool {
 	return cfg != nil && cfg.Extensions != nil && cfg.Extensions.Visual != nil && cfg.Extensions.Visual.Enabled
 }
 
-// InputModalitiesForCatalog returns Codex input_modalities for this model config.
+// HasImageInput reports whether stored input_modalities includes image.
+func (cfg *SAiModelConfig) HasImageInput() bool {
+	for _, m := range cfg.NormalizedInputModalities() {
+		if m == "image" {
+			return true
+		}
+	}
+	return false
+}
+
+// NormalizedInputModalities returns trimmed lowercase modality ids.
+func (cfg *SAiModelConfig) NormalizedInputModalities() []string {
+	if cfg == nil || len(cfg.InputModalities) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(cfg.InputModalities))
+	out := make([]string, 0, len(cfg.InputModalities))
+	for _, raw := range cfg.InputModalities {
+		m := strings.ToLower(strings.TrimSpace(raw))
+		if m == "" {
+			continue
+		}
+		if _, ok := seen[m]; ok {
+			continue
+		}
+		seen[m] = struct{}{}
+		out = append(out, m)
+	}
+	return out
+}
+
+// InputModalitiesForCatalog returns Codex/OpenAI input_modalities for this model config.
+// Prefers explicit input_modalities; falls back to visual-delegation implying text+image.
 func (cfg *SAiModelConfig) InputModalitiesForCatalog() []string {
+	if mods := cfg.NormalizedInputModalities(); len(mods) > 0 {
+		return mods
+	}
 	if cfg.VisualEnabled() {
 		return []string{"text", "image"}
 	}

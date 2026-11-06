@@ -31,6 +31,7 @@ type ModelsListEntry struct {
 	Object          string   `json:"object"`
 	Created         int64    `json:"created"`
 	OwnedBy         string   `json:"owned_by"`
+	ContextWindow   int      `json:"context_window,omitempty"`
 	InputModalities []string `json:"input_modalities,omitempty"`
 }
 
@@ -114,7 +115,12 @@ func ListModelsForVirtualKey(ctx context.Context, userCred mcclient.TokenCredent
 		if _, ok := seen[id]; ok {
 			continue
 		}
-		seen[id] = modelsListEntryFromModel(id, firstProviderByRouting[routing.Id], created, nil)
+		seen[id] = modelsListEntryFromModel(
+			id,
+			firstProviderByRouting[routing.Id],
+			created,
+			firstBoundModelForRouting(routing.Id, entries, modelsById),
+		)
 	}
 
 	// Pass 2: ai_routing_model entries as flat or hierarchical client-facing ids.
@@ -134,10 +140,13 @@ func ListModelsForVirtualKey(ctx context.Context, userCred mcclient.TokenCredent
 		}
 		routeKey := strings.TrimSpace(routing.ModelKey)
 		if routeKey != "" {
-			id := hierarchicalClientModelID(routing, e, mdl)
-			if id == "" {
+			part := clientFacingModelID(routing, e, mdl)
+			// Same string as the flat route key is already listed in pass 1; skip
+			// redundant "route/route" when catalog part equals the route key.
+			if part == "" || part == routeKey {
 				continue
 			}
+			id := routeKey + "/" + part
 			if _, ok := seen[id]; ok {
 				continue
 			}
@@ -190,7 +199,11 @@ func ClientFacingModelIDsForRouting(
 		}
 		var id string
 		if routeKey != "" {
-			id = hierarchicalClientModelID(routing, e, mdl)
+			part := clientFacingModelID(routing, e, mdl)
+			if part == "" || part == routeKey {
+				continue
+			}
+			id = routeKey + "/" + part
 		} else {
 			id = clientFacingModelID(routing, e, mdl)
 		}
@@ -232,7 +245,15 @@ func VisualActiveClientModelIDsForRouting(
 		}
 		var id string
 		if routeKey != "" {
-			id = hierarchicalClientModelID(routing, e, mdl)
+			part := clientFacingModelID(routing, e, mdl)
+			if part == "" {
+				continue
+			}
+			if part == routeKey {
+				id = routeKey
+			} else {
+				id = routeKey + "/" + part
+			}
 		} else {
 			id = clientFacingModelID(routing, e, mdl)
 		}
@@ -327,6 +348,26 @@ func uniqueNonEmptyStrings(in []string) []string {
 	return out
 }
 
+func firstBoundModelForRouting(
+	routingId string,
+	entries []SAiRoutingModel,
+	modelsById map[string]*SAiModel,
+) *SAiModel {
+	routingId = strings.TrimSpace(routingId)
+	if routingId == "" {
+		return nil
+	}
+	for i := range entries {
+		if entries[i].AiRoutingId != routingId {
+			continue
+		}
+		if mdl := modelsById[entries[i].AiModelId]; mdl != nil {
+			return mdl
+		}
+	}
+	return nil
+}
+
 func modelsListEntryFromModel(id, ownedBy string, created int64, mdl *SAiModel) ModelsListEntry {
 	entry := ModelsListEntry{
 		ID:      id,
@@ -334,8 +375,13 @@ func modelsListEntryFromModel(id, ownedBy string, created int64, mdl *SAiModel) 
 		Created: created,
 		OwnedBy: ownedBy,
 	}
-	if mdl != nil && mdl.VisualActive() {
-		entry.InputModalities = []string{"text", "image"}
+	if mdl != nil {
+		if cw := mdl.EffectiveContextWindow(); cw > 0 {
+			entry.ContextWindow = cw
+		}
+		if mods := mdl.Config.InputModalitiesForCatalog(); len(mods) > 0 {
+			entry.InputModalities = mods
+		}
 	}
 	return entry
 }

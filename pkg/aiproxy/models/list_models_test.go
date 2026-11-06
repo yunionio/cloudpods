@@ -60,6 +60,18 @@ func TestClientFacingModelIDsForRouting(t *testing.T) {
 		t.Fatalf("unexpected ids: %#v", ids)
 	}
 
+	sameKeyRouting := &SAiRouting{ModelKey: "Qwen3.8-Flash-Next"}
+	sameKeyMdl := &SAiModel{ModelKey: "Qwen3.8-Flash-Next", ContextWindow: 262144}
+	sameKeyIDs := ClientFacingModelIDsForRouting(
+		sameKeyRouting,
+		[]SAiRoutingModel{{AiProviderId: "p3", AiModelId: "m3"}},
+		map[string]*SAiModel{"m3": sameKeyMdl},
+		map[string]*SAiProvider{"p3": {ProviderKey: "custom"}},
+	)
+	if len(sameKeyIDs) != 1 || sameKeyIDs[0] != "Qwen3.8-Flash-Next" {
+		t.Fatalf("same-key ids = %#v, want only flat route key", sameKeyIDs)
+	}
+
 	flatRouting := &SAiRouting{ModelPattern: "qwen-turbo"}
 	flatMdl := &SAiModel{ModelKey: "qwen-turbo"}
 	flatProv := &SAiProvider{ProviderKey: "aliyun"}
@@ -72,6 +84,16 @@ func TestClientFacingModelIDsForRouting(t *testing.T) {
 	)
 	if len(flatIDs) != 1 || flatIDs[0] != "qwen-turbo" {
 		t.Fatalf("flat ids = %#v", flatIDs)
+	}
+}
+
+func TestModelsListEntryFromModelContextWindow(t *testing.T) {
+	entry := modelsListEntryFromModel("Qwen3.8-Flash-Next", "custom", 1, &SAiModel{
+		ModelKey:      "Qwen3.8-Flash-Next",
+		ContextWindow: 262144,
+	})
+	if entry.ContextWindow != 262144 {
+		t.Fatalf("context_window = %d", entry.ContextWindow)
 	}
 }
 

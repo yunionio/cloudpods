@@ -54,21 +54,33 @@ func TestCatalogContextWindow(t *testing.T) {
 		{modelKey: "gemini-1.5-pro", want: 2_000_000},
 		{modelKey: "claude-opus-4-20250514", want: 1_000_000},
 		{modelKey: "claude-sonnet-5", want: 1_000_000},
-		{modelKey: "glm-5.1", want: 0},
-		{modelKey: "gpt-5.2", want: 0},
-		{modelKey: "kimi-k2.6", want: 0},
+		{modelKey: "claude-3-5-sonnet-20241022", want: 200_000},
+		{modelKey: "gpt-4o", want: 128_000},
+		{modelKey: "gpt-5.2", want: 400_000},
+		{modelKey: "glm-5.1", want: 200_000},
+		{modelKey: "kimi-k2.6", want: 262_144},
+		{modelKey: "moonshot-v1-128k", want: 128_000},
+		{modelKey: "qwen-turbo", want: 1_000_000},
+		{modelKey: "qwen-plus", want: 1_000_000},
+		{modelKey: "qwen2.5-72b-instruct", want: 128_000},
+		{modelKey: "qwen3-235b-a22b", want: 128_000},
 		{modelKey: "", want: 0},
 	}
 	for _, tc := range cases {
 		got := CatalogContextWindow(tc.modelKey)
-		if tc.want >= 1_000_000 {
-			if got != tc.want {
-				t.Errorf("CatalogContextWindow(%q) = %d, want %d", tc.modelKey, got, tc.want)
-			}
-			continue
+		if got != tc.want {
+			t.Errorf("CatalogContextWindow(%q) = %d, want %d", tc.modelKey, got, tc.want)
 		}
-		if got >= 1_000_000 {
-			t.Errorf("CatalogContextWindow(%q) = %d, want 0 or < 1M", tc.modelKey, got)
-		}
+	}
+}
+
+func TestAiModelEffectiveContextWindow(t *testing.T) {
+	m := &SAiModel{ModelKey: "gpt-4o", ContextWindow: 64_000}
+	if got := m.EffectiveContextWindow(); got != 64_000 {
+		t.Fatalf("persisted override = %d, want 64000", got)
+	}
+	m.ContextWindow = 0
+	if got := m.EffectiveContextWindow(); got != 128_000 {
+		t.Fatalf("catalog fallback = %d, want 128000", got)
 	}
 }

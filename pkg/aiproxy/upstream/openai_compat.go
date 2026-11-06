@@ -279,8 +279,29 @@ func ListModels(ctx context.Context, baseURL, apiKey string) (*Response, *Error)
 	return &Response{StatusCode: resp.StatusCode, Body: body}, nil
 }
 
+// ModelListEntry is one upstream model from GET /v1/models (and Gemini-style lists).
+type ModelListEntry struct {
+	ID            string
+	ContextWindow int
+}
+
 // ParseModelsListBody extracts upstream model ids from a list-models JSON body.
 func ParseModelsListBody(body []byte) ([]string, error) {
+	entries, err := ParseModelsListEntries(body)
+	if err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0, len(entries))
+	for _, e := range entries {
+		keys = append(keys, e.ID)
+	}
+	return keys, nil
+}
+
+// ParseModelsListEntries extracts model ids and optional context window hints from a
+// list-models JSON body. Prefers context_length / max_model_len / context_window when present
+// (common on vLLM / SGLang / TensorFold-style local gateways).
+func ParseModelsListEntries(body []byte) ([]ModelListEntry, error) {
 	if err := validateModelsListBody(body); err != nil {
 		return nil, err
 	}
@@ -288,49 +309,111 @@ func ParseModelsListBody(body []byte) ([]string, error) {
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return nil, fmt.Errorf("invalid models response JSON")
 	}
-	keys := make([]string, 0)
+	entries := make([]ModelListEntry, 0)
 	if dataRaw, ok := raw["data"]; ok {
-		var items []struct {
-			ID string `json:"id"`
-		}
+		var items []map[string]json.RawMessage
 		if err := json.Unmarshal(dataRaw, &items); err != nil {
 			return nil, fmt.Errorf("invalid models data array")
 		}
 		for _, item := range items {
-			if id := strings.TrimSpace(item.ID); id != "" {
-				keys = append(keys, id)
+			id := jsonRawString(item["id"])
+			if id == "" {
+				continue
 			}
+			entries = append(entries, ModelListEntry{
+				ID:            id,
+				ContextWindow: contextWindowFromModelObject(item),
+			})
 		}
 	}
 	if modelsRaw, ok := raw["models"]; ok {
-		var items []struct {
-			Name string `json:"name"`
-		}
+		var items []map[string]json.RawMessage
 		if err := json.Unmarshal(modelsRaw, &items); err != nil {
 			return nil, fmt.Errorf("invalid models array")
 		}
 		for _, item := range items {
-			name := strings.TrimSpace(item.Name)
-			name = strings.TrimPrefix(name, "models/")
-			if name != "" {
-				keys = append(keys, name)
+			name := jsonRawString(item["name"])
+			name = strings.TrimPrefix(strings.TrimSpace(name), "models/")
+			if name == "" {
+				continue
 			}
+			entries = append(entries, ModelListEntry{
+				ID:            name,
+				ContextWindow: contextWindowFromModelObject(item),
+			})
 		}
 	}
-	if len(keys) == 0 {
-		return []string{}, nil
+	if len(entries) == 0 {
+		return []ModelListEntry{}, nil
 	}
-	seen := make(map[string]struct{}, len(keys))
-	uniq := make([]string, 0, len(keys))
-	for _, key := range keys {
-		if _, ok := seen[key]; ok {
+	seen := make(map[string]ModelListEntry, len(entries))
+	order := make([]string, 0, len(entries))
+	for _, e := range entries {
+		prev, ok := seen[e.ID]
+		if !ok {
+			seen[e.ID] = e
+			order = append(order, e.ID)
 			continue
 		}
-		seen[key] = struct{}{}
-		uniq = append(uniq, key)
+		if prev.ContextWindow <= 0 && e.ContextWindow > 0 {
+			seen[e.ID] = e
+		}
 	}
-	sort.Strings(uniq)
-	return uniq, nil
+	sort.Strings(order)
+	out := make([]ModelListEntry, 0, len(order))
+	for _, id := range order {
+		out = append(out, seen[id])
+	}
+	return out, nil
+}
+
+func jsonRawString(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return strings.TrimSpace(s)
+	}
+	return ""
+}
+
+func contextWindowFromModelObject(item map[string]json.RawMessage) int {
+	if item == nil {
+		return 0
+	}
+	for _, key := range []string{"context_length", "max_model_len", "context_window", "max_context_length", "max_input_tokens"} {
+		if n := jsonRawPositiveInt(item[key]); n > 0 {
+			return n
+		}
+	}
+	return 0
+}
+
+func jsonRawPositiveInt(raw json.RawMessage) int {
+	if len(raw) == 0 {
+		return 0
+	}
+	var n int64
+	if err := json.Unmarshal(raw, &n); err == nil && n > 0 {
+		return int(n)
+	}
+	var f float64
+	if err := json.Unmarshal(raw, &f); err == nil && f > 0 {
+		return int(f)
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return 0
+		}
+		var parsed int64
+		if _, err := fmt.Sscan(s, &parsed); err == nil && parsed > 0 {
+			return int(parsed)
+		}
+	}
+	return 0
 }
 
 func newUpstreamGETRequest(ctx context.Context, req *Request) (*http.Request, error) {
