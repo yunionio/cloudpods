@@ -79,6 +79,7 @@ type UsageServiceHealth struct {
 }
 
 type UsageAnalysis struct {
+	Summary               UsageOverviewSummary    `json:"summary"`
 	TokenUsage            []UsageOverviewPoint    `json:"token_usage"`
 	APIKeyComposition     []UsageComposition      `json:"api_key_composition"`
 	ModelComposition      []UsageComposition      `json:"model_composition"`
