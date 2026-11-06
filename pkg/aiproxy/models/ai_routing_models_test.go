@@ -19,6 +19,13 @@ import (
 	"testing"
 )
 
+func TestDeleteAiRoutingModelsByModelIdRequiresModelId(t *testing.T) {
+	err := deleteAiRoutingModelsByModelId(context.Background(), "")
+	if err == nil {
+		t.Fatal("expected error for empty ai_model_id")
+	}
+}
+
 func TestSelectAiRoutingModelsPendingRemount(t *testing.T) {
 	bindings := []SAiRoutingModel{
 		{AiModelId: "old-deleted"},
