@@ -36,6 +36,10 @@ func (h SHugepageInfo) BytesMb() int64 {
 	return int64(h.Total) * int64(h.SizeKb) / 1024
 }
 
+func (h SHugepageInfo) BytesFreeMb() int64 {
+	return int64(h.Free) * int64(h.SizeKb) / 1024
+}
+
 type THugepages []SHugepageInfo
 
 func (a THugepages) Len() int           { return len(a) }
@@ -46,6 +50,14 @@ func (a THugepages) BytesMb() int64 {
 	ret := int64(0)
 	for _, h := range a {
 		ret += h.BytesMb()
+	}
+	return ret
+}
+
+func (a THugepages) BytesFreeMb() int64 {
+	ret := int64(0)
+	for _, h := range a {
+		ret += h.BytesFreeMb()
 	}
 	return ret
 }

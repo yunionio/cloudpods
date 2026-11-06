@@ -173,9 +173,9 @@ func (s *SSLVMStorage) Accessible() error {
 			return errors.Wrapf(err, "lvmlock vgchange --lock-start %s failed: %s", s.Path, out)
 		}
 	}
-	if err := lvmutils.VgActive(s.Path, true, false); err != nil {
-		log.Warningf("vgactive got %s", err)
-	}
+	//if err := lvmutils.VgActive(s.Path, true, false); err != nil {
+	//	log.Warningf("vgactive got %s", err)
+	//}
 	return nil
 }
 
