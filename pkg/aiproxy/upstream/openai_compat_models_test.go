@@ -65,3 +65,20 @@ func TestParseModelsListBodyGemini(t *testing.T) {
 		t.Fatalf("keys: %#v", keys)
 	}
 }
+
+func TestParseModelsListEntriesContextLength(t *testing.T) {
+	body := []byte(`{"object":"list","data":[{"id":"Qwen3.8-Flash-Next","object":"model","owned_by":"vllm","context_length":262144,"max_model_len":262144}]}`)
+	entries, err := ParseModelsListEntries(body)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("entries: %#v", entries)
+	}
+	if entries[0].ID != "Qwen3.8-Flash-Next" {
+		t.Fatalf("id: %q", entries[0].ID)
+	}
+	if entries[0].ContextWindow != 262144 {
+		t.Fatalf("context_window: %d", entries[0].ContextWindow)
+	}
+}

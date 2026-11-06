@@ -121,7 +121,7 @@ func probeChatConnectivity(ctx context.Context, providerKey, secret string, cfg 
 	return nil
 }
 
-func listProviderModels(ctx context.Context, providerKey, secret string, cfg *api.SAiProviderConfig, timeout time.Duration) ([]string, bool, error) {
+func listProviderModels(ctx context.Context, providerKey, secret string, cfg *api.SAiProviderConfig, timeout time.Duration) ([]api.AiProviderUpstreamModel, bool, error) {
 	pk, err := validateAiCatalogIdentifier("provider_key", providerKey, maxAiProviderKeyLen)
 	if err != nil {
 		return nil, false, err
@@ -149,9 +149,9 @@ func listProviderModels(ctx context.Context, providerKey, secret string, cfg *ap
 
 	resp, uerr := upstream.ListModels(ctx, effectiveURL, secret)
 	if uerr == nil {
-		modelKeys, err := upstream.ParseModelsListBody(resp.Body)
-		if err == nil && len(modelKeys) > 0 {
-			return modelKeys, false, nil
+		entries, err := upstream.ParseModelsListEntries(resp.Body)
+		if err == nil && len(entries) > 0 {
+			return providerUpstreamModelsFromEntries(entries), false, nil
 		}
 	} else if !shouldFallbackToChatFromListModels(uerr) {
 		return nil, false, connectivityErrorFromUpstream(uerr)
@@ -160,7 +160,7 @@ func listProviderModels(ctx context.Context, providerKey, secret string, cfg *ap
 	if err := probeChatConnectivity(ctx, pk, secret, cfg); err != nil {
 		return nil, false, err
 	}
-	return catalogModelKeysForConnectivity(pk), true, nil
+	return providerUpstreamModels(catalogModelKeysForConnectivity(pk)), true, nil
 }
 
 func probeProviderConnectivity(ctx context.Context, providerKey, secret string, cfg *api.SAiProviderConfig) error {
@@ -187,14 +187,40 @@ func connectivityErrorFromUpstream(uerr *upstream.Error) error {
 }
 
 func providerUpstreamModels(modelKeys []string) []api.AiProviderUpstreamModel {
-	out := make([]api.AiProviderUpstreamModel, len(modelKeys))
-	for i, mk := range modelKeys {
-		out[i] = api.AiProviderUpstreamModel{ModelKey: mk}
+	out := make([]api.AiProviderUpstreamModel, 0, len(modelKeys))
+	for _, mk := range modelKeys {
+		mk = strings.TrimSpace(mk)
+		if mk == "" {
+			continue
+		}
+		out = append(out, api.AiProviderUpstreamModel{
+			ModelKey:      mk,
+			ContextWindow: CatalogContextWindow(mk),
+		})
 	}
 	return out
 }
 
-func connectivityTestOutput(modelKeys []string, fromCatalog bool) api.AiProviderTestConnectivityOutput {
+func providerUpstreamModelsFromEntries(entries []upstream.ModelListEntry) []api.AiProviderUpstreamModel {
+	out := make([]api.AiProviderUpstreamModel, 0, len(entries))
+	for _, e := range entries {
+		mk := strings.TrimSpace(e.ID)
+		if mk == "" {
+			continue
+		}
+		cw := e.ContextWindow
+		if cw <= 0 {
+			cw = CatalogContextWindow(mk)
+		}
+		out = append(out, api.AiProviderUpstreamModel{
+			ModelKey:      mk,
+			ContextWindow: cw,
+		})
+	}
+	return out
+}
+
+func connectivityTestOutput(models []api.AiProviderUpstreamModel, fromCatalog bool) api.AiProviderTestConnectivityOutput {
 	out := api.AiProviderTestConnectivityOutput{Ok: true}
 	if fromCatalog {
 		out.Message = "connectivity test passed (catalog models)"
@@ -203,7 +229,7 @@ func connectivityTestOutput(modelKeys []string, fromCatalog bool) api.AiProvider
 		out.Message = "connectivity test passed"
 		out.ModelsSource = api.AiProviderModelsSourceUpstream
 	}
-	out.Models = providerUpstreamModels(modelKeys)
+	out.Models = models
 	return out
 }
 
@@ -250,11 +276,11 @@ func (manager *SAiProviderManager) PerformTestConnectivity(
 	input api.AiProviderTestConnectivityInput,
 ) (api.AiProviderTestConnectivityOutput, error) {
 	out := api.AiProviderTestConnectivityOutput{}
-	modelKeys, fromCatalog, err := listProviderModels(ctx, input.ProviderKey, input.Secret, input.Config, providerTestConnectivityTimeout)
+	models, fromCatalog, err := listProviderModels(ctx, input.ProviderKey, input.Secret, input.Config, providerTestConnectivityTimeout)
 	if err != nil {
 		return out, err
 	}
-	return connectivityTestOutput(modelKeys, fromCatalog), nil
+	return connectivityTestOutput(models, fromCatalog), nil
 }
 
 // PerformTestConnectivity lists upstream models using a stored enabled ai_key.
@@ -269,9 +295,9 @@ func (p *SAiProvider) PerformTestConnectivity(
 	if err != nil {
 		return out, err
 	}
-	modelKeys, fromCatalog, err := listProviderModels(ctx, p.ProviderKey, secret, p.Config, providerTestConnectivityTimeout)
+	models, fromCatalog, err := listProviderModels(ctx, p.ProviderKey, secret, p.Config, providerTestConnectivityTimeout)
 	if err != nil {
 		return out, err
 	}
-	return connectivityTestOutput(modelKeys, fromCatalog), nil
+	return connectivityTestOutput(models, fromCatalog), nil
 }

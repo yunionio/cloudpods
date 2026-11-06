@@ -39,6 +39,8 @@ type SAiModel struct {
 	AiProviderId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	// ModelKey is the model id sent to the upstream API (e.g. gpt-4o-mini, qwen-turbo).
 	ModelKey string `width:"256" charset:"utf8" nullable:"false" list:"user" create:"required" update:"user"`
+	// ContextWindow is the model context size in tokens. 0 means unknown / use catalog fallback in details.
+	ContextWindow int `nullable:"true" list:"user" create:"optional" update:"user" json:"context_window"`
 	// VisualProviderId is the ai_provider used for tool-delegated image analysis.
 	VisualProviderId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	// VisualModelKey is the upstream model id for visual analysis.
@@ -53,6 +55,17 @@ func (m *SAiModel) VisualActive() bool {
 		return false
 	}
 	return strings.TrimSpace(m.VisualProviderId) != "" && strings.TrimSpace(m.VisualModelKey) != ""
+}
+
+// EffectiveContextWindow returns the persisted context window, or catalog lookup when unset.
+func (m *SAiModel) EffectiveContextWindow() int {
+	if m == nil {
+		return 0
+	}
+	if m.ContextWindow > 0 {
+		return m.ContextWindow
+	}
+	return CatalogContextWindow(m.ModelKey)
 }
 
 type SAiModelManager struct {
@@ -76,6 +89,19 @@ func init() {
 
 func (manager *SAiModelManager) InitializeData() error {
 	return backfillEmptyTenantId(manager)
+}
+
+func (m *SAiModel) PostCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) {
+	m.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	if err := remountAiRoutingModelsToModel(ctx, userCred, m); err != nil {
+		log.Errorf("ai_model %s remount ai_routing_models: %v", m.Id, err)
+	}
 }
 
 func (manager *SAiModelManager) ListItemFilter(
@@ -187,7 +213,8 @@ func (manager *SAiModelManager) FetchCustomizeColumns(
 	for i := range objs {
 		rows[i].VirtualResourceDetails = baseRows[i]
 		m := objs[i].(*SAiModel)
-		rows[i].ContextWindow = CatalogContextWindow(m.ModelKey)
+		rows[i].ContextWindow = m.EffectiveContextWindow()
+		rows[i].InputModalities = m.Config.InputModalitiesForCatalog()
 		providerIds[i] = m.AiProviderId
 		if vid := strings.TrimSpace(m.VisualProviderId); vid != "" {
 			visualProviderIds = append(visualProviderIds, vid)
@@ -254,6 +281,13 @@ func (manager *SAiModelManager) ValidateCreateData(
 		return input, err
 	}
 
+	if input.ContextWindow < 0 {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "context_window must be >= 0")
+	}
+	if input.ContextWindow == 0 {
+		input.ContextWindow = CatalogContextWindow(mk)
+	}
+
 	if strings.TrimSpace(input.Name) == "" {
 		input.Name = defaultAiModelName(prov.Name, mk)
 	}
@@ -306,6 +340,10 @@ func (m *SAiModel) ValidateUpdateData(
 		if err := ensureAiModelKeyUniquePerProvider(ctx, providerId, modelKey, m.Id); err != nil {
 			return input, err
 		}
+	}
+
+	if input.ContextWindow != nil && *input.ContextWindow < 0 {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "context_window must be >= 0")
 	}
 
 	cfg := m.Config
