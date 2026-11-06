@@ -418,6 +418,8 @@ type ICloudVM interface {
 	AllocatePublicIpAddress() (string, error)
 	GetPowerStates() string
 	GetHealthStatus() string
+	// GetShutdownMode returns keep_charging or stop_charging
+	GetShutdownMode() string
 	GetIsolateDeviceIds() ([]string, error)
 
 	GetContainers() ([]ICloudContainer, error)
