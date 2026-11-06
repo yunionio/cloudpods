@@ -138,12 +138,13 @@ type AiProviderCreateInput struct {
 	apis.VirtualResourceCreateInput
 	apis.EnabledBaseResourceCreateInput
 
-	ProviderKey     string             `json:"provider_key"`
-	Config          *SAiProviderConfig `json:"config"`
-	Secret          string             `json:"secret"`
-	ModelKeys       []string           `json:"model_keys"`
-	LlmDeploymentId string             `json:"llm_deployment_id"`
-	LlmId           string             `json:"llm_id"`
+	ProviderKey     string                   `json:"provider_key"`
+	Config          *SAiProviderConfig       `json:"config"`
+	Secret          string                   `json:"secret"`
+	ModelKeys       []string                 `json:"model_keys"`
+	Models          []AiProviderSetModelSpec `json:"models"`
+	LlmDeploymentId string                   `json:"llm_deployment_id"`
+	LlmId           string                   `json:"llm_id"`
 }
 
 type AiProviderUpdateInput struct {
@@ -177,7 +178,8 @@ const (
 )
 
 type AiProviderUpstreamModel struct {
-	ModelKey string `json:"model_key"`
+	ModelKey      string `json:"model_key"`
+	ContextWindow int    `json:"context_window,omitempty"`
 }
 
 type AiProviderTestConnectivityOutput struct {
@@ -187,10 +189,20 @@ type AiProviderTestConnectivityOutput struct {
 	Models       []AiProviderUpstreamModel `json:"models"`
 }
 
+// AiProviderSetModelSpec describes one model to import via set-models.
+type AiProviderSetModelSpec struct {
+	ModelKey        string   `json:"model_key"`
+	ContextWindow   int      `json:"context_window,omitempty"`
+	InputModalities []string `json:"input_modalities,omitempty"`
+}
+
 // AiProviderSetModelsInput imports selected catalog models for an existing provider.
 // Existing model_key rows are skipped; nothing is deleted.
+// Prefer Models when configuring per-model context_window / input_modalities;
+// ModelKeys remains for backward compatibility.
 type AiProviderSetModelsInput struct {
-	ModelKeys []string `json:"model_keys"`
+	ModelKeys []string                 `json:"model_keys"`
+	Models    []AiProviderSetModelSpec `json:"models"`
 }
 
 // AiProviderInstanceTestConnectivityInput is the empty body for instance test-connectivity.
