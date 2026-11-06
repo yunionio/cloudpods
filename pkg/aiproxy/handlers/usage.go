@@ -758,6 +758,8 @@ func buildUsageOverview(records []chatlog.Record, filter usageFilter, names usag
 		overview.Summary.InputTokens += rec.PromptTokens
 		overview.Summary.OutputTokens += rec.CompletionTokens
 		overview.Summary.TokenCount += tokens
+		overview.Summary.CachedTokens += rec.CachedTokens
+		overview.Summary.ReasoningTokens += rec.ReasoningTokens
 		if rec.Success {
 			overview.Summary.SuccessCount++
 		} else {
@@ -819,6 +821,7 @@ func buildUsageOverview(records []chatlog.Record, filter usageFilter, names usag
 	if latencyCount > 0 {
 		overview.Summary.AvgLatencyMs = float64(latencySum) / float64(latencyCount)
 	}
+	overview.Summary.CacheRate = cacheHitRate(overview.Summary.CachedTokens, overview.Summary.InputTokens)
 	overview.Usage = api.UsageOverviewUsage{
 		RequestCount: overview.Summary.RequestCount,
 		SuccessCount: overview.Summary.SuccessCount,
@@ -860,9 +863,20 @@ func buildUsageOverview(records []chatlog.Record, filter usageFilter, names usag
 	return overview
 }
 
+func cacheHitRate(cachedTokens, inputTokens int) float64 {
+	if inputTokens <= 0 || cachedTokens <= 0 {
+		return 0
+	}
+	if cachedTokens > inputTokens {
+		return 1
+	}
+	return float64(cachedTokens) / float64(inputTokens)
+}
+
 func buildUsageAnalysis(records []chatlog.Record, filter usageFilter, names usageNames) api.UsageAnalysis {
 	overview := buildUsageOverview(records, filter, names)
 	analysis := api.UsageAnalysis{
+		Summary:               overview.Summary,
 		TokenUsage:            overview.Series,
 		APIKeyComposition:     []api.UsageComposition{},
 		ModelComposition:      []api.UsageComposition{},
@@ -981,9 +995,13 @@ func buildUsageEvents(records []chatlog.Record, filter usageFilter, names usageN
 			ErrorMessage:   rec.ErrorMessage,
 			LatencyMs:      rec.LatencyMs,
 			Tokens: api.UsageTokens{
-				InputTokens:  inputTokens,
-				OutputTokens: outputTokens,
-				TotalTokens:  totalTokens,
+				InputTokens:         inputTokens,
+				OutputTokens:        outputTokens,
+				ReasoningTokens:     rec.ReasoningTokens,
+				CachedTokens:        rec.CachedTokens,
+				CacheReadTokens:     rec.CacheReadTokens,
+				CacheCreationTokens: rec.CacheCreationTokens,
+				TotalTokens:         totalTokens,
 			},
 			InputTokens:  inputTokens,
 			OutputTokens: outputTokens,
