@@ -379,6 +379,13 @@ func (ins *SInstance) GetStatus() string {
 	return ins.InstanceState.Name
 }
 
+func (ins *SInstance) GetShutdownMode() string {
+	if ins.ShutdownNoCharge {
+		return api.VM_SHUTDOWN_MODE_STOP_CHARGING
+	}
+	return api.VM_SHUTDOWN_MODE_KEEP_CHARGING
+}
+
 func (ins *SInstance) GetHypervisor() string {
 	return api.HYPERVISOR_KSYUN
 }
