@@ -21,6 +21,14 @@ import (
 )
 
 const (
+	catalogContextWindow8K    = 8_192
+	catalogContextWindow16K   = 16_384
+	catalogContextWindow32K   = 32_768
+	catalogContextWindow64K   = 65_536
+	catalogContextWindow128K  = 128_000
+	catalogContextWindow200K  = 200_000
+	catalogContextWindow256K  = 262_144
+	catalogContextWindow400K  = 400_000
 	catalogContextWindow1M    = 1_000_000
 	catalogContextWindow1050K = 1_050_000
 	catalogContextWindow2M    = 2_000_000
@@ -44,11 +52,11 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 		return []catalogSeedModel{
 			{ModelKey: "claude-opus-4-20250514", Description: "Anthropic Claude Opus 4", ContextWindow: catalogContextWindow1M},
 			{ModelKey: "claude-sonnet-4-20250514", Description: "Anthropic Claude Sonnet 4", ContextWindow: catalogContextWindow1M},
-			{ModelKey: "claude-3-7-sonnet-20250219", Description: "Anthropic Claude 3.7 Sonnet"},
-			{ModelKey: "claude-3-5-sonnet-20241022", Description: "Anthropic Claude 3.5 Sonnet"},
-			{ModelKey: "claude-3-5-haiku-20241022", Description: "Anthropic Claude 3.5 Haiku"},
-			{ModelKey: "claude-3-opus-20240229", Description: "Anthropic Claude 3 Opus"},
-			{ModelKey: "claude-3-haiku-20240307", Description: "Anthropic Claude 3 Haiku"},
+			{ModelKey: "claude-3-7-sonnet-20250219", Description: "Anthropic Claude 3.7 Sonnet", ContextWindow: catalogContextWindow200K},
+			{ModelKey: "claude-3-5-sonnet-20241022", Description: "Anthropic Claude 3.5 Sonnet", ContextWindow: catalogContextWindow200K},
+			{ModelKey: "claude-3-5-haiku-20241022", Description: "Anthropic Claude 3.5 Haiku", ContextWindow: catalogContextWindow200K},
+			{ModelKey: "claude-3-opus-20240229", Description: "Anthropic Claude 3 Opus", ContextWindow: catalogContextWindow200K},
+			{ModelKey: "claude-3-haiku-20240307", Description: "Anthropic Claude 3 Haiku", ContextWindow: catalogContextWindow200K},
 		}
 	// disabled: uncommon provider
 	// case api.ProviderKeyAzure:
@@ -93,6 +101,8 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 	// 	}
 	case api.ProviderKeyDeepseek:
 		return []catalogSeedModel{
+			{ModelKey: "deepseek-chat", Description: "DeepSeek Chat (V3); general chat and coding", ContextWindow: catalogContextWindow1M},
+			{ModelKey: "deepseek-reasoner", Description: "DeepSeek Reasoner (R1); reasoning model", ContextWindow: catalogContextWindow1M},
 			{ModelKey: "deepseek-v4-flash", Description: "DeepSeek-V4-Flash; 1M context; high concurrency (2500); cost-efficient default", ContextWindow: catalogContextWindow1M},
 			{ModelKey: "deepseek-v4-pro", Description: "DeepSeek-V4-Pro; 1M context; frontier reasoning/coding/agents (500 concurrency)", ContextWindow: catalogContextWindow1M},
 		}
@@ -119,33 +129,33 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 			{ModelKey: "gemini-1.5-pro", Description: "Google Gemini 1.5 Pro", ContextWindow: catalogContextWindow2M},
 			{ModelKey: "gemini-1.5-flash", Description: "Google Gemini 1.5 Flash", ContextWindow: catalogContextWindow1M},
 			{ModelKey: "gemini-1.5-flash-8b", Description: "Google Gemini 1.5 Flash 8B", ContextWindow: catalogContextWindow1M},
-			{ModelKey: "gemini-embedding-001", Description: "Google Gemini Embedding 001"},
+			{ModelKey: "gemini-embedding-001", Description: "Google Gemini Embedding 001", ContextWindow: catalogContextWindow2M},
 		}
 	case api.ProviderKeyGroq:
 		return []catalogSeedModel{
-			{ModelKey: "llama-3.3-70b-versatile", Description: "Groq Llama 3.3 70B Versatile"},
-			{ModelKey: "llama-3.1-8b-instant", Description: "Groq Llama 3.1 8B Instant"},
-			{ModelKey: "llama-3.1-70b-versatile", Description: "Groq Llama 3.1 70B Versatile"},
-			{ModelKey: "mixtral-8x7b-32768", Description: "Groq Mixtral 8x7B"},
-			{ModelKey: "gemma2-9b-it", Description: "Groq Gemma2 9B IT"},
+			{ModelKey: "llama-3.3-70b-versatile", Description: "Groq Llama 3.3 70B Versatile", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "llama-3.1-8b-instant", Description: "Groq Llama 3.1 8B Instant", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "llama-3.1-70b-versatile", Description: "Groq Llama 3.1 70B Versatile", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "mixtral-8x7b-32768", Description: "Groq Mixtral 8x7B", ContextWindow: catalogContextWindow32K},
+			{ModelKey: "gemma2-9b-it", Description: "Groq Gemma2 9B IT", ContextWindow: catalogContextWindow8K},
 		}
 	case api.ProviderKeyHuggingface:
 		return []catalogSeedModel{
-			{ModelKey: "meta-llama/Meta-Llama-3.1-8B-Instruct", Description: "HF Llama 3.1 8B Instruct"},
-			{ModelKey: "meta-llama/Meta-Llama-3.1-70B-Instruct", Description: "HF Llama 3.1 70B Instruct"},
-			{ModelKey: "mistralai/Mistral-7B-Instruct-v0.3", Description: "HF Mistral 7B Instruct"},
-			{ModelKey: "Qwen/Qwen2.5-72B-Instruct", Description: "HF Qwen2.5 72B Instruct"},
+			{ModelKey: "meta-llama/Meta-Llama-3.1-8B-Instruct", Description: "HF Llama 3.1 8B Instruct", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "meta-llama/Meta-Llama-3.1-70B-Instruct", Description: "HF Llama 3.1 70B Instruct", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "mistralai/Mistral-7B-Instruct-v0.3", Description: "HF Mistral 7B Instruct", ContextWindow: catalogContextWindow32K},
+			{ModelKey: "Qwen/Qwen2.5-72B-Instruct", Description: "HF Qwen2.5 72B Instruct", ContextWindow: catalogContextWindow128K},
 		}
 	case api.ProviderKeyMistral:
 		return []catalogSeedModel{
-			{ModelKey: "mistral-large-latest", Description: "Mistral Large (latest)"},
-			{ModelKey: "mistral-small-latest", Description: "Mistral Small (latest)"},
-			{ModelKey: "pixtral-12b-2409", Description: "Mistral Pixtral 12B"},
-			{ModelKey: "codestral-latest", Description: "Mistral Codestral (latest)"},
-			{ModelKey: "ministral-8b-latest", Description: "Mistral Ministral 8B"},
-			{ModelKey: "open-mistral-nemo", Description: "Mistral Open Mistral Nemo"},
-			{ModelKey: "mixtral-8x22b", Description: "Mistral Mixtral 8x22B"},
-			{ModelKey: "mixtral-8x7b", Description: "Mistral Mixtral 8x7B"},
+			{ModelKey: "mistral-large-latest", Description: "Mistral Large (latest)", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "mistral-small-latest", Description: "Mistral Small (latest)", ContextWindow: catalogContextWindow32K},
+			{ModelKey: "pixtral-12b-2409", Description: "Mistral Pixtral 12B", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "codestral-latest", Description: "Mistral Codestral (latest)", ContextWindow: catalogContextWindow32K},
+			{ModelKey: "ministral-8b-latest", Description: "Mistral Ministral 8B", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "open-mistral-nemo", Description: "Mistral Open Mistral Nemo", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "mixtral-8x22b", Description: "Mistral Mixtral 8x22B", ContextWindow: catalogContextWindow64K},
+			{ModelKey: "mixtral-8x7b", Description: "Mistral Mixtral 8x7B", ContextWindow: catalogContextWindow32K},
 		}
 	// disabled: uncommon provider
 	// case api.ProviderKeyNebius:
@@ -156,61 +166,61 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 	// 	}
 	case api.ProviderKeyOllama:
 		return []catalogSeedModel{
-			{ModelKey: "llama3.2", Description: "Ollama Llama 3.2"},
-			{ModelKey: "llama3.1", Description: "Ollama Llama 3.1"},
-			{ModelKey: "mistral", Description: "Ollama Mistral"},
-			{ModelKey: "qwen2.5", Description: "Ollama Qwen 2.5"},
-			{ModelKey: "codellama", Description: "Ollama Code Llama"},
-			{ModelKey: "phi3", Description: "Ollama Phi 3"},
+			{ModelKey: "llama3.2", Description: "Ollama Llama 3.2", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "llama3.1", Description: "Ollama Llama 3.1", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "mistral", Description: "Ollama Mistral", ContextWindow: catalogContextWindow32K},
+			{ModelKey: "qwen2.5", Description: "Ollama Qwen 2.5", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "codellama", Description: "Ollama Code Llama", ContextWindow: catalogContextWindow16K},
+			{ModelKey: "phi3", Description: "Ollama Phi 3", ContextWindow: catalogContextWindow128K},
 		}
 	case api.ProviderKeyVLLM:
 		return []catalogSeedModel{
-			{ModelKey: "meta-llama/Meta-Llama-3.1-8B-Instruct", Description: "vLLM Llama 3.1 8B Instruct"},
-			{ModelKey: "meta-llama/Meta-Llama-3.1-70B-Instruct", Description: "vLLM Llama 3.1 70B Instruct"},
-			{ModelKey: "Qwen/Qwen2.5-7B-Instruct", Description: "vLLM Qwen2.5 7B Instruct"},
-			{ModelKey: "Qwen/Qwen2.5-72B-Instruct", Description: "vLLM Qwen2.5 72B Instruct"},
-			{ModelKey: "mistralai/Mistral-7B-Instruct-v0.3", Description: "vLLM Mistral 7B Instruct"},
+			{ModelKey: "meta-llama/Meta-Llama-3.1-8B-Instruct", Description: "vLLM Llama 3.1 8B Instruct", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "meta-llama/Meta-Llama-3.1-70B-Instruct", Description: "vLLM Llama 3.1 70B Instruct", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "Qwen/Qwen2.5-7B-Instruct", Description: "vLLM Qwen2.5 7B Instruct", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "Qwen/Qwen2.5-72B-Instruct", Description: "vLLM Qwen2.5 72B Instruct", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "mistralai/Mistral-7B-Instruct-v0.3", Description: "vLLM Mistral 7B Instruct", ContextWindow: catalogContextWindow32K},
 		}
 	case api.ProviderKeyOpenAI:
 		return []catalogSeedModel{
-			{ModelKey: "gpt-5-nano", Description: "OpenAI GPT-5 nano"},
-			{ModelKey: "gpt-5-mini", Description: "OpenAI GPT-5 mini"},
-			{ModelKey: "gpt-5", Description: "OpenAI GPT-5"},
-			{ModelKey: "gpt-5.1", Description: "OpenAI GPT-5.1"},
-			{ModelKey: "gpt-5.1-mini", Description: "OpenAI GPT-5.1 mini"},
-			{ModelKey: "gpt-5.1-codex", Description: "OpenAI GPT-5.1 Codex"},
-			{ModelKey: "gpt-5.1-codex-max", Description: "OpenAI GPT-5.1 Codex Max"},
-			{ModelKey: "gpt-5.2", Description: "OpenAI GPT-5.2"},
-			{ModelKey: "gpt-5.2-pro", Description: "OpenAI GPT-5.2 pro"},
-			{ModelKey: "gpt-5.2-codex", Description: "OpenAI GPT-5.2 Codex"},
+			{ModelKey: "gpt-5-nano", Description: "OpenAI GPT-5 nano", ContextWindow: catalogContextWindow400K},
+			{ModelKey: "gpt-5-mini", Description: "OpenAI GPT-5 mini", ContextWindow: catalogContextWindow400K},
+			{ModelKey: "gpt-5", Description: "OpenAI GPT-5", ContextWindow: catalogContextWindow400K},
+			{ModelKey: "gpt-5.1", Description: "OpenAI GPT-5.1", ContextWindow: catalogContextWindow400K},
+			{ModelKey: "gpt-5.1-mini", Description: "OpenAI GPT-5.1 mini", ContextWindow: catalogContextWindow400K},
+			{ModelKey: "gpt-5.1-codex", Description: "OpenAI GPT-5.1 Codex", ContextWindow: catalogContextWindow400K},
+			{ModelKey: "gpt-5.1-codex-max", Description: "OpenAI GPT-5.1 Codex Max", ContextWindow: catalogContextWindow400K},
+			{ModelKey: "gpt-5.2", Description: "OpenAI GPT-5.2", ContextWindow: catalogContextWindow400K},
+			{ModelKey: "gpt-5.2-pro", Description: "OpenAI GPT-5.2 pro", ContextWindow: catalogContextWindow400K},
+			{ModelKey: "gpt-5.2-codex", Description: "OpenAI GPT-5.2 Codex", ContextWindow: catalogContextWindow400K},
 			{ModelKey: "gpt-4.1", Description: "OpenAI GPT-4.1", ContextWindow: catalogContextWindow1M},
 			{ModelKey: "gpt-4.1-mini", Description: "OpenAI GPT-4.1 mini", ContextWindow: catalogContextWindow1M},
 			{ModelKey: "gpt-4.1-nano", Description: "OpenAI GPT-4.1 nano", ContextWindow: catalogContextWindow1M},
-			{ModelKey: "gpt-4o", Description: "OpenAI GPT-4o"},
-			{ModelKey: "gpt-4o-mini", Description: "OpenAI GPT-4o mini"},
-			{ModelKey: "chatgpt-4o-latest", Description: "OpenAI ChatGPT-4o latest"},
-			{ModelKey: "gpt-4-turbo", Description: "OpenAI GPT-4 Turbo"},
-			{ModelKey: "gpt-4", Description: "OpenAI GPT-4"},
-			{ModelKey: "gpt-3.5-turbo", Description: "OpenAI GPT-3.5 Turbo"},
-			{ModelKey: "o1", Description: "OpenAI o1"},
-			{ModelKey: "o1-mini", Description: "OpenAI o1-mini"},
-			{ModelKey: "o1-preview", Description: "OpenAI o1-preview"},
-			{ModelKey: "o3", Description: "OpenAI o3"},
-			{ModelKey: "o3-mini", Description: "OpenAI o3-mini"},
-			{ModelKey: "o4-mini", Description: "OpenAI o4-mini"},
-			{ModelKey: "text-embedding-3-small", Description: "OpenAI text-embedding-3-small"},
-			{ModelKey: "text-embedding-3-large", Description: "OpenAI text-embedding-3-large"},
-			{ModelKey: "text-embedding-ada-002", Description: "OpenAI text-embedding-ada-002"},
+			{ModelKey: "gpt-4o", Description: "OpenAI GPT-4o", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "gpt-4o-mini", Description: "OpenAI GPT-4o mini", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "chatgpt-4o-latest", Description: "OpenAI ChatGPT-4o latest", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "gpt-4-turbo", Description: "OpenAI GPT-4 Turbo", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "gpt-4", Description: "OpenAI GPT-4", ContextWindow: catalogContextWindow8K},
+			{ModelKey: "gpt-3.5-turbo", Description: "OpenAI GPT-3.5 Turbo", ContextWindow: catalogContextWindow16K},
+			{ModelKey: "o1", Description: "OpenAI o1", ContextWindow: catalogContextWindow200K},
+			{ModelKey: "o1-mini", Description: "OpenAI o1-mini", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "o1-preview", Description: "OpenAI o1-preview", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "o3", Description: "OpenAI o3", ContextWindow: catalogContextWindow200K},
+			{ModelKey: "o3-mini", Description: "OpenAI o3-mini", ContextWindow: catalogContextWindow200K},
+			{ModelKey: "o4-mini", Description: "OpenAI o4-mini", ContextWindow: catalogContextWindow200K},
+			{ModelKey: "text-embedding-3-small", Description: "OpenAI text-embedding-3-small", ContextWindow: catalogContextWindow8K},
+			{ModelKey: "text-embedding-3-large", Description: "OpenAI text-embedding-3-large", ContextWindow: catalogContextWindow8K},
+			{ModelKey: "text-embedding-ada-002", Description: "OpenAI text-embedding-ada-002", ContextWindow: catalogContextWindow8K},
 		}
 	case api.ProviderKeyOpenrouter:
 		return []catalogSeedModel{
-			{ModelKey: "openai/gpt-4o", Description: "OpenRouter OpenAI GPT-4o"},
-			{ModelKey: "openai/gpt-4o-mini", Description: "OpenRouter OpenAI GPT-4o mini"},
-			{ModelKey: "anthropic/claude-3.5-sonnet", Description: "OpenRouter Claude 3.5 Sonnet"},
-			{ModelKey: "anthropic/claude-3.5-haiku", Description: "OpenRouter Claude 3.5 Haiku"},
+			{ModelKey: "openai/gpt-4o", Description: "OpenRouter OpenAI GPT-4o", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "openai/gpt-4o-mini", Description: "OpenRouter OpenAI GPT-4o mini", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "anthropic/claude-3.5-sonnet", Description: "OpenRouter Claude 3.5 Sonnet", ContextWindow: catalogContextWindow200K},
+			{ModelKey: "anthropic/claude-3.5-haiku", Description: "OpenRouter Claude 3.5 Haiku", ContextWindow: catalogContextWindow200K},
 			{ModelKey: "google/gemini-2.0-flash-001", Description: "OpenRouter Gemini 2.0 Flash", ContextWindow: catalogContextWindow1M},
-			{ModelKey: "meta-llama/llama-3.3-70b-instruct", Description: "OpenRouter Llama 3.3 70B Instruct"},
-			{ModelKey: "mistralai/mistral-large", Description: "OpenRouter Mistral Large"},
+			{ModelKey: "meta-llama/llama-3.3-70b-instruct", Description: "OpenRouter Llama 3.3 70B Instruct", ContextWindow: catalogContextWindow128K},
+			{ModelKey: "mistralai/mistral-large", Description: "OpenRouter Mistral Large", ContextWindow: catalogContextWindow128K},
 		}
 	// disabled: uncommon provider
 	// case api.ProviderKeyPerplexity:
@@ -271,54 +281,54 @@ func catalogSeedModelsForProvider(providerKey string) []catalogSeedModel {
 
 func aliyunQwenSeedModels() []catalogSeedModel {
 	return []catalogSeedModel{
-		{ModelKey: "qwen-turbo", Description: "Alibaba Qwen Turbo"},
-		{ModelKey: "qwen-plus", Description: "Alibaba Qwen Plus"},
-		{ModelKey: "qwen-max", Description: "Alibaba Qwen Max"},
-		{ModelKey: "qwen-long", Description: "Alibaba Qwen Long context"},
-		{ModelKey: "qwen-vl-max", Description: "Alibaba Qwen-VL Max"},
-		{ModelKey: "qwen-vl-plus", Description: "Alibaba Qwen-VL Plus"},
-		{ModelKey: "qwen-vl-ocr", Description: "Alibaba Qwen-VL OCR"},
-		{ModelKey: "qwen2.5-0.5b-instruct", Description: "Alibaba Qwen2.5 0.5B Instruct"},
-		{ModelKey: "qwen2.5-1.5b-instruct", Description: "Alibaba Qwen2.5 1.5B Instruct"},
-		{ModelKey: "qwen2.5-3b-instruct", Description: "Alibaba Qwen2.5 3B Instruct"},
-		{ModelKey: "qwen2.5-7b-instruct", Description: "Alibaba Qwen2.5 7B Instruct"},
-		{ModelKey: "qwen2.5-14b-instruct", Description: "Alibaba Qwen2.5 14B Instruct"},
-		{ModelKey: "qwen2.5-32b-instruct", Description: "Alibaba Qwen2.5 32B Instruct"},
-		{ModelKey: "qwen2.5-72b-instruct", Description: "Alibaba Qwen2.5 72B Instruct"},
-		{ModelKey: "qwen2.5-coder-7b-instruct", Description: "Alibaba Qwen2.5 Coder 7B Instruct"},
-		{ModelKey: "qwen2.5-coder-32b-instruct", Description: "Alibaba Qwen2.5 Coder 32B Instruct"},
-		{ModelKey: "qwen3-30b-a3b", Description: "Alibaba Qwen3 30B A3B MoE"},
-		{ModelKey: "qwen3-32b", Description: "Alibaba Qwen3 32B"},
-		{ModelKey: "qwen3-235b-a22b", Description: "Alibaba Qwen3 235B A22B MoE"},
-		{ModelKey: "qwen-math-plus", Description: "Alibaba Qwen Math Plus"},
-		{ModelKey: "qwen-coder-plus", Description: "Alibaba Qwen Coder Plus"},
-		{ModelKey: "text-embedding-v3", Description: "Alibaba text-embedding-v3"},
-		{ModelKey: "text-embedding-v4", Description: "Alibaba text-embedding-v4"},
+		{ModelKey: "qwen-turbo", Description: "Alibaba Qwen Turbo", ContextWindow: catalogContextWindow1M},
+		{ModelKey: "qwen-plus", Description: "Alibaba Qwen Plus", ContextWindow: catalogContextWindow1M},
+		{ModelKey: "qwen-max", Description: "Alibaba Qwen Max", ContextWindow: catalogContextWindow32K},
+		{ModelKey: "qwen-long", Description: "Alibaba Qwen Long context", ContextWindow: catalogContextWindow1M},
+		{ModelKey: "qwen-vl-max", Description: "Alibaba Qwen-VL Max", ContextWindow: catalogContextWindow32K},
+		{ModelKey: "qwen-vl-plus", Description: "Alibaba Qwen-VL Plus", ContextWindow: catalogContextWindow32K},
+		{ModelKey: "qwen-vl-ocr", Description: "Alibaba Qwen-VL OCR", ContextWindow: catalogContextWindow32K},
+		{ModelKey: "qwen2.5-0.5b-instruct", Description: "Alibaba Qwen2.5 0.5B Instruct", ContextWindow: catalogContextWindow32K},
+		{ModelKey: "qwen2.5-1.5b-instruct", Description: "Alibaba Qwen2.5 1.5B Instruct", ContextWindow: catalogContextWindow32K},
+		{ModelKey: "qwen2.5-3b-instruct", Description: "Alibaba Qwen2.5 3B Instruct", ContextWindow: catalogContextWindow32K},
+		{ModelKey: "qwen2.5-7b-instruct", Description: "Alibaba Qwen2.5 7B Instruct", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "qwen2.5-14b-instruct", Description: "Alibaba Qwen2.5 14B Instruct", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "qwen2.5-32b-instruct", Description: "Alibaba Qwen2.5 32B Instruct", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "qwen2.5-72b-instruct", Description: "Alibaba Qwen2.5 72B Instruct", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "qwen2.5-coder-7b-instruct", Description: "Alibaba Qwen2.5 Coder 7B Instruct", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "qwen2.5-coder-32b-instruct", Description: "Alibaba Qwen2.5 Coder 32B Instruct", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "qwen3-30b-a3b", Description: "Alibaba Qwen3 30B A3B MoE", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "qwen3-32b", Description: "Alibaba Qwen3 32B", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "qwen3-235b-a22b", Description: "Alibaba Qwen3 235B A22B MoE", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "qwen-math-plus", Description: "Alibaba Qwen Math Plus", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "qwen-coder-plus", Description: "Alibaba Qwen Coder Plus", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "text-embedding-v3", Description: "Alibaba text-embedding-v3", ContextWindow: catalogContextWindow8K},
+		{ModelKey: "text-embedding-v4", Description: "Alibaba text-embedding-v4", ContextWindow: catalogContextWindow8K},
 	}
 }
 
 func baiduErnieSeedModels() []catalogSeedModel {
 	return []catalogSeedModel{
-		{ModelKey: "ernie-4.0-turbo-8k", Description: "Baidu ERNIE 4.0 Turbo 8K"},
-		{ModelKey: "ernie-4.0-8k", Description: "Baidu ERNIE 4.0 8K"},
-		{ModelKey: "ernie-4.0-turbo-128k", Description: "Baidu ERNIE 4.0 Turbo 128K"},
-		{ModelKey: "ernie-3.5-8k", Description: "Baidu ERNIE 3.5 8K"},
-		{ModelKey: "ernie-3.5-128k", Description: "Baidu ERNIE 3.5 128K"},
-		{ModelKey: "ernie-speed-128k", Description: "Baidu ERNIE Speed 128K"},
-		{ModelKey: "ernie-lite-8k", Description: "Baidu ERNIE Lite 8K"},
-		{ModelKey: "ernie-char-8k", Description: "Baidu ERNIE Character 8K"},
-		{ModelKey: "embedding-v1", Description: "Baidu Wenxin embedding-v1"},
-		{ModelKey: "tao-8k", Description: "Baidu ERNIE Tao 8K"},
+		{ModelKey: "ernie-4.0-turbo-8k", Description: "Baidu ERNIE 4.0 Turbo 8K", ContextWindow: catalogContextWindow8K},
+		{ModelKey: "ernie-4.0-8k", Description: "Baidu ERNIE 4.0 8K", ContextWindow: catalogContextWindow8K},
+		{ModelKey: "ernie-4.0-turbo-128k", Description: "Baidu ERNIE 4.0 Turbo 128K", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "ernie-3.5-8k", Description: "Baidu ERNIE 3.5 8K", ContextWindow: catalogContextWindow8K},
+		{ModelKey: "ernie-3.5-128k", Description: "Baidu ERNIE 3.5 128K", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "ernie-speed-128k", Description: "Baidu ERNIE Speed 128K", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "ernie-lite-8k", Description: "Baidu ERNIE Lite 8K", ContextWindow: catalogContextWindow8K},
+		{ModelKey: "ernie-char-8k", Description: "Baidu ERNIE Character 8K", ContextWindow: catalogContextWindow8K},
+		{ModelKey: "embedding-v1", Description: "Baidu Wenxin embedding-v1", ContextWindow: catalogContextWindow8K},
+		{ModelKey: "tao-8k", Description: "Baidu ERNIE Tao 8K", ContextWindow: catalogContextWindow8K},
 	}
 }
 
 func xiaomiMimoSeedModels() []catalogSeedModel {
 	return []catalogSeedModel{
 		{ModelKey: "mimo-v2.5-pro", Description: "Xiaomi MiMo 2.5 Pro (flagship text)", ContextWindow: catalogContextWindow1M},
-		{ModelKey: "mimo-v2-pro", Description: "Xiaomi MiMo 2 Pro"},
+		{ModelKey: "mimo-v2-pro", Description: "Xiaomi MiMo 2 Pro", ContextWindow: catalogContextWindow1M},
 		{ModelKey: "mimo-v2.5", Description: "Xiaomi MiMo 2.5 (multimodal text)", ContextWindow: catalogContextWindow1M},
-		{ModelKey: "mimo-v2-omni", Description: "Xiaomi MiMo 2 Omni (multimodal)"},
-		{ModelKey: "mimo-v2-flash", Description: "Xiaomi MiMo 2 Flash (fast)"},
+		{ModelKey: "mimo-v2-omni", Description: "Xiaomi MiMo 2 Omni (multimodal)", ContextWindow: catalogContextWindow256K},
+		{ModelKey: "mimo-v2-flash", Description: "Xiaomi MiMo 2 Flash (fast)", ContextWindow: catalogContextWindow256K},
 	}
 }
 
@@ -338,17 +348,33 @@ var catalogSeedProviderKeys = []string{
 	api.ProviderKeyZhipu,
 }
 
+// offlineCatalogSeedModels are provider catalogs not auto-seeded on create, but still
+// used for context_window / description lookup (e.g. custom/aliyun dashscope qwen ids).
+func offlineCatalogSeedModels() []catalogSeedModel {
+	out := make([]catalogSeedModel, 0, 64)
+	out = append(out, aliyunQwenSeedModels()...)
+	out = append(out, baiduErnieSeedModels()...)
+	return out
+}
+
+func allCatalogSeedModelsForLookup() []catalogSeedModel {
+	out := make([]catalogSeedModel, 0, 256)
+	for _, providerKey := range catalogSeedProviderKeys {
+		out = append(out, catalogSeedModelsForProvider(providerKey)...)
+	}
+	out = append(out, offlineCatalogSeedModels()...)
+	return out
+}
+
 // CatalogSeedDescription returns a known description for modelKey from built-in seed catalogs.
 func CatalogSeedDescription(modelKey string) string {
 	modelKey = strings.TrimSpace(modelKey)
 	if modelKey == "" {
 		return ""
 	}
-	for _, providerKey := range catalogSeedProviderKeys {
-		for _, item := range catalogSeedModelsForProvider(providerKey) {
-			if item.ModelKey == modelKey {
-				return item.Description
-			}
+	for _, item := range allCatalogSeedModelsForLookup() {
+		if item.ModelKey == modelKey {
+			return item.Description
 		}
 	}
 	return ""
@@ -395,6 +421,8 @@ func extraCatalogContextWindow(modelKey string) int {
 
 // CatalogContextWindow returns the known context window for modelKey from the
 // built-in catalog (seed rows plus extra official ids not yet seeded). 0 means unknown.
+// Looks up by model_key across all known catalogs, including offline ones (aliyun qwen
+// etc.), so connectivity test / set-models can prefill context_window for custom providers.
 func CatalogContextWindow(modelKey string) int {
 	modelKey = strings.TrimSpace(modelKey)
 	if modelKey == "" {
@@ -409,17 +437,15 @@ func CatalogContextWindow(modelKey string) int {
 			return n
 		}
 	}
-	for _, providerKey := range catalogSeedProviderKeys {
-		for _, item := range catalogSeedModelsForProvider(providerKey) {
-			if item.ContextWindow <= 0 {
-				continue
-			}
-			if strings.EqualFold(item.ModelKey, modelKey) {
-				return item.ContextWindow
-			}
-			if strings.EqualFold(catalogModelKeyLeaf(item.ModelKey), leaf) {
-				return item.ContextWindow
-			}
+	for _, item := range allCatalogSeedModelsForLookup() {
+		if item.ContextWindow <= 0 {
+			continue
+		}
+		if strings.EqualFold(item.ModelKey, modelKey) {
+			return item.ContextWindow
+		}
+		if strings.EqualFold(catalogModelKeyLeaf(item.ModelKey), leaf) {
+			return item.ContextWindow
 		}
 	}
 	return 0
@@ -427,28 +453,28 @@ func CatalogContextWindow(modelKey string) int {
 
 func moonshotKimiSeedModels() []catalogSeedModel {
 	return []catalogSeedModel{
-		{ModelKey: "kimi-k2.7-code", Description: "Moonshot Kimi K2.7 Code"},
-		{ModelKey: "kimi-k2.7-code-highspeed", Description: "Moonshot Kimi K2.7 Code (highspeed)"},
-		{ModelKey: "kimi-k2.6", Description: "Moonshot Kimi K2.6"},
-		{ModelKey: "kimi-k2.5", Description: "Moonshot Kimi K2.5"},
-		{ModelKey: "moonshot-v1-8k", Description: "Moonshot v1 8K"},
-		{ModelKey: "moonshot-v1-32k", Description: "Moonshot v1 32K"},
-		{ModelKey: "moonshot-v1-128k", Description: "Moonshot v1 128K"},
-		{ModelKey: "moonshot-v1-auto", Description: "Moonshot v1 Auto"},
-		{ModelKey: "moonshot-v1-8k-vision-preview", Description: "Moonshot v1 8K Vision"},
-		{ModelKey: "moonshot-v1-32k-vision-preview", Description: "Moonshot v1 32K Vision"},
-		{ModelKey: "moonshot-v1-128k-vision-preview", Description: "Moonshot v1 128K Vision"},
+		{ModelKey: "kimi-k2.7-code", Description: "Moonshot Kimi K2.7 Code", ContextWindow: catalogContextWindow256K},
+		{ModelKey: "kimi-k2.7-code-highspeed", Description: "Moonshot Kimi K2.7 Code (highspeed)", ContextWindow: catalogContextWindow256K},
+		{ModelKey: "kimi-k2.6", Description: "Moonshot Kimi K2.6", ContextWindow: catalogContextWindow256K},
+		{ModelKey: "kimi-k2.5", Description: "Moonshot Kimi K2.5", ContextWindow: catalogContextWindow256K},
+		{ModelKey: "moonshot-v1-8k", Description: "Moonshot v1 8K", ContextWindow: catalogContextWindow8K},
+		{ModelKey: "moonshot-v1-32k", Description: "Moonshot v1 32K", ContextWindow: catalogContextWindow32K},
+		{ModelKey: "moonshot-v1-128k", Description: "Moonshot v1 128K", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "moonshot-v1-auto", Description: "Moonshot v1 Auto", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "moonshot-v1-8k-vision-preview", Description: "Moonshot v1 8K Vision", ContextWindow: catalogContextWindow8K},
+		{ModelKey: "moonshot-v1-32k-vision-preview", Description: "Moonshot v1 32K Vision", ContextWindow: catalogContextWindow32K},
+		{ModelKey: "moonshot-v1-128k-vision-preview", Description: "Moonshot v1 128K Vision", ContextWindow: catalogContextWindow128K},
 	}
 }
 
 func zhipuGLMSeedModels() []catalogSeedModel {
 	return []catalogSeedModel{
 		{ModelKey: "glm-5.2", Description: "Z.AI GLM-5.2 flagship; 1M context; long-horizon agents", ContextWindow: catalogContextWindow1M},
-		{ModelKey: "glm-5.1", Description: "Z.AI GLM-5.1; long-horizon tasks"},
-		{ModelKey: "glm-5-turbo", Description: "Z.AI GLM-5-Turbo; cost-efficient"},
-		{ModelKey: "glm-4.7", Description: "Z.AI GLM-4.7; general chat and coding"},
-		{ModelKey: "glm-4.7-flash", Description: "Z.AI GLM-4.7-Flash; free tier"},
-		{ModelKey: "glm-4.6", Description: "Z.AI GLM-4.6; 200K context"},
-		{ModelKey: "glm-5v-turbo", Description: "Z.AI GLM-5V-Turbo; vision"},
+		{ModelKey: "glm-5.1", Description: "Z.AI GLM-5.1; long-horizon tasks", ContextWindow: catalogContextWindow200K},
+		{ModelKey: "glm-5-turbo", Description: "Z.AI GLM-5-Turbo; cost-efficient", ContextWindow: catalogContextWindow200K},
+		{ModelKey: "glm-4.7", Description: "Z.AI GLM-4.7; general chat and coding", ContextWindow: catalogContextWindow200K},
+		{ModelKey: "glm-4.7-flash", Description: "Z.AI GLM-4.7-Flash; free tier", ContextWindow: catalogContextWindow128K},
+		{ModelKey: "glm-4.6", Description: "Z.AI GLM-4.6; 200K context", ContextWindow: catalogContextWindow200K},
+		{ModelKey: "glm-5v-turbo", Description: "Z.AI GLM-5V-Turbo; vision", ContextWindow: catalogContextWindow200K},
 	}
 }
