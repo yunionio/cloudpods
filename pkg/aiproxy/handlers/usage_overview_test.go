@@ -7,6 +7,39 @@ import (
 	"yunion.io/x/onecloud/pkg/aiproxy/chatlog"
 )
 
+func TestCacheHitRate(t *testing.T) {
+	if got := cacheHitRate(0, 100); got != 0 {
+		t.Fatalf("got %v", got)
+	}
+	if got := cacheHitRate(80, 100); got != 0.8 {
+		t.Fatalf("got %v", got)
+	}
+	if got := cacheHitRate(120, 100); got != 1 {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestBuildUsageOverviewCacheRate(t *testing.T) {
+	now := time.Now()
+	filter := usageFilter{Start: now.Add(-time.Hour), End: now, Timezone: "UTC"}
+	records := []chatlog.Record{
+		{PromptTokens: 100, CompletionTokens: 10, CachedTokens: 80, Success: true, Timestamp: now},
+		{PromptTokens: 50, CompletionTokens: 5, CachedTokens: 0, Success: true, Timestamp: now},
+	}
+	overview := buildUsageOverview(records, filter, usageNames{})
+	if overview.Summary.CachedTokens != 80 {
+		t.Fatalf("cached=%d", overview.Summary.CachedTokens)
+	}
+	want := cacheHitRate(80, 150)
+	if overview.Summary.CacheRate != want {
+		t.Fatalf("cache_rate=%v want %v", overview.Summary.CacheRate, want)
+	}
+	analysis := buildUsageAnalysis(records, filter, usageNames{})
+	if analysis.Summary.CacheRate != want {
+		t.Fatalf("analysis cache_rate=%v", analysis.Summary.CacheRate)
+	}
+}
+
 func TestBuildUsageProviderNameAndAPIKeyComposition(t *testing.T) {
 	now := time.Now()
 	filter := usageFilter{Start: now.Add(-time.Hour), End: now, Timezone: "UTC"}
