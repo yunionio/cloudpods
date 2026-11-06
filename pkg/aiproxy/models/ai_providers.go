@@ -134,14 +134,14 @@ func (p *SAiProvider) PerformSetModels(
 	query jsonutils.JSONObject,
 	input api.AiProviderSetModelsInput,
 ) (jsonutils.JSONObject, error) {
-	modelKeys, err := normalizeProviderModelKeys(input.ModelKeys)
+	specs, err := normalizeProviderModelSpecs(input)
 	if err != nil {
 		return nil, err
 	}
-	if len(modelKeys) == 0 {
-		return nil, errors.Wrap(httperrors.ErrInputParameter, "model_keys is required")
+	if len(specs) == 0 {
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "models or model_keys is required")
 	}
-	if err := createSelectedProviderModels(ctx, userCred, p.GetOwnerId(), p, modelKeys); err != nil {
+	if err := createSelectedProviderModelSpecs(ctx, userCred, p.GetOwnerId(), p, specs); err != nil {
 		return nil, err
 	}
 	return nil, nil
@@ -216,14 +216,18 @@ func (manager *SAiProviderManager) ValidateCreateData(
 	}
 
 	if strings.TrimSpace(input.Secret) != "" {
-		var err error
-		input.ModelKeys, err = normalizeProviderModelKeys(input.ModelKeys)
+		specs, err := normalizeProviderModelSpecs(api.AiProviderSetModelsInput{
+			ModelKeys: input.ModelKeys,
+			Models:    input.Models,
+		})
 		if err != nil {
 			return input, err
 		}
-		if len(input.ModelKeys) == 0 {
-			return input, errors.Wrap(httperrors.ErrInputParameter, "model_keys is required when secret is provided")
+		if len(specs) == 0 {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "models or model_keys is required when secret is provided")
 		}
+		input.Models = specs
+		input.ModelKeys = nil
 		if err := probeProviderConnectivity(ctx, input.ProviderKey, input.Secret, input.Config); err != nil {
 			return input, err
 		}
@@ -259,8 +263,13 @@ func (p *SAiProvider) PostCreate(
 		log.Errorf("ai_provider PostCreate unmarshal: %v", err)
 		return
 	}
-	if len(input.ModelKeys) > 0 {
-		if err := createSelectedProviderModels(ctx, userCred, ownerId, p, input.ModelKeys); err != nil {
+	if specs, err := normalizeProviderModelSpecs(api.AiProviderSetModelsInput{
+		ModelKeys: input.ModelKeys,
+		Models:    input.Models,
+	}); err != nil {
+		log.Errorf("ai_provider %s normalize models: %v", p.Id, err)
+	} else if len(specs) > 0 {
+		if err := createSelectedProviderModelSpecs(ctx, userCred, ownerId, p, specs); err != nil {
 			log.Errorf("ai_provider %s create selected models: %v", p.Id, err)
 		}
 	} else if err := createCatalogModelsForUserProvider(ctx, userCred, ownerId, p); err != nil {

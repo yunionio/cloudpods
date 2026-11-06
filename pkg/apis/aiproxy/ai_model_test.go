@@ -40,3 +40,17 @@ func TestSAiModelConfigVisualEnabled(t *testing.T) {
 		t.Fatal("nil config should be zero")
 	}
 }
+
+func TestSAiModelConfigNativeInputModalities(t *testing.T) {
+	cfg := &SAiModelConfig{InputModalities: []string{" Text", "Image", "image"}}
+	mods := cfg.InputModalitiesForCatalog()
+	if len(mods) != 2 || mods[0] != "text" || mods[1] != "image" {
+		t.Fatalf("modalities = %#v", mods)
+	}
+	if !cfg.HasImageInput() {
+		t.Fatal("expected image capability")
+	}
+	if cfg.IsZero() {
+		t.Fatal("expected non-zero config with modalities")
+	}
+}
