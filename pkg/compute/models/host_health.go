@@ -151,7 +151,12 @@ func (h *SHostHealthChecker) onHostOnlineCreated(ctx context.Context, hostname s
 		log.Infof("Got host online %s", hostname)
 		if v, ok := h.hc.Load(hostname); ok {
 			c := v.(chan struct{})
-			c <- struct{}{}
+			select {
+			case c <- struct{}{}:
+				log.Infof("%s onHostOnlineCreated kick", hostname)
+			default:
+				log.Infof("%s onHostOnlineCreated drop", hostname)
+			}
 		}
 	}
 }
