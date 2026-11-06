@@ -3808,6 +3808,9 @@ func (g *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCre
 			g.PowerStates = extVM.GetPowerStates()
 			g.InferPowerStates()
 		}
+		if extVM.GetStatus() == api.VM_READY {
+			g.ShutdownMode = extVM.GetShutdownMode()
+		}
 
 		g.VcpuCount = extVM.GetVcpuCount()
 		g.CpuSockets = extVM.GetCpuSockets()
@@ -3906,6 +3909,9 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.Status = extVM.GetStatus()
 	guest.PowerStates = extVM.GetPowerStates()
 	guest.InferPowerStates()
+	if guest.Status == api.VM_READY {
+		guest.ShutdownMode = extVM.GetShutdownMode()
+	}
 	guest.ExternalId = extVM.GetGlobalId()
 	guest.VcpuCount = extVM.GetVcpuCount()
 	guest.CpuSockets = extVM.GetCpuSockets()
