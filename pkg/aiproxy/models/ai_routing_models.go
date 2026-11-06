@@ -298,6 +298,22 @@ func deleteAiRoutingModels(ctx context.Context, routingId string) error {
 	return nil
 }
 
+func deleteAiRoutingModelsByModelId(ctx context.Context, modelId string) error {
+	_ = ctx
+	modelId = strings.TrimSpace(modelId)
+	if modelId == "" {
+		return errors.Wrap(httperrors.ErrInputParameter, "ai_model_id is required")
+	}
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf("delete from %s where ai_model_id = ?", AiRoutingModelManager.TableSpec().Name()),
+		modelId,
+	)
+	if err != nil {
+		return errors.Wrap(err, "delete ai_routing_models by ai_model_id")
+	}
+	return nil
+}
+
 func createAiRoutingModels(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
