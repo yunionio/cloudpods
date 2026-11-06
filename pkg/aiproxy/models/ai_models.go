@@ -104,6 +104,17 @@ func (m *SAiModel) PostCreate(
 	}
 }
 
+// CustomizeDelete removes ai_routing_model bindings that point at this model so
+// routings do not keep stale ai_model_id references after delete.
+func (m *SAiModel) CustomizeDelete(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) error {
+	return deleteAiRoutingModelsByModelId(ctx, m.Id)
+}
+
 func (manager *SAiModelManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
