@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 )
 
@@ -93,6 +94,10 @@ func (ins *SInstanceBase) GetPowerStates() string {
 
 func (ins *SInstanceBase) GetHealthStatus() string {
 	return ""
+}
+
+func (ins *SInstanceBase) GetShutdownMode() string {
+	return api.VM_SHUTDOWN_MODE_KEEP_CHARGING
 }
 
 func (instance *SInstanceBase) GetError() error {
