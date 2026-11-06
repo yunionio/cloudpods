@@ -180,6 +180,13 @@ func (i *SInstance) GetStatus() string {
 	}
 }
 
+func (i *SInstance) GetShutdownMode() string {
+	if i.StoppedMode {
+		return api.VM_SHUTDOWN_MODE_STOP_CHARGING
+	}
+	return api.VM_SHUTDOWN_MODE_KEEP_CHARGING
+}
+
 func (i *SInstance) Refresh() error {
 	vm, err := i.host.zone.region.GetInstance(i.InstanceId)
 	if err != nil {
