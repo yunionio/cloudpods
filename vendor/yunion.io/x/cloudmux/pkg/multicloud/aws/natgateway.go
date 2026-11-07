@@ -115,13 +115,22 @@ func (self *SNatGateway) Refresh() error {
 func (self *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	ret := []cloudprovider.ICloudEIP{}
 	for _, addr := range self.NatGatewayAddresses {
-		if len(addr.PublicIp) > 0 {
-			eip, err := self.region.GetEipByIpAddress(addr.PublicIp)
+		var eip *SEipAddress
+		var err error
+		if len(addr.AllocationId) > 0 {
+			eip, err = self.region.GetEip(addr.AllocationId)
+			if err != nil {
+				return nil, errors.Wrapf(err, "GetEip %s", addr.AllocationId)
+			}
+		} else if len(addr.PublicIp) > 0 {
+			eip, err = self.region.GetEipByIpAddress(addr.PublicIp)
 			if err != nil {
 				return nil, errors.Wrapf(err, "GetEipByIpAddress")
 			}
-			ret = append(ret, eip)
+		} else {
+			continue
 		}
+		ret = append(ret, eip)
 	}
 	return ret, nil
 }
