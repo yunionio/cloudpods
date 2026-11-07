@@ -16,6 +16,7 @@ package aws
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -50,6 +51,8 @@ type SEipAddress struct {
 	PrivateIpAddress        string `xml:"privateIpAddress"`
 	PublicIp                string `xml:"publicIp"`
 	PublicIpv4Pool          string `xml:"publicIpv4Pool"`
+	// ServiceManaged is set for AWS-managed associations, e.g. public NAT Gateway EIP: "rnat"
+	ServiceManaged string `xml:"serviceManaged"`
 }
 
 func (self *SEipAddress) GetId() string {
@@ -105,13 +108,19 @@ func (self *SEipAddress) GetAssociationType() string {
 	if len(self.InstanceId) > 0 {
 		return api.EIP_ASSOCIATE_TYPE_SERVER
 	}
+	// Public NAT Gateway EIP: DescribeAddresses returns serviceManaged=rnat
+	// without networkInterfaceId / instanceId.
+	if self.ServiceManaged == "rnat" {
+		return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
+	}
 	if len(self.NetworkInterfaceId) > 0 {
 		net, err := self.region.GetNetworkInterface(self.NetworkInterfaceId)
 		if err != nil {
 			return ""
 		}
 		switch net.InterfaceType {
-		case "nat_gateway":
+		// AWS API enum is "natGateway"; some docs/filters use "nat_gateway"
+		case "natGateway", "nat_gateway":
 			return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
 		case "network_load_balancer":
 			return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
@@ -126,28 +135,59 @@ func (self *SEipAddress) GetAssociationExternalId() string {
 	if len(self.InstanceId) > 0 {
 		return self.InstanceId
 	}
+	if self.ServiceManaged == "rnat" {
+		return self.findAssociatedNatGatewayId("", "")
+	}
 	if len(self.NetworkInterfaceId) > 0 {
 		net, err := self.region.GetNetworkInterface(self.NetworkInterfaceId)
 		if err != nil {
 			return ""
 		}
 		switch net.InterfaceType {
-		case "nat_gateway":
-			nats, err := self.region.GetNatGateways(nil, net.VpcId, net.SubnetId)
-			if err != nil {
-				return ""
+		case "natGateway", "nat_gateway":
+			// Description is typically "Interface for NAT Gateway nat-xxxxxxxx"
+			if natId := parseNatGatewayIdFromEniDescription(net.Description); len(natId) > 0 {
+				return natId
 			}
-			for i := range nats {
-				for _, addr := range nats[i].NatGatewayAddresses {
-					if addr.PublicIp == self.PublicIp {
-						return nats[i].GetGlobalId()
-					}
-				}
-			}
-			return ""
+			return self.findAssociatedNatGatewayId(net.VpcId, net.SubnetId)
 		}
 	}
+	// Associated EIP without instance/eni: try match NAT by allocation/public ip
+	if len(self.AssociationId) > 0 {
+		return self.findAssociatedNatGatewayId("", "")
+	}
 	return self.InstanceId
+}
+
+func (self *SEipAddress) findAssociatedNatGatewayId(vpcId, subnetId string) string {
+	if self.region == nil {
+		return ""
+	}
+	nats, err := self.region.GetNatGateways(nil, vpcId, subnetId)
+	if err != nil {
+		return ""
+	}
+	for i := range nats {
+		for _, addr := range nats[i].NatGatewayAddresses {
+			if (len(self.AllocationId) > 0 && addr.AllocationId == self.AllocationId) ||
+				(len(self.NetworkInterfaceId) > 0 && addr.NetworkInterfaceId == self.NetworkInterfaceId) ||
+				(len(self.PublicIp) > 0 && addr.PublicIp == self.PublicIp) {
+				return nats[i].GetGlobalId()
+			}
+		}
+	}
+	return ""
+}
+
+func parseNatGatewayIdFromEniDescription(desc string) string {
+	const prefix = "Interface for NAT Gateway "
+	if strings.HasPrefix(desc, prefix) {
+		id := strings.TrimSpace(strings.TrimPrefix(desc, prefix))
+		if strings.HasPrefix(id, "nat-") {
+			return id
+		}
+	}
+	return ""
 }
 
 func (self *SEipAddress) GetBandwidth() int {
