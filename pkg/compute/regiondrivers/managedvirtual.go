@@ -2774,13 +2774,61 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSnapshotStatus(ctx co
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncNatGatewayStatus(ctx context.Context, userCred mcclient.TokenCredential, nat *models.SNatGateway, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-
 		iNat, err := nat.GetINatGateway(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "nat.GetINatGateway")
 		}
 
-		return nil, nat.SyncWithCloudNatGateway(ctx, userCred, nat.GetCloudprovider(), iNat)
+		provider := nat.GetCloudprovider()
+		err = nat.SyncWithCloudNatGateway(ctx, userCred, provider, iNat)
+		if err != nil {
+			return nil, errors.Wrap(err, "SyncWithCloudNatGateway")
+		}
+
+		lockman.LockObject(ctx, nat)
+		defer lockman.ReleaseObject(ctx, nat)
+
+		// sync associated resources under NAT: EIPs, DNAT, SNAT
+		eips, err := iNat.GetIEips()
+		if err != nil {
+			if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+				return nil, errors.Wrapf(err, "GetIEips")
+			}
+		} else {
+			result := nat.SyncNatGatewayEips(ctx, userCred, provider, eips)
+			log.Infof("SyncNatGatewayEips for NatGateway %s result: %s", nat.Name, result.Result())
+			if result.IsError() {
+				return nil, errors.Wrapf(result.AllError(), "SyncNatGatewayEips")
+			}
+		}
+
+		dtable, err := iNat.GetINatDTable()
+		if err != nil {
+			if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+				return nil, errors.Wrapf(err, "GetINatDTable")
+			}
+		} else {
+			result := models.NatDEntryManager.SyncNatDTable(ctx, userCred, provider, nat, dtable, false)
+			log.Infof("SyncNatDTable for NatGateway %s result: %s", nat.Name, result.Result())
+			if result.IsError() {
+				return nil, errors.Wrapf(result.AllError(), "SyncNatDTable")
+			}
+		}
+
+		stable, err := iNat.GetINatSTable()
+		if err != nil {
+			if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+				return nil, errors.Wrapf(err, "GetINatSTable")
+			}
+		} else {
+			result := models.NatSEntryManager.SyncNatSTable(ctx, userCred, provider, nat, stable, false)
+			log.Infof("SyncNatSTable for NatGateway %s result: %s", nat.Name, result.Result())
+			if result.IsError() {
+				return nil, errors.Wrapf(result.AllError(), "SyncNatSTable")
+			}
+		}
+
+		return nil, nil
 	})
 	return nil
 }
