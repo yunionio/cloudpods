@@ -2027,3 +2027,5 @@ yunion.io/x/structarg v0.0.0-20260917033311-96c7653334ac h1:hJAthswj6YfWd3GCOBl9
 yunion.io/x/structarg v0.0.0-20260917033311-96c7653334ac/go.mod h1:DyMCdRyfV5PdEe/BDz2vBbemnmALUF3Rj1JmUUlu3KY=
 zombiezen.com/go/sqlite v0.13.1 h1:qDzxyWWmMtSSEH5qxamqBFmqA2BLSSbtODi3ojaE02o=
 zombiezen.com/go/sqlite v0.13.1/go.mod h1:Ht/5Rg3Ae2hoyh1I7gbWtWAl89CNocfqeb/aAMTkJr4=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20261107084527-a0566eede4c5 h1:1IPVjMLoacNS+SPaN4Uu1cvIkvlsssK+SrSfz3p9zY4=
+yunion.io/x/cloudmux v0.3.10-0-alpha.1.0.20261107084527-a0566eede4c5/go.mod h1:IwmeqVkld+4XylS80cyVBXyN8fJ5ynAspd/6tcvqJuc=
