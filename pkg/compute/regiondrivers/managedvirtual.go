@@ -2789,42 +2789,43 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncNatGatewayStatus(ctx 
 		defer lockman.ReleaseObject(ctx, nat)
 
 		// sync associated resources under NAT: EIPs, DNAT, SNAT
+		// child sync failures are logged only and do not fail NAT status sync
 		eips, err := iNat.GetIEips()
 		if err != nil {
 			if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				return nil, errors.Wrapf(err, "GetIEips")
+				log.Errorf("GetIEips for NatGateway %s failed: %v", nat.Name, err)
 			}
 		} else {
 			result := nat.SyncNatGatewayEips(ctx, userCred, provider, eips)
 			log.Infof("SyncNatGatewayEips for NatGateway %s result: %s", nat.Name, result.Result())
 			if result.IsError() {
-				return nil, errors.Wrapf(result.AllError(), "SyncNatGatewayEips")
+				log.Errorf("SyncNatGatewayEips for NatGateway %s failed: %v", nat.Name, result.AllError())
 			}
 		}
 
 		dtable, err := iNat.GetINatDTable()
 		if err != nil {
 			if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				return nil, errors.Wrapf(err, "GetINatDTable")
+				log.Errorf("GetINatDTable for NatGateway %s failed: %v", nat.Name, err)
 			}
 		} else {
 			result := models.NatDEntryManager.SyncNatDTable(ctx, userCred, provider, nat, dtable, false)
 			log.Infof("SyncNatDTable for NatGateway %s result: %s", nat.Name, result.Result())
 			if result.IsError() {
-				return nil, errors.Wrapf(result.AllError(), "SyncNatDTable")
+				log.Errorf("SyncNatDTable for NatGateway %s failed: %v", nat.Name, result.AllError())
 			}
 		}
 
 		stable, err := iNat.GetINatSTable()
 		if err != nil {
 			if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
-				return nil, errors.Wrapf(err, "GetINatSTable")
+				log.Errorf("GetINatSTable for NatGateway %s failed: %v", nat.Name, err)
 			}
 		} else {
 			result := models.NatSEntryManager.SyncNatSTable(ctx, userCred, provider, nat, stable, false)
 			log.Infof("SyncNatSTable for NatGateway %s result: %s", nat.Name, result.Result())
 			if result.IsError() {
-				return nil, errors.Wrapf(result.AllError(), "SyncNatSTable")
+				log.Errorf("SyncNatSTable for NatGateway %s failed: %v", nat.Name, result.AllError())
 			}
 		}
 
