@@ -494,6 +494,17 @@ func (self *SBaremetalGuestDriver) PerformStart(ctx context.Context, userCred mc
 	return guest.StartGueststartTask(ctx, userCred, data, "")
 }
 
+func (self *SBaremetalGuestDriver) CanStop(guest *models.SGuest) error {
+	host, err := guest.GetHost()
+	if err != nil {
+		return err
+	}
+	if host.IsImport && host.IpmiInfo == nil {
+		return httperrors.NewBadRequestError("Host %s is import no ipmi_info, can't stop", host.Id)
+	}
+	return nil
+}
+
 func (self *SBaremetalGuestDriver) CheckDiskTemplateOnStorage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, storageId string, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
