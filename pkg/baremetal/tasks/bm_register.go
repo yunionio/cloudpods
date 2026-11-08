@@ -122,7 +122,7 @@ func (s *sBaremetalRegisterTask) getAccessDevMacAddr(ip string) (string, error) 
 	return segs[1], nil
 }
 
-func (s *sBaremetalRegisterTask) CreateBaremetal(ctx context.Context) (string, error) {
+func (s *sBaremetalRegisterTask) CreateBaremetal(ctx context.Context, noIpmi bool) (string, error) {
 	zoneId := s.BmManager.GetZoneId()
 	ret, err := s.SshCli.Run("/lib/mos/lsnic")
 	if err != nil {
@@ -154,6 +154,7 @@ func (s *sBaremetalRegisterTask) CreateBaremetal(ctx context.Context) (string, e
 	params.Set("host_type", jsonutils.NewString("baremetal"))
 	params.Set("is_baremetal", jsonutils.JSONTrue)
 	params.Set("is_import", jsonutils.JSONTrue)
+	params.Set("enable_pxe_boot", jsonutils.JSONFalse) // disable pxe boot by default
 	res, err := modules.Hosts.CreateInContext(s.getSession(), params, &modules.Zones, zoneId)
 	if err != nil {
 		return "", fmt.Errorf("Create baremetal failed: %s", err)
@@ -168,10 +169,12 @@ func (s *sBaremetalRegisterTask) CreateBaremetal(ctx context.Context) (string, e
 	if err != nil {
 		return "", fmt.Errorf("BmManager add admin netif failed: %s", err)
 	}
-	err = pxeBm.InitAdminNetif(ctx,
-		s.IpmiMac, s.IpmiWire, api.NIC_TYPE_IPMI, api.NETWORK_TYPE_IPMI, true, s.IpmiIpAddr)
-	if err != nil {
-		return "", fmt.Errorf("BmManager add ipmi netif failed: %s", err)
+	if !noIpmi {
+		err = pxeBm.InitAdminNetif(ctx,
+			s.IpmiMac, s.IpmiWire, api.NIC_TYPE_IPMI, api.NETWORK_TYPE_IPMI, true, s.IpmiIpAddr)
+		if err != nil {
+			return "", fmt.Errorf("BmManager add ipmi netif failed: %s", err)
+		}
 	}
 	for _, nic := range nicinfo {
 		if nic.Dev != s.accessNic.Dev {
@@ -227,25 +230,27 @@ func (s *sBaremetalRegisterTask) doRedfishProbe(ctx context.Context) (redfishSup
 	return
 }
 
-func (s *sBaremetalRegisterTask) DoPrepare(ctx context.Context, cli *ssh.Client, registered bool) error {
+func (s *sBaremetalRegisterTask) DoPrepare(ctx context.Context, cli *ssh.Client, registered, noIpmi bool) error {
 	infos, err := s.prepareBaremetalInfo(cli)
 	if err != nil {
 		log.Errorf("prepareBaremetalInfo failed %s", err)
 		return err
 	}
 
-	redfishSupport, cdromSupport := s.doRedfishProbe(ctx)
+	if !noIpmi {
+		redfishSupport, cdromSupport := s.doRedfishProbe(ctx)
 
-	infos.ipmiInfo.IpAddr = s.IpmiIpAddr
-	infos.ipmiInfo.Username = s.IpmiUsername
-	infos.ipmiInfo.Password = s.IpmiPassword
-	infos.ipmiInfo.LanChannel = s.IpmiLanChannel
-	infos.ipmiInfo.Verified = true
-	infos.ipmiInfo.Present = true
-	infos.ipmiInfo.RedfishApi = redfishSupport
-	infos.ipmiInfo.CdromBoot = cdromSupport
+		infos.ipmiInfo.IpAddr = s.IpmiIpAddr
+		infos.ipmiInfo.Username = s.IpmiUsername
+		infos.ipmiInfo.Password = s.IpmiPassword
+		infos.ipmiInfo.LanChannel = s.IpmiLanChannel
+		infos.ipmiInfo.Verified = true
+		infos.ipmiInfo.Present = true
+		infos.ipmiInfo.RedfishApi = redfishSupport
+		infos.ipmiInfo.CdromBoot = cdromSupport
 
-	s.updateIpmiInfo(ctx, cli)
+		s.updateIpmiInfo(ctx, cli)
+	}
 
 	return s.updateBmInfo(ctx, cli, infos, registered)
 }
