@@ -15,6 +15,7 @@
 package service
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/baremetal"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
@@ -33,7 +35,10 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
+	compute_options "yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	identity_modules "yunion.io/x/onecloud/pkg/mcclient/modules/identity"
 	_ "yunion.io/x/onecloud/pkg/util/redfish/loader"
 )
 
@@ -43,6 +48,20 @@ type BaremetalService struct {
 
 func New() *BaremetalService {
 	return &BaremetalService{}
+}
+
+func updateComputeOptions(opts *o.BaremetalOptions) {
+	regionConfig, err := identity_modules.ServicesV3.GetConfig(auth.GetAdminSession(context.Background(), opts.Region), apis.SERVICE_TYPE_REGION)
+	if err != nil {
+		log.Fatalf("fail to retrieve compute config %s", err)
+	}
+	computeOptions := &compute_options.ComputeOptions{}
+	err = regionConfig.Unmarshal(computeOptions, "default")
+	if err != nil {
+		log.Fatalf("fail to unmarshal compute options: %s", err)
+	}
+	opts.BaremetalPrepareServerFakeDelete = computeOptions.BaremetalPrepareServerFakeDelete
+	log.Infof("BaremetalPrepareServerFakeDelete: %v", opts.BaremetalPrepareServerFakeDelete)
 }
 
 func (s *BaremetalService) StartService() {
@@ -68,6 +87,8 @@ func (s *BaremetalService) StartService() {
 	app_common.InitAuth(&o.Options.CommonOptions, func() {
 		log.Infof("auth complete")
 	})
+
+	updateComputeOptions(&o.Options)
 
 	fsdriver.Init("")
 	app := app_common.InitApp(&o.Options.BaseOptions, false)
