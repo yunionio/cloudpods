@@ -285,6 +285,7 @@ type BmRegisterInput struct {
 	Username string
 	Password string
 	IpAddr   string
+	NoIpmi   bool
 }
 
 func (i *BmRegisterInput) responseSucc(bmId string) {
@@ -323,36 +324,42 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, userCred mccl
 		input.responseErr(ctx, httperrors.NewBadRequestError("SSH verify failed: %s", err))
 		return
 	}
+	var ipmiLanChannel uint8
+	var ipmiMac net.HardwareAddr
+	var ipmiWire string
+	if !input.NoIpmi {
+		isIpv6Addr := false
+		if strings.Contains(input.RemoteIp, ":") {
+			isIpv6Addr = true
+		}
+		input.IpAddr, err = m.fetchIpmiIp(sshCli, isIpv6Addr)
+		log.Infof("find ipmi addr %s", input.IpAddr)
 
-	isIpv6Addr := false
-	if strings.Contains(input.RemoteIp, ":") {
-		isIpv6Addr = true
-	}
-	input.IpAddr, err = m.fetchIpmiIp(sshCli, isIpv6Addr)
-	log.Infof("find ipmi addr %s", input.IpAddr)
+		if input.isTimeout() {
+			return
+		} else if err != nil {
+			input.responseErr(ctx, httperrors.NewBadRequestError("Fetch ipmi address failed: %s", err))
+			return
+		}
+		log.Infof("Find ipmi address %s", input.IpAddr)
 
-	if input.isTimeout() {
-		return
-	} else if err != nil {
-		input.responseErr(ctx, httperrors.NewBadRequestError("Fetch ipmi address failed: %s", err))
-		return
-	}
-	log.Infof("Find ipmi address %s", input.IpAddr)
+		ipmiWire, err = m.checkNetworkFromIp(input.IpAddr)
+		if input.isTimeout() {
+			return
+		} else if err != nil {
+			input.responseErr(ctx, httperrors.NewBadRequestError("Verify network failed: %s", err))
+			return
+		}
 
-	ipmiWire, err := m.checkNetworkFromIp(input.IpAddr)
-	if input.isTimeout() {
-		return
-	} else if err != nil {
-		input.responseErr(ctx, httperrors.NewBadRequestError("Verify network failed: %s", err))
-		return
-	}
-
-	ipmiLanChannel, ipmiMac, err := m.checkIpmiInfo(ctx, input.Username, input.Password, input.IpAddr)
-	if input.isTimeout() {
-		return
-	} else if err != nil {
-		input.responseErr(ctx, httperrors.NewBadRequestError("IPMI login info not correct: %s", err))
-		return
+		if !input.NoIpmi {
+			ipmiLanChannel, ipmiMac, err = m.checkIpmiInfo(ctx, input.Username, input.Password, input.IpAddr)
+			if input.isTimeout() {
+				return
+			} else if err != nil {
+				input.responseErr(ctx, httperrors.NewBadRequestError("IPMI login info not correct: %s", err))
+				return
+			}
+		}
 	}
 
 	err, registered := m.verifyMacAddr(sshCli)
@@ -370,7 +377,7 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, userCred mccl
 	)
 	var bmId string
 	if !registered {
-		bmId, err = registerTask.CreateBaremetal(ctx)
+		bmId, err = registerTask.CreateBaremetal(ctx, input.NoIpmi)
 	} else {
 		bmId, err = registerTask.UpdateBaremetal(ctx)
 	}
@@ -380,7 +387,7 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, userCred mccl
 	}
 
 	input.responseSucc(bmId)
-	registerTask.DoPrepare(ctx, sshCli, registered)
+	registerTask.DoPrepare(ctx, sshCli, registered, input.NoIpmi)
 }
 
 func (m *SBaremetalManager) fetchIpmiIp(sshCli *ssh.Client, isIpv6Addr bool) (string, error) {
