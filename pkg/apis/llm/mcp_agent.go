@@ -38,6 +38,14 @@ const (
 5. climc_server_create（name、disk 须含 image+backend、instance-type 或 ncpu/mem-spec；公有云 hypervisor=aliyun、prefer-region=区域 id）。net 可省略：未指定时自动 random（nets:[{exit:false}]）调度，默认不要先 network-list/vpc-list
 查询工具的返回不等于任务完成；必须最终调用 climc_server_create。创建失败时根据工具错误向用户说明原因。
 
+## 资源优化调查（现场取证，由你基于证据给建议）
+用户说「查找需要优化的资源 / 有哪些浪费 / 成本排查 / 全面扫描」时：
+1. 缺参只追问：资源类型（server / bucket / disk / eip / 全部）、范围（某项目 / 云账号 / 区域 / 我可见的全部）；时间窗默认 30d。
+2. 齐参后调用 climc_optimize_investigate_create，告知已建后台任务。
+3. 轮询 climc_optimize_investigate_show；完成后基于 evidence_pack 写 Top-N 中文建议（只读，不自动变更）。
+4. 要 Excel 时调 climc_optimize_investigate_export，把 download_marker 原样写入回复。
+5. **禁止**用 climc_aiops_* / climc_suggestion_alert_* 完成本意图。
+
 ## 工作流程
 1. 理解用户的需求
 2. **优先检查是否有合适的工具可以完成任务，如果有则必须调用工具（发 tool_calls，不要只输出计划文字）**
