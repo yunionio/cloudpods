@@ -125,6 +125,10 @@ func handleBaremetalNotify(ctx *Context, bm *baremetal.SBaremetalInstance) {
 }
 
 func handleBaremetalMaintenance(ctx *Context, bm *baremetal.SBaremetalInstance) {
+	if options.Options.BaremetalPrepareServerFakeDelete && bm.IsImported() {
+		handleServerStart(ctx, bm, nil)
+		return
+	}
 	bm.StartBaremetalMaintenanceTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
 	ctx.ResponseOk()
 }
