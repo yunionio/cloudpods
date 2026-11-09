@@ -1207,6 +1207,11 @@ func (sa *SStorageAccount) AbortMultipartUpload(ctx context.Context, key string,
 		return errors.Wrap(err, "GetAccountKey")
 	}
 
+	// uncommitted blob fragment from ListMultipartUploads: delete directly
+	if len(uploadId) == 0 || uploadId == "uncommitted" {
+		return sa.DeleteObject(ctx, key)
+	}
+
 	params := url.Values{}
 	params.Set("comp", "lease")
 	header := http.Header{}
@@ -1226,6 +1231,62 @@ func (sa *SStorageAccount) AbortMultipartUpload(ctx context.Context, key string,
 	}
 
 	return nil
+}
+
+func (sa *SStorageAccount) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUploads, error) {
+	result := []cloudprovider.SBucketMultipartUploads{}
+	containers, err := sa.GetContainers()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetContainers")
+	}
+	for i := range containers {
+		marker := ""
+		for {
+			part, err := containers[i].ListUncommittedBlobs(marker, 1000)
+			if err != nil {
+				return nil, errors.Wrapf(err, "ListUncommittedBlobs %s", containers[i].Name)
+			}
+			for j := range part.Blobs {
+				initiated := time.Time{}
+				if len(part.Blobs[j].Properties.LastModified) > 0 {
+					initiated, _ = timeutils.ParseTimeStr(part.Blobs[j].Properties.LastModified)
+				}
+				result = append(result, cloudprovider.SBucketMultipartUploads{
+					ObjectName: containers[i].Name + "/" + part.Blobs[j].Name,
+					UploadID:   "uncommitted",
+					Initiated:  initiated,
+				})
+			}
+			if len(part.NextMarker) == 0 {
+				break
+			}
+			marker = part.NextMarker
+		}
+	}
+	return result, nil
+}
+
+func (c *SContainer) ListUncommittedBlobs(marker string, maxCount int) (*BlobListResponse, error) {
+	accessKey, err := c.storageaccount.GetAccountKey()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetAccountKey")
+	}
+	params := url.Values{}
+	params.Set("comp", "list")
+	params.Set("restype", "container")
+	params.Set("include", "uncommittedblobs")
+	if maxCount > 0 {
+		params.Set("maxresults", strconv.Itoa(maxCount))
+	}
+	if len(marker) > 0 {
+		params.Set("marker", marker)
+	}
+	result := &BlobListResponse{}
+	err = c.storageaccount.region.client.list_storage_v2(accessKey, c.storageaccount.Name, c.Name, params, result)
+	if err != nil {
+		return nil, errors.Wrap(err, "list_storage_v2")
+	}
+	return result, nil
 }
 
 func (sa *SStorageAccount) DeleteObject(ctx context.Context, key string) error {
