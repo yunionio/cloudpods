@@ -1,0 +1,186 @@
+package client
+
+// Updated Schema map with more precise types for serialization
+var OvnNbSchemaTypes = map[string]map[string]string{
+	"NB_Global": {
+		"nb_cfg": "integer",
+		"sb_cfg": "integer",
+		"hv_cfg": "integer",
+		"external_ids": "mapStringString",
+		"connections": "setUuid",
+		"ssl": "setUuid", 
+		"options": "mapStringString",
+		"ipsec": "boolean",
+	},
+	"Logical_Switch": {
+		"name": "string",
+		"ports": "setUuid",
+		"acls": "setUuid",
+		"qos_rules": "setUuid",
+		"load_balancer": "setUuid",
+		"dns_records": "setUuid",
+		"other_config": "mapStringString",
+		"external_ids": "mapStringString",
+	},
+	"Logical_Switch_Port": {
+		"name": "string",
+		"type": "string",
+		"options": "mapStringString",
+		"parent_name": "string",
+		"tag_request": "integer",
+		"tag": "integer",
+		"addresses": "setString",
+		"dynamic_addresses": "string",
+		"port_security": "setString",
+		"up": "boolean",
+		"enabled": "boolean",
+		"dhcpv4_options": "uuid",
+		"dhcpv6_options": "uuid",
+		"ha_chassis_group": "uuid",
+		"external_ids": "mapStringString",
+	},
+	"Address_Set": {
+		"name": "string",
+		"addresses": "setString",
+		"external_ids": "mapStringString",
+	},
+	"Port_Group": {
+		"name": "string",
+		"ports": "setUuid",
+		"acls": "setUuid",
+		"external_ids": "mapStringString",
+	},
+	"Load_Balancer": {
+		"name": "string",
+		"vips": "mapStringString",
+		"protocol": "string",
+		"external_ids": "mapStringString",
+	},
+	"ACL": {
+		"name": "string",
+		"priority": "integer",
+		"direction": "string",
+		"match": "string",
+		"action": "string",
+		"log": "boolean",
+		"severity": "string",
+		"meter": "string",
+		"external_ids": "mapStringString",
+	},
+	"QoS": {
+		"priority": "integer",
+		"direction": "string",
+		"match": "string",
+		"action": "mapStringInteger", 
+		"bandwidth": "mapStringInteger", 
+		"external_ids": "mapStringString",
+	},
+	"Meter": {
+		"name": "string",
+		"unit": "string",
+		"bands": "setUuid",
+		"external_ids": "mapStringString",
+	},
+	"Meter_Band": {
+		"action": "string",
+		"rate": "integer",
+		"burst_size": "integer",
+		"external_ids": "mapStringString",
+	},
+	"Logical_Router": {
+		"name": "string",
+		"ports": "setUuid",
+		"static_routes": "setUuid",
+		"policies": "setUuid",
+		"enabled": "boolean",
+		"nat": "setUuid",
+		"load_balancer": "setUuid",
+		"options": "mapStringString",
+		"external_ids": "mapStringString",
+	},
+	"Logical_Router_Port": {
+		"name": "string",
+		"gateway_chassis": "setUuid",
+		"ha_chassis_group": "uuid",
+		"options": "mapStringString",
+		"networks": "setString",
+		"mac": "string",
+		"peer": "string",
+		"enabled": "boolean",
+		"ipv6_ra_configs": "mapStringString",
+		"external_ids": "mapStringString",
+	},
+	"Logical_Router_Static_Route": {
+		"ip_prefix": "string",
+		"policy": "string",
+		"nexthop": "string",
+		"output_port": "string",
+		"external_ids": "mapStringString",
+	},
+	"Logical_Router_Policy": {
+		"priority": "integer",
+		"match": "string",
+		"action": "string",
+		"nexthop": "string",
+		"external_ids": "mapStringString",
+	},
+	"NAT": {
+		"external_ip": "string",
+		"external_mac": "string",
+		"logical_ip": "string",
+		"logical_port": "string",
+		"type": "string",
+		"external_ids": "mapStringString",
+	},
+	"DHCP_Options": {
+		"cidr": "string",
+		"options": "mapStringString",
+		"external_ids": "mapStringString",
+	},
+	"Connection": {
+		"target": "string",
+		"max_backoff": "integer",
+		"inactivity_probe": "integer",
+		"other_config": "mapStringString",
+		"external_ids": "mapStringString",
+	},
+	"DNS": {
+		"records": "mapStringString",
+		"external_ids": "mapStringString",
+	},
+	"SSL": {
+		"private_key": "string",
+		"certificate": "string",
+		"ca_cert": "string",
+		"bootstrap_ca_cert": "boolean",
+		"ssl_protocols": "string",
+		"ssl_ciphers": "string",
+		"external_ids": "mapStringString",
+	},
+	"Gateway_Chassis": {
+		"name": "string",
+		"chassis_name": "string",
+		"priority": "integer",
+		"external_ids": "mapStringString",
+		"options": "mapStringString",
+	},
+	"HA_Chassis": {
+		"chassis_name": "string",
+		"priority": "integer",
+		"external_ids": "mapStringString",
+	},
+	"HA_Chassis_Group": {
+		"name": "string",
+		"ha_chassis": "setUuid",
+		"external_ids": "mapStringString",
+	},
+}
+
+func GetSchemaType(table, column string) string {
+	if cols, ok := OvnNbSchemaTypes[table]; ok {
+		if t, ok := cols[column]; ok {
+			return t
+		}
+	}
+	return "string" // default
+}
