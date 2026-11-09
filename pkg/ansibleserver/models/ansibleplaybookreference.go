@@ -59,11 +59,6 @@ func (arm *SAnsiblePlaybookReferenceManager) ResourceScope() rbacscope.TRbacScop
 	return rbacscope.ScopeSystem
 }
 
-var (
-	monitorAgent   = "monitor agent"
-	monitorAgentId = "monitoragent"
-)
-
 func (arm *SAnsiblePlaybookReferenceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.AnsiblePlaybookReferenceCreateInput) (api.AnsiblePlaybookReferenceCreateInput, error) {
 
 	if input.Method != api.APReferenceMethodOffline {
