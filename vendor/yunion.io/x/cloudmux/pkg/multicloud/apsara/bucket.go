@@ -539,3 +539,36 @@ func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, par
 	}
 	return part.ETag, nil
 }
+
+func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUploads, error) {
+	osscli, err := b.GetOssClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOssClient")
+	}
+	result := []cloudprovider.SBucketMultipartUploads{}
+	ossBucket, err := osscli.Bucket(b.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "osscli.Bucket(b.Name)")
+	}
+	keyMarker := oss.KeyMarker("")
+	uploadIDMarker := oss.UploadIDMarker("")
+	for {
+		output, err := ossBucket.ListMultipartUploads(keyMarker, uploadIDMarker)
+		if err != nil {
+			return nil, errors.Wrap(err, "ListMultipartUploads")
+		}
+		for i := range output.Uploads {
+			result = append(result, cloudprovider.SBucketMultipartUploads{
+				ObjectName: output.Uploads[i].Key,
+				UploadID:   output.Uploads[i].UploadID,
+				Initiated:  output.Uploads[i].Initiated,
+			})
+		}
+		keyMarker = oss.KeyMarker(output.NextKeyMarker)
+		uploadIDMarker = oss.UploadIDMarker(output.NextUploadIDMarker)
+		if !output.IsTruncated {
+			break
+		}
+	}
+	return result, nil
+}
