@@ -23,10 +23,12 @@ import (
 )
 
 type BucketListOptions struct {
-	_ struct{} `mcp-desc:"列出对象存储 Bucket。可用 search/provider 过滤"`
+	_ struct{} `mcp-desc:"列出对象存储 Bucket。可用 search/provider/empty 过滤；empty=true 列空桶，可加 min-age-days"`
 
 	options.BaseListOptions
 	DistinctField string `help:"query specified distinct field"`
+	Empty         *bool  `help:"only empty buckets (object_cnt=0 size_bytes=0)" json:"empty" mcp:"true"`
+	MinAgeDays    *int   `help:"with empty=true, only buckets older than N days" json:"min_age_days" mcp:"true"`
 }
 
 func (opts *BucketListOptions) Params() (jsonutils.JSONObject, error) {
@@ -443,4 +445,26 @@ type BucketPerfMonOptions struct {
 	BucketIdOptions
 
 	Payload string `help:"test payload in bytes, e.g. 1, 32, 1024M" default:"4M"`
+}
+
+type BucketListMultipartUploadsOptions struct {
+	_ struct{} `mcp-desc:"列出 Bucket 未完成分片上传（对象存储碎片）。用于成本治理；返回 object_name/upload_id/initiated"`
+
+	BucketIdOptions
+}
+
+func (opts *BucketListMultipartUploadsOptions) Params() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+type BucketAbortMultipartUploadOptions struct {
+	_ struct{} `mcp-desc:"中止 Bucket 未完成分片上传（清理对象存储碎片）。需 key + upload_id"`
+
+	BucketIdOptions
+	KEY      string `help:"object key" json:"key" mcp:"true"`
+	UploadID string `help:"multipart upload id" json:"upload_id" mcp:"true"`
+}
+
+func (opts *BucketAbortMultipartUploadOptions) Params() (jsonutils.JSONObject, error) {
+	return options.StructToParams(opts)
 }

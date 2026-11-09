@@ -189,6 +189,44 @@ func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId
 	return nil
 }
 
+func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUploads, error) {
+	toscli, err := b.region.GetTosClient()
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetTosClient")
+	}
+	result := []cloudprovider.SBucketMultipartUploads{}
+	keyMarker := ""
+	uploadIDMarker := ""
+	for {
+		output, err := toscli.ListMultipartUploadsV2(context.Background(), &tos.ListMultipartUploadsV2Input{
+			Bucket:         b.Name,
+			KeyMarker:      keyMarker,
+			UploadIDMarker: uploadIDMarker,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "ListMultipartUploadsV2")
+		}
+		for i := range output.Uploads {
+			initiator := output.Uploads[i].Owner.ID
+			if len(output.Uploads[i].Owner.DisplayName) > 0 {
+				initiator = output.Uploads[i].Owner.DisplayName
+			}
+			result = append(result, cloudprovider.SBucketMultipartUploads{
+				ObjectName: output.Uploads[i].Key,
+				UploadID:   output.Uploads[i].UploadID,
+				Initiator:  initiator,
+				Initiated:  output.Uploads[i].Initiated,
+			})
+		}
+		if !output.IsTruncated {
+			break
+		}
+		keyMarker = output.NextKeyMarker
+		uploadIDMarker = output.NextUploadIDMarker
+	}
+	return result, nil
+}
+
 func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error {
 	toscli, err := b.region.GetTosClient()
 	if err != nil {
