@@ -64,6 +64,8 @@ type BaremetalOptions struct {
 	TftpBootServer   string `help:"customized tftp boot server"`
 	TftpBootFilename string `help:"filename of tftp boot loader"`
 	TftpBootFilesize int64  `help:"file size of tftp boot loader"`
+
+	BaremetalPrepareServerFakeDelete bool `help:"Baremetal registered server fake delete" default:"false"`
 }
 
 const (
