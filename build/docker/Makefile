@@ -41,6 +41,10 @@ webconsole-base:
 	$(DOCKER_BUILDX)/webconsole-base:$(WEBCONSOLE_BASE_VERSION_3-22-2) -f ./Dockerfile.webconsole-base .
 
 BAREMETAL_BASE_VERSION = v0.3.9-20261020.1
+BAREMETAL_IPMITOOL_TAG = 20261109-ipmitool
+
+baremetal-ipmitool:
+	$(DOCKER_BUILDX)/baremetal-base:$(BAREMETAL_IPMITOOL_TAG) -f ./Dockerfile.baremetal-ipmitool .
 
 baremetal-base:
 	$(DOCKER_BUILDX)/baremetal-base:$(BAREMETAL_BASE_VERSION) -f ./Dockerfile.baremetal-base .
