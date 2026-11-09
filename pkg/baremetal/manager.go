@@ -1042,7 +1042,6 @@ func (b *SBaremetalInstance) NeedPXEBoot() bool {
 	if task != nil && task.NeedPXEBoot() {
 		taskNeedPXEBoot = true
 	}
-	ret := false
 	reason := ""
 	if taskNeedPXEBoot {
 		reason = fmt.Sprintf("Task %s need PXE boot", taskName)
@@ -1050,18 +1049,23 @@ func (b *SBaremetalInstance) NeedPXEBoot() bool {
 	emptyBmNoTask := false
 	if task == nil && len(serverId) == 0 && b.GetHostType() == "baremetal" {
 		emptyBmNoTask = true
-		reason = fmt.Sprintf("Baremetal %s is empty and no task executing", b.GetName())
+		reason = fmt.Sprintf("Baremetal %s is empty and no task executing and not imported or not allow fake delete prepared baremetal", b.GetName())
 	}
 	noTaskInMaintenance := false
 	if task == nil && b.IsMaintenance() {
 		noTaskInMaintenance = true
 		reason = fmt.Sprintf("Baremetal %s no task executing but in maintenance", b.GetName())
 	}
+	needPxeBoot := false
 	if taskNeedPXEBoot || emptyBmNoTask || noTaskInMaintenance {
-		ret = true
+		needPxeBoot = true
 	}
-	log.Infof("Check task %s, server %s NeedPXEBoot: %v(%s)", taskName, serverId, ret, reason)
-	return ret
+	if needPxeBoot && b.IsImported() && o.Options.BaremetalPrepareServerFakeDelete {
+		needPxeBoot = false
+		reason += " and not allow pxeboot imported baremetal if allow fake delete prepared baremetal"
+	}
+	log.Infof("Check task %s, server %s NeedPXEBoot: %v(%s)", taskName, serverId, needPxeBoot, reason)
+	return needPxeBoot
 }
 
 func (b *SBaremetalInstance) IsMaintenance() bool {
@@ -1083,6 +1087,11 @@ func (b *SBaremetalInstance) GetArch() (string, error) {
 func (b *SBaremetalInstance) GetHostType() string {
 	hostType, _ := b.desc.GetString("host_type")
 	return hostType
+}
+
+func (b *SBaremetalInstance) IsImported() bool {
+	imported, _ := b.desc.Bool("is_import")
+	return imported
 }
 
 func (b *SBaremetalInstance) GetIPMINic(cliMac net.HardwareAddr) *types.SNic {
