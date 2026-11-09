@@ -53,9 +53,11 @@ const (
 	METRIC_UNIT_COUNT   = "count"
 	METRIC_UNIT_MS      = "ms"
 	METRIC_UNIT_SEC     = "s"
+	METRIC_UNIT_WATT    = "W"
 	METRIC_UNIT_BYTE    = "byte"
 	METRIC_UNIT_MB      = "Mb"
 	METRIC_UNIT_NULL    = "NULL"
+	METRIC_UNIT_CELIUS  = "C"
 
 	METRIC_DATABASE_TELE   = "telegraf"
 	METRIC_DATABASE_METER  = "meter_db"
