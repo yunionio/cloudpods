@@ -44,6 +44,7 @@ const serverInstructionsTemplate = `%s MCP（climc tools）使用规则：
 4. 监控：指标用 climc_monitor_unifiedmonitor_query；账户余额曲线 database=meter_db measurement=cloudaccount_balance field=balance from=720h to=now interval=24h；告警饼图 climc_monitor_alertrecord_total_alert；告警记录 climc_monitor_alertrecord_list；告警趋势 unifiedmonitor measurement=alert_record_history field=res_num func=sum group-by=res_type from=720h；告警资源 TopN climc_monitor_monitorresource_list。
 5. 资源概览用量用 climc_usage（project=项目名），不要用 list 凑配额。明细：LB climc_lb_list，Bucket climc_bucket_list，快照 climc_snapshot_list。
 6. 缺参只追问真正缺失项；已有 id 直接下一步。
+7. 资源优化调查（查找浪费/需要优化的资源）：先追问资源类型与范围；再 climc_optimize_investigate_create → show 轮询 → 基于 evidence_pack 写建议；Excel 用 climc_optimize_investigate_export（download_marker 原样回复）。禁止用 climc_aiops_* / climc_suggestion_alert_* 替代现场取证。
 `
 
 // BuildServerInstructions 用 platformName（BaseOptions.PlatformName）生成 MCP ServerInstructions。
