@@ -81,6 +81,8 @@ const (
 
 	ErrTooLarge = errors.Error("TooLargeEntity")
 
+	ErrUnprocessableEntity = errors.Error("UnprocessableEntity")
+
 	ErrTooManyAttempts = errors.Error("TooManyFailedAttempts")
 	ErrTooManyRequests = errors.Error("TooManyRequests")
 
@@ -170,6 +172,8 @@ var (
 		ErrNoProject:         403,
 
 		ErrTooLarge: 413,
+
+		ErrUnprocessableEntity: 422,
 
 		ErrTooManyAttempts: 429,
 		ErrTooManyRequests: 429,
