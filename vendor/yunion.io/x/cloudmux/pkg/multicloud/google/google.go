@@ -16,6 +16,7 @@ package google
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
@@ -590,6 +591,63 @@ func (self *SGoogleClient) storageAbortUpload(resource string) error {
 	resp, err := rawRequest(self.client, "DELETE", GOOGLE_STORAGE_UPLOAD_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, nil, nil, self.debug)
 	if err != nil {
 		return errors.Wrap(err, "rawRequest")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		msg, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(msg))
+	}
+	return nil
+}
+
+type gcsListMultipartUploadsResult struct {
+	XMLName            xml.Name `xml:"ListMultipartUploadsResult"`
+	IsTruncated        bool     `xml:"IsTruncated"`
+	NextKeyMarker      string   `xml:"NextKeyMarker"`
+	NextUploadIdMarker string   `xml:"NextUploadIdMarker"`
+	Uploads            []struct {
+		Key       string    `xml:"Key"`
+		UploadId  string    `xml:"UploadId"`
+		Initiated time.Time `xml:"Initiated"`
+	} `xml:"Upload"`
+}
+
+func (self *SGoogleClient) storageXmlListMultipartUploads(bucket, keyMarker, uploadIDMarker string) (*gcsListMultipartUploadsResult, error) {
+	params := url.Values{}
+	params.Set("uploads", "")
+	if len(keyMarker) > 0 {
+		params.Set("key-marker", keyMarker)
+	}
+	if len(uploadIDMarker) > 0 {
+		params.Set("upload-id-marker", uploadIDMarker)
+	}
+	reqURL := fmt.Sprintf("https://storage.googleapis.com/%s?%s", url.PathEscape(bucket), params.Encode())
+	resp, err := httputils.Request(self.client, context.Background(), httputils.GET, reqURL, nil, nil, self.debug)
+	if err != nil {
+		return nil, errors.Wrap(err, "Request")
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "ReadAll")
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(body))
+	}
+	output := &gcsListMultipartUploadsResult{}
+	if err := xml.Unmarshal(body, output); err != nil {
+		return nil, errors.Wrap(err, "xml.Unmarshal")
+	}
+	return output, nil
+}
+
+func (self *SGoogleClient) storageXmlAbortMultipartUpload(bucket, key, uploadId string) error {
+	params := url.Values{}
+	params.Set("uploadId", uploadId)
+	reqURL := fmt.Sprintf("https://storage.googleapis.com/%s/%s?%s", url.PathEscape(bucket), url.PathEscape(key), params.Encode())
+	resp, err := httputils.Request(self.client, context.Background(), httputils.DELETE, reqURL, nil, nil, self.debug)
+	if err != nil {
+		return errors.Wrap(err, "Request")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
