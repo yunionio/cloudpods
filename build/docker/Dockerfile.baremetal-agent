@@ -1,8 +1,20 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/baremetal-base:v0.3.9-20261013.0
+FROM registry.cn-beijing.aliyuncs.com/yunionio/baremetal-base:v0.3.9-20261020.1
 
 LABEL maintainer="Zexi Li <lizexi@yunionyun.com>"
 
 RUN mkdir -p /opt/yunion/bin
 
 ENV TZ="UTC"
+
+COPY --from=registry.cn-beijing.aliyuncs.com/yunionio/baremetal-base:20261109-ipmitool /usr/sbin/ipmitool /tmp/ipmitool
+
+# Replace the base image's ipmitool 1.8.19 after deleting the package,
+# so apk does not remove the newly installed binary.
+RUN apk del --no-cache ipmitool \
+    && mv /tmp/ipmitool /usr/sbin/ipmitool \
+    && chmod 755 /usr/sbin/ipmitool \
+    && ln -sf /usr/sbin/ipmitool /usr/bin/ipmitool \
+    && ipmitool -V | grep -q '1.8.18' \
+    && ldd /usr/sbin/ipmitool | grep -q 'libcrypto.so.3'
+
 ADD ./_output/alpine-build/bin/baremetal-agent /opt/yunion/bin/baremetal-agent

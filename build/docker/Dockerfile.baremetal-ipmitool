@@ -1,0 +1,60 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/baremetal-base:v0.3.9-20261020.1 AS build
+
+# Build ipmitool 1.8.18 the way Alpine's last 1.8.18 APKBUILD did (aports 3280c78),
+# so the binary links this image's OpenSSL 3 and readline instead of OpenSSL 1.1.
+RUN <<'EOF'
+set -eu
+apk add --no-cache build-base automake autoconf libtool readline-dev openssl-dev ncurses-dev patch
+wget -O /tmp/ipmitool-1.8.18.tar.gz https://github.com/ipmitool/ipmitool/archive/IPMITOOL_1_8_18.tar.gz
+echo '2f2b9c4ce76eb2afdac168edbd41241352c2d4d18286494ffb57dcf750f18448d144543faa8a5494f077c78a4f5ae730624d3798ba6e621249c42fd868d86406  /tmp/ipmitool-1.8.18.tar.gz' | sha512sum -c
+tar -xzf /tmp/ipmitool-1.8.18.tar.gz -C /tmp
+cd /tmp/ipmitool-IPMITOOL_1_8_18
+wget -O openssl-1.1.patch https://raw.githubusercontent.com/alpinelinux/aports/3280c78f263f9358270c3acf8a81c56fbbb69164/community/ipmitool/openssl-1.1.patch
+wget -O gcc-10.patch https://raw.githubusercontent.com/alpinelinux/aports/3280c78f263f9358270c3acf8a81c56fbbb69164/community/ipmitool/gcc-10.patch
+wget -O 7ccea283.patch https://github.com/ipmitool/ipmitool/commit/7ccea283dd62a05a320c1921e3d8d71a87772637.patch
+patch -p1 < openssl-1.1.patch
+patch -p1 < 7ccea283.patch
+patch -p1 < gcc-10.patch
+# GCC 14 rejects the implicit declarations that older Alpine toolchains only warned about.
+awk '
+/"Product Section"/ { found=1 }
+found && /^};/ && !done {
+  print
+  print ""
+  print "uint16_t ipmi_intf_get_max_request_data_size(struct ipmi_intf *intf);"
+  print "uint16_t ipmi_intf_get_max_response_data_size(struct ipmi_intf *intf);"
+  done=1
+  next
+}
+{ print }
+' lib/ipmi_fru.c > lib/ipmi_fru.c.new
+mv lib/ipmi_fru.c.new lib/ipmi_fru.c
+autoreconf -vif
+./configure \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --mandir=/usr/share/man \
+    --infodir=/usr/share/info \
+    --localstatedir=/var \
+    --bindir=/usr/sbin \
+    --enable-ipmievd \
+    --enable-ipmishell \
+    --enable-intf-lan \
+    --enable-intf-lanplus \
+    --enable-intf-open \
+    --disable-intf-free \
+    --disable-intf-imb \
+    --disable-intf-lipmi \
+    --disable-intf-bmc \
+    --disable-internal-md5 \
+    --with-kerneldir=/usr
+make -j"$(nproc)"
+make install DESTDIR=/out
+cp /out/usr/sbin/ipmitool /usr/sbin/ipmitool
+ipmitool -V | grep -q '1.8.18'
+ldd /usr/sbin/ipmitool | grep -q 'libcrypto.so.3'
+rm -rf /tmp/ipmitool-1.8.18.tar.gz /tmp/ipmitool-IPMITOOL_1_8_18
+EOF
+
+FROM scratch
+COPY --from=build /out/usr/sbin/ipmitool /usr/sbin/ipmitool
