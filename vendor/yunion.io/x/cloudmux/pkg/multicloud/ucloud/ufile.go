@@ -369,6 +369,11 @@ func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId
 	return cloudprovider.ErrNotSupported
 }
 
+func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUploads, error) {
+	// UFile does not expose incomplete multipart listing
+	return []cloudprovider.SBucketMultipartUploads{}, nil
+}
+
 func (b *SBucket) DeleteObject(ctx context.Context, key string) error {
 	file := SFile{
 		bucket:   b,
