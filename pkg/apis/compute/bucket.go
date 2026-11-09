@@ -146,6 +146,11 @@ type BucketListInput struct {
 
 	// ACL
 	Acl []string `json:"acl"`
+
+	// 仅返回空桶（object_cnt=0 且 size_bytes=0）
+	Empty *bool `json:"empty"`
+	// 空桶且创建时间早于 N 天（配合 empty=true）
+	MinAgeDays *int `json:"min_age_days"`
 }
 
 type BucketSyncstatusInput struct {
@@ -204,6 +209,22 @@ type BucketGetObjectsInput struct {
 	PagingMarker string `json:"paging_marker"`
 	// 最大输出条目数
 	Limit *int `json:"limit"`
+}
+
+type BucketMultipartUpload struct {
+	ObjectName string `json:"object_name"`
+	UploadID   string `json:"upload_id"`
+	Initiator  string `json:"initiator"`
+	Initiated  string `json:"initiated"`
+}
+
+type BucketGetMultipartUploadsOutput struct {
+	Data []BucketMultipartUpload `json:"data"`
+}
+
+type BucketAbortMultipartUploadInput struct {
+	Key      string `json:"key"`
+	UploadID string `json:"upload_id"`
 }
 
 type BucketGetObjectsOutput struct {

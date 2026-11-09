@@ -294,6 +294,27 @@ func (bucket *SBucket) AbortMultipartUpload(ctx context.Context, key string, upl
 	return nil
 }
 
+func (bucket *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUploads, error) {
+	result := []cloudprovider.SBucketMultipartUploads{}
+	doneCh := make(chan struct{})
+	defer close(doneCh)
+	for info := range bucket.client.S3Client().ListIncompleteUploads(bucket.Name, "", true, doneCh) {
+		if info.Err != nil {
+			return nil, errors.Wrap(info.Err, "ListIncompleteUploads")
+		}
+		if len(info.UploadID) == 0 {
+			continue
+		}
+		result = append(result, cloudprovider.SBucketMultipartUploads{
+			ObjectName: info.Key,
+			UploadID:   info.UploadID,
+			Initiator:  info.Initiator.DisplayName,
+			Initiated:  info.Initiated,
+		})
+	}
+	return result, nil
+}
+
 func (bucket *SBucket) DeleteObject(ctx context.Context, key string) error {
 	err := bucket.client.S3Client().RemoveObject(bucket.Name, key)
 	if err != nil {

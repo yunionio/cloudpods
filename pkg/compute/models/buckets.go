@@ -685,6 +685,12 @@ func (manager *SBucketManager) ListItemFilter(
 	if len(query.Acl) > 0 {
 		q = q.In("acl", query.Acl)
 	}
+	if query.Empty != nil && *query.Empty {
+		q = q.Equals("object_cnt", 0).Equals("size_bytes", 0)
+		if query.MinAgeDays != nil && *query.MinAgeDays > 0 {
+			q = q.LT("created_at", time.Now().AddDate(0, 0, -*query.MinAgeDays))
+		}
+	}
 
 	return q, nil
 }
@@ -744,6 +750,60 @@ func (manager *SBucketManager) OrderByExtraFields(
 // 获取bucket的对象列表
 //
 // 获取bucket的对象列表
+func (bucket *SBucket) GetDetailsMultipartUploads(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (api.BucketGetMultipartUploadsOutput, error) {
+	output := api.BucketGetMultipartUploadsOutput{}
+	if len(bucket.ExternalId) == 0 {
+		return output, httperrors.NewInvalidStatusError("no external bucket")
+	}
+	iBucket, err := bucket.GetIBucket(ctx)
+	if err != nil {
+		return output, errors.Wrap(err, "GetIBucket")
+	}
+	uploads, err := iBucket.ListMultipartUploads()
+	if err != nil {
+		return output, errors.Wrap(err, "ListMultipartUploads")
+	}
+	for i := range uploads {
+		initiated := ""
+		if !uploads[i].Initiated.IsZero() {
+			initiated = uploads[i].Initiated.Format(time.RFC3339)
+		}
+		output.Data = append(output.Data, api.BucketMultipartUpload{
+			ObjectName: uploads[i].ObjectName,
+			UploadID:   uploads[i].UploadID,
+			Initiator:  uploads[i].Initiator,
+			Initiated:  initiated,
+		})
+	}
+	return output, nil
+}
+
+func (bucket *SBucket) PerformAbortMultipartUpload(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.BucketAbortMultipartUploadInput,
+) (jsonutils.JSONObject, error) {
+	if len(bucket.ExternalId) == 0 {
+		return nil, httperrors.NewInvalidStatusError("no external bucket")
+	}
+	if len(input.Key) == 0 || len(input.UploadID) == 0 {
+		return nil, httperrors.NewMissingParameterError("key/upload_id")
+	}
+	iBucket, err := bucket.GetIBucket(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIBucket")
+	}
+	if err := iBucket.AbortMultipartUpload(ctx, input.Key, input.UploadID); err != nil {
+		return nil, errors.Wrap(err, "AbortMultipartUpload")
+	}
+	return jsonutils.Marshal(map[string]string{"status": "ok"}), nil
+}
+
 func (bucket *SBucket) GetDetailsObjects(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
