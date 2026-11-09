@@ -49,6 +49,10 @@ func init() {
 		}
 		printList(&listResult, []string{})
 	}, &computeoptions.BucketListObjectsOptions{})
+	cmd.GetWithCustomOptionShow("multipart-uploads", func(data jsonutils.JSONObject, args shell.IGetOpt) {
+		printObject(data)
+	}, &computeoptions.BucketListMultipartUploadsOptions{})
+	cmd.Perform("abort-multipart-upload", &computeoptions.BucketAbortMultipartUploadOptions{})
 	cmd.Perform("delete", &computeoptions.BucketDeleteObjectsOptions{})
 	cmd.Perform("makedir", &computeoptions.BucketMakeDirOptions{})
 	cmd.Perform("temp-url", &computeoptions.BucketPresignObjectsOptions{})

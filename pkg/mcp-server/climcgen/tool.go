@@ -147,6 +147,8 @@ func nextStepHint(command string, options interface{}) string {
 		return `[MCP下一步] 查宿主机详情用 climc_host_show。`
 	case command == "docs_search":
 		return `[MCP下一步] 对最相关 path 调用 docs_get 阅读正文后再回答用户。`
+	case command == "aiops-findings-export":
+		return `[MCP下一步] 必须把返回 JSON 里的 download_marker 原样写入最终回复（含 [[oc-download:...]]），前端会渲染下载按钮。不要说无法下载或让用户去报表页。`
 	case command == "action-show":
 		return `[MCP下一步] 操作审计日志。创建失败时优先看 notes/__reason__；若要继续改资源，回到对应 climc_* 操作工具。`
 	case command == "server-create":
