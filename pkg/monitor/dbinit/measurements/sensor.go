@@ -29,7 +29,25 @@ var sensors = SMeasurement{
 	},
 	Metrics: []SMetric{
 		{
-			"temp_input", "lm-sensors temperature input", "",
+			"temp_input", "lm-sensors temperature input", monitor.METRIC_UNIT_CELIUS,
+		},
+		{
+			"temp_crit", "lm-sensors temperature critical", monitor.METRIC_UNIT_CELIUS,
+		},
+		{
+			"temp_crit_alarm", "lm-sensors temperature critical alarm", "",
+		},
+		{
+			"temp_max", "lm-sensors temperature max", monitor.METRIC_UNIT_CELIUS,
+		},
+		{
+			"power_average", "lm-sensors power average", monitor.METRIC_UNIT_WATT,
+		},
+		{
+			"power_average_interval", "lm-sensors power average interval", monitor.METRIC_UNIT_SEC,
+		},
+		{
+			"power_cap", "lm-sensors power cap", monitor.METRIC_UNIT_WATT,
 		},
 	},
 }
