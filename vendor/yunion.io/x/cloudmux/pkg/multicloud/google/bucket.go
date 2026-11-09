@@ -222,8 +222,42 @@ func (b *SBucket) GetStats() cloudprovider.SBucketStats {
 }
 
 func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
+	// XML API multipart abort (matches ListMultipartUploads)
+	if len(key) > 0 {
+		err := b.region.client.storageXmlAbortMultipartUpload(b.Name, key, uploadId)
+		if err == nil {
+			return nil
+		}
+		log.Debugf("storageXmlAbortMultipartUpload fail %s, fallback to resumable abort", err)
+	}
+	// JSON API resumable upload abort (matches NewMultipartUpload)
 	resource := fmt.Sprintf("b/%s/o?uploadType=resumable&upload_id=%s", b.Name, uploadId)
 	return b.region.client.storageAbortUpload(resource)
+}
+
+func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUploads, error) {
+	result := []cloudprovider.SBucketMultipartUploads{}
+	keyMarker := ""
+	uploadIDMarker := ""
+	for {
+		output, err := b.region.client.storageXmlListMultipartUploads(b.Name, keyMarker, uploadIDMarker)
+		if err != nil {
+			return nil, errors.Wrap(err, "storageXmlListMultipartUploads")
+		}
+		for i := range output.Uploads {
+			result = append(result, cloudprovider.SBucketMultipartUploads{
+				ObjectName: output.Uploads[i].Key,
+				UploadID:   output.Uploads[i].UploadId,
+				Initiated:  output.Uploads[i].Initiated,
+			})
+		}
+		if !output.IsTruncated {
+			break
+		}
+		keyMarker = output.NextKeyMarker
+		uploadIDMarker = output.NextUploadIdMarker
+	}
+	return result, nil
 }
 
 func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error {

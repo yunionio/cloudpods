@@ -371,6 +371,61 @@ func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId
 	return nil
 }
 
+func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUploads, error) {
+	result := []cloudprovider.SBucketMultipartUploads{}
+	keyMarker := ""
+	uploadIDMarker := ""
+	for {
+		params := url.Values{}
+		params.Set("uploads", "")
+		if len(keyMarker) > 0 {
+			params.Set("keyMarker", keyMarker)
+		}
+		if len(uploadIDMarker) > 0 {
+			params.Set("uploadIdMarker", uploadIDMarker)
+		}
+		resp, err := b.region.bosList(b.Name, "", params)
+		if err != nil {
+			return nil, errors.Wrap(err, "ListMultipartUploads")
+		}
+		ret := struct {
+			IsTruncated        bool
+			NextKeyMarker      string
+			NextUploadIdMarker string
+			Uploads            []struct {
+				Key       string
+				UploadId  string
+				Initiated time.Time
+				Owner     struct {
+					Id          string
+					DisplayName string
+				}
+			}
+		}{}
+		if err := resp.Unmarshal(&ret); err != nil {
+			return nil, errors.Wrap(err, "Unmarshal ListMultipartUploads")
+		}
+		for i := range ret.Uploads {
+			initiator := ret.Uploads[i].Owner.DisplayName
+			if len(initiator) == 0 {
+				initiator = ret.Uploads[i].Owner.Id
+			}
+			result = append(result, cloudprovider.SBucketMultipartUploads{
+				ObjectName: ret.Uploads[i].Key,
+				UploadID:   ret.Uploads[i].UploadId,
+				Initiator:  initiator,
+				Initiated:  ret.Uploads[i].Initiated,
+			})
+		}
+		if !ret.IsTruncated {
+			break
+		}
+		keyMarker = ret.NextKeyMarker
+		uploadIDMarker = ret.NextUploadIdMarker
+	}
+	return result, nil
+}
+
 func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, partIndex int, srcBucket string, srcKey string, srcOffset int64, srcLength int64) (string, error) {
 	header := http.Header{}
 	params := url.Values{}
