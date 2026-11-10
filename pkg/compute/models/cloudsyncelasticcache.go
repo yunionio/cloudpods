@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -60,7 +59,6 @@ func syncElasticcaches(
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_CLOUD_ELASTIC_CACHE, msg, userCred)
 	for i := 0; i < len(localInstances); i++ {
 		func() {
 			lockman.LockObject(ctx, &localInstances[i])
