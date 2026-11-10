@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,12 +36,26 @@ type GuideLLMSpec struct {
 }
 
 type LLMBenchmarkMetrics struct {
-	RequestsPerSecondMean *float64
-	RequestLatencyMeanSec *float64
-	RequestTotal          int
-	RequestSuccessful     int
-	RequestErrored        int
-	ErrorRate             *float64
+	RequestsPerSecondMean     *float64
+	InputTokensPerSecondMean  *float64
+	OutputTokensPerSecondMean *float64
+	TokensPerSecondMean       *float64
+	RequestLatencyMeanSec     *float64
+	RequestLatencyP95Sec      *float64
+	RequestLatencyP99Sec      *float64
+	TimeToFirstTokenMeanMs    *float64
+	TimeToFirstTokenP95Ms     *float64
+	TimeToFirstTokenP99Ms     *float64
+	InterTokenLatencyMeanMs   *float64
+	InterTokenLatencyP95Ms    *float64
+	InterTokenLatencyP99Ms    *float64
+	RequestConcurrencyMean    *float64
+	RequestConcurrencyMax     *float64
+	RequestTotal              int
+	RequestSuccessful         int
+	RequestErrored            int
+	RequestIncomplete         int
+	ErrorRate                 *float64
 }
 
 type RunnerPodInput struct {
@@ -182,6 +197,82 @@ func GuideLLMPreflightRunCommand(spec GuideLLMSpec) ([]string, error) {
 
 func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
+}
+
+func GuideLLMResultExitPath(jsonPath string) string {
+	return jsonPath + ".exit"
+}
+
+func GuideLLMResultPidPath(jsonPath string) string {
+	return jsonPath + ".pid"
+}
+
+const (
+	GuideLLMStartupSlackSeconds    = 180
+	guideLLMPerRequestDrainSeconds = 30
+	guideLLMMaxDrainSeconds        = 3600
+)
+
+// GuideLLMWaitSeconds is how long to wait for a detached run to write its
+// exit file. max_duration only stops new requests; ones already sent keep
+// running, and a 100-request run does not fit in max_duration plus startup.
+func GuideLLMWaitSeconds(maxDuration, totalRequests, requestRate int) int {
+	if maxDuration < 1 {
+		maxDuration = 1
+	}
+	if requestRate < 1 {
+		requestRate = 1
+	}
+	if totalRequests < 1 {
+		totalRequests = 1
+	}
+	send := (totalRequests + requestRate - 1) / requestRate
+	window := maxDuration
+	if send > window {
+		window = send
+	}
+	drain := window
+	if tail := totalRequests * guideLLMPerRequestDrainSeconds; tail > drain {
+		drain = tail
+	}
+	if drain > guideLLMMaxDrainSeconds {
+		drain = guideLLMMaxDrainSeconds
+	}
+	return GuideLLMStartupSlackSeconds + window + drain
+}
+
+// GuideLLMBackgroundCommand starts the original sh -lc script in its own
+// session and records the shell pid and exit code. The caller can return
+// immediately instead of holding exec-sync open for the whole run.
+func GuideLLMBackgroundCommand(command []string, jsonPath, csvPath string) ([]string, error) {
+	script, err := guideLLMCommandScript(command)
+	if err != nil {
+		return nil, err
+	}
+	exitPath := GuideLLMResultExitPath(jsonPath)
+	pidPath := GuideLLMResultPidPath(jsonPath)
+	body := strings.TrimSpace(script)
+	if !strings.HasSuffix(body, ";") {
+		body += ";"
+	}
+	inner := "{ " + body + " }; echo $? > " + shellQuote(exitPath)
+	quotedInner := shellQuote(inner)
+	start := "setsid sh -c " + quotedInner + " </dev/null >/dev/null 2>&1 & echo $! > " + shellQuote(pidPath)
+	fallback := "nohup sh -c " + quotedInner + " </dev/null >/dev/null 2>&1 & echo $! > " + shellQuote(pidPath)
+	launcher := strings.Join([]string{
+		"mkdir -p " + shellQuote(path.Dir(jsonPath)) + " " + shellQuote(path.Dir(csvPath)),
+		"rm -f " + shellQuote(exitPath) + " " + shellQuote(pidPath) + " " + shellQuote(jsonPath) + " " + shellQuote(csvPath),
+		"if command -v setsid >/dev/null 2>&1; then " + start + "; else " + fallback + "; fi",
+		"test -s " + shellQuote(pidPath),
+	}, "; ")
+	return []string{"sh", "-lc", launcher}, nil
+}
+
+func guideLLMCommandScript(command []string) (string, error) {
+	if len(command) == 3 && command[0] == "sh" && (command[1] == "-lc" || command[1] == "-c") && strings.TrimSpace(command[2]) != "" {
+		return command[2], nil
+	}
+	return "", fmt.Errorf("guidellm command must be sh -lc")
 }
 
 func BuildRunnerPodInput(input RunnerPodInput) *computeapi.ServerCreateInput {
@@ -353,12 +444,13 @@ func ParseMetricsCSV(path string) (*LLMBenchmarkMetrics, error) {
 		}
 	}
 	ret := &LLMBenchmarkMetrics{
-		RequestsPerSecondMean: parseFloatPtr(values["requests_per_second_mean"]),
-		RequestLatencyMeanSec: parseFloatPtr(values["request_latency_mean_sec"]),
-		RequestTotal:          parseInt(values["request_total"]),
-		RequestSuccessful:     parseInt(values["request_successful"]),
-		RequestErrored:        parseInt(values["request_errored"]),
-		ErrorRate:             parseFloatPtr(values["error_rate"]),
+		RequestsPerSecondMean:     parseFloatPtr(values["requests_per_second_mean"]),
+		OutputTokensPerSecondMean: parseFloatPtr(values["output_tokens_per_second_mean"]),
+		RequestLatencyMeanSec:     parseFloatPtr(values["request_latency_mean_sec"]),
+		RequestTotal:              parseInt(values["request_total"]),
+		RequestSuccessful:         parseInt(values["request_successful"]),
+		RequestErrored:            parseInt(values["request_errored"]),
+		ErrorRate:                 parseFloatPtr(values["error_rate"]),
 	}
 	return ret, nil
 }
@@ -373,12 +465,30 @@ func parseGuideLLMv07MetricsCSV(rows [][]string) *LLMBenchmarkMetrics {
 		}
 		return ""
 	}
+	latencyPercentiles := value("Request Latency", "Successful Sec", "Percentiles")
+	ttftPercentiles := value("Time to First Token", "Successful ms", "Percentiles")
+	tpotPercentiles := value("Inter Token Latency", "Successful ms", "Percentiles")
+	concurrencyPercentiles := value("Server Throughput", "Successful Concurrency", "Percentiles")
 	ret := &LLMBenchmarkMetrics{
-		RequestsPerSecondMean: parseFloatPtr(value("Server Throughput", "Successful Requests/Sec", "Mean")),
-		RequestLatencyMeanSec: parseFloatPtr(value("Scheduler Metrics", "Request Time Avg", "Sec")),
-		RequestTotal:          parseInt(value("Request Counts", "Total", "")),
-		RequestSuccessful:     parseInt(value("Request Counts", "Successful", "")),
-		RequestErrored:        parseInt(value("Request Counts", "Errored", "")),
+		RequestsPerSecondMean:     parseFloatPtr(value("Server Throughput", "Successful Requests/Sec", "Mean")),
+		InputTokensPerSecondMean:  parseFloatPtr(value("Token Throughput", "Successful Input Tokens/Sec", "Mean")),
+		OutputTokensPerSecondMean: parseFloatPtr(value("Token Throughput", "Successful Output Tokens/Sec", "Mean")),
+		TokensPerSecondMean:       parseFloatPtr(value("Token Throughput", "Successful Total Tokens/Sec", "Mean")),
+		RequestLatencyMeanSec:     parseFloatPtr(value("Request Latency", "Successful Sec", "Mean")),
+		RequestLatencyP95Sec:      percentile(latencyPercentiles, 8),
+		RequestLatencyP99Sec:      percentile(latencyPercentiles, 9),
+		TimeToFirstTokenMeanMs:    parseFloatPtr(value("Time to First Token", "Successful ms", "Mean")),
+		TimeToFirstTokenP95Ms:     percentile(ttftPercentiles, 8),
+		TimeToFirstTokenP99Ms:     percentile(ttftPercentiles, 9),
+		InterTokenLatencyMeanMs:   parseFloatPtr(value("Inter Token Latency", "Successful ms", "Mean")),
+		InterTokenLatencyP95Ms:    percentile(tpotPercentiles, 8),
+		InterTokenLatencyP99Ms:    percentile(tpotPercentiles, 9),
+		RequestConcurrencyMean:    parseFloatPtr(value("Server Throughput", "Successful Concurrency", "Mean")),
+		RequestConcurrencyMax:     percentile(concurrencyPercentiles, 10),
+		RequestTotal:              parseInt(value("Request Counts", "Total", "")),
+		RequestSuccessful:         parseInt(value("Request Counts", "Successful", "")),
+		RequestErrored:            parseInt(value("Request Counts", "Errored", "")),
+		RequestIncomplete:         parseInt(value("Request Counts", "Incomplete", "")),
 	}
 	if ret.RequestsPerSecondMean == nil {
 		if duration, err := strconv.ParseFloat(value("Timings", "Duration", "Sec"), 64); err == nil && duration > 0 {
@@ -391,6 +501,20 @@ func parseGuideLLMv07MetricsCSV(rows [][]string) *LLMBenchmarkMetrics {
 		ret.ErrorRate = &v
 	}
 	return ret
+}
+
+func percentile(raw string, index int) *float64 {
+	raw = strings.TrimSpace(raw)
+	raw = strings.TrimPrefix(raw, "[")
+	raw = strings.TrimSuffix(raw, "]")
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	if index < 0 || index >= len(parts) {
+		return nil
+	}
+	return parseFloatPtr(strings.TrimSpace(parts[index]))
 }
 
 func parseFloatPtr(s string) *float64 {
