@@ -37,7 +37,6 @@ func init() {
 }
 
 func (self *CloudRegionSyncSkusTask) taskFailed(ctx context.Context, region *models.SCloudregion, msg string) {
-	db.OpsLog.LogEvent(region, db.ACT_SYNC_CLOUD_SKUS, msg, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, region, logclient.ACT_CLOUD_SYNC, msg, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(msg))
 }
