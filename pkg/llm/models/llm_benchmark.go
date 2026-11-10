@@ -199,12 +199,26 @@ type SLLMBenchmark struct {
 	RawLog         string `charset:"utf8" length:"long" nullable:"true" update:"user"`
 	RawCsv         string `charset:"utf8" length:"long" nullable:"true" update:"user"`
 
-	RequestsPerSecondMean float64 `nullable:"true" list:"user" update:"user"`
-	RequestLatencyMeanSec float64 `nullable:"true" list:"user" update:"user"`
+	RequestsPerSecondMean     float64 `nullable:"true" list:"user" update:"user"`
+	InputTokensPerSecondMean  float64 `nullable:"true" list:"user" update:"user"`
+	OutputTokensPerSecondMean float64 `nullable:"true" list:"user" update:"user"`
+	TokensPerSecondMean       float64 `nullable:"true" list:"user" update:"user"`
+	RequestLatencyMeanSec     float64 `nullable:"true" list:"user" update:"user"`
+	RequestLatencyP95Sec      float64 `nullable:"true" list:"user" update:"user"`
+	RequestLatencyP99Sec      float64 `nullable:"true" list:"user" update:"user"`
+	TimeToFirstTokenMeanMs    float64 `nullable:"true" list:"user" update:"user"`
+	TimeToFirstTokenP95Ms     float64 `nullable:"true" list:"user" update:"user"`
+	TimeToFirstTokenP99Ms     float64 `nullable:"true" list:"user" update:"user"`
+	InterTokenLatencyMeanMs   float64 `nullable:"true" list:"user" update:"user"`
+	InterTokenLatencyP95Ms    float64 `nullable:"true" list:"user" update:"user"`
+	InterTokenLatencyP99Ms    float64 `nullable:"true" list:"user" update:"user"`
+	RequestConcurrencyMean    float64 `nullable:"true" list:"user" update:"user"`
+	RequestConcurrencyMax     float64 `nullable:"true" list:"user" update:"user"`
 
 	RequestTotal      int     `nullable:"true" list:"user" update:"user"`
 	RequestSuccessful int     `nullable:"true" list:"user" update:"user"`
 	RequestErrored    int     `nullable:"true" list:"user" update:"user"`
+	RequestIncomplete int     `nullable:"true" list:"user" update:"user"`
 	ErrorRate         float64 `nullable:"true" list:"user" update:"user"`
 }
 
@@ -1075,10 +1089,24 @@ func resetLLMBenchmarkResultFields(b *SLLMBenchmark) {
 	b.ArtifactStorage = ""
 	b.ArtifactStorageMessage = ""
 	b.RequestsPerSecondMean = 0
+	b.InputTokensPerSecondMean = 0
+	b.OutputTokensPerSecondMean = 0
+	b.TokensPerSecondMean = 0
 	b.RequestLatencyMeanSec = 0
+	b.RequestLatencyP95Sec = 0
+	b.RequestLatencyP99Sec = 0
+	b.TimeToFirstTokenMeanMs = 0
+	b.TimeToFirstTokenP95Ms = 0
+	b.TimeToFirstTokenP99Ms = 0
+	b.InterTokenLatencyMeanMs = 0
+	b.InterTokenLatencyP95Ms = 0
+	b.InterTokenLatencyP99Ms = 0
+	b.RequestConcurrencyMean = 0
+	b.RequestConcurrencyMax = 0
 	b.RequestTotal = 0
 	b.RequestSuccessful = 0
 	b.RequestErrored = 0
+	b.RequestIncomplete = 0
 	b.ErrorRate = 0
 }
 
@@ -1100,10 +1128,24 @@ func (b *SLLMBenchmark) StartRunTask(ctx context.Context, userCred mcclient.Toke
 func (b *SLLMBenchmark) UpdateMetrics(ctx context.Context, userCred mcclient.TokenCredential, metrics *bench.LLMBenchmarkMetrics) error {
 	_, err := db.Update(b, func() error {
 		b.RequestsPerSecondMean = floatValue(metrics.RequestsPerSecondMean)
+		b.InputTokensPerSecondMean = floatValue(metrics.InputTokensPerSecondMean)
+		b.OutputTokensPerSecondMean = floatValue(metrics.OutputTokensPerSecondMean)
+		b.TokensPerSecondMean = floatValue(metrics.TokensPerSecondMean)
 		b.RequestLatencyMeanSec = floatValue(metrics.RequestLatencyMeanSec)
+		b.RequestLatencyP95Sec = floatValue(metrics.RequestLatencyP95Sec)
+		b.RequestLatencyP99Sec = floatValue(metrics.RequestLatencyP99Sec)
+		b.TimeToFirstTokenMeanMs = floatValue(metrics.TimeToFirstTokenMeanMs)
+		b.TimeToFirstTokenP95Ms = floatValue(metrics.TimeToFirstTokenP95Ms)
+		b.TimeToFirstTokenP99Ms = floatValue(metrics.TimeToFirstTokenP99Ms)
+		b.InterTokenLatencyMeanMs = floatValue(metrics.InterTokenLatencyMeanMs)
+		b.InterTokenLatencyP95Ms = floatValue(metrics.InterTokenLatencyP95Ms)
+		b.InterTokenLatencyP99Ms = floatValue(metrics.InterTokenLatencyP99Ms)
+		b.RequestConcurrencyMean = floatValue(metrics.RequestConcurrencyMean)
+		b.RequestConcurrencyMax = floatValue(metrics.RequestConcurrencyMax)
 		b.RequestTotal = metrics.RequestTotal
 		b.RequestSuccessful = metrics.RequestSuccessful
 		b.RequestErrored = metrics.RequestErrored
+		b.RequestIncomplete = metrics.RequestIncomplete
 		b.ErrorRate = floatValue(metrics.ErrorRate)
 		return nil
 	})
