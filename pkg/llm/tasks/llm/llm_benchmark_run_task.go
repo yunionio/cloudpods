@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -544,6 +545,11 @@ func datasetPreflightPhaseError(phaseErr error, logPath string) error {
 	return errors.Wrap(phaseErr, last)
 }
 
+const (
+	guideLLMStartTimeoutSeconds = 30
+	guideLLMPollTimeoutSeconds  = 10
+)
+
 func executeGuideLLMPhase(
 	ctx context.Context,
 	s *mcclient.ClientSession,
@@ -552,35 +558,58 @@ func executeGuideLLMPhase(
 	command []string,
 	jsonPath, csvPath string,
 ) error {
-	execInput := &computeapi.ContainerExecSyncInput{
-		Command: command,
-		Timeout: int64(b.MaxDurationSeconds + 120),
-	}
-	execResp, err := computemod.Containers.PerformAction(s, containerId, "exec-sync", jsonutils.Marshal(execInput))
+	// The region exec-sync client closes after 15s, before GuideLLM can write
+	// its result files. Start the run detached, then poll the exit file.
+	launch, err := bench.GuideLLMBackgroundCommand(command, jsonPath, csvPath)
 	if err != nil {
-		if waitBenchmarkResults(ctx, s, containerId, b, jsonPath, csvPath, b.MaxDurationSeconds+30) != nil {
-			return errors.Wrap(err, "guidellm exec")
-		}
-		return nil
+		return err
+	}
+	execResp, err := execContainerSync(s, containerId, launch, guideLLMStartTimeoutSeconds)
+	if err != nil {
+		return errors.Wrap(err, "guidellm start")
 	}
 	if code, _ := execResp.Int("exit_code"); code != 0 {
 		stderr, _ := execResp.GetString("stderr")
-		return fmt.Errorf("guidellm exited %d: %s", code, stderr)
+		return fmt.Errorf("guidellm start exited %d: %s", code, stderr)
 	}
-	return nil
+	return waitGuideLLMPhase(ctx, s, containerId, b, jsonPath, csvPath, bench.GuideLLMWaitSeconds(b.MaxDurationSeconds, b.TotalRequests, b.RequestRate))
 }
 
-func waitBenchmarkResults(ctx context.Context, s *mcclient.ClientSession, containerId string, b *models.SLLMBenchmark, jsonPath, csvPath string, seconds int) error {
+func waitGuideLLMPhase(
+	ctx context.Context,
+	s *mcclient.ClientSession,
+	containerId string,
+	b *models.SLLMBenchmark,
+	jsonPath, csvPath string,
+	seconds int,
+) error {
 	if seconds <= 0 {
-		seconds = 30
+		seconds = bench.GuideLLMStartupSlackSeconds
 	}
 	deadline := time.Now().Add(time.Duration(seconds) * time.Second)
-	for time.Now().Before(deadline) {
+	statusCommand := guideLLMStatusCommand(jsonPath, csvPath)
+	for {
 		if stoppedBenchmark(b) {
+			_, _ = execContainerSync(s, containerId, stopGuideLLMCommand(jsonPath), guideLLMPollTimeoutSeconds)
 			return errors.Error("benchmark stopped")
 		}
-		if benchmarkResultsReady(s, containerId, jsonPath, csvPath) {
-			return nil
+		resp, err := execContainerSync(s, containerId, statusCommand, guideLLMPollTimeoutSeconds)
+		if err == nil {
+			if code, _ := resp.Int("exit_code"); code == 0 {
+				stdout, _ := resp.GetString("stdout")
+				switch state, exitCode := classifyGuideLLMStatus(stdout); state {
+				case "ready":
+					return nil
+				case "missing":
+					return errors.Error("guidellm exited without result files")
+				case "exit":
+					return fmt.Errorf("guidellm exited %d", exitCode)
+				}
+			}
+		}
+		if !time.Now().Before(deadline) {
+			_, _ = execContainerSync(s, containerId, stopGuideLLMCommand(jsonPath), guideLLMPollTimeoutSeconds)
+			return fmt.Errorf("guidellm did not finish within %d seconds", seconds)
 		}
 		select {
 		case <-ctx.Done():
@@ -588,21 +617,69 @@ func waitBenchmarkResults(ctx context.Context, s *mcclient.ClientSession, contai
 		case <-time.After(2 * time.Second):
 		}
 	}
-	return errors.Error("benchmark result artifacts not ready")
 }
 
-func benchmarkResultsReady(s *mcclient.ClientSession, containerId, jsonPath, csvPath string) bool {
-	command := fmt.Sprintf("test -s %s -a -s %s", shellPath(jsonPath), shellPath(csvPath))
+func execContainerSync(s *mcclient.ClientSession, containerId string, command []string, timeout int64) (jsonutils.JSONObject, error) {
 	input := &computeapi.ContainerExecSyncInput{
-		Command: []string{"sh", "-lc", command},
-		Timeout: 10,
+		Command: command,
+		Timeout: timeout,
 	}
-	resp, err := computemod.Containers.PerformAction(s, containerId, "exec-sync", jsonutils.Marshal(input))
-	if err != nil {
-		return false
+	return computemod.Containers.PerformAction(s, containerId, "exec-sync", jsonutils.Marshal(input))
+}
+
+func guideLLMStatusCommand(jsonPath, csvPath string) []string {
+	exitPath := shellPath(bench.GuideLLMResultExitPath(jsonPath))
+	script := fmt.Sprintf(
+		"if [ ! -s %s ]; then printf 'pending\\n'; exit 0; fi; "+
+			"code=$(tr -d '[:space:]' < %s); "+
+			"printf 'exit %%s\\n' \"$code\"; "+
+			"if [ \"$code\" = 0 ]; then if [ -s %s ] && [ -s %s ]; then printf 'ready\\n'; else printf 'missing\\n'; fi; fi",
+		exitPath,
+		exitPath,
+		shellPath(jsonPath),
+		shellPath(csvPath),
+	)
+	return []string{"sh", "-lc", script}
+}
+
+func stopGuideLLMCommand(jsonPath string) []string {
+	pidPath := shellPath(bench.GuideLLMResultPidPath(jsonPath))
+	script := fmt.Sprintf(
+		"if [ -s %s ]; then pid=$(tr -d '[:space:]' < %s); kill -TERM \"$pid\" 2>/dev/null || true; kill -TERM -\"$pid\" 2>/dev/null || true; fi",
+		pidPath,
+		pidPath,
+	)
+	return []string{"sh", "-lc", script}
+}
+
+func classifyGuideLLMStatus(stdout string) (string, int) {
+	state := "pending"
+	code := 0
+	for _, line := range strings.Split(stdout, "\n") {
+		line = strings.TrimSpace(line)
+		switch line {
+		case "ready":
+			return "ready", 0
+		case "missing":
+			return "missing", 0
+		}
+		if !strings.HasPrefix(line, "exit ") {
+			continue
+		}
+		n, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "exit ")))
+		if err != nil {
+			continue
+		}
+		state = "exit"
+		code = n
 	}
-	code, _ := resp.Int("exit_code")
-	return code == 0
+	if state == "exit" && code == 0 {
+		return "missing", 0
+	}
+	if state == "exit" {
+		return "exit", code
+	}
+	return "pending", 0
 }
 
 func shellPath(path string) string {
