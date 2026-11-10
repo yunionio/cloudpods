@@ -60,8 +60,6 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 		}
 	}
 
-	db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNCING_HOST, "", self.UserCred)
-
 	self.SetStage("OnCloudaccountSyncReady", nil)
 
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
@@ -82,7 +80,6 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncReadyFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	cloudaccount := obj.(*models.SCloudaccount)
 	if !strings.Contains(err.String(), "ConflictError") {
-		db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_HOST_FAILED, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, err, self.UserCred, false)
 	}
 	self.SetStageFailed(ctx, err)
@@ -131,7 +128,6 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncComplete(ctx context.Con
 	cloudaccount := obj.(*models.SCloudaccount)
 	syncRange := self.GetSyncRange(ctx)
 	cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred, syncRange.NeedSyncInfo())
-	db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_HOST_COMPLETE, "", self.UserCred)
 	self.SetStageComplete(ctx, nil)
 	logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, syncRange, self.UserCred, true)
 }
@@ -140,7 +136,6 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncCompleteFailed(ctx conte
 	cloudaccount := obj.(*models.SCloudaccount)
 	syncRange := self.GetSyncRange(ctx)
 	cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred, syncRange.NeedSyncInfo())
-	db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_HOST_FAILED, err, self.UserCred)
 	self.SetStageFailed(ctx, err)
 	logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, err, self.UserCred, false)
 }

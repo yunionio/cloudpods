@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -122,7 +121,6 @@ func syncRegionLoadbalancers(
 		if result.IsError() {
 			return
 		}
-		db.OpsLog.LogEvent(provider, db.ACT_SYNC_LB_COMPLETE, msg, userCred)
 
 		for i := 0; i < len(localLbs); i++ {
 			func() {

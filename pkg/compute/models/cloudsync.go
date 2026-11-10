@@ -145,7 +145,6 @@ func syncRegionZones(ctx context.Context, userCred mcclient.TokenCredential, syn
 	notes := fmt.Sprintf("SyncZones for region %s provider %s result: %s", localRegion.Name, provider.Name, msg)
 	log.Infof("%s", notes)
 	provider.SyncError(result, notes, userCred)
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	return localZones, remoteZones, nil
 }
 
@@ -267,7 +266,6 @@ func syncRegionBuckets(ctx context.Context, userCred mcclient.TokenCredential, s
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
 func syncRegionVPCs(
@@ -306,7 +304,6 @@ func syncRegionVPCs(
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	for j := 0; j < len(localVpcs); j += 1 {
 		func() {
 			// lock vpc
@@ -685,7 +682,6 @@ func syncNatGatewayEips(ctx context.Context, userCred mcclient.TokenCredential, 
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
 func syncNatDTable(
@@ -710,7 +706,6 @@ func syncNatDTable(
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
 func syncNatSTable(
@@ -735,7 +730,6 @@ func syncNatSTable(
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
 func syncVpcWires(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, zone *SZone, syncRange *SSyncRange) {
@@ -977,7 +971,6 @@ func syncZoneHosts(
 		return nil
 	}
 	var newCachePairs []sStoragecacheSyncPair
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	for i := 0; i < len(localHosts); i += 1 {
 		if len(syncRange.Host) > 0 && !utils.IsInStringArray(localHosts[i].Id, syncRange.Host) {
 			continue
@@ -1077,7 +1070,6 @@ func syncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }*/
 
 func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider, localHost *SHost, remoteHost cloudprovider.ICloudHost, syncRange *SSyncRange) {
@@ -1297,7 +1289,6 @@ func syncRegionDBInstances(
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	for i := 0; i < len(localInstances); i++ {
 		func() {
 			lockman.LockObject(ctx, &localInstances[i])
