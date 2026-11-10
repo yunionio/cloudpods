@@ -36,7 +36,6 @@ func init() {
 }
 
 func (self *CloudregionSyncImagesTask) taskFailed(ctx context.Context, region *models.SCloudregion, err error) {
-	db.OpsLog.LogEvent(region, db.ACT_SYNC_CLOUD_IMAGES, err, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, region, logclient.ACT_CLOUD_SYNC, err, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }

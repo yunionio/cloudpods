@@ -953,7 +953,6 @@ func (acnt *SCloudaccount) StartSyncCloudAccountInfoTask(ctx context.Context, us
 		return errors.Wrapf(err, "NewTask")
 	}
 	acnt.markStartSync(userCred, syncRange)
-	db.OpsLog.LogEvent(acnt, db.ACT_SYNC_HOST_START, "", userCred)
 	return task.ScheduleRun(nil)
 }
 
