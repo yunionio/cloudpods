@@ -545,7 +545,9 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 		// not supported
 		// 	manager = GroupManager
 		default:
-			return errors.Error("unsupported association type")
+			return errors.Errorf("eip %s(%s) unsupported association type %q, external id %s, supported types: %s, %s, %s",
+				self.Name, self.Id, ext.GetAssociationType(), vmExtId,
+				api.EIP_ASSOCIATE_TYPE_SERVER, api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY, api.EIP_ASSOCIATE_TYPE_LOADBALANCER)
 		}
 
 		extRes, err := db.FetchByExternalIdAndManagerId(manager, vmExtId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
