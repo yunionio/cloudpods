@@ -146,7 +146,6 @@ func syncRegionZones(ctx context.Context, userCred mcclient.TokenCredential, syn
 	notes := fmt.Sprintf("SyncZones for region %s provider %s result: %s", localRegion.Name, provider.Name, msg)
 	log.Infof("%s", notes)
 	provider.SyncError(result, notes, userCred)
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	return localZones, remoteZones, nil
 }
 
@@ -268,7 +267,6 @@ func syncRegionBuckets(ctx context.Context, userCred mcclient.TokenCredential, s
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
 func syncRegionVPCs(
@@ -307,7 +305,6 @@ func syncRegionVPCs(
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	for j := 0; j < len(localVpcs); j += 1 {
 		func() {
 			// lock vpc
@@ -725,7 +722,6 @@ func syncNatGatewayEips(ctx context.Context, userCred mcclient.TokenCredential, 
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
 func syncNatDTable(
@@ -750,7 +746,6 @@ func syncNatDTable(
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
 func syncNatSTable(
@@ -775,7 +770,6 @@ func syncNatSTable(
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
 func syncVpcWires(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, zone *SZone, syncRange *SSyncRange) {
@@ -1016,8 +1010,6 @@ func syncZoneHosts(
 	if result.IsError() {
 		return nil
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
-
 	// SyncHosts 集合对齐后，各 host 细节（storage/nic/vm）有限并行；host 内仍先 storage 再 vm
 	var pairsMu sync.Mutex
 	allNewPairs := make([]sStoragecacheSyncPair, 0)
@@ -1135,7 +1127,6 @@ func syncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }*/
 
 func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider, localHost *SHost, remoteHost cloudprovider.ICloudHost, syncRange *SSyncRange) {
@@ -1627,8 +1618,6 @@ func syncRegionDBInstances(
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
-
 	// 集合对齐后，各 RDS 实例细节（参数/账号/库/备份等）有限并行
 	rdsTasks := make([]func(), 0, len(localInstances))
 	for i := 0; i < len(localInstances); i++ {
