@@ -79,6 +79,67 @@ var _ IModel = (*SOpsLog)(nil)
 var opslogQueryWorkerMan *appsrv.SWorkerManager
 var opslogWriteWorkerMan *appsrv.SWorkerManager
 
+// opsLogSkipObjTypes are resources whose opslogs are never useful for audit.
+var opsLogSkipObjTypes = map[string]struct{}{
+	"cloudaccountsynctask": {},
+	"dbinstance_sku":       {},
+	"elasticcachesku":      {},
+	"nas_sku":              {},
+	"cloudimage":           {},
+}
+
+// opsLogAllowActionsByObjType is an allowlist: only these actions are written
+// for the given obj_type (e.g. serversku only keeps manual update).
+var opsLogAllowActionsByObjType = map[string]map[string]struct{}{
+	"serversku": {
+		ACT_UPDATE: {},
+	},
+}
+
+// opsLogSkipActionsByObjType skips specific noisy actions for a given obj_type.
+var opsLogSkipActionsByObjType = map[string]map[string]struct{}{
+	"cachedimage": {
+		ACT_SYNC_UPDATE: {},
+		ACT_DELETE:      {},
+	},
+}
+
+// opsLogSyncUpdateNoiseFields are periodic probe/heartbeat fields. When a
+// sync_update only touches these, skip writing an opslog entry.
+var opsLogSyncUpdateNoiseFields = map[string]struct{}{
+	"probe_at": {},
+	"balance":  {},
+}
+
+func shouldSkipOpsLog(objType, action string) bool {
+	if _, ok := opsLogSkipObjTypes[objType]; ok {
+		return true
+	}
+	if allow, ok := opsLogAllowActionsByObjType[objType]; ok {
+		_, keep := allow[action]
+		return !keep
+	}
+	if skipActions, ok := opsLogSkipActionsByObjType[objType]; ok {
+		_, skip := skipActions[action]
+		return skip
+	}
+	return false
+}
+
+func filterSyncUpdateDiffs(uds sqlchemy.UpdateDiffs) sqlchemy.UpdateDiffs {
+	if len(uds) == 0 {
+		return uds
+	}
+	filtered := make(sqlchemy.UpdateDiffs, len(uds))
+	for k, v := range uds {
+		if _, noisy := opsLogSyncUpdateNoiseFields[k]; noisy {
+			continue
+		}
+		filtered[k] = v
+	}
+	return filtered
+}
+
 func NewOpsLogManager(opslog interface{}, tblName string, keyword, keywordPlural string, timeField string, clickhouse bool) SOpsLogManager {
 	return SOpsLogManager{
 		SLogBaseManager: NewLogBaseManager(opslog, tblName, keyword, keywordPlural, timeField, clickhouse),
@@ -123,6 +184,9 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 	if !consts.OpsLogEnabled() {
 		return
 	}
+	if shouldSkipOpsLog(model.Keyword(), action) {
+		return
+	}
 
 	var (
 		objId   = model.GetId()
@@ -146,13 +210,19 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 		}
 	}
 
-	if action == ACT_UPDATE {
-		// skip empty diff
+	if action == ACT_UPDATE || action == ACT_SYNC_UPDATE {
+		// skip empty / heartbeat-only diff
 		if notes == nil {
 			return
 		}
-		if uds, ok := notes.(sqlchemy.UpdateDiffs); ok && len(uds) == 0 {
-			return
+		if uds, ok := notes.(sqlchemy.UpdateDiffs); ok {
+			if action == ACT_SYNC_UPDATE {
+				uds = filterSyncUpdateDiffs(uds)
+				notes = uds
+			}
+			if len(uds) == 0 {
+				return
+			}
 		}
 	}
 	opslog := &SOpsLog{
@@ -359,6 +429,7 @@ func (manager *SOpsLogManager) SyncOwner(m IModel, former *STenant, userCred mcc
 }
 
 func (manager *SOpsLogManager) LogSyncUpdate(m IModel, uds sqlchemy.UpdateDiffs, userCred mcclient.TokenCredential) {
+	uds = filterSyncUpdateDiffs(uds)
 	if len(uds) > 0 {
 		manager.LogEvent(m, ACT_SYNC_UPDATE, uds, userCred)
 	}
