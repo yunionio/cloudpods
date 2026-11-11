@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -157,7 +156,6 @@ func syncRegionLoadbalancers(
 	if result.IsError() {
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_LB_COMPLETE, msg, userCred)
 
 	// 集合对齐后，各 LB 外设（eip/backend/listener/secgroup）有限并行
 	lbTasks := make([]func(), 0, len(localLbs))
