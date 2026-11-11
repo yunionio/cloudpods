@@ -499,3 +499,55 @@ func response(req *http.Request, status int, body string, hdr http.Header) *http
 		Request:    req,
 	}
 }
+
+func TestGetFallsBackToSessionServiceLogin(t *testing.T) {
+	loginPaths := make([]string, 0)
+	systemsGets := 0
+
+	api := newTestRedfishApi(func(r *http.Request) *http.Response {
+		switch r.URL.Path {
+		case testBasePath:
+			// The service root is readable without credentials.
+			return jsonResponse(r, http.StatusOK, testRoot)
+		case "/redfish/v1/SessionService/Sessions":
+			loginPaths = append(loginPaths, r.URL.Path)
+			hdr := http.Header{}
+			hdr.Set("X-Auth-Token", testToken)
+			hdr.Set("Location", "/redfish/v1/SessionService/Sessions/1")
+			return jsonResponseWithHeader(r, http.StatusCreated, `{}`, hdr)
+		case "/redfish/v1/Sessions":
+			loginPaths = append(loginPaths, r.URL.Path)
+			return notFoundResponse(r)
+		case "/redfish/v1/Systems":
+			systemsGets++
+			if r.Header.Get("X-Auth-Token") != testToken {
+				return unauthorizedResponse(r, "basic auth rejected")
+			}
+			if len(r.Header.Get("Authorization")) > 0 {
+				t.Errorf("retried request still sends Authorization with the session token")
+			}
+			return jsonResponse(r, http.StatusOK, testSystemsCollection)
+		default:
+			return notFoundResponse(r)
+		}
+	})
+
+	if err := api.Probe(context.Background()); err != nil {
+		t.Fatalf("Probe error: %v", err)
+	}
+	if len(api.SessionToken) > 0 {
+		t.Fatalf("Probe logged in although the service root needs no auth")
+	}
+	if _, err := api.Get(context.Background(), "/redfish/v1/Systems"); err != nil {
+		t.Fatalf("Get Systems error: %v", err)
+	}
+	if systemsGets != 2 {
+		t.Fatalf("Systems GET count got %d want 2", systemsGets)
+	}
+	if len(loginPaths) != 1 || loginPaths[0] != "/redfish/v1/SessionService/Sessions" {
+		t.Fatalf("login paths got %v want [/redfish/v1/SessionService/Sessions]", loginPaths)
+	}
+	if api.SessionToken != testToken {
+		t.Fatalf("SessionToken got %q want %q", api.SessionToken, testToken)
+	}
+}
