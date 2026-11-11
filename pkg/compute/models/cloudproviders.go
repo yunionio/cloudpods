@@ -710,7 +710,6 @@ func (cprvd *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context,
 		cloudaccount.MarkSyncing(userCred)
 	}
 	cprvd.markStartSync(userCred, syncRange)
-	db.OpsLog.LogEvent(cprvd, db.ACT_SYNC_HOST_START, "", userCred)
 	return task.ScheduleRun(nil)
 }
 
