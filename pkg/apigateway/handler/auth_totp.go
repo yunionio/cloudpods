@@ -222,7 +222,10 @@ func initTotpSecrets(ctx context.Context, w http.ResponseWriter, req *http.Reque
 	}
 
 	authToken.SetTotpInitialized()
-	saveAuthCookie(w, authToken, t)
+	if err := saveAuthCookie(w, authToken, t); err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
 
 	resp := jsonutils.NewDict()
 	resp.Add(jsonutils.NewString(code), "qrcode")
@@ -256,12 +259,13 @@ func validatePasscodeHandler(ctx context.Context, w http.ResponseWriter, req *ht
 	}
 
 	err = authToken.VerifyTotpPasscode(s, t.GetUserId(), passcode)
-
-	saveAuthCookie(w, authToken, t)
-
 	if err != nil {
 		log.Warningf("VerifyTotpPasscode %s", err.Error())
 		httperrors.InputParameterError(ctx, w, "invalid passcode: %v", err)
+		return
+	}
+	if err := saveAuthCookie(w, authToken, t); err != nil {
+		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
 

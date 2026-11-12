@@ -15,9 +15,29 @@
 package clientman
 
 import (
+	"bytes"
+	"compress/flate"
+	cryptorand "crypto/rand"
+	"encoding/base64"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
+
+	"yunion.io/x/onecloud/pkg/apigateway/options"
 )
+
+// usePlainCookieKey selects the enable_ssl=false path: no RSA key, AES-GCM cookie.
+func usePlainCookieKey(t *testing.T) {
+	t.Helper()
+	setPrivateKey(nil)
+	key := make([]byte, 32)
+	if _, err := cryptorand.Read(key); err != nil {
+		t.Fatalf("rand: %s", err)
+	}
+	setCookieKey(key)
+	t.Cleanup(SetupTest)
+}
 
 func TestEncoeDecode(t *testing.T) {
 	SetupTest()
@@ -26,31 +46,145 @@ func TestEncoeDecode(t *testing.T) {
 		verifyTotp: true,
 		enableTotp: false,
 	}
-	et := token.encodeBytes()
-	plainEt := compressString(et)
-	encEt := EncryptString(et)
-	t.Logf("origin token: %s", token.token)
-	t.Logf("plain token: %s (%d)", plainEt, len(plainEt))
-	t.Logf("encrypt token: %s (%d)", encEt, len(encEt))
-
-	decBytes, err := decompressString(plainEt)
+	enc, err := token.Encode()
 	if err != nil {
-		t.Fatalf("decompressString fail %s", err)
+		t.Fatalf("encode: %s", err)
 	}
-	decBytes2, err := DecryptString(encEt)
+	dec, err := Decode(enc)
 	if err != nil {
-		t.Fatalf("decryptString fail %s", err)
+		t.Fatalf("decode: %s", err)
+	}
+	if !reflect.DeepEqual(*dec, token) {
+		t.Fatalf("round trip mismatch")
+	}
+	if strings.Contains(enc, token.token) {
+		t.Fatal("keystone token is visible in the sealed cookie")
+	}
+}
+
+func TestDecodeRejectsTamperedCookie(t *testing.T) {
+	usePlainCookieKey(t)
+	token := NewAuthToken("keystone-token-of-the-victim", true, true, false)
+	enc, err := token.Encode()
+	if err != nil {
+		t.Fatalf("encode: %s", err)
+	}
+	raw, err := base64.URLEncoding.DecodeString(enc)
+	if err != nil {
+		t.Fatalf("decode base64: %s", err)
+	}
+	raw[len(raw)-1] ^= 0x01
+	tampered := base64.URLEncoding.EncodeToString(raw)
+	if _, err := Decode(tampered); err == nil {
+		t.Fatal("tampered cookie was accepted")
 	}
 
-	if !reflect.DeepEqual(decBytes, decBytes2) {
-		t.Fatalf("decompress and decrypt bytes not equal!")
+	prev := options.Options
+	options.Options = &options.GatewayOptions{EnableTotp: true}
+	t.Cleanup(func() { options.Options = prev })
+
+	dec, err := Decode(enc)
+	if err != nil {
+		t.Fatalf("decode: %s", err)
+	}
+	if dec.IsTotpVerified() {
+		t.Fatal("password login was treated as totp-verified")
+	}
+	if dec.token != token.token {
+		t.Fatalf("token mismatch")
+	}
+}
+
+func TestDecodeRejectsUnsignedSession(t *testing.T) {
+	usePlainCookieKey(t)
+	token := NewAuthToken("keystone-token-of-the-victim", true, true, false)
+	plain := token.encodeBytes()
+	plain[0] = TotpEnable
+	if _, err := Decode(legacyCompress(plain)); err == nil {
+		t.Fatal("uncompressed session was accepted")
+	}
+}
+
+func TestDecodeRejectsOtherKey(t *testing.T) {
+	usePlainCookieKey(t)
+	token := NewAuthToken("keystone-token-of-the-victim", true, true, false)
+	enc, err := token.Encode()
+	if err != nil {
+		t.Fatalf("encode: %s", err)
+	}
+	setCookieKey(bytes.Repeat([]byte{7}, 32))
+	if _, err := Decode(enc); err == nil {
+		t.Fatal("cookie sealed with another key was accepted")
+	}
+}
+
+func TestEncodeRequiresServerKey(t *testing.T) {
+	setPrivateKey(nil)
+	setCookieKey(nil)
+	t.Cleanup(SetupTest)
+	token := NewAuthToken("keystone-token-of-the-victim", true, true, false)
+	if _, err := token.Encode(); err == nil {
+		t.Fatal("encode without a server key succeeded")
+	}
+}
+
+func TestOtpLockoutIsServerSide(t *testing.T) {
+	uid := "totp-lock-user"
+	resetOtpLock(uid)
+	t.Cleanup(func() { resetOtpLock(uid) })
+
+	for i := 0; i < MAX_OTP_RETRY-1; i++ {
+		noteOtpFailure(uid)
+	}
+	if err := checkOtpLock(uid); err != nil {
+		t.Fatalf("locked before max retries: %v", err)
+	}
+	noteOtpFailure(uid)
+	if err := checkOtpLock(uid); err == nil {
+		t.Fatal("expected lock after max retries")
 	}
 
-	token2, err := decodeBytes(decBytes)
+	replay := NewAuthToken("keystone-token-2", true, true, false)
+	if replay.verifyTotp {
+		t.Fatal("fresh login cookie is already verified")
+	}
+	if err := checkOtpLock(uid); err == nil {
+		t.Fatal("fresh login cookie cleared the lock")
+	}
+
+	clearOtpLock(uid)
+	if err := checkOtpLock(uid); err != nil {
+		t.Fatalf("cleared lock still held: %v", err)
+	}
+}
+
+func TestOtpLockExpires(t *testing.T) {
+	uid := "totp-lock-expire"
+	resetOtpLock(uid)
+	t.Cleanup(func() { resetOtpLock(uid) })
+
+	st := otpFailStateFor(uid)
+	st.mu.Lock()
+	st.retryCount = MAX_OTP_RETRY
+	st.lockUntil = time.Now().Add(-time.Second)
+	st.mu.Unlock()
+
+	if err := checkOtpLock(uid); err != nil {
+		t.Fatalf("expired lock still held: %v", err)
+	}
+}
+
+func legacyCompress(in []byte) string {
+	buf := new(bytes.Buffer)
+	w, err := flate.NewWriter(buf, 9)
 	if err != nil {
-		t.Fatalf("decodeBytes fail %s", err)
+		panic(err)
 	}
-	if *token2 != token {
-		t.Fatalf("token2 != token")
+	if _, err := w.Write(in); err != nil {
+		panic(err)
 	}
+	if err := w.Close(); err != nil {
+		panic(err)
+	}
+	return base64.URLEncoding.EncodeToString(buf.Bytes())
 }
