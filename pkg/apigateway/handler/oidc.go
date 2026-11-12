@@ -145,7 +145,10 @@ func doOIDCAuth(ctx context.Context, req *http.Request, query jsonutils.JSONObje
 
 	cliIp := netutils2.GetHttpRequestIp(req)
 	codeInfo := newOIDCClientInfo(token, cliIp, FetchRegion(req))
-	code := clientman.EncryptString(codeInfo.toBytes())
+	code, err := clientman.EncryptString(codeInfo.toBytes())
+	if err != nil {
+		return oidcAuth, "", errors.Wrap(err, "encrypt oidc code")
+	}
 
 	return oidcAuth, code, nil
 }
@@ -221,10 +224,14 @@ type SOIDCClientToken struct {
 	Info SOIDCClientInfo
 }
 
-func (t SOIDCClientToken) encode() string {
+func (t SOIDCClientToken) encode() (string, error) {
 	json := jsonutils.NewDict()
 	json.Add(jsonutils.NewString(string(t.Info.toBytes())), "info")
-	return clientman.EncryptString([]byte(json.String()))
+	enc, err := clientman.EncryptString([]byte(json.String()))
+	if err != nil {
+		return "", errors.Wrap(err, "encrypt oidc token")
+	}
+	return enc, nil
 }
 
 func decodeOIDCClientToken(token string) (SOIDCClientToken, error) {
@@ -317,17 +324,24 @@ func validateOIDCToken(ctx context.Context, req *http.Request) (oidcutils.SOIDCA
 		Info: codeInfo,
 	}
 
-	tokenResp = token2AccessTokenResponse(token, clientId)
+	tokenResp, err = token2AccessTokenResponse(token, clientId)
+	if err != nil {
+		return tokenResp, err
+	}
 	return tokenResp, nil
 }
 
-func token2AccessTokenResponse(token SOIDCClientToken, clientId string) oidcutils.SOIDCAccessTokenResponse {
+func token2AccessTokenResponse(token SOIDCClientToken, clientId string) (oidcutils.SOIDCAccessTokenResponse, error) {
 	resp := oidcutils.SOIDCAccessTokenResponse{}
-	resp.AccessToken = token.encode()
+	accessToken, err := token.encode()
+	if err != nil {
+		return resp, err
+	}
+	resp.AccessToken = accessToken
 	resp.TokenType = oidcutils.OIDC_BEARER_TOKEN_TYPE
 	resp.IdToken, _ = token2IdToken(token, clientId)
 	resp.ExpiresIn = int(token.Info.expiresAt(OIDC_TOKEN_EXPIRE_SECONDS).Unix() - time.Now().Unix())
-	return resp
+	return resp, nil
 }
 
 func token2IdToken(token SOIDCClientToken, clientId string) (string, error) {
