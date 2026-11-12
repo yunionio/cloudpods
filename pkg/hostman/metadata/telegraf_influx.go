@@ -79,6 +79,18 @@ func (s *Service) rewriteTelegrafInfluxBodyIfNeeded(ctx context.Context, r *http
 		if gd.Name != "" {
 			tags["vm_name"] = gd.Name
 		}
+		if gd.HostId != "" {
+			tags["host_id"] = gd.HostId
+		}
+		if gd.HostAccessIp != "" {
+			tags["host_ip"] = gd.HostAccessIp
+		}
+		if gd.Zone != "" {
+			tags["zone"] = gd.Zone
+		}
+		if gd.Domain != "" {
+			tags["domain"] = gd.Domain
+		}
 		if len(tags) == 0 {
 			return nil, false
 		}
