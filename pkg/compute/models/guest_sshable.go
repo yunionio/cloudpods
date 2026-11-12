@@ -565,6 +565,9 @@ fi
 func (guest *SGuest) GetSshPort(ctx context.Context, userCred mcclient.TokenCredential) int {
 	portStr := guest.GetMetadata(ctx, compute_api.SSH_PORT, userCred)
 	if portStr == "" {
+		if guest.IsWindows() {
+			return 3389
+		}
 		return 22
 	}
 	port, _ := strconv.Atoi(portStr)
