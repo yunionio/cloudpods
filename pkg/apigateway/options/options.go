@@ -29,6 +29,10 @@ type GatewayOptions struct {
 	EnableTotp bool   `help:"Enable two-factor authentication" default:"false"`
 	TotpIssuer string `help:"TOTP issuer" default:"Cloudpods"`
 
+	// AuthCookieKey is used only when enable_ssl is false. With TLS, the
+	// session stays in the original JWE format under the certificate key.
+	AuthCookieKey string `help:"High-entropy secret (32+ random bytes) that encrypts the yunionauth cookie when enable_ssl is false. Set the same value on every apigateway replica. When empty, this process generates a key that is lost on restart. Ignored when enable_ssl is true. Read at startup." json:"-"`
+
 	SsoRedirectUrl     string `help:"SSO idp redirect URL"`
 	SsoAuthCallbackUrl string `help:"SSO idp auth callback URL"`
 	SsoLinkCallbackUrl string `help:"SSO idp link user callback URL"`

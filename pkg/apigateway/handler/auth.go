@@ -595,13 +595,17 @@ func clearCookie(w http.ResponseWriter, name string, domain string) {
 	http.SetCookie(w, cookie)
 }
 
-func saveAuthCookie(w http.ResponseWriter, authToken *clientman.SAuthToken, token mcclient.TokenCredential) {
-	authCookie := authToken.GetAuthCookie(token)
+func saveAuthCookie(w http.ResponseWriter, authToken *clientman.SAuthToken, token mcclient.TokenCredential) error {
+	authCookie, err := authToken.GetAuthCookie(token)
+	if err != nil {
+		return errors.Wrap(err, "get auth cookie")
+	}
 	expire := time.Time{}
 	if !options.Options.SessionLevelAuthCookie {
 		expire = token.GetExpires()
 	}
 	saveCookie(w, constants.YUNION_AUTH_COOKIE, authCookie, options.Options.CookieDomain, expire, true)
+	return nil
 }
 
 func clearAuthCookie(w http.ResponseWriter) {
@@ -663,12 +667,13 @@ func (h *AuthHandlers) doLogin(ctx context.Context, w http.ResponseWriter, req *
 		return httperrors.NewForbiddenError("user forbidden login from web")
 	}
 
-	saveLoginCookies(w, authToken, token, body)
-	return nil
+	return saveLoginCookies(w, authToken, token, body)
 }
 
-func saveLoginCookies(w http.ResponseWriter, authToken *clientman.SAuthToken, token mcclient.TokenCredential, body jsonutils.JSONObject) {
-	saveAuthCookie(w, authToken, token)
+func saveLoginCookies(w http.ResponseWriter, authToken *clientman.SAuthToken, token mcclient.TokenCredential, body jsonutils.JSONObject) error {
+	if err := saveAuthCookie(w, authToken, token); err != nil {
+		return err
+	}
 
 	if len(token.GetProjectId()) > 0 {
 		if body != nil && body.Contains("isadmin") {
@@ -691,6 +696,7 @@ func saveLoginCookies(w http.ResponseWriter, authToken *clientman.SAuthToken, to
 		}
 		saveCookie(w, "tenant", token.GetProjectId(), "", token.GetExpires(), false)
 	}
+	return nil
 }
 
 func doLogout(ctx context.Context, w http.ResponseWriter, req *http.Request) {

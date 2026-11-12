@@ -16,13 +16,15 @@ package clientman
 
 import (
 	"bytes"
-	"compress/flate"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/binary"
-	"io"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/lestrrat-go/jwx/jwa"
@@ -46,10 +48,32 @@ const (
 
 var (
 	privateKey *rsa.PrivateKey
+
+	cookieKeyMu sync.RWMutex
+	cookieKey   []byte
 )
 
 func setPrivateKey(key *rsa.PrivateKey) {
 	privateKey = key
+}
+
+func setCookieKey(key []byte) {
+	cookieKeyMu.Lock()
+	defer cookieKeyMu.Unlock()
+	if len(key) == 0 {
+		cookieKey = nil
+		return
+	}
+	cookieKey = append([]byte(nil), key...)
+}
+
+func currentCookieKey() ([]byte, error) {
+	cookieKeyMu.RLock()
+	defer cookieKeyMu.RUnlock()
+	if len(cookieKey) != 32 {
+		return nil, errors.Error("auth cookie key is not initialized")
+	}
+	return append([]byte(nil), cookieKey...), nil
 }
 
 type SAuthToken struct {
@@ -59,8 +83,8 @@ type SAuthToken struct {
 	initTotp   bool
 	isSsoLogin bool
 
-	retryCount     int    // 重试计数器
-	lockExpireTime uint32 // 锁定时间
+	retryCount     int    // SSL 会话沿用 cookie 内的重试计数
+	lockExpireTime uint32 // SSL 会话沿用 cookie 内的锁定时间
 }
 
 func (t SAuthToken) encodeBytes() []byte {
@@ -94,28 +118,14 @@ func (t SAuthToken) encodeBytes() []byte {
 	return msg.Bytes()
 }
 
-func (t SAuthToken) Encode() string {
-	encBytes := t.encodeBytes()
-	if privateKey != nil {
-		return EncryptString(encBytes)
-	} else {
-		return compressString(encBytes)
-	}
+func (t SAuthToken) Encode() (string, error) {
+	return EncryptString(t.encodeBytes())
 }
 
 func Decode(t string) (*SAuthToken, error) {
-	var tBytes []byte
-	var err error
-	if privateKey != nil {
-		tBytes, err = DecryptString(t)
-		if err != nil {
-			return nil, errors.Wrap(err, "decryptString")
-		}
-	} else {
-		tBytes, err = decompressString(t)
-		if err != nil {
-			return nil, errors.Wrap(err, "decompressString")
-		}
+	tBytes, err := DecryptString(t)
+	if err != nil {
+		return nil, errors.Wrap(err, "decrypt auth cookie")
 	}
 	return decodeBytes(tBytes)
 }
@@ -152,44 +162,80 @@ func decodeBytes(tt []byte) (*SAuthToken, error) {
 	return &ret, nil
 }
 
-func compressString(in []byte) string {
-	buf := new(bytes.Buffer)
-	compressor, _ := flate.NewWriter(buf, 9)
-	compressor.Write(in)
-	compressor.Close()
-	return base64.URLEncoding.EncodeToString(buf.Bytes())
-}
-
-func EncryptString(in []byte) string {
-	enc, _ := jwe.Encrypt(in, jwa.RSA1_5, &privateKey.PublicKey, jwa.A128GCM, jwa.Deflate)
-	return string(enc)
-}
-
-func decompressString(in string) ([]byte, error) {
-	inBytes, err := base64.URLEncoding.DecodeString(in)
-	if err != nil {
-		return nil, errors.Wrap(err, "base64.URLEncoding.DecodeString")
+func EncryptString(in []byte) (string, error) {
+	if privateKey != nil {
+		enc, err := jwe.Encrypt(in, jwa.RSA1_5, &privateKey.PublicKey, jwa.A128GCM, jwa.Deflate)
+		if err != nil {
+			return "", errors.Wrap(err, "jwe.Encrypt")
+		}
+		return string(enc), nil
 	}
-	buf := new(bytes.Buffer)
-	decompressor := flate.NewReader(bytes.NewReader(inBytes))
-	_, err = io.Copy(buf, decompressor)
+	key, err := currentCookieKey()
 	if err != nil {
-		return nil, errors.Wrap(err, "decompress")
+		return "", err
 	}
-	decompressor.Close()
-	return buf.Bytes(), nil
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", errors.Wrap(err, "aes.NewCipher")
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", errors.Wrap(err, "cipher.NewGCM")
+	}
+	nonce := make([]byte, aead.NonceSize())
+	if _, err := cryptorand.Read(nonce); err != nil {
+		return "", errors.Wrap(err, "read nonce")
+	}
+	buf := make([]byte, len(nonce), len(nonce)+len(in)+aead.Overhead())
+	copy(buf, nonce)
+	sealed := aead.Seal(buf, nonce, in, nil)
+	return base64.URLEncoding.EncodeToString(sealed), nil
 }
 
 func DecryptString(in string) ([]byte, error) {
-	return jwe.Decrypt([]byte(in), jwa.RSA1_5, privateKey)
+	if privateKey != nil {
+		plain, err := jwe.Decrypt([]byte(in), jwa.RSA1_5, privateKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "jwe.Decrypt")
+		}
+		return plain, nil
+	}
+	key, err := currentCookieKey()
+	if err != nil {
+		return nil, err
+	}
+	raw, err := base64.URLEncoding.DecodeString(in)
+	if err != nil {
+		return nil, errors.Wrap(err, "base64.URLEncoding.DecodeString")
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, errors.Wrap(err, "aes.NewCipher")
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, errors.Wrap(err, "cipher.NewGCM")
+	}
+	ns := aead.NonceSize()
+	if len(raw) < ns+aead.Overhead() {
+		return nil, errors.Error("auth cookie truncated")
+	}
+	plain, err := aead.Open(nil, raw[:ns], raw[ns:], nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "open auth cookie")
+	}
+	return plain, nil
 }
 
 func (t SAuthToken) GetToken(ctx context.Context) (mcclient.TokenCredential, error) {
 	return auth.Verify(ctx, t.token)
 }
 
-func (t SAuthToken) GetAuthCookie(token mcclient.TokenCredential) string {
-	sid := t.Encode()
+func (t SAuthToken) GetAuthCookie(token mcclient.TokenCredential) (string, error) {
+	sid, err := t.Encode()
+	if err != nil {
+		return "", errors.Wrap(err, "encode auth cookie")
+	}
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewTimeString(token.GetExpires()), "exp")
 	info.Add(jsonutils.NewString(sid), "session")
@@ -200,7 +246,7 @@ func (t SAuthToken) GetAuthCookie(token mcclient.TokenCredential) string {
 	info.Add(jsonutils.NewBool(options.Options.EnableTotp), "system_totp_on") // 全局totp 开启状态。 True（已开启）|False(未开启)
 	info.Add(jsonutils.NewString(token.GetUserId()), "user_id")
 	info.Add(jsonutils.NewString(token.GetUserName()), "user")
-	return info.String()
+	return info.String(), nil
 }
 
 func (t SAuthToken) IsTotpVerified() bool {
@@ -242,22 +288,23 @@ func NewAuthToken(tid string, enableTotp bool, isTotpInit bool, isSsoLogin bool)
 func (t *SAuthToken) updateRetryCount() {
 	if t.retryCount < MAX_OTP_RETRY {
 		t.retryCount += 1
-
-		// 锁定
 		if t.retryCount >= MAX_OTP_RETRY {
 			t.lockExpireTime = uint32(time.Now().Add(30 * time.Second).Unix())
 		}
-	} else {
-		// 清零计数器，解除锁定
-		if t.lockExpireTime < uint32(time.Now().Unix()) {
-			t.lockExpireTime = 0
-			t.retryCount = 0
-		}
+	} else if t.lockExpireTime < uint32(time.Now().Unix()) {
+		t.lockExpireTime = 0
+		t.retryCount = 0
 	}
 }
 
 func (t *SAuthToken) VerifyTotpPasscode(s *mcclient.ClientSession, uid, passcode string) error {
-	if t.lockExpireTime > uint32(time.Now().Unix()) {
+	// TLS sessions keep the original cookie counter. Without TLS the counter
+	// is server-side, because the login cookie can be replayed.
+	if privateKey == nil {
+		if err := checkOtpLock(uid); err != nil {
+			return err
+		}
+	} else if t.lockExpireTime > uint32(time.Now().Unix()) {
 		return errors.Wrapf(httperrors.ErrResourceBusy, "locked, retry after %d seconds", t.lockExpireTime-uint32(time.Now().Unix()))
 	}
 
@@ -268,12 +315,20 @@ func (t *SAuthToken) VerifyTotpPasscode(s *mcclient.ClientSession, uid, passcode
 
 	if totp.Validate(passcode, secret) {
 		t.verifyTotp = true
-		t.lockExpireTime = 0
-		t.retryCount = 0
+		if privateKey == nil {
+			clearOtpLock(uid)
+		} else {
+			t.lockExpireTime = 0
+			t.retryCount = 0
+		}
 		return nil
 	}
 
-	t.updateRetryCount()
+	if privateKey == nil {
+		noteOtpFailure(uid)
+	} else {
+		t.updateRetryCount()
+	}
 	return errors.Wrap(httperrors.ErrInputParameter, "invalid passcode")
 }
 
