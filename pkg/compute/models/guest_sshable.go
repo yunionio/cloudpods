@@ -579,6 +579,9 @@ grep -q "^$user " /etc/sudoers || echo "$user ALL=(ALL) NOPASSWD: ALL" | EDITOR=
 func (guest *SGuest) GetSshPort(ctx context.Context, userCred mcclient.TokenCredential) int {
 	portStr := guest.GetMetadata(ctx, compute_api.SSH_PORT, userCred)
 	if portStr == "" {
+		if guest.IsWindows() {
+			return 3389
+		}
 		return 22
 	}
 	port, err := strconv.Atoi(portStr)
