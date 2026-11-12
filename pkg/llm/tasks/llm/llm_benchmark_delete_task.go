@@ -24,13 +24,17 @@ func init() {
 }
 
 func (task *LLMBenchmarkDeleteTask) taskFailed(ctx context.Context, benchmark *models.SLLMBenchmark, err error) {
-	_ = benchmark.SetState(ctx, task.UserCred, benchmark.State, err.Error())
+	_ = benchmark.SetState(ctx, task.UserCred, benchmark.State)
 	db.OpsLog.LogEvent(benchmark, db.ACT_DELETE_FAIL, err, task.UserCred)
 	logclient.AddActionLogWithStartable(task, benchmark, logclient.ACT_DELETE, err, task.UserCred, false)
 	task.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 }
 
 func (task *LLMBenchmarkDeleteTask) deleteBenchmark(ctx context.Context, benchmark *models.SLLMBenchmark) {
+	if err := benchmark.DeleteRunnerServer(ctx, task.UserCred); err != nil {
+		task.taskFailed(ctx, benchmark, errors.Wrap(err, "delete benchmark runner"))
+		return
+	}
 	if err := benchmark.CleanupArtifacts(ctx); err != nil {
 		log.Warningf("cleanup benchmark %s artifacts during delete: %s", benchmark.Id, err)
 	}

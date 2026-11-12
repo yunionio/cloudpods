@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	computemod "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type LLMBenchmarkRunTask struct {
@@ -62,7 +63,7 @@ func (task *LLMBenchmarkRunTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		task.SetStageComplete(ctx, nil)
 		return
 	}
-	_ = b.SetState(ctx, task.UserCred, api.LLMBenchmarkStateQueued, "")
+	_ = b.SetState(ctx, task.UserCred, api.LLMBenchmarkStateQueued)
 	task.SetStage("OnRunComplete", nil)
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		defer cleanupRunner(ctx, task.UserCred, b)
@@ -78,9 +79,11 @@ func (task *LLMBenchmarkRunTask) OnInit(ctx context.Context, obj db.IStandaloneM
 func (task *LLMBenchmarkRunTask) OnRunComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	b := obj.(*models.SLLMBenchmark)
 	if _, err := b.FinishRun(ctx, nil); err != nil {
+		logclient.AddActionLogWithStartable(task, b, logclient.ACT_BENCHMARK_RUN, err, task.UserCred, false)
 		task.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
+	logclient.AddActionLogWithStartable(task, b, logclient.ACT_BENCHMARK_RUN, nil, task.UserCred, true)
 	task.SetStageComplete(ctx, nil)
 }
 
@@ -92,6 +95,7 @@ func (task *LLMBenchmarkRunTask) OnRunCompleteFailed(ctx context.Context, obj db
 	}
 	state, err := b.FinishRun(ctx, errors.Error(reason))
 	if err != nil {
+		logclient.AddActionLogWithStartable(task, b, logclient.ACT_BENCHMARK_RUN, err, task.UserCred, false)
 		task.SetStageFailed(ctx, jsonutils.NewString(err.Error()))
 		return
 	}
@@ -99,6 +103,7 @@ func (task *LLMBenchmarkRunTask) OnRunCompleteFailed(ctx context.Context, obj db
 		task.SetStageComplete(ctx, nil)
 		return
 	}
+	logclient.AddActionLogWithStartable(task, b, logclient.ACT_BENCHMARK_RUN, reason, task.UserCred, false)
 	task.SetStageFailed(ctx, jsonutils.NewString(reason))
 }
 
@@ -109,33 +114,55 @@ func (task *LLMBenchmarkRunTask) run(ctx context.Context, b *models.SLLMBenchmar
 	if err := os.WriteFile(filepath.Join(b.WorkDir, "target_snapshot.json"), []byte(b.TargetSnapshot), 0644); err != nil {
 		return errors.Wrap(err, "write target_snapshot")
 	}
-	llmObj, err := models.GetLLMManager().FetchById(b.LLMId)
-	if err != nil {
-		return errors.Wrap(err, "fetch LLM")
+	replaceRunner := jsonutils.QueryBoolean(task.GetParams(), "replace_runner", false)
+	reuse := !replaceRunner && b.RunnerServerId != ""
+	var targetServer *computeapi.ServerDetails
+	var image *models.SLLMImage
+	if !reuse {
+		if !b.IsExternal() {
+			llmObj, err := models.GetLLMManager().FetchById(b.LLMId)
+			if err != nil {
+				return errors.Wrap(err, "fetch LLM")
+			}
+			llm := llmObj.(*models.SLLM)
+			targetServer, err = llm.GetServer(ctx)
+			if err != nil {
+				return errors.Wrap(err, "GetServer")
+			}
+		}
+		imageObj, err := models.GetLLMImageManager().FetchById(b.LLMImageId)
+		if err != nil {
+			return errors.Wrap(err, "FetchById benchmark image")
+		}
+		image = imageObj.(*models.SLLMImage)
 	}
-	llm := llmObj.(*models.SLLM)
-	targetServer, err := llm.GetServer(ctx)
-	if err != nil {
-		return errors.Wrap(err, "GetServer")
-	}
-	imageObj, err := models.GetLLMImageManager().FetchById(b.LLMImageId)
-	if err != nil {
-		return errors.Wrap(err, "FetchById benchmark image")
-	}
-	image := imageObj.(*models.SLLMImage)
 
 	var spec bench.GuideLLMSpec
 	if err := json.Unmarshal([]byte(b.GuideLLMSpec), &spec); err != nil {
 		return errors.Wrap(err, "unmarshal GuideLLMSpec")
 	}
 	var tokenizerMount *models.LLMBenchmarkTokenizerMount
-	if b.DatasetName == api.LLMBenchmarkDatasetSyntheticText {
+	var err error
+	if b.IsExternal() {
+		spec.Tokenizer = bench.GuideLLMLocalTokenizer(bench.ExternalTokenizerDir)
+		apiKey, err := models.OpenBenchmarkAPIKey(b.Id, b.ApiKey)
+		if err != nil {
+			return err
+		}
+		bench.ApplyGuideLLMAPIKey(&spec, apiKey)
+		bench.ApplyGuideLLMModelsHealthCheck(&spec)
+		bench.ApplyGuideLLMConnectTimeout(&spec)
+	} else if b.DatasetName == api.LLMBenchmarkDatasetSyntheticText {
 		tokenizerMount, err = b.ResolveTokenizerMount()
 		if err != nil {
 			return errors.Wrap(err, "resolve offline benchmark tokenizer")
 		}
 		applyBenchmarkRuntimeTokenizer(&spec, tokenizerMount)
 	}
+	// Warmup is a discarded run. The measured spec has no GuideLLM warmup
+	// window, so the reported request total is the configured limit.
+	warmupSpec, runWarmup := bench.WarmupGuideLLMSpec(spec, b.WarmupRequests)
+	spec = bench.WithoutGuideLLMWarmup(spec)
 	runtimeSpec, err := json.Marshal(spec)
 	if err != nil {
 		return errors.Wrap(err, "marshal runtime GuideLLMSpec")
@@ -147,51 +174,99 @@ func (task *LLMBenchmarkRunTask) run(ctx context.Context, b *models.SLLMBenchmar
 	if err != nil {
 		return errors.Wrap(err, "GuideLLMEnvs")
 	}
-	podInput, err := b.RunnerPodInput(image, targetServer, tokenizerMount)
-	if err != nil {
-		return err
+	var runtimeEnvs map[string]string
+	if reuse {
+		runtimeEnvs = envs
 	}
-	podInput.Pod.Containers[0].Envs = append(podInput.Pod.Containers[0].Envs, envMapToKVs(envs)...)
 	if stoppedBenchmark(b) {
 		return errors.Error("benchmark stopped")
 	}
 
 	s := auth.GetSession(ctx, task.UserCred, options.Options.Region)
-	resp, err := computemod.Servers.Create(s, jsonutils.Marshal(podInput))
-	if err != nil {
-		return errors.Wrap(err, "create runner pod")
-	}
-	runnerServerId, err := resp.GetString("id")
-	if err != nil {
-		return errors.Wrap(err, "runner server id")
-	}
-	_ = b.SetRunner(ctx, runnerServerId, "")
-	if stoppedBenchmark(b) {
-		return errors.Error("benchmark stopped")
-	}
+	var containerId string
+	if reuse {
+		containerId, err = reuseRunnerContainer(ctx, s, b)
+		if err != nil {
+			return err
+		}
+	} else {
+		if err := b.DeleteRunnerServer(ctx, task.UserCred); err != nil {
+			return errors.Wrap(err, "release runner name")
+		}
+		var podInput *computeapi.ServerCreateInput
+		if b.IsExternal() {
+			podInput, err = b.ExternalRunnerPodInput(image)
+		} else {
+			podInput, err = b.RunnerPodInput(image, targetServer, tokenizerMount)
+		}
+		if err != nil {
+			return err
+		}
+		podInput.Pod.Containers[0].Envs = append(podInput.Pod.Containers[0].Envs, envMapToKVs(envs)...)
+		resp, err := computemod.Servers.Create(s, jsonutils.Marshal(podInput))
+		if err != nil {
+			return errors.Wrap(err, "create runner pod")
+		}
+		runnerServerId, err := resp.GetString("id")
+		if err != nil {
+			return errors.Wrap(err, "runner server id")
+		}
+		_ = b.SetRunner(ctx, runnerServerId)
+		if stoppedBenchmark(b) {
+			return errors.Error("benchmark stopped")
+		}
 
-	server, err := llmutils.WaitServerStatus(ctx, runnerServerId, []string{computeapi.VM_RUNNING}, 600)
-	if err != nil {
-		return errors.Wrap(err, "wait runner server")
-	}
-	if len(server.Containers) == 0 {
-		return errors.Error("runner pod has no containers")
-	}
-	containerId := server.Containers[0].Id
-	_ = b.SetRunner(ctx, runnerServerId, containerId)
-	if stoppedBenchmark(b) {
-		return errors.Error("benchmark stopped")
-	}
-	if b.DatasetName == api.LLMBenchmarkDatasetPackage {
-		if err := task.runDatasetPreflight(ctx, s, containerId, b, spec); err != nil {
+		server, err := llmutils.WaitServerStatus(ctx, runnerServerId, []string{computeapi.VM_RUNNING}, 600)
+		if err != nil {
+			return errors.Wrap(err, "wait runner server")
+		}
+		containerId, err = runnerContainerID(server)
+		if err != nil {
 			return err
 		}
 	}
 	if stoppedBenchmark(b) {
 		return errors.Error("benchmark stopped")
 	}
-	if err := b.SetState(ctx, task.UserCred, api.LLMBenchmarkStateRunning, ""); err != nil {
+	if b.IsExternal() {
+		if err := installExternalTokenizer(ctx, s, containerId, b); err != nil {
+			return err
+		}
+	}
+	if b.DatasetName == api.LLMBenchmarkDatasetPackage {
+		if err := task.runDatasetPreflight(ctx, s, containerId, b, spec, runtimeEnvs); err != nil {
+			return err
+		}
+	}
+	if stoppedBenchmark(b) {
+		return errors.Error("benchmark stopped")
+	}
+	if err := b.SetState(ctx, task.UserCred, api.LLMBenchmarkStateRunning); err != nil {
 		return err
+	}
+	if b.Profile == api.LLMBenchmarkProfilePeak || b.Profile == api.LLMBenchmarkProfileSlo {
+		return task.runAutoTunePhase(ctx, s, containerId, b, tokenizerMount, runtimeEnvs)
+	}
+	if runWarmup {
+		warmupEnvs, err := bench.GuideLLMEnvs(warmupSpec)
+		if err != nil {
+			return errors.Wrap(err, "warmup GuideLLMEnvs")
+		}
+		if err := executeGuideLLMPhase(
+			ctx,
+			s,
+			containerId,
+			b,
+			bench.GuideLLMWarmupCommand(),
+			bench.GuideLLMWarmupJSONPath,
+			bench.GuideLLMWarmupCSVPath,
+			warmupEnvs,
+		); err != nil {
+			return errors.Wrap(err, "guidellm warmup")
+		}
+		if stoppedBenchmark(b) {
+			return errors.Error("benchmark stopped")
+		}
 	}
 
 	phaseErr := executeGuideLLMPhase(
@@ -202,6 +277,7 @@ func (task *LLMBenchmarkRunTask) run(ctx context.Context, b *models.SLLMBenchmar
 		bench.GuideLLMRunCommand(),
 		"/workdir/benchmarks.json",
 		"/workdir/benchmarks.csv",
+		runtimeEnvs,
 	)
 	if phaseErr != nil {
 		_ = copyBenchmarkArtifacts(s, containerId, b)
@@ -213,7 +289,7 @@ func (task *LLMBenchmarkRunTask) run(ctx context.Context, b *models.SLLMBenchmar
 
 	metrics, err := bench.ParseMetricsCSV(b.ResultCsv)
 	if err != nil {
-		_ = b.SetState(ctx, task.UserCred, api.LLMBenchmarkStateRunning, "parse metrics: "+err.Error())
+		logclient.AddActionLogWithStartable(task, b, logclient.ACT_BENCHMARK_RUN, errors.Wrap(err, "parse metrics"), task.UserCred, false)
 		if b.DatasetName == api.LLMBenchmarkDatasetPackage {
 			return task.saveDatasetEvaluationFailure(ctx, b, "", 0, errors.Wrap(err, "parse formal metrics"))
 		}
@@ -226,6 +302,87 @@ func (task *LLMBenchmarkRunTask) run(ctx context.Context, b *models.SLLMBenchmar
 		return task.runDatasetEvaluation(ctx, s, containerId, b, metrics.RequestTotal)
 	}
 	return nil
+}
+
+func (task *LLMBenchmarkRunTask) runAutoTunePhase(
+	ctx context.Context,
+	s *mcclient.ClientSession,
+	containerId string,
+	b *models.SLLMBenchmark,
+	tokenizerMount *models.LLMBenchmarkTokenizerMount,
+	runtimeEnvs map[string]string,
+) error {
+	if tokenizerMount == nil || strings.TrimSpace(tokenizerMount.ModelPath) == "" {
+		if !b.IsExternal() {
+			return errors.Error("auto-tune requires the model tokenizer")
+		}
+	}
+	processor := ""
+	localProcessor := false
+	if b.IsExternal() {
+		processor = bench.ExternalTokenizerDir
+		localProcessor = true
+	} else {
+		processor = tokenizerMount.ModelPath
+		localProcessor = true
+	}
+	upper := float64(options.Options.LLMBenchmarkMaxRequestRate)
+	if upper < b.RequestRate {
+		upper = b.RequestRate
+	}
+	duration := b.MaxDurationSeconds
+	if duration < 1 {
+		duration = 600
+	}
+	apiKey := ""
+	if b.IsExternal() {
+		var keyErr error
+		apiKey, keyErr = models.OpenBenchmarkAPIKey(b.Id, b.ApiKey)
+		if keyErr != nil {
+			return keyErr
+		}
+	}
+	input := bench.AutoTuneCommandInput{
+		TargetURL:          b.TargetUrl,
+		Model:              b.Model,
+		ProcessorPath:      processor,
+		LocalProcessor:     localProcessor,
+		APIKey:             apiKey,
+		ModelsHealthCheck:  b.IsExternal(),
+		LowerBound:         b.RequestRate,
+		UpperBound:         upper,
+		MaxDurationSeconds: duration,
+		InputTokens:        b.DatasetInputTokens,
+		OutputTokens:       b.DatasetOutputTokens,
+	}
+	if b.Profile == api.LLMBenchmarkProfileSlo {
+		input.SloAvgTtftMs = b.SloAvgTtftMs
+		input.SloAvgTpotMs = b.SloAvgTpotMs
+		input.SloAvgLatencyMs = b.SloAvgLatencyMs
+	}
+	phaseErr := executeGuideLLMPhase(
+		ctx,
+		s,
+		containerId,
+		b,
+		bench.AutoTuneRunCommand(input),
+		bench.AutoTuneRampPath,
+		"",
+		runtimeEnvs,
+	)
+	if phaseErr != nil {
+		_ = copyBenchmarkArtifacts(s, containerId, b)
+		return phaseErr
+	}
+	if err := copyBenchmarkArtifacts(s, containerId, b); err != nil {
+		return err
+	}
+	metrics, err := bench.ParseAutoTuneRamp(b.ResultJson)
+	if err != nil {
+		logclient.AddActionLogWithStartable(task, b, logclient.ACT_BENCHMARK_RUN, errors.Wrap(err, "parse auto-tune ramp"), task.UserCred, false)
+		return nil
+	}
+	return b.UpdateMetrics(ctx, task.UserCred, metrics)
 }
 
 func evaluationDatasetExportCommand(datasetPath string, requestTotal int) []string {
@@ -460,6 +617,7 @@ func (task *LLMBenchmarkRunTask) runDatasetPreflight(
 	containerId string,
 	b *models.SLLMBenchmark,
 	formal bench.GuideLLMSpec,
+	runtimeEnvs map[string]string,
 ) error {
 	preflight, err := bench.BuildGuideLLMPreflightSpec(formal, b.MaxDurationSeconds)
 	if err != nil {
@@ -469,7 +627,7 @@ func (task *LLMBenchmarkRunTask) runDatasetPreflight(
 	if err != nil {
 		return err
 	}
-	if err := b.SetState(ctx, task.UserCred, api.LLMBenchmarkStateValidating, ""); err != nil {
+	if err := b.SetState(ctx, task.UserCred, api.LLMBenchmarkStateValidating); err != nil {
 		return err
 	}
 	validating := api.LLMBenchmarkDatasetPreflight{
@@ -480,7 +638,7 @@ func (task *LLMBenchmarkRunTask) runDatasetPreflight(
 		return errors.Wrap(err, "start dataset preflight")
 	}
 
-	phaseErr := executeGuideLLMPhase(ctx, s, containerId, b, command, preflightRemoteJSON, preflightRemoteCSV)
+	phaseErr := executeGuideLLMPhase(ctx, s, containerId, b, command, preflightRemoteJSON, preflightRemoteCSV, runtimeEnvs)
 	paths := map[string]string{
 		preflightRemoteJSON: filepath.Join(b.WorkDir, "dataset-preflight.json"),
 		preflightRemoteCSV:  filepath.Join(b.WorkDir, "dataset-preflight.csv"),
@@ -557,9 +715,17 @@ func executeGuideLLMPhase(
 	b *models.SLLMBenchmark,
 	command []string,
 	jsonPath, csvPath string,
+	runtimeEnvs map[string]string,
 ) error {
 	// The region exec-sync client closes after 15s, before GuideLLM can write
 	// its result files. Start the run detached, then poll the exit file.
+	if len(runtimeEnvs) > 0 {
+		var err error
+		command, err = bench.ExportGuideLLMEnv(command, runtimeEnvs)
+		if err != nil {
+			return err
+		}
+	}
 	launch, err := bench.GuideLLMBackgroundCommand(command, jsonPath, csvPath)
 	if err != nil {
 		return err
@@ -627,17 +793,57 @@ func execContainerSync(s *mcclient.ClientSession, containerId string, command []
 	return computemod.Containers.PerformAction(s, containerId, "exec-sync", jsonutils.Marshal(input))
 }
 
+func installExternalTokenizer(ctx context.Context, s *mcclient.ClientSession, containerId string, b *models.SLLMBenchmark) error {
+	modelID, err := bench.ParseModelScopeModelID(b.Tokenizer)
+	if err != nil {
+		return err
+	}
+	recorded, err := bench.ParseTokenizerDownloadURLs(b.TokenizerDownloadUrls)
+	if err != nil {
+		return err
+	}
+	localDir := filepath.Join(b.WorkDir, "tokenizer")
+	files, urls, err := models.DownloadExternalTokenizer(ctx, modelID, localDir, recorded)
+	if err != nil {
+		return errors.Wrap(err, "download modelscope tokenizer")
+	}
+	if len(recorded) == 0 {
+		if err := b.SetTokenizerDownloadUrls(urls); err != nil {
+			return err
+		}
+	}
+	for _, local := range files {
+		remote := bench.ExternalTokenizerDir + "/" + filepath.Base(local)
+		if err := copyFileToContainer(s, containerId, local, remote); err != nil {
+			return errors.Wrapf(err, "write %s", filepath.Base(local))
+		}
+	}
+	return nil
+}
+
+func copyFileToContainer(s *mcclient.ClientSession, containerId, localPath, remotePath string) error {
+	file, err := os.Open(localPath)
+	if err != nil {
+		return errors.Wrap(err, "open tokenizer file")
+	}
+	defer file.Close()
+	return computemod.Containers.CopyTo(s, containerId, remotePath, file)
+}
+
 func guideLLMStatusCommand(jsonPath, csvPath string) []string {
 	exitPath := shellPath(bench.GuideLLMResultExitPath(jsonPath))
+	ready := "[ -s " + shellPath(jsonPath) + " ]"
+	if csvPath != "" {
+		ready += " && [ -s " + shellPath(csvPath) + " ]"
+	}
 	script := fmt.Sprintf(
 		"if [ ! -s %s ]; then printf 'pending\\n'; exit 0; fi; "+
 			"code=$(tr -d '[:space:]' < %s); "+
 			"printf 'exit %%s\\n' \"$code\"; "+
-			"if [ \"$code\" = 0 ]; then if [ -s %s ] && [ -s %s ]; then printf 'ready\\n'; else printf 'missing\\n'; fi; fi",
+			"if [ \"$code\" = 0 ]; then if %s; then printf 'ready\\n'; else printf 'missing\\n'; fi; fi",
 		exitPath,
 		exitPath,
-		shellPath(jsonPath),
-		shellPath(csvPath),
+		ready,
 	)
 	return []string{"sh", "-lc", script}
 }
@@ -688,9 +894,13 @@ func shellPath(path string) string {
 
 func copyBenchmarkArtifacts(s *mcclient.ClientSession, containerId string, b *models.SLLMBenchmark) error {
 	paths := map[string]string{
-		"/workdir/guidellm.log":    filepath.Join(b.WorkDir, "guidellm.log"),
-		"/workdir/benchmarks.json": filepath.Join(b.WorkDir, "benchmarks.json"),
-		"/workdir/benchmarks.csv":  filepath.Join(b.WorkDir, "benchmarks.csv"),
+		"/workdir/guidellm.log": filepath.Join(b.WorkDir, "guidellm.log"),
+	}
+	if b.Profile == api.LLMBenchmarkProfilePeak || b.Profile == api.LLMBenchmarkProfileSlo {
+		paths[bench.AutoTuneRampPath] = filepath.Join(b.WorkDir, "benchmarks__ramp.json")
+	} else {
+		paths["/workdir/benchmarks.json"] = filepath.Join(b.WorkDir, "benchmarks.json")
+		paths["/workdir/benchmarks.csv"] = filepath.Join(b.WorkDir, "benchmarks.csv")
 	}
 	copied, firstErr := copyArtifacts(s, containerId, paths)
 	_, err := db.Update(b, func() error {
@@ -705,6 +915,10 @@ func copyBenchmarkArtifacts(s *mcclient.ClientSession, containerId string, b *mo
 
 func applyBenchmarkArtifactPaths(b *models.SLLMBenchmark, copied map[string]string) {
 	b.LogPath = copied["/workdir/guidellm.log"]
+	if ramp, ok := copied[bench.AutoTuneRampPath]; ok {
+		b.ResultJson = ramp
+		return
+	}
 	b.ResultJson = copied["/workdir/benchmarks.json"]
 	b.ResultCsv = copied["/workdir/benchmarks.csv"]
 }
@@ -739,8 +953,30 @@ func copyArtifacts(s *mcclient.ClientSession, containerId string, paths map[stri
 	return copied, firstErr
 }
 
+func reuseRunnerContainer(ctx context.Context, s *mcclient.ClientSession, b *models.SLLMBenchmark) (string, error) {
+	server, err := llmutils.GetServer(ctx, b.RunnerServerId)
+	if err != nil || server.Status != computeapi.VM_RUNNING {
+		return "", errors.Error("runner container is not running")
+	}
+	containerId, err := runnerContainerID(server)
+	if err != nil {
+		return "", err
+	}
+	for _, jsonPath := range []string{"/workdir/benchmarks.json", bench.AutoTuneRampPath} {
+		_, _ = execContainerSync(s, containerId, stopGuideLLMCommand(jsonPath), guideLLMPollTimeoutSeconds)
+	}
+	return containerId, nil
+}
+
+func runnerContainerID(server *computeapi.ServerDetails) (string, error) {
+	if server == nil || len(server.Containers) == 0 || server.Containers[0].Id == "" {
+		return "", errors.Error("runner pod has no containers")
+	}
+	return server.Containers[0].Id, nil
+}
+
 func cleanupRunner(ctx context.Context, userCred mcclient.TokenCredential, b *models.SLLMBenchmark) {
-	if b.RunnerServerId == "" {
+	if b.KeepRunner || b.RunnerServerId == "" {
 		return
 	}
 	_ = b.DeleteRunnerServer(ctx, userCred)
