@@ -687,9 +687,17 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 				return
 			}
 
+			if !options.Options.CollectDisabledProviderMetrics && manager.Enabled != nil && !*manager.Enabled {
+				log.Debugf("skip metric pull for disabled provider %s(%s)", manager.Name, manager.Provider)
+				return
+			}
+
 			driver, err := providerdriver.GetDriver(manager.Provider)
 			if err != nil {
-				log.Errorf("failed get provider %s(%s) driver %v", manager.Name, manager.Provider, err)
+				// providers whose collect driver is not registered (e.g. proxmox, oceanbase)
+				// are a capability gap instead of a runtime failure, keep it consistent with
+				// the IsSupportMetrics check below and avoid Errorf flooding every collect round
+				log.Debugf("skip metric pull for provider %s(%s) without collect driver: %v", manager.Name, manager.Provider, err)
 				return
 			}
 
@@ -869,13 +877,14 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 
 	metrics := []influxdb.SMetricData{}
 	for _, account := range accounts {
-		driver, err := providerdriver.GetDriver(account.Provider)
-		if err != nil {
-			log.Errorf("failed get account %s(%s) driver %v", account.Name, account.Provider, err)
+		if math.Abs(account.Balance) < 0.000001 {
 			continue
 		}
 
-		if math.Abs(account.Balance) < 0.000001 {
+		driver, err := providerdriver.GetDriver(account.Provider)
+		if err != nil {
+			// same reason as CollectMetrics above: unregistered collect driver is not an error
+			log.Debugf("skip account balance metric for account %s(%s) without collect driver: %v", account.Name, account.Provider, err)
 			continue
 		}
 
