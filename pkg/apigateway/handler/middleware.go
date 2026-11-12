@@ -118,7 +118,8 @@ func fetchAndSetAuthContext(ctx context.Context, w http.ResponseWriter, r *http.
 	if err != nil {
 		return ctx, errors.Wrap(err, "fetchAuthInfo")
 	}
-	// 启用双因子认证
+	// TOTP state comes from the sealed session. totp_verified in the cookie
+	// JSON is display-only and is not consulted here.
 	if !authToken.IsTotpVerified() {
 		return ctx, errors.Wrap(httperrors.ErrInvalidCredential, "TOTP authentication failed")
 	}
