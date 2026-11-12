@@ -1550,4 +1550,25 @@ func init() {
 		EN("Change Billing Type").
 		CN("更改计费模式"),
 	)
+
+	t.Set(ACT_BENCHMARK_COPY, i18n.NewTableEntry().
+		EN("Copy").
+		CN("复制"),
+	)
+	t.Set(ACT_BENCHMARK_RETEST, i18n.NewTableEntry().
+		EN("Retest").
+		CN("重新测试"),
+	)
+	t.Set(ACT_BENCHMARK_STOP, i18n.NewTableEntry().
+		EN("Stop").
+		CN("停止"),
+	)
+	t.Set(ACT_BENCHMARK_RUN, i18n.NewTableEntry().
+		EN("Run benchmark").
+		CN("运行基准测试"),
+	)
+	o.Set("llm_benchmark", i18n.NewTableEntry().
+		EN("LLM benchmark").
+		CN("基准测试"),
+	)
 }
