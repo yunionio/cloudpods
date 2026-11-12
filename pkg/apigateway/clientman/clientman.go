@@ -17,13 +17,20 @@ package clientman
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
+
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apigateway/options"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
+
+// cookieKeyContext separates this use from other hashes of the same secret.
+const cookieKeyContext = "onecloud-auth-cookie-key-v1\x00"
 
 func InitClient() error {
 	if options.Options.EnableSsl {
@@ -36,12 +43,34 @@ func InitClient() error {
 			return errors.Wrap(err, "decodePrivateKey")
 		}
 		setPrivateKey(privateKey)
+		return nil
 	}
+	return initCookieKey()
+}
 
+// initCookieKey runs only when TLS is off. With enable_ssl the session is
+// still encrypted with the certificate private key.
+func initCookieKey() error {
+	if secret := strings.TrimSpace(options.Options.AuthCookieKey); secret != "" {
+		sum := sha256.Sum256(append([]byte(cookieKeyContext), secret...))
+		setCookieKey(sum[:])
+		log.Infof("auth cookie key loaded from auth-cookie-key")
+		return nil
+	}
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		return errors.Wrap(err, "generate auth cookie key")
+	}
+	setCookieKey(key)
+	log.Warningf("auth cookie key is ephemeral; sessions end when apigateway restarts and are not valid on other replicas. Set auth-cookie-key to a shared secret.")
 	return nil
 }
 
 func SetupTest() {
-	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
 	setPrivateKey(key)
+	setCookieKey(nil)
 }

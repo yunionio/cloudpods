@@ -80,7 +80,10 @@ func TestClientInfo(t *testing.T) {
 			Info: info,
 		}
 
-		tokenStr := token.encode()
+		tokenStr, err := token.encode()
+		if err != nil {
+			t.Fatalf("encode %s", err)
+		}
 		token2, err := decodeOIDCClientToken(tokenStr)
 		if err != nil {
 			t.Fatalf("decodeOIDCClientToken fail %s", err)

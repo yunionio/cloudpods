@@ -62,7 +62,9 @@ func doAssumeLogin(assumeToken *SAssumeToken, w http.ResponseWriter, req *http.R
 		return nil, errors.Wrapf(httperrors.ErrInvalidCredential, "AuthenticateAssume fail %s", err)
 	}
 	authToken := clientman.NewAuthToken(token.GetTokenString(), false, false, false)
-	saveLoginCookies(w, authToken, token, nil)
+	if err := saveLoginCookies(w, authToken, token, nil); err != nil {
+		return nil, err
+	}
 	return token, nil
 }
 
