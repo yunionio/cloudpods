@@ -23,6 +23,12 @@ const (
 	LLMBenchmarkDatasetSyntheticText = "synthetic_text"
 	LLMBenchmarkDatasetPackage       = "benchmark_package"
 	LLMBenchmarkProfileConstant      = "constant"
+	LLMBenchmarkProfilePeak          = "peak"
+	LLMBenchmarkProfileSlo           = "slo"
+)
+
+const (
+	LLMBenchmarkDefaultWarmupRequests = 2
 )
 
 const (
@@ -40,24 +46,33 @@ const (
 const (
 	LLMBenchmarkDefaultRequestFormat = "/v1/chat/completions"
 	LLMBenchmarkDefaultImage         = "registry.cn-beijing.aliyuncs.com/cloudpods/guidellm:v0.7.0-amd64"
+	LLMBenchmarkBackendExternal      = "external"
 )
 
 type LLMBenchmarkCreateInput struct {
 	apis.VirtualResourceCreateInput
 
-	LLMId            string `json:"llm_id"`
+	LLMId            string `json:"llm_id,omitempty"`
 	BenchmarkImage   string `json:"benchmark_image,omitempty"`
 	BenchmarkPackage string `json:"benchmark_package,omitempty"`
 
 	RequestFormat string `json:"request_format,omitempty"`
 	Model         string `json:"model,omitempty"`
+	ApiKey        string `json:"api_key,omitempty"`
+	Tokenizer     string `json:"tokenizer,omitempty"`
+	NetworkId     string `json:"network_id,omitempty"`
 
-	Profile     string `json:"profile,omitempty"`
-	RequestRate int    `json:"request_rate,omitempty"`
+	Profile         string  `json:"profile,omitempty"`
+	RequestRate     float64 `json:"request_rate,omitempty"`
+	WarmupRequests  *int    `json:"warmup_requests,omitempty"`
+	SloAvgTtftMs    float64 `json:"slo_avg_ttft_ms,omitempty"`
+	SloAvgTpotMs    float64 `json:"slo_avg_tpot_ms,omitempty"`
+	SloAvgLatencyMs float64 `json:"slo_avg_latency_ms,omitempty"`
 
-	TotalRequests      int `json:"total_requests,omitempty"`
-	MaxDurationSeconds int `json:"max_duration_seconds,omitempty"`
-	MaxErrors          int `json:"max_errors,omitempty"`
+	TotalRequests      int  `json:"total_requests,omitempty"`
+	MaxDurationSeconds int  `json:"max_duration_seconds,omitempty"`
+	MaxErrors          int  `json:"max_errors,omitempty"`
+	KeepRunner         bool `json:"keep_runner,omitempty"`
 
 	DatasetName         string `json:"dataset_name,omitempty"`
 	DatasetInputTokens  int    `json:"dataset_input_tokens,omitempty"`
@@ -79,29 +94,42 @@ type LLMBenchmarkCopyInput struct {
 	Name            string `json:"name"`
 	LLMDeploymentId string `json:"llm_deployment_id"`
 
-	Description         *string `json:"description,omitempty"`
-	Model               *string `json:"model,omitempty"`
-	RequestRate         *int    `json:"request_rate,omitempty"`
-	TotalRequests       *int    `json:"total_requests,omitempty"`
-	MaxDurationSeconds  *int    `json:"max_duration_seconds,omitempty"`
-	MaxErrors           *int    `json:"max_errors,omitempty"`
-	DatasetInputTokens  *int    `json:"dataset_input_tokens,omitempty"`
-	DatasetOutputTokens *int    `json:"dataset_output_tokens,omitempty"`
+	Description         *string  `json:"description,omitempty"`
+	Model               *string  `json:"model,omitempty"`
+	TargetUrl           *string  `json:"target_url,omitempty"`
+	ApiKey              *string  `json:"api_key,omitempty"`
+	Tokenizer           *string  `json:"tokenizer,omitempty"`
+	NetworkId           *string  `json:"network_id,omitempty"`
+	RequestRate         *float64 `json:"request_rate,omitempty"`
+	WarmupRequests      *int     `json:"warmup_requests,omitempty"`
+	TotalRequests       *int     `json:"total_requests,omitempty"`
+	MaxDurationSeconds  *int     `json:"max_duration_seconds,omitempty"`
+	MaxErrors           *int     `json:"max_errors,omitempty"`
+	DatasetInputTokens  *int     `json:"dataset_input_tokens,omitempty"`
+	DatasetOutputTokens *int     `json:"dataset_output_tokens,omitempty"`
+	KeepRunner          *bool    `json:"keep_runner,omitempty"`
 }
 
 type LLMBenchmarkUpdateInput struct {
 	apis.VirtualResourceBaseUpdateInput
 
-	Model               *string `json:"model,omitempty"`
-	RequestRate         *int    `json:"request_rate,omitempty"`
-	TotalRequests       *int    `json:"total_requests,omitempty"`
-	MaxDurationSeconds  *int    `json:"max_duration_seconds,omitempty"`
-	MaxErrors           *int    `json:"max_errors,omitempty"`
-	DatasetInputTokens  *int    `json:"dataset_input_tokens,omitempty"`
-	DatasetOutputTokens *int    `json:"dataset_output_tokens,omitempty"`
+	Model               *string  `json:"model,omitempty"`
+	TargetUrl           *string  `json:"target_url,omitempty"`
+	ApiKey              *string  `json:"api_key,omitempty"`
+	Tokenizer           *string  `json:"tokenizer,omitempty"`
+	NetworkId           *string  `json:"network_id,omitempty"`
+	RequestRate         *float64 `json:"request_rate,omitempty"`
+	WarmupRequests      *int     `json:"warmup_requests,omitempty"`
+	TotalRequests       *int     `json:"total_requests,omitempty"`
+	MaxDurationSeconds  *int     `json:"max_duration_seconds,omitempty"`
+	MaxErrors           *int     `json:"max_errors,omitempty"`
+	DatasetInputTokens  *int     `json:"dataset_input_tokens,omitempty"`
+	DatasetOutputTokens *int     `json:"dataset_output_tokens,omitempty"`
 }
 
-type LLMBenchmarkRetestInput struct{}
+type LLMBenchmarkRetestInput struct {
+	ReuseRunner bool `json:"reuse_runner"`
+}
 
 type LLMBenchmarkListInput struct {
 	apis.VirtualResourceListInput
@@ -109,6 +137,30 @@ type LLMBenchmarkListInput struct {
 	LLMId           string `json:"llm_id"`
 	LLMDeploymentId string `json:"llm_deployment_id"`
 	State           string `json:"state"`
+}
+
+type LLMBenchmarkListModelsInput struct {
+	TargetUrl string `json:"target_url"`
+	ApiKey    string `json:"api_key"`
+}
+
+type LLMBenchmarkListModelsOutput struct {
+	Models []string `json:"models"`
+}
+
+type LLMBenchmarkTokenizerSearchInput struct {
+	Q        string `json:"q"`
+	PageSize int    `json:"page_size,omitempty"`
+}
+
+type LLMBenchmarkTokenizerSearchResult struct {
+	ModelId   string `json:"model_id"`
+	Name      string `json:"name,omitempty"`
+	Downloads int64  `json:"downloads,omitempty"`
+}
+
+type LLMBenchmarkTokenizerSearchOutput struct {
+	Tokenizers []LLMBenchmarkTokenizerSearchResult `json:"tokenizers"`
 }
 
 type LLMBenchmarkDatasetPreflight struct {

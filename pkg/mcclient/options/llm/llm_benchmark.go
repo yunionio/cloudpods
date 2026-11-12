@@ -35,14 +35,23 @@ type LLMBenchmarkCreateOptions struct {
 	BenchmarkImage   string `json:"benchmark_image" help:"benchmark llm_image id or name"`
 	BenchmarkPackage string `json:"benchmark_package" help:"benchmark package id or name"`
 
-	RequestFormat string `json:"request_format" default:"/v1/chat/completions"`
-	Model         string `json:"model"`
-	Profile       string `json:"profile" choices:"constant"`
-	RequestRate   int    `json:"request_rate"`
+	RequestFormat   string  `json:"request_format" default:"/v1/chat/completions"`
+	Model           string  `json:"model" help:"served model name; required for an external target"`
+	TargetUrl       string  `json:"target_url" help:"external OpenAI-compatible service root, mutually exclusive with llm"`
+	ApiKey          string  `json:"api_key" help:"optional API key for an external target; not returned by list or get"`
+	Tokenizer       string  `json:"tokenizer" help:"optional tokenizer name for an external target; defaults to the model"`
+	NetworkId       string  `json:"network_id" help:"network used by the external benchmark runner"`
+	Profile         string  `json:"profile" choices:"constant|peak|slo"`
+	RequestRate     float64 `json:"request_rate"`
+	WarmupRequests  *int    `json:"warmup_requests"`
+	SloAvgTtftMs    float64 `json:"slo_avg_ttft_ms"`
+	SloAvgTpotMs    float64 `json:"slo_avg_tpot_ms"`
+	SloAvgLatencyMs float64 `json:"slo_avg_latency_ms"`
 
-	TotalRequests      int `json:"total_requests"`
-	MaxDurationSeconds int `json:"max_duration_seconds"`
-	MaxErrors          int `json:"max_errors"`
+	TotalRequests      int  `json:"total_requests"`
+	MaxDurationSeconds int  `json:"max_duration_seconds"`
+	MaxErrors          int  `json:"max_errors"`
+	KeepRunner         bool `json:"keep_runner" help:"keep the runner container after the benchmark completes or fails"`
 
 	DatasetName         string `json:"dataset_name" choices:"synthetic_text|benchmark_package"`
 	DatasetInputTokens  int    `json:"dataset_input_tokens"`
@@ -57,15 +66,20 @@ func (o *LLMBenchmarkCreateOptions) Params() (jsonutils.JSONObject, error) {
 type LLMBenchmarkUpdateOptions struct {
 	options.BaseIdOptions
 
-	Name                string  `json:"name,omitempty"`
-	Description         *string `json:"description,omitempty"`
-	Model               *string `json:"model,omitempty"`
-	RequestRate         *int    `json:"request_rate,omitempty"`
-	TotalRequests       *int    `json:"total_requests,omitempty"`
-	MaxDurationSeconds  *int    `json:"max_duration_seconds,omitempty"`
-	MaxErrors           *int    `json:"max_errors,omitempty"`
-	DatasetInputTokens  *int    `json:"dataset_input_tokens,omitempty"`
-	DatasetOutputTokens *int    `json:"dataset_output_tokens,omitempty"`
+	Name                string   `json:"name,omitempty"`
+	Description         *string  `json:"description,omitempty"`
+	Model               *string  `json:"model,omitempty"`
+	TargetUrl           *string  `json:"target_url,omitempty"`
+	ApiKey              *string  `json:"api_key,omitempty"`
+	Tokenizer           *string  `json:"tokenizer,omitempty"`
+	NetworkId           *string  `json:"network_id,omitempty"`
+	RequestRate         *float64 `json:"request_rate,omitempty"`
+	WarmupRequests      *int     `json:"warmup_requests,omitempty"`
+	TotalRequests       *int     `json:"total_requests,omitempty"`
+	MaxDurationSeconds  *int     `json:"max_duration_seconds,omitempty"`
+	MaxErrors           *int     `json:"max_errors,omitempty"`
+	DatasetInputTokens  *int     `json:"dataset_input_tokens,omitempty"`
+	DatasetOutputTokens *int     `json:"dataset_output_tokens,omitempty"`
 }
 
 func (o *LLMBenchmarkUpdateOptions) GetId() string {
@@ -79,16 +93,22 @@ func (o *LLMBenchmarkUpdateOptions) Params() (jsonutils.JSONObject, error) {
 type LLMBenchmarkCopyOptions struct {
 	options.BaseIdOptions
 
-	NAME                string  `json:"name"`
-	LLMDeploymentId     string  `json:"llm_deployment_id"`
-	Description         *string `json:"description,omitempty"`
-	Model               *string `json:"model,omitempty"`
-	RequestRate         *int    `json:"request_rate,omitempty"`
-	TotalRequests       *int    `json:"total_requests,omitempty"`
-	MaxDurationSeconds  *int    `json:"max_duration_seconds,omitempty"`
-	MaxErrors           *int    `json:"max_errors,omitempty"`
-	DatasetInputTokens  *int    `json:"dataset_input_tokens,omitempty"`
-	DatasetOutputTokens *int    `json:"dataset_output_tokens,omitempty"`
+	NAME                string   `json:"name"`
+	LLMDeploymentId     string   `json:"llm_deployment_id"`
+	Description         *string  `json:"description,omitempty"`
+	Model               *string  `json:"model,omitempty"`
+	TargetUrl           *string  `json:"target_url,omitempty"`
+	ApiKey              *string  `json:"api_key,omitempty"`
+	Tokenizer           *string  `json:"tokenizer,omitempty"`
+	NetworkId           *string  `json:"network_id,omitempty"`
+	RequestRate         *float64 `json:"request_rate,omitempty"`
+	WarmupRequests      *int     `json:"warmup_requests,omitempty"`
+	TotalRequests       *int     `json:"total_requests,omitempty"`
+	MaxDurationSeconds  *int     `json:"max_duration_seconds,omitempty"`
+	MaxErrors           *int     `json:"max_errors,omitempty"`
+	DatasetInputTokens  *int     `json:"dataset_input_tokens,omitempty"`
+	DatasetOutputTokens *int     `json:"dataset_output_tokens,omitempty"`
+	KeepRunner          *bool    `json:"keep_runner,omitempty" help:"keep the runner container after the benchmark completes or fails"`
 }
 
 func (o *LLMBenchmarkCopyOptions) GetId() string {
@@ -101,6 +121,8 @@ func (o *LLMBenchmarkCopyOptions) Params() (jsonutils.JSONObject, error) {
 
 type LLMBenchmarkRetestOptions struct {
 	options.BaseIdOptions
+
+	ReuseRunner bool `json:"reuse_runner" help:"rerun inside the existing runner container"`
 }
 
 func (o *LLMBenchmarkRetestOptions) GetId() string {
@@ -108,7 +130,7 @@ func (o *LLMBenchmarkRetestOptions) GetId() string {
 }
 
 func (o *LLMBenchmarkRetestOptions) Params() (jsonutils.JSONObject, error) {
-	return jsonutils.NewDict(), nil
+	return jsonutils.Marshal(o), nil
 }
 
 type LLMBenchmarkDeleteOptions struct {
