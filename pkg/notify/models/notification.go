@@ -212,6 +212,14 @@ func (nm *SNotificationManager) PerformEventNotify(ctx context.Context, userCred
 
 	topic, err := TopicManager.TopicByEvent(input.Event)
 	if err != nil {
+		// topic 是事件的订阅入口：topic 不存在或被禁用时该事件本就没有任何接收人，
+		// 属正常配置状态（大多数事件从未配置 topic），静默跳过并按成功返回，
+		// 避免调用方（region 等）与 notify 自身为 404/422 刷 Error 日志
+		switch errors.Cause(err) {
+		case errors.ErrNotFound, errors.ErrInvalidStatus:
+			log.Debugf("skip event notify for unregistered or disabled topic: %v", err)
+			return output, nil
+		}
 		return output, errors.Wrapf(err, "TopicByEvent")
 	}
 	receiverIds := make(map[string]uint32)
@@ -740,6 +748,23 @@ func (nm *SNotificationManager) FilterByOwner(ctx context.Context, q *sqlchemy.S
 func (n *SNotification) AddOne() error {
 	_, err := db.Update(n, func() error {
 		n.SendTimes += 1
+		return nil
+	})
+	return err
+}
+
+// MarkNoMoreSend 将发送次数直接置到上限，使 ReSend 周期任务（过滤 send_times < MaxSendTimes）
+// 不再拾取该通知，用于渠道/联系人配置类的永久性失败，避免无意义的重发风暴
+func (n *SNotification) MarkNoMoreSend() error {
+	maxTimes := options.Options.MaxSendTimes
+	if maxTimes < 1 {
+		maxTimes = 1
+	}
+	if n.SendTimes >= maxTimes {
+		return nil
+	}
+	_, err := db.Update(n, func() error {
+		n.SendTimes = maxTimes
 		return nil
 	})
 	return err

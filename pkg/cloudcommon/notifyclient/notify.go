@@ -23,6 +23,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/httputils"
 
 	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -302,8 +304,29 @@ func (t *eventTask) Run() {
 	}
 	_, err = npk.Notification.PerformClassAction(s, "event-notify", jsonutils.Marshal(t.params))
 	if err != nil {
-		log.Errorf("unable to EventNotify: %s", err)
+		// notify 侧以 4xx 拒绝（如事件未配置 topic 返回 404、策略拒绝 403）属配置状态而非服务故障，
+		// 降级 Warning，避免无订阅事件在调用方刷 Error 日志；5xx 及网络类错误仍按 Error 处理
+		if code := eventNotifyHTTPCode(err); code >= 400 && code < 500 {
+			log.Warningf("unable to EventNotify: %s", err)
+		} else {
+			log.Errorf("unable to EventNotify: %s", err)
+		}
 	}
+}
+
+// eventNotifyHTTPCode 沿错误链提取 *httputils.JSONClientError 中的 HTTP 状态码，取不到返回 -1
+func eventNotifyHTTPCode(err error) int {
+	for i := 0; i < 16 && err != nil; i++ {
+		if je, ok := err.(*httputils.JSONClientError); ok {
+			return je.Code
+		}
+		cause := errors.Cause(err)
+		if cause == nil || cause == err {
+			break
+		}
+		err = cause
+	}
+	return -1
 }
 
 func EventNotify(ctx context.Context, userCred mcclient.TokenCredential, ep SEventNotifyParam) {
