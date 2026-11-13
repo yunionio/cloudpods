@@ -24,7 +24,9 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	bench "yunion.io/x/onecloud/pkg/llm/benchmark"
+	"yunion.io/x/onecloud/pkg/llm/hub"
 	"yunion.io/x/onecloud/pkg/llm/options"
+	llmutils "yunion.io/x/onecloud/pkg/llm/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -144,16 +146,20 @@ func resolveBenchmarkTokenizerMount(llm *SLLM, model string) (*LLMBenchmarkToken
 type SLLMBenchmark struct {
 	db.SVirtualResourceBase
 
-	LLMId              string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
+	LLMId              string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" index:"true"`
 	LLMDeploymentId    string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" index:"true"`
 	LLMSkuId           string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" index:"true"`
 	LLMImageId         string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional" index:"true"`
 	BenchmarkPackageId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" index:"true"`
+	NetworkId          string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
-	Backend       string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	Model         string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
-	TargetUrl     string `charset:"utf8" length:"medium" nullable:"true" list:"user" create:"optional"`
-	RequestFormat string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	Backend               string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	Model                 string `width:"256" charset:"utf8" nullable:"true" list:"user" create:"optional" update:"user"`
+	Tokenizer             string `charset:"utf8" length:"medium" nullable:"true" list:"user" create:"optional" update:"user"`
+	TokenizerDownloadUrls string `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user"`
+	ApiKey                string `charset:"utf8" length:"medium" nullable:"true" log:"skip"`
+	TargetUrl             string `charset:"utf8" length:"medium" nullable:"true" list:"user" create:"optional" update:"user"`
+	RequestFormat         string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	Profile             string `width:"32" charset:"ascii" nullable:"false" default:"constant" list:"user" create:"optional"`
 	DatasetName         string `width:"64" charset:"ascii" nullable:"false" default:"synthetic_text" list:"user" create:"optional"`
@@ -161,18 +167,21 @@ type SLLMBenchmark struct {
 	DatasetOutputTokens int    `nullable:"true" list:"user" create:"optional" update:"user"`
 	DatasetPath         string `charset:"utf8" length:"medium" nullable:"true" list:"user" create:"optional"`
 
-	RequestRate        int `nullable:"true" list:"user" create:"optional" update:"user"`
-	TotalRequests      int `nullable:"true" list:"user" create:"optional" update:"user"`
-	MaxDurationSeconds int `nullable:"true" list:"user" create:"optional" update:"user"`
-	MaxErrors          int `nullable:"true" list:"user" create:"optional" update:"user"`
+	RequestRate        float64 `nullable:"true" list:"user" create:"optional" update:"user"`
+	WarmupRequests     int     `nullable:"true" list:"user" create:"optional" update:"user"`
+	SloAvgTtftMs       float64 `nullable:"true" list:"user" create:"optional"`
+	SloAvgTpotMs       float64 `nullable:"true" list:"user" create:"optional"`
+	SloAvgLatencyMs    float64 `nullable:"true" list:"user" create:"optional"`
+	TotalRequests      int     `nullable:"true" list:"user" create:"optional" update:"user"`
+	MaxDurationSeconds int     `nullable:"true" list:"user" create:"optional" update:"user"`
+	MaxErrors          int     `nullable:"true" list:"user" create:"optional" update:"user"`
+	KeepRunner         bool    `nullable:"false" default:"false" list:"user" create:"optional"`
 
 	State         string `width:"32" charset:"ascii" nullable:"false" default:"pending" list:"user" create:"optional" update:"user" index:"true"`
-	StateMessage  string `charset:"utf8" length:"medium" nullable:"true" list:"user" create:"optional" update:"user"`
 	TaskId        string `width:"128" charset:"ascii" nullable:"true" list:"user" update:"user"`
 	StopRequested bool   `nullable:"false" default:"false" list:"user" update:"user"`
 
-	RunnerServerId    string `width:"128" charset:"ascii" nullable:"true" list:"user" update:"user"`
-	RunnerContainerId string `width:"128" charset:"ascii" nullable:"true" list:"user" update:"user"`
+	RunnerServerId string `width:"128" charset:"ascii" nullable:"true" list:"user" update:"user"`
 
 	WorkDir    string `charset:"utf8" length:"medium" nullable:"true" list:"user" create:"optional"`
 	LogPath    string `charset:"utf8" length:"medium" nullable:"true" list:"user" update:"user"`
@@ -232,6 +241,22 @@ func (man *SLLMBenchmarkManager) ValidateCreateData(ctx context.Context, userCre
 }
 
 func prepareLLMBenchmarkCreateInput(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.LLMBenchmarkCreateInput) (*api.LLMBenchmarkCreateInput, error) {
+	input.LLMId = strings.TrimSpace(input.LLMId)
+	input.LLMDeploymentId = strings.TrimSpace(input.LLMDeploymentId)
+	input.TargetUrl = strings.TrimSpace(input.TargetUrl)
+	input.Model = strings.TrimSpace(input.Model)
+	input.ApiKey = strings.TrimSpace(input.ApiKey)
+	input.Tokenizer = strings.TrimSpace(input.Tokenizer)
+	input.NetworkId = strings.TrimSpace(input.NetworkId)
+	if input.TargetUrl != "" {
+		if input.LLMId != "" || input.LLMDeploymentId != "" {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "target_url and llm_id/llm_deployment_id are mutually exclusive")
+		}
+		return prepareExternalLLMBenchmarkCreateInput(ctx, userCred, input)
+	}
+	if input.ApiKey != "" || input.Tokenizer != "" || input.NetworkId != "" {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "api_key, tokenizer, and network_id only apply to an external target_url")
+	}
 	llm, dep, err := resolveBenchmarkTarget(ctx, userCred, input)
 	if err != nil {
 		return input, err
@@ -318,22 +343,122 @@ func prepareLLMBenchmarkCreateInput(ctx context.Context, userCred mcclient.Token
 		"request_format":       input.RequestFormat,
 		"model":                input.Model,
 		"request_rate":         input.RequestRate,
+		"warmup_requests":      warmupCount(input.WarmupRequests),
 		"total_requests":       input.TotalRequests,
 	}).String()
-	spec := bench.BuildGuideLLMSpec(bench.GuideLLMSpecInput{
+	spec := bench.BuildGuideLLMSpec(benchmarkSpecInput(input))
+	input.GuideLLMSpec = jsonutils.Marshal(spec).String()
+	return input, nil
+}
+
+func prepareExternalLLMBenchmarkCreateInput(ctx context.Context, userCred mcclient.TokenCredential, input *api.LLMBenchmarkCreateInput) (*api.LLMBenchmarkCreateInput, error) {
+	if input.BenchmarkPackage != "" || input.DatasetName == api.LLMBenchmarkDatasetPackage {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "benchmark_package only applies to an internal deployment")
+	}
+	targetURL, err := bench.NormalizeBenchmarkTargetURL(input.TargetUrl)
+	if err != nil {
+		return input, errors.Wrap(httperrors.ErrInputParameter, err.Error())
+	}
+	input.TargetUrl = targetURL
+	if input.Model == "" {
+		return input, httperrors.NewMissingParameterError("model")
+	}
+	if err := validateBenchmarkNetwork(ctx, userCred, input.NetworkId); err != nil {
+		return input, err
+	}
+	pageURL, err := externalTokenizerPageURL(input.Tokenizer)
+	if err != nil {
+		return input, errors.Wrap(httperrors.ErrInputParameter, err.Error())
+	}
+	input.Tokenizer = pageURL
+	image, err := resolveBenchmarkImage(ctx, userCred, input.BenchmarkImage)
+	if err != nil {
+		return input, err
+	}
+	defaultLLMBenchmarkInput(input, nil)
+	if err := validateLLMBenchmarkInput(input, false); err != nil {
+		return input, err
+	}
+	input.LLMId = ""
+	input.LLMDeploymentId = ""
+	input.LLMSkuId = ""
+	input.LLMImageId = image.Id
+	input.BenchmarkPackageId = ""
+	input.Backend = api.LLMBenchmarkBackendExternal
+	input.DatasetName = api.LLMBenchmarkDatasetSyntheticText
+	input.DatasetPath = ""
+	workDir := benchmarkWorkDirRoot()
+	input.WorkDir = filepath.Join(workDir, input.Name)
+	if !benchmarkWorkDirIsSafe(workDir, input.WorkDir) {
+		return input, httperrors.NewInputParameterError("name produces unsafe benchmark workdir")
+	}
+	input.TargetSnapshot = jsonutils.Marshal(map[string]interface{}{
+		"backend":         api.LLMBenchmarkBackendExternal,
+		"target_url":      input.TargetUrl,
+		"model":           input.Model,
+		"tokenizer":       input.Tokenizer,
+		"network_id":      input.NetworkId,
+		"llm_image_id":    image.Id,
+		"llm_image_name":  image.Name,
+		"request_format":  input.RequestFormat,
+		"request_rate":    input.RequestRate,
+		"warmup_requests": warmupCount(input.WarmupRequests),
+		"total_requests":  input.TotalRequests,
+	}).String()
+	spec := bench.BuildGuideLLMSpec(benchmarkSpecInput(input))
+	input.GuideLLMSpec = jsonutils.Marshal(spec).String()
+	return input, nil
+}
+
+func benchmarkSpecInput(input *api.LLMBenchmarkCreateInput) bench.GuideLLMSpecInput {
+	return bench.GuideLLMSpecInput{
 		TargetURL:           input.TargetUrl,
 		RequestFormat:       input.RequestFormat,
 		Model:               input.Model,
 		RequestRate:         input.RequestRate,
+		WarmupRequests:      warmupCount(input.WarmupRequests),
 		TotalRequests:       input.TotalRequests,
 		MaxDurationSeconds:  input.MaxDurationSeconds,
 		MaxErrors:           input.MaxErrors,
 		DatasetInputTokens:  input.DatasetInputTokens,
 		DatasetOutputTokens: input.DatasetOutputTokens,
 		DatasetPath:         input.DatasetPath,
+	}
+}
+
+func validateBenchmarkNetwork(ctx context.Context, userCred mcclient.TokenCredential, networkId string) error {
+	if strings.TrimSpace(networkId) == "" {
+		return httperrors.NewMissingParameterError("network_id")
+	}
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	if _, err := compute.Networks.Get(s, networkId, nil); err != nil {
+		return errors.Wrap(err, "fetch network")
+	}
+	return nil
+}
+
+func (b *SLLMBenchmark) IsExternal() bool {
+	return b.Backend == api.LLMBenchmarkBackendExternal || (strings.TrimSpace(b.LLMId) == "" && strings.TrimSpace(b.LLMDeploymentId) == "")
+}
+
+func externalTokenizerPageURL(raw string) (string, error) {
+	modelID, err := bench.ParseModelScopeModelID(raw)
+	if err != nil {
+		return "", err
+	}
+	return bench.ModelScopeModelPageURL(hub.ResolveModelScopeEndpoint(), modelID), nil
+}
+
+func (b *SLLMBenchmark) SetTokenizerDownloadUrls(urls []string) error {
+	encoded := jsonutils.Marshal(urls).String()
+	_, err := db.Update(b, func() error {
+		b.TokenizerDownloadUrls = encoded
+		return nil
 	})
-	input.GuideLLMSpec = jsonutils.Marshal(spec).String()
-	return input, nil
+	if err != nil {
+		return errors.Wrap(err, "save tokenizer download urls")
+	}
+	return nil
 }
 
 func benchmarkWorkDirRoot() string {
@@ -428,6 +553,18 @@ func defaultLLMBenchmarkInput(input *api.LLMBenchmarkCreateInput, pkg *SLLMBench
 	if input.Profile == "" {
 		input.Profile = api.LLMBenchmarkProfileConstant
 	}
+	if pkg != nil || input.Profile != api.LLMBenchmarkProfileConstant {
+		if input.WarmupRequests == nil {
+			warmup := 0
+			input.WarmupRequests = &warmup
+		}
+	} else if input.WarmupRequests == nil {
+		warmup := options.Options.LLMBenchmarkDefaultWarmupRequests
+		if warmup <= 0 {
+			warmup = api.LLMBenchmarkDefaultWarmupRequests
+		}
+		input.WarmupRequests = &warmup
+	}
 	if pkg != nil {
 		if input.DatasetName == "" || input.DatasetName == api.LLMBenchmarkDatasetSyntheticText {
 			input.DatasetName = api.LLMBenchmarkDatasetPackage
@@ -439,7 +576,7 @@ func defaultLLMBenchmarkInput(input *api.LLMBenchmarkCreateInput, pkg *SLLMBench
 		input.DatasetName = api.LLMBenchmarkDatasetSyntheticText
 	}
 	if input.RequestRate <= 0 {
-		input.RequestRate = options.Options.LLMBenchmarkDefaultRequestRate
+		input.RequestRate = float64(options.Options.LLMBenchmarkDefaultRequestRate)
 		if input.RequestRate <= 0 {
 			input.RequestRate = 1
 		}
@@ -474,8 +611,25 @@ func validateLLMBenchmarkInput(input *api.LLMBenchmarkCreateInput, hasPackage bo
 	if input.RequestFormat != api.LLMBenchmarkDefaultRequestFormat {
 		return errors.Wrap(httperrors.ErrInputParameter, "request_format only supports "+api.LLMBenchmarkDefaultRequestFormat)
 	}
-	if input.Profile != api.LLMBenchmarkProfileConstant {
-		return errors.Wrap(httperrors.ErrInputParameter, "profile only supports constant")
+	switch input.Profile {
+	case api.LLMBenchmarkProfileConstant, api.LLMBenchmarkProfilePeak, api.LLMBenchmarkProfileSlo:
+	default:
+		return errors.Wrap(httperrors.ErrInputParameter, "profile only supports constant, peak, or slo")
+	}
+	if hasPackage && input.Profile != api.LLMBenchmarkProfileConstant {
+		return errors.Wrap(httperrors.ErrInputParameter, "benchmark_package only supports constant")
+	}
+	if hasPackage && input.WarmupRequests != nil && *input.WarmupRequests > 0 {
+		return errors.Wrap(httperrors.ErrInputParameter, "warmup_requests only apply to synthetic_text")
+	}
+	if input.SloAvgTtftMs < 0 || input.SloAvgTpotMs < 0 || input.SloAvgLatencyMs < 0 {
+		return errors.Wrap(httperrors.ErrInputParameter, "slo thresholds must be >= 0")
+	}
+	if input.Profile == api.LLMBenchmarkProfileSlo && input.SloAvgTtftMs <= 0 && input.SloAvgTpotMs <= 0 && input.SloAvgLatencyMs <= 0 {
+		return errors.Wrap(httperrors.ErrInputParameter, "slo profile requires a TTFT, TPOT, or latency threshold")
+	}
+	if input.WarmupRequests != nil && *input.WarmupRequests < 0 {
+		return errors.Wrap(httperrors.ErrInputParameter, "warmup_requests must be >= 0")
 	}
 	if hasPackage {
 		if input.DatasetName != api.LLMBenchmarkDatasetPackage {
@@ -487,8 +641,12 @@ func validateLLMBenchmarkInput(input *api.LLMBenchmarkCreateInput, hasPackage bo
 	} else if input.DatasetName != api.LLMBenchmarkDatasetSyntheticText {
 		return errors.Wrap(httperrors.ErrInputParameter, "dataset_name only supports synthetic_text")
 	}
-	if max := options.Options.LLMBenchmarkMaxRequestRate; max > 0 && input.RequestRate > max {
+	if max := options.Options.LLMBenchmarkMaxRequestRate; max > 0 && input.RequestRate > float64(max) {
 		return errors.Wrapf(httperrors.ErrInputParameter, "request_rate must be <= %d", max)
+	}
+	if input.Profile == api.LLMBenchmarkProfileConstant && input.WarmupRequests != nil && input.TotalRequests > 0 && *input.WarmupRequests >= input.TotalRequests {
+		zero := 0
+		input.WarmupRequests = &zero
 	}
 	if max := options.Options.LLMBenchmarkMaxTotalRequests; max > 0 && input.TotalRequests > max {
 		return errors.Wrapf(httperrors.ErrInputParameter, "total_requests must be <= %d", max)
@@ -521,6 +679,24 @@ func positiveBenchmarkUpdate(name string, value *int) error {
 	return nil
 }
 
+func positiveBenchmarkRate(value *float64) error {
+	if value != nil && *value <= 0 {
+		return httperrors.NewInputParameterError("%s must be greater than 0", "request_rate")
+	}
+	return nil
+}
+
+func warmupCount(value *int) int {
+	if value == nil || *value < 0 {
+		return 0
+	}
+	return *value
+}
+
+func intPtr(value int) *int {
+	return &value
+}
+
 func (b *SLLMBenchmark) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMBenchmarkUpdateInput) (api.LLMBenchmarkUpdateInput, error) {
 	var err error
 	input.VirtualResourceBaseUpdateInput, err = b.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
@@ -530,8 +706,13 @@ func (b *SLLMBenchmark) ValidateUpdateData(ctx context.Context, userCred mcclien
 	if err := validateBenchmarkMutableState(b.State); err != nil {
 		return input, err
 	}
+	if err := positiveBenchmarkRate(input.RequestRate); err != nil {
+		return input, err
+	}
+	if input.WarmupRequests != nil && *input.WarmupRequests < 0 {
+		return input, httperrors.NewInputParameterError("%s must be greater than or equal to 0", "warmup_requests")
+	}
 	for name, value := range map[string]*int{
-		"request_rate":          input.RequestRate,
 		"total_requests":        input.TotalRequests,
 		"max_duration_seconds":  input.MaxDurationSeconds,
 		"max_errors":            input.MaxErrors,
@@ -545,12 +726,44 @@ func (b *SLLMBenchmark) ValidateUpdateData(ctx context.Context, userCred mcclien
 	if b.BenchmarkPackageId != "" && (input.DatasetInputTokens != nil || input.DatasetOutputTokens != nil) {
 		return input, httperrors.NewInputParameterError("dataset token fields only apply to synthetic_text")
 	}
+	if b.IsExternal() {
+		if input.TargetUrl != nil {
+			normalized, err := bench.NormalizeBenchmarkTargetURL(*input.TargetUrl)
+			if err != nil {
+				return input, errors.Wrap(httperrors.ErrInputParameter, err.Error())
+			}
+			input.TargetUrl = &normalized
+		}
+		if input.Model != nil && strings.TrimSpace(*input.Model) == "" {
+			return input, httperrors.NewMissingParameterError("model")
+		}
+		if input.NetworkId != nil {
+			networkId := strings.TrimSpace(*input.NetworkId)
+			if err := validateBenchmarkNetwork(ctx, userCred, networkId); err != nil {
+				return input, err
+			}
+			input.NetworkId = &networkId
+		}
+		if input.Tokenizer != nil {
+			pageURL, err := externalTokenizerPageURL(*input.Tokenizer)
+			if err != nil {
+				return input, errors.Wrap(httperrors.ErrInputParameter, err.Error())
+			}
+			input.Tokenizer = &pageURL
+		}
+		if input.ApiKey != nil {
+			apiKey := strings.TrimSpace(*input.ApiKey)
+			input.ApiKey = &apiKey
+		}
+	} else if input.TargetUrl != nil || input.ApiKey != nil || input.Tokenizer != nil || input.NetworkId != nil {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "target_url only applies to an external benchmark")
+	}
 	candidate := benchmarkCreateInputFromModel(b)
 	applyLLMBenchmarkUpdateInput(candidate, input)
 	if err := validateLLMBenchmarkInput(candidate, b.BenchmarkPackageId != ""); err != nil {
 		return input, err
 	}
-	if b.BenchmarkPackageId == "" && benchmarkUpdateChangesRunConfig(input) {
+	if !b.IsExternal() && b.BenchmarkPackageId == "" && benchmarkUpdateChangesRunConfig(input) {
 		obj, err := GetLLMManager().FetchById(b.LLMId)
 		if err != nil {
 			return input, errors.Wrap(err, "fetch benchmark LLM")
@@ -572,15 +785,23 @@ func benchmarkCreateInputFromModel(b *SLLMBenchmark) *api.LLMBenchmarkCreateInpu
 		Model:               b.Model,
 		Profile:             b.Profile,
 		RequestRate:         b.RequestRate,
+		WarmupRequests:      intPtr(b.WarmupRequests),
+		SloAvgTtftMs:        b.SloAvgTtftMs,
+		SloAvgTpotMs:        b.SloAvgTpotMs,
+		SloAvgLatencyMs:     b.SloAvgLatencyMs,
 		TotalRequests:       b.TotalRequests,
 		MaxDurationSeconds:  b.MaxDurationSeconds,
 		MaxErrors:           b.MaxErrors,
+		KeepRunner:          b.KeepRunner,
 		DatasetName:         b.DatasetName,
 		DatasetInputTokens:  b.DatasetInputTokens,
 		DatasetOutputTokens: b.DatasetOutputTokens,
 		DatasetPath:         b.DatasetPath,
 		Backend:             b.Backend,
 		TargetUrl:           b.TargetUrl,
+		NetworkId:           b.NetworkId,
+		Tokenizer:           b.Tokenizer,
+		ApiKey:              b.ApiKey,
 		WorkDir:             b.WorkDir,
 		TargetSnapshot:      b.TargetSnapshot,
 		GuideLLMSpec:        b.GuideLLMSpec,
@@ -594,8 +815,23 @@ func applyLLMBenchmarkUpdateInput(candidate *api.LLMBenchmarkCreateInput, input 
 	if input.Model != nil {
 		candidate.Model = strings.TrimSpace(*input.Model)
 	}
+	if input.TargetUrl != nil {
+		candidate.TargetUrl = strings.TrimSpace(*input.TargetUrl)
+	}
+	if input.Tokenizer != nil {
+		candidate.Tokenizer = strings.TrimSpace(*input.Tokenizer)
+	}
+	if input.NetworkId != nil {
+		candidate.NetworkId = strings.TrimSpace(*input.NetworkId)
+	}
+	if input.ApiKey != nil {
+		candidate.ApiKey = strings.TrimSpace(*input.ApiKey)
+	}
 	if input.RequestRate != nil {
 		candidate.RequestRate = *input.RequestRate
+	}
+	if input.WarmupRequests != nil {
+		candidate.WarmupRequests = input.WarmupRequests
 	}
 	if input.TotalRequests != nil {
 		candidate.TotalRequests = *input.TotalRequests
@@ -616,7 +852,11 @@ func applyLLMBenchmarkUpdateInput(candidate *api.LLMBenchmarkCreateInput, input 
 
 func benchmarkUpdateChangesRunConfig(input api.LLMBenchmarkUpdateInput) bool {
 	return input.Model != nil ||
+		input.TargetUrl != nil ||
+		input.Tokenizer != nil ||
+		input.NetworkId != nil ||
 		input.RequestRate != nil ||
+		input.WarmupRequests != nil ||
 		input.TotalRequests != nil ||
 		input.MaxDurationSeconds != nil ||
 		input.MaxErrors != nil ||
@@ -631,33 +871,38 @@ func buildLLMBenchmarkUpdateData(b *SLLMBenchmark, input api.LLMBenchmarkUpdateI
 	candidate := benchmarkCreateInputFromModel(b)
 	applyLLMBenchmarkUpdateInput(candidate, input)
 
-	spec := bench.BuildGuideLLMSpec(bench.GuideLLMSpecInput{
-		TargetURL:           candidate.TargetUrl,
-		RequestFormat:       candidate.RequestFormat,
-		Model:               candidate.Model,
-		RequestRate:         candidate.RequestRate,
-		TotalRequests:       candidate.TotalRequests,
-		MaxDurationSeconds:  candidate.MaxDurationSeconds,
-		MaxErrors:           candidate.MaxErrors,
-		DatasetInputTokens:  candidate.DatasetInputTokens,
-		DatasetOutputTokens: candidate.DatasetOutputTokens,
-		DatasetPath:         candidate.DatasetPath,
-	})
+	spec := bench.BuildGuideLLMSpec(benchmarkSpecInput(candidate))
 	snapshot, _ := jsonutils.ParseString(b.TargetSnapshot)
 	snapshotDict, ok := snapshot.(*jsonutils.JSONDict)
 	if !ok {
 		snapshotDict = jsonutils.NewDict()
 	}
 	snapshotDict.Set("model", jsonutils.NewString(candidate.Model))
-	snapshotDict.Set("request_rate", jsonutils.NewInt(int64(candidate.RequestRate)))
+	snapshotDict.Set("target_url", jsonutils.NewString(candidate.TargetUrl))
+	snapshotDict.Set("tokenizer", jsonutils.NewString(candidate.Tokenizer))
+	snapshotDict.Set("network_id", jsonutils.NewString(candidate.NetworkId))
+	snapshotDict.Set("request_rate", jsonutils.NewFloat64(candidate.RequestRate))
 	snapshotDict.Set("total_requests", jsonutils.NewInt(int64(candidate.TotalRequests)))
 
 	data := jsonutils.NewDict()
 	if input.Model != nil {
 		data.Set("model", jsonutils.NewString(candidate.Model))
 	}
+	if input.TargetUrl != nil {
+		data.Set("target_url", jsonutils.NewString(candidate.TargetUrl))
+	}
+	if input.Tokenizer != nil {
+		data.Set("tokenizer", jsonutils.NewString(candidate.Tokenizer))
+		data.Set("tokenizer_download_urls", jsonutils.NewString(""))
+	}
+	if input.NetworkId != nil {
+		data.Set("network_id", jsonutils.NewString(candidate.NetworkId))
+	}
 	if input.RequestRate != nil {
-		data.Set("request_rate", jsonutils.NewInt(int64(candidate.RequestRate)))
+		data.Set("request_rate", jsonutils.NewFloat64(candidate.RequestRate))
+	}
+	if input.WarmupRequests != nil {
+		data.Set("warmup_requests", jsonutils.NewInt(int64(warmupCount(candidate.WarmupRequests))))
 	}
 	if input.TotalRequests != nil {
 		data.Set("total_requests", jsonutils.NewInt(int64(candidate.TotalRequests)))
@@ -678,7 +923,7 @@ func buildLLMBenchmarkUpdateData(b *SLLMBenchmark, input api.LLMBenchmarkUpdateI
 	data.Set("target_snapshot", jsonutils.NewString(snapshotDict.String()))
 	data.Set("state", jsonutils.NewString(api.LLMBenchmarkStateStopped))
 	for _, field := range []string{
-		"state_message", "task_id", "runner_server_id", "runner_container_id",
+		"task_id", "runner_server_id",
 		"log_path", "result_json", "result_csv", "raw_metrics", "raw_log", "raw_csv",
 		"preflight_log_path", "preflight_result_json",
 		"raw_preflight_log", "raw_preflight_result",
@@ -705,14 +950,15 @@ func buildLLMBenchmarkUpdateData(b *SLLMBenchmark, input api.LLMBenchmarkUpdateI
 
 func sanitizeLLMBenchmarkUpdateData(data *jsonutils.JSONDict) {
 	for _, field := range []string{
-		"state", "state_message", "task_id", "stop_requested",
-		"runner_server_id", "runner_container_id",
+		"state", "task_id", "stop_requested",
+		"runner_server_id",
 		"log_path", "result_json", "result_csv",
 		"dataset_preflight", "preflight_log_path", "preflight_result_json",
 		"raw_preflight_log", "raw_preflight_result",
 		"dataset_evaluation", "evaluation_result_json", "evaluation_result_csv", "evaluation_log_path",
 		"artifact_storage", "artifact_storage_message",
 		"target_snapshot", "guide_llm_spec", "raw_metrics", "raw_log", "raw_csv",
+		"api_key", "keep_runner",
 		"requests_per_second_mean", "request_latency_mean_sec",
 		"request_total", "request_successful", "request_errored", "error_rate",
 	} {
@@ -724,6 +970,19 @@ func (b *SLLMBenchmark) PreUpdate(ctx context.Context, userCred mcclient.TokenCr
 	dataDict := data.(*jsonutils.JSONDict)
 	input := api.LLMBenchmarkUpdateInput{}
 	_ = dataDict.Unmarshal(&input)
+	if input.ApiKey != nil {
+		key := strings.TrimSpace(*input.ApiKey)
+		sealed, err := sealBenchmarkAPIKey(b.Id, key)
+		if err != nil {
+			log.Errorf("seal benchmark %s api key: %s", b.Id, err)
+		} else if _, err := db.Update(b, func() error {
+			b.ApiKey = sealed
+			return nil
+		}); err != nil {
+			log.Errorf("update benchmark %s api key: %s", b.Id, err)
+		}
+	}
+	dataDict.RemoveIgnoreCase("api_key")
 	if benchmarkUpdateChangesRunConfig(input) {
 		if err := b.CleanupArtifacts(ctx); err != nil {
 			log.Warningf("cleanup benchmark %s artifacts before update: %s", b.Id, err)
@@ -814,26 +1073,60 @@ func buildLLMBenchmarkCopyCreateInput(source *SLLMBenchmark, input api.LLMBenchm
 	if strings.TrimSpace(input.Name) == "" {
 		return nil, httperrors.NewMissingParameterError("name")
 	}
-	if strings.TrimSpace(input.LLMDeploymentId) == "" {
+	if source.IsExternal() {
+		if strings.TrimSpace(input.LLMDeploymentId) != "" {
+			return nil, errors.Wrap(httperrors.ErrInputParameter, "target_url and llm_deployment_id are mutually exclusive")
+		}
+	} else if strings.TrimSpace(input.LLMDeploymentId) == "" {
 		return nil, httperrors.NewMissingParameterError("llm_deployment_id")
 	}
 	if source.BenchmarkPackageId != "" && (input.DatasetInputTokens != nil || input.DatasetOutputTokens != nil) {
 		return nil, httperrors.NewInputParameterError("dataset token fields only apply to synthetic_text")
 	}
 	ret := &api.LLMBenchmarkCreateInput{
-		LLMDeploymentId:     input.LLMDeploymentId,
 		BenchmarkImage:      source.LLMImageId,
 		BenchmarkPackage:    source.BenchmarkPackageId,
 		RequestFormat:       source.RequestFormat,
 		Profile:             source.Profile,
 		RequestRate:         source.RequestRate,
+		WarmupRequests:      intPtr(source.WarmupRequests),
+		SloAvgTtftMs:        source.SloAvgTtftMs,
+		SloAvgTpotMs:        source.SloAvgTpotMs,
+		SloAvgLatencyMs:     source.SloAvgLatencyMs,
 		TotalRequests:       source.TotalRequests,
 		MaxDurationSeconds:  source.MaxDurationSeconds,
 		MaxErrors:           source.MaxErrors,
+		KeepRunner:          source.KeepRunner,
 		DatasetName:         source.DatasetName,
 		DatasetInputTokens:  source.DatasetInputTokens,
 		DatasetOutputTokens: source.DatasetOutputTokens,
 		DatasetPath:         source.DatasetPath,
+	}
+	if source.IsExternal() {
+		ret.TargetUrl = source.TargetUrl
+		ret.Model = source.Model
+		ret.NetworkId = source.NetworkId
+		ret.Tokenizer = source.Tokenizer
+		if input.ApiKey != nil {
+			ret.ApiKey = strings.TrimSpace(*input.ApiKey)
+		} else {
+			plain, err := openBenchmarkAPIKey(source.Id, source.ApiKey)
+			if err != nil {
+				return nil, err
+			}
+			ret.ApiKey = plain
+		}
+		if input.TargetUrl != nil {
+			ret.TargetUrl = strings.TrimSpace(*input.TargetUrl)
+		}
+		if input.NetworkId != nil {
+			ret.NetworkId = strings.TrimSpace(*input.NetworkId)
+		}
+		if input.Tokenizer != nil {
+			ret.Tokenizer = strings.TrimSpace(*input.Tokenizer)
+		}
+	} else {
+		ret.LLMDeploymentId = input.LLMDeploymentId
 	}
 	ret.Name = input.Name
 	ret.Description = source.Description
@@ -845,6 +1138,9 @@ func buildLLMBenchmarkCopyCreateInput(source *SLLMBenchmark, input api.LLMBenchm
 	}
 	if input.RequestRate != nil {
 		ret.RequestRate = *input.RequestRate
+	}
+	if input.WarmupRequests != nil {
+		ret.WarmupRequests = input.WarmupRequests
 	}
 	if input.TotalRequests != nil {
 		ret.TotalRequests = *input.TotalRequests
@@ -860,6 +1156,9 @@ func buildLLMBenchmarkCopyCreateInput(source *SLLMBenchmark, input api.LLMBenchm
 	}
 	if input.DatasetOutputTokens != nil {
 		ret.DatasetOutputTokens = *input.DatasetOutputTokens
+	}
+	if input.KeepRunner != nil {
+		ret.KeepRunner = *input.KeepRunner
 	}
 	return ret, nil
 }
@@ -1011,23 +1310,93 @@ func (b *SLLMBenchmark) PerformCopy(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return nil, err
 	}
+	logclient.AddActionLogWithContext(ctx, b, logclient.ACT_BENCHMARK_COPY, benchmark.Id, userCred, true)
 	ret := jsonutils.NewDict()
 	ret.Set("benchmark_id", jsonutils.NewString(benchmark.Id))
 	ret.Set("state", jsonutils.NewString(benchmark.State))
 	return ret, nil
 }
 
+const benchmarkAPIKeyPrefix = "aescfb64:"
+
+func sealBenchmarkAPIKey(id, value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
+	}
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return "", errors.Error("empty benchmark id")
+	}
+	if strings.HasPrefix(value, benchmarkAPIKeyPrefix) {
+		return value, nil
+	}
+	enc, err := utils.EncryptAESBase64(id, value)
+	if err != nil {
+		return "", errors.Wrap(err, "EncryptAESBase64")
+	}
+	return benchmarkAPIKeyPrefix + enc, nil
+}
+
+func openBenchmarkAPIKey(id, stored string) (string, error) {
+	stored = strings.TrimSpace(stored)
+	if stored == "" {
+		return "", nil
+	}
+	if !strings.HasPrefix(stored, benchmarkAPIKeyPrefix) {
+		return stored, nil
+	}
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return "", errors.Error("empty benchmark id")
+	}
+	plain, err := utils.DescryptAESBase64(id, strings.TrimPrefix(stored, benchmarkAPIKeyPrefix))
+	if err != nil {
+		return "", errors.Wrap(err, "decrypt benchmark api key")
+	}
+	return plain, nil
+}
+
+func OpenBenchmarkAPIKey(id, stored string) (string, error) {
+	return openBenchmarkAPIKey(id, stored)
+}
+
 func (b *SLLMBenchmark) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	key := ""
+	if data != nil {
+		if value, err := data.GetString("api_key"); err == nil {
+			key = strings.TrimSpace(value)
+		}
+		if dict, ok := data.(*jsonutils.JSONDict); ok {
+			dict.RemoveIgnoreCase("api_key")
+		}
+	}
 	b.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	if err := b.StartRunTask(ctx, userCred, ""); err != nil {
-		_ = b.SetState(ctx, userCred, api.LLMBenchmarkStateError, err.Error())
+	if key != "" {
+		sealed, err := sealBenchmarkAPIKey(b.Id, key)
+		if err != nil {
+			log.Errorf("seal benchmark %s api key: %s", b.Id, err)
+			_ = b.SetState(ctx, userCred, api.LLMBenchmarkStateError)
+			return
+		}
+		if _, err := db.Update(b, func() error {
+			b.ApiKey = sealed
+			return nil
+		}); err != nil {
+			log.Errorf("save benchmark %s api key: %s", b.Id, err)
+			_ = b.SetState(ctx, userCred, api.LLMBenchmarkStateError)
+			return
+		}
+	}
+	if err := b.StartRunTask(ctx, userCred, "", false); err != nil {
+		logclient.AddActionLogWithContext(ctx, b, logclient.ACT_BENCHMARK_RUN, err, userCred, false)
+		_ = b.SetState(ctx, userCred, api.LLMBenchmarkStateError)
 	}
 }
 
-func (b *SLLMBenchmark) SetState(ctx context.Context, userCred mcclient.TokenCredential, state string, message string) error {
+func (b *SLLMBenchmark) SetState(ctx context.Context, userCred mcclient.TokenCredential, state string) error {
 	_, err := db.Update(b, func() error {
 		b.State = state
-		b.StateMessage = message
 		return nil
 	})
 	return err
@@ -1042,35 +1411,30 @@ func (b *SLLMBenchmark) FinishRun(ctx context.Context, runErr error) (string, er
 		return "", err
 	}
 	current := obj.(*SLLMBenchmark)
-	state, message := benchmarkRunFinalState(current.State, current.StopRequested, runErr)
+	state := benchmarkRunFinalState(current.State, current.StopRequested, runErr)
 	_, err = db.Update(current, func() error {
 		current.State = state
-		current.StateMessage = message
 		return nil
 	})
 	if err == nil {
 		b.State = state
-		b.StateMessage = message
 		b.StopRequested = current.StopRequested
 	}
 	return state, err
 }
 
-func (b *SLLMBenchmark) SetRunner(ctx context.Context, serverId string, containerId string) error {
+func (b *SLLMBenchmark) SetRunner(ctx context.Context, serverId string) error {
 	_, err := db.Update(b, func() error {
 		b.RunnerServerId = serverId
-		b.RunnerContainerId = containerId
 		return nil
 	})
 	return err
 }
 
 func resetLLMBenchmarkResultFields(b *SLLMBenchmark) {
-	b.StateMessage = ""
 	b.TaskId = ""
 	b.StopRequested = false
 	b.RunnerServerId = ""
-	b.RunnerContainerId = ""
 	b.LogPath = ""
 	b.ResultJson = ""
 	b.ResultCsv = ""
@@ -1110,8 +1474,12 @@ func resetLLMBenchmarkResultFields(b *SLLMBenchmark) {
 	b.ErrorRate = 0
 }
 
-func (b *SLLMBenchmark) StartRunTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "LLMBenchmarkRunTask", b, userCred, nil, parentTaskId, "", nil)
+func (b *SLLMBenchmark) StartRunTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, replaceRunner bool) error {
+	params := jsonutils.NewDict()
+	if replaceRunner {
+		params.Set("replace_runner", jsonutils.JSONTrue)
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "LLMBenchmarkRunTask", b, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return errors.Wrap(err, "NewTask")
 	}
@@ -1315,10 +1683,10 @@ func (b *SLLMBenchmark) PerformRetest(ctx context.Context, userCred mcclient.Tok
 		return nil, err
 	}
 
-	if b.RunnerServerId != "" {
-		if err := b.DeleteRunnerServer(ctx, userCred); err != nil {
-			return nil, errors.Wrap(err, "delete old benchmark runner")
-		}
+	reuse := input.ReuseRunner
+	runnerServerId := b.RunnerServerId
+	if reuse && runnerServerId == "" {
+		return nil, httperrors.NewInvalidStatusError("runner container is not running")
 	}
 	if err := b.CleanupArtifacts(ctx); err != nil {
 		log.Warningf("cleanup benchmark %s artifacts before retest: %s", b.Id, err)
@@ -1333,19 +1701,30 @@ func (b *SLLMBenchmark) PerformRetest(ctx context.Context, userCred mcclient.Tok
 		b.Backend = prepared.Backend
 		b.TargetUrl = prepared.TargetUrl
 		b.Model = prepared.Model
+		b.Tokenizer = prepared.Tokenizer
+		b.NetworkId = prepared.NetworkId
+		sealed, err := sealBenchmarkAPIKey(b.Id, prepared.ApiKey)
+		if err != nil {
+			return err
+		}
+		b.ApiKey = sealed
 		b.WorkDir = prepared.WorkDir
 		b.TargetSnapshot = prepared.TargetSnapshot
 		b.GuideLLMSpec = prepared.GuideLLMSpec
 		resetLLMBenchmarkResultFields(b)
+		b.RunnerServerId = runnerServerId
 		return nil
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "reset benchmark")
 	}
-	if err := b.StartRunTask(ctx, userCred, ""); err != nil {
-		_ = b.SetState(ctx, userCred, api.LLMBenchmarkStateError, err.Error())
+	if err := b.StartRunTask(ctx, userCred, "", !reuse); err != nil {
+		_ = b.SetState(ctx, userCred, api.LLMBenchmarkStateError)
 		return nil, err
 	}
+	logclient.AddActionLogWithContext(ctx, b, logclient.ACT_BENCHMARK_RETEST, jsonutils.Marshal(map[string]bool{
+		"reuse_runner": reuse,
+	}), userCred, true)
 	return nil, nil
 }
 
@@ -1369,6 +1748,7 @@ func (b *SLLMBenchmark) PerformStop(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return nil, err
 	}
+	logclient.AddActionLogWithContext(ctx, current, logclient.ACT_BENCHMARK_STOP, nil, userCred, true)
 	stopLLMBenchmarkAsync(current.Id, userCred)
 	return nil, nil
 }
@@ -1388,26 +1768,73 @@ func stopLLMBenchmarkAsync(benchmarkId string, userCred mcclient.TokenCredential
 	}()
 }
 
+const benchmarkRunnerDeleteTimeoutSeconds = 180
+
+func (b *SLLMBenchmark) runnerServerName() string {
+	return "llm-bench-" + b.Id
+}
+
 func (b *SLLMBenchmark) DeleteRunnerServer(ctx context.Context, userCred mcclient.TokenCredential) error {
+	ids := make([]string, 0, 2)
+	if b.RunnerServerId != "" {
+		ids = append(ids, b.RunnerServerId)
+	}
+	namedId, err := lookupBenchmarkRunnerId(ctx, userCred, b.runnerServerName())
+	if err != nil {
+		return err
+	}
+	if namedId != "" && namedId != b.RunnerServerId {
+		ids = append(ids, namedId)
+	}
+	for _, id := range ids {
+		if err := requestBenchmarkRunnerDelete(ctx, userCred, id); err != nil {
+			return err
+		}
+		if err := llmutils.WaitDelete[computeapi.ServerDetails](ctx, &compute.Servers, id, benchmarkRunnerDeleteTimeoutSeconds); err != nil {
+			return errors.Wrap(err, "wait runner server deleted")
+		}
+	}
 	if b.RunnerServerId == "" {
 		return nil
 	}
+	_, err = db.Update(b, func() error {
+		b.RunnerServerId = ""
+		return nil
+	})
+	return err
+}
+
+func lookupBenchmarkRunnerId(ctx context.Context, userCred mcclient.TokenCredential, name string) (string, error) {
 	s := auth.GetSession(ctx, userCred, options.Options.Region)
-	_, _ = compute.Servers.Update(s, b.RunnerServerId, jsonutils.Marshal(map[string]interface{}{
+	resp, err := compute.Servers.GetByName(s, name, jsonutils.Marshal(map[string]string{
+		"scope":          "max",
+		"pending_delete": "all",
+	}))
+	if err != nil {
+		if isBenchmarkRunnerNotFound(err) {
+			return "", nil
+		}
+		return "", errors.Wrap(err, "get runner server by name")
+	}
+	id, err := resp.GetString("id")
+	if err != nil {
+		return "", errors.Wrap(err, "runner server id")
+	}
+	return id, nil
+}
+
+func requestBenchmarkRunnerDelete(ctx context.Context, userCred mcclient.TokenCredential, id string) error {
+	s := auth.GetSession(ctx, userCred, options.Options.Region)
+	_, _ = compute.Servers.Update(s, id, jsonutils.Marshal(map[string]interface{}{
 		"disable_delete": false,
 	}))
-	_, err := compute.Servers.DeleteWithParam(s, b.RunnerServerId, jsonutils.Marshal(map[string]interface{}{
+	_, err := compute.Servers.DeleteWithParam(s, id, jsonutils.Marshal(map[string]interface{}{
 		"override_pending_delete": true,
 	}), nil)
 	if err != nil && !isBenchmarkRunnerNotFound(err) {
 		return err
 	}
-	_, err = db.Update(b, func() error {
-		b.RunnerServerId = ""
-		b.RunnerContainerId = ""
-		return nil
-	})
-	return err
+	return nil
 }
 
 func isBenchmarkRunnerNotFound(err error) bool {
@@ -1424,8 +1851,19 @@ func (b *SLLMBenchmark) ResolveTokenizerMount() (*LLMBenchmarkTokenizerMount, er
 }
 
 func (b *SLLMBenchmark) RunnerPodInput(image *SLLMImage, server *computeapi.ServerDetails, tokenizer *LLMBenchmarkTokenizerMount) (*computeapi.ServerCreateInput, error) {
-	if len(server.Nics) == 0 || server.Nics[0].NetworkId == "" {
+	if server == nil || len(server.Nics) == 0 || server.Nics[0].NetworkId == "" {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "target server network is empty")
+	}
+	return b.runnerPodInput(image, server.Nics[0].NetworkId, server.HostId, tokenizer)
+}
+
+func (b *SLLMBenchmark) ExternalRunnerPodInput(image *SLLMImage) (*computeapi.ServerCreateInput, error) {
+	return b.runnerPodInput(image, b.NetworkId, "", nil)
+}
+
+func (b *SLLMBenchmark) runnerPodInput(image *SLLMImage, networkId, hostId string, tokenizer *LLMBenchmarkTokenizerMount) (*computeapi.ServerCreateInput, error) {
+	if strings.TrimSpace(networkId) == "" {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "benchmark runner network is empty")
 	}
 	cpu := options.Options.LLMBenchmarkRunnerCPU
 	if cpu <= 0 {
@@ -1437,8 +1875,8 @@ func (b *SLLMBenchmark) RunnerPodInput(image *SLLMImage, server *computeapi.Serv
 	}
 	input := bench.RunnerPodInput{
 		Name:      "llm-bench-" + b.Id,
-		NetworkId: server.Nics[0].NetworkId,
-		HostId:    server.HostId,
+		NetworkId: networkId,
+		HostId:    hostId,
 		CPU:       cpu,
 		MemoryMB:  mem,
 	}

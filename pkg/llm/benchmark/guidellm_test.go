@@ -16,6 +16,7 @@ package benchmark
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -133,6 +134,102 @@ func TestGuideLLMBackgroundCommand(t *testing.T) {
 	}
 }
 
+func TestBuildGuideLLMSpecKeepsFractionalRateAndWarmup(t *testing.T) {
+	spec := BuildGuideLLMSpec(GuideLLMSpecInput{
+		TargetURL:           "http://llm:8000",
+		RequestFormat:       "/v1/chat/completions",
+		RequestRate:         0.5,
+		WarmupRequests:      2,
+		TotalRequests:       10,
+		MaxDurationSeconds:  600,
+		MaxErrors:           10,
+		DatasetInputTokens:  1024,
+		DatasetOutputTokens: 128,
+	})
+	if spec.Profile["rate"] != 0.5 {
+		t.Fatalf("rate = %#v", spec.Profile["rate"])
+	}
+	warmup, _ := spec.Profile["warmup"].(map[string]interface{})
+	if warmup["value"] != 2 || warmup["mode"] != "requests" {
+		t.Fatalf("warmup = %#v", spec.Profile["warmup"])
+	}
+	if count := constraintCount(t, spec, "max_requests"); count != 10 {
+		t.Fatalf("stored max_requests = %v", count)
+	}
+	measured := WithoutGuideLLMWarmup(spec)
+	if _, ok := measured.Profile["warmup"]; ok {
+		t.Fatal("measured run still has a warmup window")
+	}
+	if count := constraintCount(t, measured, "max_requests"); count != 10 {
+		t.Fatalf("measured max_requests = %v", count)
+	}
+	warmupSpec, ok := WarmupGuideLLMSpec(spec, 2)
+	if !ok {
+		t.Fatal("expected a warmup run")
+	}
+	if _, exists := warmupSpec.Profile["warmup"]; exists {
+		t.Fatal("warmup run applies another warmup window")
+	}
+	if count := constraintCount(t, warmupSpec, "max_requests"); count != 2 {
+		t.Fatalf("warmup max_requests = %v", count)
+	}
+	if _, ok := WarmupGuideLLMSpec(spec, 0); ok {
+		t.Fatal("zero warmup requests still produced a warmup run")
+	}
+	preflight, err := BuildGuideLLMPreflightSpec(GuideLLMSpec{
+		Data: []map[string]interface{}{{"kind": "json_file", "path": "/data/set.jsonl"}},
+	}, 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := preflight.Profile["warmup"]; ok {
+		t.Fatal("dataset preflight must not inherit warmup")
+	}
+}
+
+func TestParseAutoTuneRampSelectsPeakAndSlo(t *testing.T) {
+	dir := t.TempDir()
+	peakPath := filepath.Join(dir, "peak.json")
+	writeRamp(t, peakPath, `{
+		"target":"saturation",
+		"points":[
+			{"knob":1,"total_tps":10,"output_tps":4,"achieved_rate":0.5,"ttft_ms":100,"itl_ms":20,"latency_ms":2000,"success":1},
+			{"knob":4,"total_tps":30,"output_tps":12,"achieved_rate":2,"ttft_ms":180,"itl_ms":25,"latency_ms":4000,"success":0.98}
+		]
+	}`)
+	peak, err := ParseAutoTuneRamp(peakPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertFloat(t, "peak total tok/s", peak.TokensPerSecondMean, 30)
+	assertFloat(t, "peak output tok/s", peak.OutputTokensPerSecondMean, 12)
+	assertFloat(t, "peak latency sec", peak.RequestLatencyMeanSec, 4)
+
+	sloPath := filepath.Join(dir, "slo.json")
+	writeRamp(t, sloPath, `{
+		"target":"slo",
+		"slo_bracket":[2, 4],
+		"points":[
+			{"knob":1,"total_tps":10,"output_tps":4,"success":1},
+			{"knob":2,"total_tps":18,"output_tps":7,"ttft_ms":400,"success":0.97},
+			{"knob":4,"total_tps":22,"output_tps":8,"success":0.9}
+		]
+	}`)
+	slo, err := ParseAutoTuneRamp(sloPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertFloat(t, "slo total tok/s", slo.TokensPerSecondMean, 18)
+	assertFloat(t, "slo ttft", slo.TimeToFirstTokenMeanMs, 400)
+}
+
+func writeRamp(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestGuideLLMWaitSeconds(t *testing.T) {
 	// Default 600s cap plus 180s startup is 780s, which cuts off 100 in-flight requests.
 	got := GuideLLMWaitSeconds(600, 100, 1)
@@ -150,6 +247,9 @@ func TestGuideLLMWaitSeconds(t *testing.T) {
 	}
 	if got := GuideLLMWaitSeconds(10, 100000, 1); got != 180+100000+3600 {
 		t.Fatalf("capped drain wait = %d", got)
+	}
+	if got := GuideLLMWaitSeconds(5, 10, 0.5); got != 180+20+300 {
+		t.Fatalf("fractional rate wait = %d", got)
 	}
 }
 
@@ -182,6 +282,25 @@ func assertNilFloat(t *testing.T, name string, got *float64) {
 	}
 }
 
+func constraintCount(t *testing.T, spec GuideLLMSpec, kind string) int {
+	t.Helper()
+	for _, constraint := range spec.Constraints {
+		if constraint["kind"] != kind {
+			continue
+		}
+		switch count := constraint["count"].(type) {
+		case int:
+			return count
+		case float64:
+			return int(count)
+		default:
+			t.Fatalf("%s count has type %T", kind, constraint["count"])
+		}
+	}
+	t.Fatalf("missing %s constraint", kind)
+	return 0
+}
+
 func assertFloat(t *testing.T, name string, got *float64, want float64) {
 	t.Helper()
 	if got == nil {
@@ -189,5 +308,156 @@ func assertFloat(t *testing.T, name string, got *float64, want float64) {
 	}
 	if *got != want {
 		t.Fatalf("%s = %v, want %v", name, *got, want)
+	}
+}
+
+func TestNormalizeBenchmarkTargetURLStripsV1(t *testing.T) {
+	got, err := NormalizeBenchmarkTargetURL("https://gpu.example.com/v1/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "https://gpu.example.com" {
+		t.Fatalf("got %s", got)
+	}
+	if _, err := NormalizeBenchmarkTargetURL("ftp://gpu.example.com"); err == nil {
+		t.Fatal("expected scheme error")
+	}
+}
+
+func TestExternalSpecKeepsTokenizerNameAndOmitsAPIKey(t *testing.T) {
+	spec := BuildGuideLLMSpec(GuideLLMSpecInput{
+		TargetURL:           "https://gpu.example.com",
+		RequestFormat:       "/v1/chat/completions",
+		Model:               "qwen",
+		Tokenizer:           "Qwen/Qwen2.5-7B",
+		RequestRate:         1,
+		TotalRequests:       10,
+		MaxDurationSeconds:  60,
+		DatasetInputTokens:  8,
+		DatasetOutputTokens: 4,
+	})
+	if _, ok := spec.Backend["api_key"]; ok {
+		t.Fatal("stored spec includes api_key")
+	}
+	if spec.Tokenizer["model"] != "Qwen/Qwen2.5-7B" {
+		t.Fatalf("tokenizer = %#v", spec.Tokenizer)
+	}
+	if _, ok := spec.Tokenizer["load_kwargs"]; ok {
+		t.Fatal("external tokenizer set local_files_only")
+	}
+	ApplyGuideLLMAPIKey(&spec, "secret")
+	if spec.Backend["api_key"] != "secret" {
+		t.Fatalf("runtime api_key = %#v", spec.Backend["api_key"])
+	}
+	if _, ok := spec.Backend["api_routes"]; ok {
+		t.Fatal("stored spec remaps the health check")
+	}
+	ApplyGuideLLMModelsHealthCheck(&spec)
+	ApplyGuideLLMConnectTimeout(&spec)
+	routes, _ := spec.Backend["api_routes"].(map[string]string)
+	if routes["/health"] != "v1/models" {
+		t.Fatalf("api_routes = %#v", spec.Backend["api_routes"])
+	}
+	if spec.Backend["timeout_connect"] != GuideLLMConnectTimeoutSeconds {
+		t.Fatalf("timeout_connect = %#v", spec.Backend["timeout_connect"])
+	}
+}
+
+func TestExternalAutoTuneUsesTokenizerName(t *testing.T) {
+	command := strings.Join(AutoTuneRunCommand(AutoTuneCommandInput{
+		TargetURL:          "https://gpu.example.com",
+		Model:              "qwen",
+		ProcessorPath:      "Qwen/Qwen2.5-7B",
+		APIKey:             "secret",
+		ModelsHealthCheck:  true,
+		LowerBound:         1,
+		UpperBound:         4,
+		InputTokens:        8,
+		OutputTokens:       4,
+		MaxDurationSeconds: 60,
+	}), " ")
+	if strings.Contains(command, "local_files_only") {
+		t.Fatal("external processor pinned local files")
+	}
+	if !strings.Contains(command, "--processor 'Qwen/Qwen2.5-7B'") {
+		t.Fatalf("command = %s", command)
+	}
+	if !strings.Contains(command, `"api_key":"secret"`) {
+		t.Fatal("api key was not passed to the runtime command")
+	}
+	if !strings.Contains(command, `"/health":"v1/models"`) {
+		t.Fatal("external health check was not remapped to /v1/models")
+	}
+	if !strings.Contains(command, `"timeout_connect":30`) {
+		t.Fatal("external connect timeout was not raised")
+	}
+	if patchAt, runAt := strings.Index(command, "sitecustomize.py"), strings.Index(command, "benchmark-runner"); patchAt < 0 || runAt < 0 || patchAt > runAt {
+		t.Fatal("SecretStr JSON patch is missing before benchmark-runner")
+	}
+	local := strings.Join(AutoTuneRunCommand(AutoTuneCommandInput{
+		TargetURL:          "http://10.0.0.8:8000",
+		ProcessorPath:      "/data/models/qwen",
+		LocalProcessor:     true,
+		LowerBound:         1,
+		UpperBound:         2,
+		MaxDurationSeconds: 60,
+	}), " ")
+	if !strings.Contains(local, "local_files_only") {
+		t.Fatal("local processor lost local_files_only")
+	}
+}
+
+func TestGuideLLMCommandsAreValidShell(t *testing.T) {
+	preflight, err := GuideLLMPreflightRunCommand(GuideLLMSpec{
+		Backend: map[string]interface{}{"target": "http://127.0.0.1"},
+		Data: []map[string]interface{}{{
+			"kind": "json_file",
+			"path": "/workdir/data.json",
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	commands := [][]string{
+		GuideLLMRunCommand(),
+		GuideLLMWarmupCommand(),
+		preflight,
+		AutoTuneRunCommand(AutoTuneCommandInput{
+			TargetURL:          "http://127.0.0.1",
+			LowerBound:         1,
+			UpperBound:         2,
+			MaxDurationSeconds: 30,
+		}),
+	}
+	for _, command := range commands {
+		if len(command) != 3 {
+			t.Fatalf("command = %#v", command)
+		}
+		out, err := exec.Command("sh", "-n", "-c", command[2]).CombinedOutput()
+		if err != nil {
+			t.Fatalf("shell syntax: %v\n%s\n%s", err, out, command[2])
+		}
+	}
+}
+
+func TestExportGuideLLMEnvPrefixesTheCommand(t *testing.T) {
+	command, err := ExportGuideLLMEnv(GuideLLMRunCommand(), map[string]string{
+		"GUIDELLM__SPEC__BACKEND": `{"target":"http://10.0.0.8:8000"}`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := command[2]
+	if !strings.Contains(script, "export GUIDELLM__SPEC__BACKEND=") {
+		t.Fatalf("script = %s", script)
+	}
+	if !strings.Contains(script, "guidellm run") {
+		t.Fatalf("script = %s", script)
+	}
+	if strings.Index(script, "export ") > strings.Index(script, "guidellm run") {
+		t.Fatal("env export is after guidellm")
+	}
+	if strings.Index(script, "sitecustomize.py") > strings.Index(script, "guidellm run") {
+		t.Fatal("SecretStr JSON patch is installed after guidellm")
 	}
 }
