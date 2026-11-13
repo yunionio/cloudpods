@@ -4,6 +4,8 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"math"
+	"net/url"
 	"os"
 	"path"
 	"sort"
@@ -18,7 +20,9 @@ type GuideLLMSpecInput struct {
 	TargetURL           string
 	RequestFormat       string
 	Model               string
-	RequestRate         int
+	Tokenizer           string
+	RequestRate         float64
+	WarmupRequests      int
 	TotalRequests       int
 	MaxDurationSeconds  int
 	MaxErrors           int
@@ -92,6 +96,8 @@ func BuildGuideLLMSpec(input GuideLLMSpecInput) GuideLLMSpec {
 			"kind":  "hf_auto",
 			"model": tokenizerModel(input.Model),
 		}
+	} else if strings.TrimSpace(input.Tokenizer) != "" {
+		tokenizer = GuideLLMRemoteTokenizer(input.Tokenizer)
 	}
 	data := []map[string]interface{}{
 		{
@@ -111,12 +117,19 @@ func BuildGuideLLMSpec(input GuideLLMSpecInput) GuideLLMSpec {
 			},
 		}
 	}
+	profile := map[string]interface{}{
+		"kind": "constant",
+		"rate": input.RequestRate,
+	}
+	if input.WarmupRequests > 0 {
+		profile["warmup"] = map[string]interface{}{
+			"value": input.WarmupRequests,
+			"mode":  "requests",
+		}
+	}
 	return GuideLLMSpec{
-		Backend: backend,
-		Profile: map[string]interface{}{
-			"kind": "constant",
-			"rate": input.RequestRate,
-		},
+		Backend:   backend,
+		Profile:   profile,
 		Tokenizer: tokenizer,
 		Constraints: []map[string]interface{}{
 			{"kind": "max_requests", "count": input.TotalRequests},
@@ -127,6 +140,60 @@ func BuildGuideLLMSpec(input GuideLLMSpecInput) GuideLLMSpec {
 	}
 }
 
+const (
+	GuideLLMWarmupJSONPath = "/workdir/warmup.json"
+	GuideLLMWarmupCSVPath  = "/workdir/warmup.csv"
+)
+
+// WithoutGuideLLMWarmup copies a spec for the measured run.
+// GuideLLM's in-run warmup both consumes max_requests and then drops a
+// timing-dependent number of early requests from the reported total. The
+// measured run therefore has no warmup window, so Request Counts Total matches
+// the configured request limit when the run is not cut short.
+func WithoutGuideLLMWarmup(spec GuideLLMSpec) GuideLLMSpec {
+	out := cloneGuideLLMSpec(spec)
+	if out.Profile != nil {
+		delete(out.Profile, "warmup")
+	}
+	return out
+}
+
+// WarmupGuideLLMSpec builds a discarded run that sends warmupRequests and
+// does not apply another warmup window. ok is false when there is nothing to warm up.
+func WarmupGuideLLMSpec(spec GuideLLMSpec, warmupRequests int) (GuideLLMSpec, bool) {
+	if warmupRequests <= 0 {
+		return GuideLLMSpec{}, false
+	}
+	out := WithoutGuideLLMWarmup(spec)
+	replaced := false
+	for i := range out.Constraints {
+		if out.Constraints[i]["kind"] != "max_requests" {
+			continue
+		}
+		out.Constraints[i]["count"] = warmupRequests
+		replaced = true
+	}
+	if !replaced {
+		out.Constraints = append(out.Constraints, map[string]interface{}{
+			"kind":  "max_requests",
+			"count": warmupRequests,
+		})
+	}
+	return out, true
+}
+
+func cloneGuideLLMSpec(spec GuideLLMSpec) GuideLLMSpec {
+	raw, err := json.Marshal(spec)
+	if err != nil {
+		return spec
+	}
+	var out GuideLLMSpec
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return spec
+	}
+	return out
+}
+
 func GuideLLMLocalTokenizer(modelPath string) map[string]interface{} {
 	return map[string]interface{}{
 		"kind":  "hf_auto",
@@ -135,6 +202,67 @@ func GuideLLMLocalTokenizer(modelPath string) map[string]interface{} {
 			"local_files_only": true,
 		},
 	}
+}
+
+func GuideLLMRemoteTokenizer(name string) map[string]interface{} {
+	return map[string]interface{}{
+		"kind":  "hf_auto",
+		"model": strings.TrimSpace(name),
+	}
+}
+
+func ApplyGuideLLMAPIKey(spec *GuideLLMSpec, apiKey string) {
+	if spec == nil || strings.TrimSpace(apiKey) == "" {
+		return
+	}
+	if spec.Backend == nil {
+		spec.Backend = map[string]interface{}{}
+	}
+	spec.Backend["api_key"] = strings.TrimSpace(apiKey)
+}
+
+// ApplyGuideLLMModelsHealthCheck points GuideLLM's startup probe at /v1/models.
+// OpenAI-compatible gateways such as GPUStack do not serve /health.
+func ApplyGuideLLMModelsHealthCheck(spec *GuideLLMSpec) {
+	if spec == nil {
+		return
+	}
+	if spec.Backend == nil {
+		spec.Backend = map[string]interface{}{}
+	}
+	spec.Backend["api_routes"] = map[string]string{
+		"/health": "v1/models",
+	}
+}
+
+const GuideLLMConnectTimeoutSeconds = 30
+
+// ApplyGuideLLMConnectTimeout gives the runner longer than GuideLLM's 5 second
+// default to open a TCP connection to an external target.
+func ApplyGuideLLMConnectTimeout(spec *GuideLLMSpec) {
+	if spec == nil {
+		return
+	}
+	if spec.Backend == nil {
+		spec.Backend = map[string]interface{}{}
+	}
+	spec.Backend["timeout_connect"] = GuideLLMConnectTimeoutSeconds
+}
+
+func NormalizeBenchmarkTargetURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return "", fmt.Errorf("target_url must be an http or https URL")
+	}
+	path := strings.TrimRight(parsed.Path, "/")
+	if strings.EqualFold(path, "/v1") {
+		path = ""
+	}
+	parsed.Path = path
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return strings.TrimRight(parsed.String(), "/"), nil
 }
 
 func BuildGuideLLMPreflightSpec(formal GuideLLMSpec, maxDurationSeconds int) (GuideLLMSpec, error) {
@@ -168,12 +296,227 @@ func BuildGuideLLMPreflightSpec(formal GuideLLMSpec, maxDurationSeconds int) (Gu
 	}, nil
 }
 
+// GuideLLM 0.7 writes the backend config into the CSV with json.dumps.
+// An external API key is a pydantic SecretStr, which that call cannot encode.
+func guideLLMSecretJSONPrelude() string {
+	return `mkdir -p /workdir && cat > /workdir/sitecustomize.py << 'PY'
+import json
+try:
+    from pydantic import SecretStr
+except Exception:
+    SecretStr = ()
+_default = json.JSONEncoder.default
+def _default_with_secret(self, o):
+    if SecretStr and isinstance(o, SecretStr):
+        return "**********"
+    return _default(self, o)
+json.JSONEncoder.default = _default_with_secret
+PY
+export PYTHONPATH=/workdir${PYTHONPATH:+:$PYTHONPATH}`
+}
+
 func GuideLLMRunCommand() []string {
 	return []string{
 		"sh",
 		"-lc",
-		"mkdir -p /workdir && guidellm run --output kind=json,path=/workdir/benchmarks.json --output kind=csv,path=/workdir/benchmarks.csv > /workdir/guidellm.log 2>&1",
+		guideLLMSecretJSONPrelude() + "\nguidellm run --output kind=json,path=/workdir/benchmarks.json --output kind=csv,path=/workdir/benchmarks.csv > /workdir/guidellm.log 2>&1",
 	}
+}
+
+func GuideLLMWarmupCommand() []string {
+	return []string{
+		"sh",
+		"-lc",
+		guideLLMSecretJSONPrelude() + "\nguidellm run --output kind=json,path=" + GuideLLMWarmupJSONPath + " --output kind=csv,path=" + GuideLLMWarmupCSVPath + " > /workdir/warmup.log 2>&1",
+	}
+}
+
+func ExportGuideLLMEnv(command []string, envs map[string]string) ([]string, error) {
+	script, err := guideLLMCommandScript(command)
+	if err != nil {
+		return nil, err
+	}
+	if len(envs) == 0 {
+		return command, nil
+	}
+	keys := make([]string, 0, len(envs))
+	for key := range envs {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys)+1)
+	for _, key := range keys {
+		parts = append(parts, "export "+key+"="+shellQuote(envs[key]))
+	}
+	parts = append(parts, script)
+	return []string{"sh", "-lc", strings.Join(parts, "; ")}, nil
+}
+
+const (
+	AutoTuneRampPath  = "/workdir/benchmarks__ramp.json"
+	autoTuneMaxPoints = 12
+)
+
+type AutoTuneCommandInput struct {
+	TargetURL          string
+	Model              string
+	ProcessorPath      string
+	LowerBound         float64
+	UpperBound         float64
+	MaxDurationSeconds int
+	InputTokens        int
+	OutputTokens       int
+	SloAvgTtftMs       float64
+	SloAvgTpotMs       float64
+	SloAvgLatencyMs    float64
+	LocalProcessor     bool
+	APIKey             string
+	ModelsHealthCheck  bool
+}
+
+func AutoTuneRunCommand(input AutoTuneCommandInput) []string {
+	args := []string{
+		"if ! command -v benchmark-runner >/dev/null 2>&1; then echo 'benchmark-runner is not installed in this image' >&2; exit 127; fi;",
+		"benchmark-runner benchmark run",
+		"--target", shellQuote(input.TargetURL),
+		"--auto-tune",
+		"--axis", "rate",
+		"--lower-bound", formatRate(input.LowerBound),
+		"--upper-bound", formatRate(input.UpperBound),
+		"--max-points", strconv.Itoa(autoTuneMaxPoints),
+		"--max-total-seconds", strconv.Itoa(input.MaxDurationSeconds),
+		"--data", shellQuote(fmt.Sprintf("prompt_tokens=%d,output_tokens=%d", input.InputTokens, input.OutputTokens)),
+		"--output-dir", "/workdir",
+		"--outputs", "benchmarks.dual_json",
+		"--disable-console-outputs",
+	}
+	if input.Model != "" {
+		args = append(args, "--model", shellQuote(input.Model))
+	}
+	if input.APIKey != "" || input.ModelsHealthCheck {
+		payload := map[string]interface{}{}
+		if input.APIKey != "" {
+			payload["api_key"] = input.APIKey
+		}
+		if input.ModelsHealthCheck {
+			payload["api_routes"] = map[string]string{"/health": "v1/models"}
+			payload["timeout_connect"] = GuideLLMConnectTimeoutSeconds
+		}
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			return []string{"sh", "-lc", "echo 'invalid backend kwargs' >&2; exit 1"}
+		}
+		args = append(args, "--backend-kwargs", shellQuote(string(encoded)))
+	}
+	if input.ProcessorPath != "" {
+		args = append(args, "--processor", shellQuote(input.ProcessorPath))
+		if input.LocalProcessor {
+			args = append(args, "--processor-args", shellQuote(`{"local_files_only":true}`))
+		}
+	}
+	if input.SloAvgTtftMs > 0 {
+		args = append(args, "--slo-avg-ttft-ms", formatRate(input.SloAvgTtftMs))
+	}
+	if input.SloAvgTpotMs > 0 {
+		args = append(args, "--slo-avg-tpot-ms", formatRate(input.SloAvgTpotMs))
+	}
+	if input.SloAvgLatencyMs > 0 {
+		args = append(args, "--slo-avg-latency-ms", formatRate(input.SloAvgLatencyMs))
+	}
+	args = append(args, "> /workdir/guidellm.log 2>&1")
+	return []string{"sh", "-lc", guideLLMSecretJSONPrelude() + "\n" + strings.Join(args, " ")}
+}
+
+func formatRate(value float64) string {
+	return strconv.FormatFloat(value, 'f', -1, 64)
+}
+
+type autoTunePoint struct {
+	Knob         float64 `json:"knob"`
+	OutputTps    float64 `json:"output_tps"`
+	TotalTps     float64 `json:"total_tps"`
+	TtftMs       float64 `json:"ttft_ms"`
+	TtftP95Ms    float64 `json:"ttft_p95_ms"`
+	TtftP99Ms    float64 `json:"ttft_p99_ms"`
+	ItlMs        float64 `json:"itl_ms"`
+	ItlP95Ms     float64 `json:"itl_p95_ms"`
+	ItlP99Ms     float64 `json:"itl_p99_ms"`
+	LatencyMs    float64 `json:"latency_ms"`
+	LatencyP95Ms float64 `json:"latency_p95_ms"`
+	LatencyP99Ms float64 `json:"latency_p99_ms"`
+	AchievedRate float64 `json:"achieved_rate"`
+	Success      float64 `json:"success"`
+}
+
+type autoTuneRamp struct {
+	Target     string          `json:"target"`
+	Points     []autoTunePoint `json:"points"`
+	SloBracket []*float64      `json:"slo_bracket"`
+}
+
+func ParseAutoTuneRamp(path string) (*LLMBenchmarkMetrics, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var ramp autoTuneRamp
+	if err := json.Unmarshal(raw, &ramp); err != nil {
+		return nil, err
+	}
+	point, err := selectAutoTunePoint(ramp)
+	if err != nil {
+		return nil, err
+	}
+	return metricsFromAutoTunePoint(point), nil
+}
+
+func selectAutoTunePoint(ramp autoTuneRamp) (autoTunePoint, error) {
+	if len(ramp.Points) == 0 {
+		return autoTunePoint{}, fmt.Errorf("auto-tune ramp has no measured points")
+	}
+	if ramp.Target == "slo" {
+		if len(ramp.SloBracket) == 0 || ramp.SloBracket[0] == nil {
+			return autoTunePoint{}, fmt.Errorf("auto-tune found no load that meets the SLO")
+		}
+		want := *ramp.SloBracket[0]
+		best := ramp.Points[0]
+		for _, point := range ramp.Points[1:] {
+			if math.Abs(point.Knob-want) < math.Abs(best.Knob-want) {
+				best = point
+			}
+		}
+		return best, nil
+	}
+	best := ramp.Points[0]
+	for _, point := range ramp.Points[1:] {
+		if point.TotalTps > best.TotalTps || (point.TotalTps == best.TotalTps && point.Knob < best.Knob) {
+			best = point
+		}
+	}
+	return best, nil
+}
+
+func metricsFromAutoTunePoint(point autoTunePoint) *LLMBenchmarkMetrics {
+	errorRate := 1 - point.Success
+	return &LLMBenchmarkMetrics{
+		RequestsPerSecondMean:     floatPtr(point.AchievedRate),
+		OutputTokensPerSecondMean: floatPtr(point.OutputTps),
+		TokensPerSecondMean:       floatPtr(point.TotalTps),
+		RequestLatencyMeanSec:     floatPtr(point.LatencyMs / 1000),
+		RequestLatencyP95Sec:      floatPtr(point.LatencyP95Ms / 1000),
+		RequestLatencyP99Sec:      floatPtr(point.LatencyP99Ms / 1000),
+		TimeToFirstTokenMeanMs:    floatPtr(point.TtftMs),
+		TimeToFirstTokenP95Ms:     floatPtr(point.TtftP95Ms),
+		TimeToFirstTokenP99Ms:     floatPtr(point.TtftP99Ms),
+		InterTokenLatencyMeanMs:   floatPtr(point.ItlMs),
+		InterTokenLatencyP95Ms:    floatPtr(point.ItlP95Ms),
+		InterTokenLatencyP99Ms:    floatPtr(point.ItlP99Ms),
+		ErrorRate:                 floatPtr(errorRate),
+	}
+}
+
+func floatPtr(value float64) *float64 {
+	return &value
 }
 
 func GuideLLMPreflightRunCommand(spec GuideLLMSpec) ([]string, error) {
@@ -187,7 +530,7 @@ func GuideLLMPreflightRunCommand(spec GuideLLMSpec) ([]string, error) {
 	}
 	sort.Strings(keys)
 
-	parts := []string{"mkdir -p /workdir"}
+	parts := []string{guideLLMSecretJSONPrelude(), "mkdir -p /workdir"}
 	for _, key := range keys {
 		parts = append(parts, "export "+key+"="+shellQuote(envs[key]))
 	}
@@ -216,17 +559,17 @@ const (
 // GuideLLMWaitSeconds is how long to wait for a detached run to write its
 // exit file. max_duration only stops new requests; ones already sent keep
 // running, and a 100-request run does not fit in max_duration plus startup.
-func GuideLLMWaitSeconds(maxDuration, totalRequests, requestRate int) int {
+func GuideLLMWaitSeconds(maxDuration, totalRequests int, requestRate float64) int {
 	if maxDuration < 1 {
 		maxDuration = 1
 	}
-	if requestRate < 1 {
+	if requestRate <= 0 {
 		requestRate = 1
 	}
 	if totalRequests < 1 {
 		totalRequests = 1
 	}
-	send := (totalRequests + requestRate - 1) / requestRate
+	send := int(math.Ceil(float64(totalRequests) / requestRate))
 	window := maxDuration
 	if send > window {
 		window = send
@@ -259,9 +602,15 @@ func GuideLLMBackgroundCommand(command []string, jsonPath, csvPath string) ([]st
 	quotedInner := shellQuote(inner)
 	start := "setsid sh -c " + quotedInner + " </dev/null >/dev/null 2>&1 & echo $! > " + shellQuote(pidPath)
 	fallback := "nohup sh -c " + quotedInner + " </dev/null >/dev/null 2>&1 & echo $! > " + shellQuote(pidPath)
+	dirs := shellQuote(path.Dir(jsonPath))
+	removes := shellQuote(exitPath) + " " + shellQuote(pidPath) + " " + shellQuote(jsonPath)
+	if csvPath != "" {
+		dirs += " " + shellQuote(path.Dir(csvPath))
+		removes += " " + shellQuote(csvPath)
+	}
 	launcher := strings.Join([]string{
-		"mkdir -p " + shellQuote(path.Dir(jsonPath)) + " " + shellQuote(path.Dir(csvPath)),
-		"rm -f " + shellQuote(exitPath) + " " + shellQuote(pidPath) + " " + shellQuote(jsonPath) + " " + shellQuote(csvPath),
+		"mkdir -p " + dirs,
+		"rm -f " + removes,
 		"if command -v setsid >/dev/null 2>&1; then " + start + "; else " + fallback + "; fi",
 		"test -s " + shellQuote(pidPath),
 	}, "; ")
@@ -278,7 +627,7 @@ func guideLLMCommandScript(command []string) (string, error) {
 func BuildRunnerPodInput(input RunnerPodInput) *computeapi.ServerCreateInput {
 	root := int64(0)
 	ctrSpec := commonapi.ContainerSpec{
-		Command:       []string{"sh", "-lc", "while true; do sleep 3600; done"},
+		Command:       []string{"sh", "-lc", "mkdir -p /workdir && touch /workdir/guidellm.log /workdir/warmup.log /workdir/dataset-preflight.log && exec tail -F /workdir/guidellm.log /workdir/warmup.log /workdir/dataset-preflight.log"},
 		AlwaysRestart: false,
 		SecurityContext: &commonapi.ContainerSecurityContext{
 			RunAsUser:  &root,
@@ -373,7 +722,9 @@ func BuildRunnerPodInput(input RunnerPodInput) *computeapi.ServerCreateInput {
 	}
 	ret.Hypervisor = computeapi.HYPERVISOR_POD
 	ret.Name = input.Name
-	ret.PreferHost = input.HostId
+	if input.HostId != "" {
+		ret.PreferHost = input.HostId
+	}
 	ret.Count = 1
 	ret.Networks = []*computeapi.NetworkConfig{
 		{
