@@ -84,6 +84,7 @@ func (man *SSessionManager) Save(data ISessionData) (*SSession, error) {
 		Id:           idStr,
 		ISessionData: data,
 		AccessToken:  token,
+		CreatedAt:    time.Now(),
 	}
 	man.Store(idStr, session)
 	return session, nil
@@ -106,9 +107,14 @@ func (man *SSessionManager) Get(accessToken string) (*SSession, bool) {
 		log.Errorf("access token mismatch for session %s", s.Id)
 		return nil, false
 	}
-	protocol := s.GetProtocol()
-	if protocol != SPICE && time.Since(s.AccessedAt) < AccessInterval {
-		if !(protocol == WS && o.Options.KeepWebsocketSession) {
+	keepWebsocket := s.GetProtocol() == WS && o.Options.KeepWebsocketSession
+	if !keepWebsocket {
+		if !s.CreatedAt.IsZero() && time.Since(s.CreatedAt) > AccessInterval {
+			log.Warningf("Token: %s, Session: %s expired, created at: %s", utils.TruncateString(accessToken, 16), s.Id, s.CreatedAt)
+			man.Delete(s.Id)
+			return nil, false
+		}
+		if time.Since(s.AccessedAt) < AccessInterval {
 			log.Warningf("Protol: %q, Token: %s, Session: %s can't be accessed during %s, last accessed at: %s", s.GetProtocol(), utils.TruncateString(accessToken, 16), s.Id, AccessInterval, s.AccessedAt)
 			return nil, false
 		}
@@ -177,6 +183,7 @@ type SSession struct {
 	ISessionData
 	Id            string
 	AccessToken   string
+	CreatedAt     time.Time
 	AccessedAt    time.Time
 	duplicateHook func()
 	recorder      recorder.Recoder

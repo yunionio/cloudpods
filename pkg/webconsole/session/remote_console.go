@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/stringutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -64,6 +65,9 @@ type RemoteConsoleInfo struct {
 	cloudprovider.ServerVncOutput
 
 	s *mcclient.ClientSession
+	// sessionId uniquely identifies the console session, so sessions
+	// of different users can not shadow each other
+	sessionId string
 }
 
 func NewRemoteConsoleInfoByCloud(s *mcclient.ClientSession, serverId string, query jsonutils.JSONObject) (*RemoteConsoleInfo, error) {
@@ -77,6 +81,7 @@ func NewRemoteConsoleInfoByCloud(s *mcclient.ClientSession, serverId string, que
 		return nil, err
 	}
 	vncInfo.s = s
+	vncInfo.sessionId = stringutils.UUID4()
 
 	if len(vncInfo.OsName) == 0 || len(vncInfo.VncPassword) == 0 {
 		metadata, err := modules.Servers.GetSpecific(s, serverId, "metadata", nil)
@@ -157,7 +162,7 @@ func (info *RemoteConsoleInfo) GetPassword() string {
 }
 
 func (info *RemoteConsoleInfo) GetId() string {
-	return info.Id
+	return info.sessionId
 }
 
 func (info *RemoteConsoleInfo) getConnParamsURL(baseURL string, params url.Values) string {
