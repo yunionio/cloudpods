@@ -323,4 +323,9 @@ const (
 	ACT_UNREGISTER_AIPROXY = "unregister_aiproxy"
 
 	ACT_RESUME_IMPORT = "resume_import"
+
+	ACT_BENCHMARK_COPY   = "copy"
+	ACT_BENCHMARK_RETEST = "retest"
+	ACT_BENCHMARK_STOP   = "stop"
+	ACT_BENCHMARK_RUN    = "benchmark_run"
 )
