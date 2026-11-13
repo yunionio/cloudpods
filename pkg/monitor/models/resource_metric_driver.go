@@ -100,12 +100,14 @@ func (d *sGuestMetricDriver) GetTagKey() string {
 }
 
 func (d *sGuestMetricDriver) GetMetricSpecs() []ResourceMetricSpec {
+	// Use agent metrics so guest list usage matches Agent monitoring in the console.
+	// Basic vm_* metrics from the hypervisor are less accurate, especially for memory.
 	return []ResourceMetricSpec{
-		{"vm_cpu", []string{"usage_active"}, []string{"cpu_usage"}},
-		{"vm_mem", []string{"used_percent"}, []string{"mem_usage"}},
-		{"vm_disk", []string{"used_percent"}, []string{"disk_usage"}},
-		{"vm_diskio", []string{"read_bps", "write_bps"}, []string{"disk_read_rate", "disk_write_rate"}},
-		{"vm_netio", []string{"bps_recv", "bps_sent"}, []string{"net_in_rate", "net_out_rate"}},
+		{"agent_cpu", []string{"usage_active"}, []string{"cpu_usage"}},
+		{"agent_mem", []string{"used_percent"}, []string{"mem_usage"}},
+		{"agent_disk", []string{"used_percent"}, []string{"disk_usage"}},
+		{"agent_diskio", []string{"read_bps", "write_bps"}, []string{"disk_read_rate", "disk_write_rate"}},
+		{"agent_net", []string{"bps_recv", "bps_sent"}, []string{"net_in_rate", "net_out_rate"}},
 	}
 }
 
