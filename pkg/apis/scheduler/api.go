@@ -101,6 +101,7 @@ type ScheduleInput struct {
 	HostMemPageSizeKB int    `json:"host_mem_page_size"`
 	SkipKernelCheck   *bool  `json:"skip_kernel_check"`
 	TargetHostKernel  string `json:"target_host_kernel"`
+	DiskIoUring       bool   `json:"disk_io_uring"`
 
 	FakeCreateFromBmImport bool `json:"fake_create_from_bm_import"`
 

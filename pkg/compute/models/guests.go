@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -4572,10 +4573,10 @@ func (self *SGuest) getDiskIndex() int8 {
 }
 
 func (self *SGuest) AttachDisk(ctx context.Context, disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string, bootIndex *int8) error {
-	return self.attach2Disk(ctx, disk, userCred, driver, cache, mountpoint, bootIndex)
+	return self.attach2Disk(ctx, disk, userCred, driver, cache, mountpoint, bootIndex, "")
 }
 
-func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string, bootIndex *int8) error {
+func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string, bootIndex *int8, performanceMode string) error {
 	attached, err := self.isAttach2Disk(disk)
 	if err != nil {
 		return errors.Wrap(err, "isAttach2Disk")
@@ -4605,6 +4606,24 @@ func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mccli
 	guestdisk.DiskId = disk.Id
 	guestdisk.GuestId = self.Id
 
+	if len(driver) == 0 {
+		driver = options.Options.DefaultDiskDriver
+	}
+	if len(cache) == 0 {
+		cache = options.Options.DefaultDiskCacheMode
+	}
+
+	if options.Options.DiskEnableIoUring && utils.IsInStringArray(driver, []string{api.DISK_DRIVER_SCSI, api.DISK_DRIVER_VIRTIO}) {
+		host, err := self.GetHost()
+		if err != nil {
+			return errors.Wrap(err, "GetHost")
+		}
+		kernelVersion, _ := host.SysInfo.GetString("kernel_version")
+		if version.GE(kernelVersion, "5.10") {
+			guestdisk.AioMode = api.DISK_AIO_MODE_IO_URING
+		}
+	}
+
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
@@ -4614,6 +4633,11 @@ func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mccli
 	} else {
 		guestdisk.BootIndex = -1
 	}
+	if performanceMode == api.DISK_PERFORMANCE_HIGH {
+		guestdisk.NumQueues = options.Options.DefaultDiskHighPerformanceNumQueues
+		guestdisk.NumIothreads = options.Options.DefaultDiskHighPerformanceNumIothreads
+	}
+
 	err = guestdisk.DoSave(ctx, driver, cache, mountpoint)
 	if err == nil {
 		db.OpsLog.LogAttachEvent(ctx, self, disk, userCred, nil)
@@ -4673,7 +4697,7 @@ func (self *SGuest) SyncVMDisks(
 			continue
 		}
 		disk.SyncCloudProjectId(userCred, self.GetOwnerId())
-		err = self.attach2Disk(ctx, disk, userCred, added[i].GetDriver(), added[i].GetCacheMode(), added[i].GetMountpoint(), nil)
+		err = self.attach2Disk(ctx, disk, userCred, added[i].GetDriver(), added[i].GetCacheMode(), added[i].GetMountpoint(), nil, "")
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -5359,7 +5383,7 @@ func (self *SGuest) createDiskOnHost(
 		db.OpsLog.LogEvent(disk, db.ACT_UPDATE, diff, userCred)
 	}
 	if autoAttach {
-		err = self.attach2Disk(ctx, disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint, diskConfig.BootIndex)
+		err = self.attach2Disk(ctx, disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint, diskConfig.BootIndex, diskConfig.Performance)
 		if err != nil {
 			return nil, err
 		}

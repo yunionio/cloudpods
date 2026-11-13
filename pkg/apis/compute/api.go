@@ -308,6 +308,13 @@ type DiskConfig struct {
 	// full: 厚置备快速置零
 	// default: off
 	Preallocation string `json:"preallocation"`
+
+	//required: false
+	// 磁盘性能模式:
+	// high: 高性能模式
+	// normal: 普通性能模式
+	// default: normal
+	Performance string `json:"performance"`
 }
 
 type IsolatedDeviceConfig struct {

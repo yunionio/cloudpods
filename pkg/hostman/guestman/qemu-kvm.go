@@ -46,6 +46,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/arch"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/desc"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/qemu"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
@@ -154,7 +155,7 @@ func (s *SKVMGuestInstance) GetStopTask() *SGuestStopTask {
 // update guest runtime desc from source desc
 // and check is need regenerate runtime desc
 // these property can't be upate in running guest
-func (s *SKVMGuestInstance) updateGuestDesc() error {
+func (s *SKVMGuestInstance) updateGuestDesc(data *jsonutils.JSONDict) error {
 	s.Desc = new(desc.SGuestDesc)
 	err := jsonutils.Marshal(s.SourceDesc).Unmarshal(s.Desc)
 	if err != nil {
@@ -165,7 +166,26 @@ func (s *SKVMGuestInstance) updateGuestDesc() error {
 		s.setPcieExtendBus()
 	}
 
-	err = s.initGuestDesc()
+	qemuVersion := options.HostOptions.DefaultQemuVersion
+	if data.Contains("qemu_version") {
+		qemuVersion, _ = data.GetString("qemu_version")
+	}
+	if qemuVersion == "latest" {
+		qemuVersion = ""
+	}
+	qemuArch := qemu.Arch_x86_64
+	if s.manager.host.IsAarch64() {
+		qemuArch = qemu.Arch_aarch64
+	} else if s.manager.host.IsRiscv64() {
+		qemuArch = qemu.Arch_riscv64
+	}
+	// TOOD
+	qemuDrv, ok := qemu.GetCommand(qemu.Version(qemuVersion), qemuArch)
+	if !ok {
+		return errors.Errorf("qemu version %s is not supported", qemuVersion)
+	}
+
+	err = s.initGuestDesc(qemuDrv)
 	if err != nil {
 		return err
 	}
@@ -762,7 +782,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		}
 		err = s.initLiveDescFromSourceGuest(sourceDesc)
 	} else {
-		err = s.updateGuestDesc()
+		err = s.updateGuestDesc(data)
 	}
 
 	// init live migrate listen port
