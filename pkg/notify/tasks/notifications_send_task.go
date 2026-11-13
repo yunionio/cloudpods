@@ -48,6 +48,7 @@ var permanentSendFailureKeywords = []string{
 	"disabled receiver",
 	"unverified contactType",
 	"disabled contactType",
+	"fail to fetch Receiver",
 }
 
 // isPermanentSendFailure 判断失败原因中的每个接收人条目是否全部为永久性配置失败
