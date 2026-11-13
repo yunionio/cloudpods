@@ -42,14 +42,59 @@ func init() {
 	taskman.RegisterTask(NotificationSendTask{})
 }
 
-func (self *NotificationSendTask) taskFailed(ctx context.Context, notification *models.SNotification, reason string, all bool) {
-	log.Errorf("fail to send notification %q", notification.GetId())
-	if all {
-		notification.SetStatus(ctx, self.UserCred, apis.NOTIFICATION_STATUS_FAILED, reason)
-	} else {
-		notification.SetStatus(ctx, self.UserCred, apis.NOTIFICATION_STATUS_PART_OK, reason)
+// permanentSendFailureKeywords 为接收人/联系人配置类永久性失败的原因关键字：
+// 只有管理员修改配置后新通知才会成功，重发只会以固定节奏刷 "fail to send notification" 日志
+var permanentSendFailureKeywords = []string{
+	"disabled receiver",
+	"unverified contactType",
+	"disabled contactType",
+	"fail to fetch Receiver",
+}
+
+// isPermanentSendFailure 判断失败原因中的每个接收人条目是否全部为永久性配置失败
+func isPermanentSendFailure(reason string) bool {
+	if len(reason) == 0 {
+		return false
 	}
-	notification.AddOne()
+	for _, entry := range strings.Split(reason, "; ") {
+		matched := false
+		for _, kw := range permanentSendFailureKeywords {
+			if strings.Contains(entry, kw) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
+}
+
+func (self *NotificationSendTask) taskFailed(ctx context.Context, notification *models.SNotification, reason string, all bool) {
+	if isPermanentSendFailure(reason) {
+		// 永久性配置失败：不再交由 ReSend 重试，日志降级 Warning；
+		// 具体失败原因仍写入 receiver_notification 记录与操作日志，可观测性不丢
+		log.Warningf("fail to send notification %q (permanent, no more retry): %s", notification.GetId(), reason)
+		if all {
+			notification.SetStatus(ctx, self.UserCred, apis.NOTIFICATION_STATUS_FAILED, reason)
+		} else {
+			notification.SetStatus(ctx, self.UserCred, apis.NOTIFICATION_STATUS_PART_OK, reason)
+		}
+		if err := notification.MarkNoMoreSend(); err != nil {
+			log.Errorf("fail to mark notification %q no more send: %v", notification.GetId(), err)
+		}
+	} else {
+		log.Errorf("fail to send notification %q", notification.GetId())
+		if all {
+			notification.SetStatus(ctx, self.UserCred, apis.NOTIFICATION_STATUS_FAILED, reason)
+		} else {
+			notification.SetStatus(ctx, self.UserCred, apis.NOTIFICATION_STATUS_PART_OK, reason)
+		}
+		if err := notification.AddOne(); err != nil {
+			log.Errorf("fail to increase send times for notification %q: %v", notification.GetId(), err)
+		}
+	}
 	logclient.AddActionLogWithContext(ctx, notification, logclient.ACT_SEND_NOTIFICATION, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, jsonutils.NewString(reason))
 }
