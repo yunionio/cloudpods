@@ -181,7 +181,7 @@ type SHost struct {
 	IpmiIp string `width:"16" charset:"ascii" nullable:"true" list:"domain"`
 
 	// IPMI详情
-	IpmiInfo jsonutils.JSONObject `nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
+	IpmiInfo *api.SIpmiInfo `nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 
 	// 宿主机状态
 	// example: online
@@ -2417,13 +2417,9 @@ func (hh *SHost) SyncWithCloudHost(ctx context.Context, userCred mcclient.TokenC
 		}
 		hh.OvnVersion = extHost.GetOvnVersion()
 		if ipmiInfo := extHost.GetIpmiInfo(); !gotypes.IsNil(ipmiInfo) {
-			info := jsonutils.Marshal(ipmiInfo).(*jsonutils.JSONDict)
-			passwd, _ := info.GetString("password")
-			if len(passwd) > 0 {
-				passwd, _ = utils.EncryptAESBase64(hh.Id, passwd)
-				info.Set("password", jsonutils.NewString(passwd))
+			if info := encryptedIpmiInfo(hh.Id, ipmiInfo); info != nil {
+				hh.IpmiInfo = info
 			}
-			hh.IpmiInfo = info
 		}
 
 		if provider != nil && !utils.IsInStringArray(provider.Provider, strings.Split(options.Options.SkipSyncHostConfigInfoProviders, ",")) {
@@ -2694,13 +2690,9 @@ func (manager *SHostManager) NewFromCloudHost(ctx context.Context, userCred mccl
 
 	host.OvnVersion = extHost.GetOvnVersion()
 	if ipmiInfo := extHost.GetIpmiInfo(); !gotypes.IsNil(ipmiInfo) {
-		info := jsonutils.Marshal(ipmiInfo).(*jsonutils.JSONDict)
-		passwd, _ := info.GetString("password")
-		if len(passwd) > 0 {
-			passwd, _ = utils.EncryptAESBase64(host.Id, passwd)
-			info.Set("password", jsonutils.NewString(passwd))
+		if info := encryptedIpmiInfo(host.Id, ipmiInfo); info != nil {
+			host.IpmiInfo = info
 		}
-		host.IpmiInfo = info
 	}
 
 	host.Status = extHost.GetStatus()
@@ -4645,20 +4637,19 @@ func (hh *SHost) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (hh *SHost) GetDetailsIpmi(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ret, ok := hh.IpmiInfo.(*jsonutils.JSONDict)
-	if !ok {
+	if hh.IpmiInfo == nil {
 		return nil, httperrors.NewNotFoundError("No ipmi information was found for host %s", hh.Name)
 	}
-	password, err := ret.GetString("password")
-	if err != nil {
+	if len(hh.IpmiInfo.Password) == 0 {
 		return nil, httperrors.NewNotFoundError("IPMI has no password information")
 	}
-	descryptedPassword, err := utils.DescryptAESBase64(hh.Id, password)
+	descryptedPassword, err := utils.DescryptAESBase64(hh.Id, hh.IpmiInfo.Password)
 	if err != nil {
 		return nil, err
 	}
-	ret.Set("password", jsonutils.NewString(descryptedPassword))
-	return ret, nil
+	info := *hh.IpmiInfo
+	info.Password = descryptedPassword
+	return jsonutils.Marshal(&info), nil
 }
 
 func (hh *SHost) GetDetailsGuestIsolatedDevicesInitialized(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -4747,7 +4738,8 @@ func (hh *SHost) PostCreate(
 	ipmiInfoJson := jsonutils.Marshal(ipmiInfo).(*jsonutils.JSONDict)
 	if ipmiInfoJson.Length() > 0 {
 		_, err := hh.SaveUpdates(func() error {
-			hh.IpmiInfo = ipmiInfoJson
+			info := ipmiInfo
+			hh.IpmiInfo = &info
 			return nil
 		})
 		if err != nil {
@@ -5160,9 +5152,15 @@ func (hh *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Token
 			}
 		}
 		val := jsonutils.NewDict()
-		val.Update(hh.IpmiInfo)
+		if hh.IpmiInfo != nil {
+			val.Update(jsonutils.Marshal(hh.IpmiInfo))
+		}
 		val.Update(ipmiInfoJson)
-		input.IpmiInfo = val
+		merged := api.SIpmiInfo{}
+		if err := val.Unmarshal(&merged); err != nil {
+			return input, errors.Wrap(err, "Unmarshal ipmi info")
+		}
+		input.IpmiInfo = &merged
 	}
 	input.EnabledStatusInfrasResourceBaseUpdateInput, err = hh.SEnabledStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusInfrasResourceBaseUpdateInput)
 	if err != nil {
@@ -5271,8 +5269,8 @@ func (hh *SHost) GetNetifName(netif *SNetInterface) string {
 	return ""
 }
 
-func fetchIpmiInfo(data api.HostIpmiAttributes, hostId string) (types.SIPMIInfo, error) {
-	info := types.SIPMIInfo{}
+func fetchIpmiInfo(data api.HostIpmiAttributes, hostId string) (api.SIpmiInfo, error) {
+	info := api.SIpmiInfo{}
 	info.Username = data.IpmiUsername
 	if len(data.IpmiPassword) > 0 {
 		if len(hostId) > 0 {
@@ -5292,6 +5290,18 @@ func fetchIpmiInfo(data api.HostIpmiAttributes, hostId string) (types.SIPMIInfo,
 		return info, errors.Wrap(httperrors.ErrInvalidFormat, msg)
 	}
 	info.IpAddr = data.IpmiIpAddr
+	if data.IpmiPort != nil && *data.IpmiPort > 0 {
+		if *data.IpmiPort > 65535 {
+			return info, httperrors.NewInputParameterError("invalid ipmi_port %d", *data.IpmiPort)
+		}
+		info.IpmiPort = *data.IpmiPort
+	}
+	if data.IpmiRedfishPort != nil && *data.IpmiRedfishPort > 0 {
+		if *data.IpmiRedfishPort > 65535 {
+			return info, httperrors.NewInputParameterError("invalid ipmi_redfish_port %d", *data.IpmiRedfishPort)
+		}
+		info.RedfishPort = *data.IpmiRedfishPort
+	}
 	if data.IpmiPresent != nil {
 		info.Present = *data.IpmiPresent
 	}
@@ -6042,11 +6052,11 @@ func (hh *SHost) PerformInitialize(
 	if len(name) == 0 {
 		name = hh.Name + "-server"
 	}
-	//
-	//if hh.IpmiInfo == nil || !hh.IpmiInfo.Contains("ip_addr") ||
-	//	!hh.IpmiInfo.Contains("password") {
-	//	return nil, httperrors.NewBadRequestError("IPMI infomation not configured")
-	//}
+
+	// if hh.IpmiInfo == nil || len(hh.IpmiInfo.IpAddr) == 0 || len(hh.IpmiInfo.Password) == 0 {
+	// 	return nil, httperrors.NewBadRequestError("IPMI infomation not configured")
+	// }
+
 	if err := hh.CreateFakeBaremetalServer(ctx, userCred, name, userCred); err != nil {
 		log.Errorf("CreateFakeBaremetalServer failed %s", err)
 	}
@@ -7968,15 +7978,24 @@ func (host *SHost) setAccessMac(userCred mcclient.TokenCredential, mac string) e
 	return nil
 }
 
-func (host *SHost) GetIpmiInfo() (types.SIPMIInfo, error) {
-	info := types.SIPMIInfo{}
-	if host.IpmiInfo != nil {
-		err := host.IpmiInfo.Unmarshal(&info)
-		if err != nil {
-			return info, errors.Wrap(err, "host.IpmiInfo.Unmarshal")
-		}
+func (host *SHost) GetIpmiInfo() (api.SIpmiInfo, error) {
+	if host.IpmiInfo == nil {
+		return api.SIpmiInfo{}, nil
 	}
-	return info, nil
+	return *host.IpmiInfo, nil
+}
+
+func encryptedIpmiInfo(hostId string, raw jsonutils.JSONObject) *api.SIpmiInfo {
+	info := &api.SIpmiInfo{}
+	if err := raw.Unmarshal(info); err != nil {
+		log.Errorf("unmarshal ipmi info: %s", err)
+		return nil
+	}
+	if len(info.Password) > 0 {
+		passwd, _ := utils.EncryptAESBase64(hostId, info.Password)
+		info.Password = passwd
+	}
+	return info
 }
 
 func (host *SHost) GetNics() []*types.SNic {
