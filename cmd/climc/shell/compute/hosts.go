@@ -412,13 +412,15 @@ func init() {
 	})
 
 	type HostCreateOptions struct {
-		NAME       string `help:"Name of baremetal"`
-		MAC        string `help:"Default MAC address of baremetal"`
-		Rack       string `help:"Rack number of baremetal"`
-		Slots      string `help:"Slots number of baremetal"`
-		IpmiUser   string `help:"IPMI user name"`
-		IpmiPasswd string `help:"IPMI user password"`
-		IpmiAddr   string `help:"IPMI IP address"`
+		NAME            string `help:"Name of baremetal"`
+		MAC             string `help:"Default MAC address of baremetal"`
+		Rack            string `help:"Rack number of baremetal"`
+		Slots           string `help:"Slots number of baremetal"`
+		IpmiUser        string `help:"IPMI user name"`
+		IpmiPasswd      string `help:"IPMI user password"`
+		IpmiAddr        string `help:"IPMI IP address"`
+		IpmiPort        int    `help:"IPMI RMCP port" default:"0"`
+		IpmiRedfishPort int    `help:"Redfish HTTPS port" default:"0"`
 
 		AccessIp   string `help:"Access IP address"`
 		AccessNet  string `help:"Access network"`
@@ -451,6 +453,12 @@ func init() {
 		}
 		if len(args.IpmiAddr) > 0 {
 			params.Add(jsonutils.NewString(args.IpmiAddr), "ipmi_ip_addr")
+		}
+		if args.IpmiPort > 0 {
+			params.Add(jsonutils.NewInt(int64(args.IpmiPort)), "ipmi_port")
+		}
+		if args.IpmiRedfishPort > 0 {
+			params.Add(jsonutils.NewInt(int64(args.IpmiRedfishPort)), "ipmi_redfish_port")
 		}
 		if len(args.AccessIp) > 0 {
 			params.Add(jsonutils.NewString(args.AccessIp), "access_ip")
