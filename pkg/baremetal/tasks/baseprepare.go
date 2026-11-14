@@ -805,7 +805,7 @@ func getIsolatedDevicesInfo(cli *ssh.Client, ip net.IP) ([]*isolated_device.PCID
 					log.Infof("skip THead dev %s with class code %s", dev.Addr, dev.ClassCode)
 					continue
 				}
-				if dev.VendorId == api.KUNLUNXIN_VENDOR_ID && dev.ClassCode != isolated_device.CLASS_CODE_PA {
+				if dev.VendorId == api.KUNLUNXIN_VENDOR_ID && !utils.IsInStringArray(dev.ClassCode, []string{isolated_device.CLASS_CODE_PA, isolated_device.CLASS_CODE_COMMUNICATION_OTHER}) {
 					log.Infof("skip kunlunxin dev %s with class code %s", dev.Addr, dev.ClassCode)
 					continue
 				}
