@@ -24,9 +24,10 @@ func Test_parseLspci(t *testing.T) {
 		line string
 	}
 	tests := []struct {
-		name string
-		args args
-		want *PCIDevice
+		name          string
+		args          args
+		want          *PCIDevice
+		wantModelName string
 	}{
 		{
 			name: "3D controller",
@@ -45,6 +46,7 @@ func Test_parseLspci(t *testing.T) {
 				SubdeviceId:   "505e",
 				ModelName:     "GeForce 940MX",
 			},
+			wantModelName: "GeForce 940MX",
 		},
 		{
 			name: "VGA",
@@ -63,12 +65,56 @@ func Test_parseLspci(t *testing.T) {
 				SubdeviceId:   "210b",
 				ModelName:     "Radeon HD 8570 / R7 240/340 OEM",
 			},
+			wantModelName: "Radeon HD 8570 / R7 240/340 OEM",
+		},
+		{
+			name: "910B",
+			args: args{`01:00.0 "Processing accelerators [1200]" "Huawei Technologies Co., Ltd. [19e5]" "Device [d802]" -r20 -p00 "Huawei Technologies Co., Ltd. [19e5]" "Device [3003]"`},
+			want: &PCIDevice{
+				Addr:          "01:00.0",
+				ClassName:     "Processing accelerators",
+				ClassCode:     "1200",
+				VendorName:    "Huawei Technologies Co., Ltd.",
+				VendorId:      "19e5",
+				DeviceName:    "Device",
+				DeviceId:      "d802",
+				SubvendorName: "Huawei Technologies Co., Ltd.",
+				SubvendorId:   "19e5",
+				SubdeviceName: "Device",
+				SubdeviceId:   "3003",
+				ModelName:     "",
+			},
+			wantModelName: "Device",
+		},
+		{
+			name: "910B4-1",
+			args: args{`01:00.0 "Processing accelerators [1200]" "Huawei Technologies Co., Ltd. [19e5]" "Device [d802]" -r20 -p00 "Huawei Technologies Co., Ltd. [19e5]" "Device [3005]"`},
+			want: &PCIDevice{
+				Addr:          "01:00.0",
+				ClassName:     "Processing accelerators",
+				ClassCode:     "1200",
+				VendorName:    "Huawei Technologies Co., Ltd.",
+				VendorId:      "19e5",
+				DeviceName:    "Device",
+				DeviceId:      "d802",
+				SubvendorName: "Huawei Technologies Co., Ltd.",
+				SubvendorId:   "19e5",
+				SubdeviceName: "Device",
+				SubdeviceId:   "3005",
+				ModelName:     "",
+			},
+			wantModelName: "Device",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := parseLspci(tt.args.line); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("parseLspci() = %#v, want %#v", got, tt.want)
+			} else {
+				dev := NewBaseDevice(got, "gpu", "shared")
+				if dev.GetModelName() != tt.wantModelName {
+					t.Errorf("parseLspci() model name = %#v, want %#v", dev.GetModelName(), tt.wantModelName)
+				}
 			}
 		})
 	}
