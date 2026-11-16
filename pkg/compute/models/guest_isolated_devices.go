@@ -135,6 +135,10 @@ func (manager *SGuestIsolatedDeviceManager) FetchCustomizeColumns(
 		rows[i].Vendor = isolatedDeviceRows[i].Vendor
 		rows[i].MemoryAllocated = isolatedDeviceRows[i].MemoryAllocated
 		rows[i].AllocatedCount = isolatedDeviceRows[i].AllocatedCount
+
+		rows[i].GpuDeviceDetails = isolatedDeviceRows[i].GpuDeviceDetails
+		rows[i].Fp16Tflops = isolatedDeviceRows[i].Fp16Tflops
+		rows[i].TdpW = isolatedDeviceRows[i].TdpW
 	}
 
 	return rows

@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/gpudb"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -169,11 +170,18 @@ type SIsolatedDevice struct {
 	// device numa node
 	NumaNode int8 `nullable:"true" default:"-1" list:"domain" update:"domain" create:"domain_optional"`
 
-	// On-device memory in MiB (NVIDIA GPU VRAM via `nvidia-smi memory.total`,
+	// On-device memory in MB (NVIDIA GPU VRAM via `nvidia-smi memory.total`,
 	// or per-slice quota for MPS share mode). 0 means unknown / not applicable.
 	MemorySize int `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
 	// some of isolated device type support virtual num, like NVIDIA_GPU_SHARE, NVIDIA_MPS
 	VirtualNum int `nullable:"true" default:"1" list:"user" update:"domain" create:"domain_optional"`
+
+	// the number of chips on the device, like NVIDIA GPU
+	ChipsOnDevice uint `nullable:"true" default:"1" list:"domain" update:"domain" create:"domain_optional"`
+	// Fp16Tflops is the FP16 peak matrix throughput in TFLOPS.
+	Fp16Tflops float64 `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	// TdpW is the maximum thermal design power in watts.
+	TdpW int `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SIsolatedDeviceManager) GetIVirtualModelManager() db.IVirtualModelManager {
@@ -297,8 +305,28 @@ func (device *SIsolatedDevice) isolateDeviceNotifyForHost(ctx context.Context, u
 	})
 }
 
+func (device *SIsolatedDevice) syncGPUInfo() error {
+	if device.DevType != api.GPU_TYPE && device.DevType != api.NPU_TYPE {
+		return nil
+	}
+	gpuInfo := device.getGPUInfo()
+	if gpuInfo == nil {
+		return nil
+	}
+	_, err := db.Update(device, func() error {
+		device.Fp16Tflops = gpuInfo.Fp16Tflops
+		device.TdpW = gpuInfo.TdpW
+		if device.MemorySize == 0 {
+			device.MemorySize = int(gpuInfo.MemorySizeGB * 1000)
+		}
+		return nil
+	})
+	return errors.Wrap(err, "update device")
+}
+
 func (device *SIsolatedDevice) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	device.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	device.syncGPUInfo()
 	device.isolateDeviceNotifyForHost(ctx, userCred, notify.ActionIsolatedDeviceCreate)
 }
 
@@ -309,6 +337,7 @@ func (device *SIsolatedDevice) PostDelete(ctx context.Context, userCred mcclient
 
 func (device *SIsolatedDevice) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	HostManager.ClearSchedDescCache(device.HostId)
+	device.syncGPUInfo()
 	device.isolateDeviceNotifyForHost(ctx, userCred, notify.ActionIsolatedDeviceUpdate)
 }
 
@@ -510,6 +539,15 @@ func (self *SIsolatedDevice) getVendor() string {
 	} else {
 		return vendorId
 	}
+}
+
+func (self *SIsolatedDevice) getGPUInfo() *gpudb.SGPUInfo {
+	memSizeGB := uint(self.MemorySize) / 1000
+	gpuInfo, err := gpudb.GetGPUInfo2(self.VendorDeviceId, memSizeGB, self.ChipsOnDevice)
+	if err != nil {
+		return nil
+	}
+	return gpuInfo
 }
 
 func GetVendorByVendorDeviceId(vendorDeviceId string) string {
@@ -1577,7 +1615,23 @@ func (manager *SIsolatedDeviceManager) FetchCustomizeColumns(
 			SharableResourceBaseInfo:  shareRows[i],
 		}
 		dev := objs[i].(*SIsolatedDevice)
-		rows[i].Vendor = dev.getVendor()
+		gpuInfo := dev.getGPUInfo()
+		if gpuInfo != nil {
+			rows[i].Vendor = strings.ToUpper(gpuInfo.Vendor)
+			rows[i].ManageTool = gpuInfo.ManageTool
+			rows[i].VectorPeakPrecision = gpuInfo.VectorPeakPrecision
+			rows[i].GPUArch = gpuInfo.Arch
+			rows[i].MatrixPeakPrecision = gpuInfo.MatrixPeakPrecision
+			rows[i].GPUChip = gpuInfo.Chip
+			rows[i].MemoryType = gpuInfo.MemoryType
+			rows[i].MemoryBusBit = gpuInfo.MemoryBusBit
+			rows[i].BandwidthGBs = gpuInfo.BandwidthGBs
+			rows[i].FormFactor = gpuInfo.FormFactor
+			rows[i].Interconnect = gpuInfo.Interconnect
+			rows[i].InterconnectBandwidthGBs = gpuInfo.InterconnectBandwidthGBs
+		} else {
+			rows[i].Vendor = dev.getVendor()
+		}
 		if dev.SharingMode == api.DEVICE_SHARING_MODE_HAMI {
 			rows[i].MemoryAllocated, _ = dev.getAllocatedMemorySize()
 		} else {
@@ -2090,25 +2144,77 @@ func (manager *SIsolatedDeviceManager) InitializeData() error {
 	if err != nil {
 		return errors.Wrap(err, "isInitializeDataDone")
 	}
-	if inited {
-		return nil
+	if !inited {
+		if err := manager.migrateGuestIsolatedDevices(); err != nil {
+			return errors.Wrap(err, "migrateGuestIsolatedDevices")
+		}
+		if err := manager.mergeVirtualIsolatedDevices(); err != nil {
+			return errors.Wrap(err, "mergeVirtualIsolatedDevices")
+		}
+		if err := manager.initVirtualNum(); err != nil {
+			return errors.Wrap(err, "initVirtualNum")
+		}
+		if err := manager.migrateDevType(); err != nil {
+			return errors.Wrap(err, "migrateDevType")
+		}
+		if err := manager.markInitializeDataDone(ctx); err != nil {
+			return errors.Wrap(err, "markInitializeDataDone")
+		}
 	}
+	if err := manager.initGPUInfo(); err != nil {
+		return errors.Wrap(err, "initGPUModelNames")
+	}
+	return nil
+}
 
-	if err := manager.migrateGuestIsolatedDevices(); err != nil {
-		return errors.Wrap(err, "migrateGuestIsolatedDevices")
+func (manager *SIsolatedDeviceManager) initGPUInfo() error {
+	devs := make([]SIsolatedDevice, 0)
+	q := manager.Query()
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.IsNullOrEmpty(q.Field("model")),
+		sqlchemy.Equals(q.Field("model"), "Device"),
+		sqlchemy.IsNull(q.Field("fp16_tflops")),
+		sqlchemy.IsNull(q.Field("tdp_w")),
+	))
+	q = q.In("dev_type", []string{api.GPU_TYPE, api.NPU_TYPE})
+	err := db.FetchModelObjects(manager, q, &devs)
+	if err != nil {
+		return errors.Wrap(err, "FetchModelObjects")
 	}
-	if err := manager.mergeVirtualIsolatedDevices(); err != nil {
-		return errors.Wrap(err, "mergeVirtualIsolatedDevices")
+	updated := 0
+	for i := range devs {
+		dev := &devs[i]
+		if dev.VendorDeviceId == "" {
+			continue
+		}
+		memSizeGB := uint(0)
+		if dev.MemorySize > 0 {
+			memSizeGB = uint(dev.MemorySize / 1000)
+		}
+		gpuInfo, err := gpudb.GetGPUInfo2(dev.VendorDeviceId, memSizeGB, dev.ChipsOnDevice)
+		if err != nil {
+			log.Warningf("GetGPUInfo2 %s: %s", dev.VendorDeviceId, err)
+			continue
+		}
+		if gpuInfo == nil || gpuInfo.Name == "" {
+			continue
+		}
+		if _, err := db.Update(dev, func() error {
+			if len(dev.Model) == 0 || dev.Model == "Device" {
+				dev.Model = gpuInfo.Name
+			}
+			dev.Fp16Tflops = gpuInfo.Fp16Tflops
+			dev.TdpW = gpuInfo.TdpW
+			if dev.MemorySize == 0 {
+				dev.MemorySize = int(gpuInfo.MemorySizeGB * 1000)
+			}
+			return nil
+		}); err != nil {
+			return errors.Wrapf(err, "set model on device %s", dev.Id)
+		}
+		updated++
 	}
-	if err := manager.initVirtualNum(); err != nil {
-		return errors.Wrap(err, "initVirtualNum")
-	}
-	if err := manager.migrateDevType(); err != nil {
-		return errors.Wrap(err, "migrateDevType")
-	}
-	if err := manager.markInitializeDataDone(ctx); err != nil {
-		return errors.Wrap(err, "markInitializeDataDone")
-	}
+	log.Infof("init GPU model names for %d isolated devices", updated)
 	return nil
 }
 
@@ -2542,4 +2648,25 @@ func (dev *SIsolatedDevice) IsKvmExclusiveGPU() bool {
 		return false
 	}
 	return true
+}
+
+type SIsolatedDeviceTotalCount struct {
+	apis.TotalCountBase
+	TotalFp16Tflops float64
+	TotalTdpW       int
+	TotalMemMB      int64
+}
+
+func (manager *SIsolatedDeviceManager) CustomizedTotalCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, totalQ *sqlchemy.SQuery) (int, jsonutils.JSONObject, error) {
+	totalQ = totalQ.AppendField(sqlchemy.SUM("total_fp16_tflops", totalQ.Field("fp16_tflops")))
+	totalQ = totalQ.AppendField(sqlchemy.SUM("total_tdp_w", totalQ.Field("tdp_w")))
+	totalQ = totalQ.AppendField(sqlchemy.SUM("total_mem_mb", totalQ.Field("memory_size")))
+
+	results := SIsolatedDeviceTotalCount{}
+	err := totalQ.First(&results)
+	if err != nil {
+		return -1, nil, errors.Wrap(err, "SIsolatedDeviceManager query total")
+	}
+	ret := jsonutils.Marshal(results).(*jsonutils.JSONDict)
+	return results.Count, ret, nil
 }
