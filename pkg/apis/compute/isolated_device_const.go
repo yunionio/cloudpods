@@ -14,6 +14,12 @@
 
 package compute
 
+import (
+	"strings"
+
+	"yunion.io/x/onecloud/pkg/util/gpudb"
+)
+
 const (
 	DIRECT_PCI_TYPE = "PCI"
 	GPU_TYPE        = "GPU"
@@ -60,29 +66,10 @@ var HeterogeneousVendors = []string{
 	VASTAITECH_VENDOR_ID, HYGON_VENDOR_ID, ASCEND_VENDOR_ID, ILUVATAR_VENDOR_ID, THEAD_VENDOR_ID, KUNLUNXIN_VENDOR_ID, MTHREADS_VENDOR_ID,
 }
 
-var ID_VENDOR_MAP = map[string]string{
-	NVIDIA_VENDOR_ID:     "NVIDIA",
-	AMD_VENDOR_ID:        "AMD",
-	VASTAITECH_VENDOR_ID: "VASTAITECH",
-	ASCEND_VENDOR_ID:     "ASCEND",
-	HYGON_VENDOR_ID:      "HYGON",
-	ILUVATAR_VENDOR_ID:   "ILUVATAR",
-	THEAD_VENDOR_ID:      "THEAD",
-	KUNLUNXIN_VENDOR_ID:  "KUNLUNXIN",
-	MTHREADS_VENDOR_ID:   "MTHREADS",
-}
-
-var VENDOR_ID_MAP = map[string]string{
-	"NVIDIA":     NVIDIA_VENDOR_ID,
-	"AMD":        AMD_VENDOR_ID,
-	"VASTAITECH": VASTAITECH_VENDOR_ID,
-	"ASCEND":     ASCEND_VENDOR_ID,
-	"HYGON":      HYGON_VENDOR_ID,
-	"ILUVATAR":   ILUVATAR_VENDOR_ID,
-	"THEAD":      THEAD_VENDOR_ID,
-	"KUNLUNXIN":  KUNLUNXIN_VENDOR_ID,
-	"MTHREADS":   MTHREADS_VENDOR_ID,
-}
+// ID_VENDOR_MAP 由 gpudb 的 VendorId 映射到大写厂商名。
+// VENDOR_ID_MAP 是反向映射。同一厂商名只保留一个 VendorId。
+var ID_VENDOR_MAP = map[string]string{}
+var VENDOR_ID_MAP = map[string]string{}
 
 const (
 	ISOLATED_DEVICE_MODEL_METADATA_BANDWIDTH = "bandwidth"
@@ -156,6 +143,21 @@ var VITRUAL_DEVICE_TYPES = []string{
 }
 
 func init() {
+	for _, gpu := range gpudb.GPUInfos {
+		vendorId := strings.ToLower(strings.TrimSpace(gpu.VendorId))
+		vendor := strings.ToUpper(strings.TrimSpace(gpu.Vendor))
+		if vendorId == "" || vendor == "" {
+			continue
+		}
+		if name, ok := ID_VENDOR_MAP[vendorId]; ok && name != vendor {
+			panic("gpudb vendor id " + vendorId + " maps to both " + name + " and " + vendor)
+		}
+		if id, ok := VENDOR_ID_MAP[vendor]; ok && id != vendorId {
+			panic("gpudb vendor " + vendor + " maps to both " + id + " and " + vendorId)
+		}
+		ID_VENDOR_MAP[vendorId] = vendor
+		VENDOR_ID_MAP[vendor] = vendorId
+	}
 	VALID_PASSTHROUGH_TYPES = append(VALID_PASSTHROUGH_TYPES, VALID_CONTAINER_DEVICE_TYPES...)
 	VALID_ATTACH_TYPES = append(VALID_ATTACH_TYPES, VALID_CONTAINER_DEVICE_TYPES...)
 }
