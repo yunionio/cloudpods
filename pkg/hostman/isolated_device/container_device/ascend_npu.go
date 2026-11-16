@@ -112,19 +112,65 @@ type ascnedNPU struct {
 	manager isolated_device.IContainerDeviceManager
 
 	*BaseDevice
-	memorySize int
+	memorySize    int
+	chipsOnDevice uint
 }
 
 func (dev *ascnedNPU) GetMemorySize() int {
 	return dev.memorySize
 }
 
+func (dev *ascnedNPU) GetChipsOnDevice() uint {
+	if dev.chipsOnDevice == 0 {
+		return 1
+	}
+	return dev.chipsOnDevice
+}
+
 func (dev *ascnedNPU) GetContainerDeviceManager() isolated_device.IContainerDeviceManager {
 	return dev.manager
 }
 
+func parseNpuSmiChipCounts(output string) map[int]uint {
+	counts := map[int]uint{}
+	npuID := -1
+	for _, line := range strings.Split(output, "\n") {
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+		switch key {
+		case "NPU ID":
+			id, err := strconv.Atoi(val)
+			if err != nil {
+				npuID = -1
+				continue
+			}
+			npuID = id
+		case "Chip Count":
+			if npuID < 0 {
+				continue
+			}
+			n, err := strconv.Atoi(val)
+			if err != nil || n <= 0 {
+				continue
+			}
+			counts[npuID] = uint(n)
+		}
+	}
+	return counts
+}
+
 func getAscendNpus(m isolated_device.IContainerDeviceManager, sharingMode string) ([]isolated_device.IDevice, error) {
 	devs := make([]isolated_device.IDevice, 0)
+	chipCounts := map[int]uint{}
+	if chipOut, err := procutils.NewRemoteCommandAsFarAsPossible("npu-smi", "info", "-l").Output(); err != nil {
+		log.Warningf("npu-smi info -l: %s", err)
+	} else {
+		chipCounts = parseNpuSmiChipCounts(string(chipOut))
+	}
 	// Show all device's topology information
 	out, err := procutils.NewRemoteCommandAsFarAsPossible("npu-smi", "info").Output()
 	if err != nil {
@@ -171,9 +217,14 @@ func getAscendNpus(m isolated_device.IContainerDeviceManager, sharingMode string
 			return nil, errors.Wrapf(err, "GetPCIStrByAddr %s", busID)
 		}
 		dev := isolated_device.NewPCIDevice2(pciOutput[0])
+		chips := uint(1)
+		if n, ok := chipCounts[npuId]; ok && n > 0 {
+			chips = n
+		}
 		npuDev := &ascnedNPU{
-			manager:    m,
-			BaseDevice: NewBaseDevice(dev, computeapi.NPU_TYPE, devPath, sharingMode, 1),
+			manager:       m,
+			BaseDevice:    NewBaseDevice(dev, computeapi.NPU_TYPE, devPath, sharingMode, 1),
+			chipsOnDevice: chips,
 		}
 		npuDev.SetModelName(npuName)
 		npuDev.memorySize = hbmMem
