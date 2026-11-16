@@ -38,8 +38,8 @@ type SAiKey struct {
 
 	// AiProviderId optionally associates this key with a catalog provider row.
 	AiProviderId string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	// Secret holds raw key material; only privileged scopes should list it.
-	Secret string `width:"4096" charset:"ascii" nullable:"false" create:"required" get:"user"`
+	// Secret holds key material (encrypted at rest). Not exposed via get/list.
+	Secret string `width:"4096" charset:"ascii" nullable:"false" create:"required"`
 	// Weight is used for weighted random load balancing among matching keys (default 1).
 	Weight int `default:"1" nullable:"false" list:"user" create:"optional" update:"user"`
 	// Routing limits which request "model" values may use this key.
@@ -186,9 +186,6 @@ func (manager *SAiKeyManager) FetchCustomizeColumns(
 	for i := range objs {
 		rows[i].VirtualResourceDetails = baseRows[i]
 		k := objs[i].(*SAiKey)
-		plain := k.GetSecret()
-		k.Secret = plain
-		rows[i].Secret = plain
 		providerIds[i] = k.AiProviderId
 	}
 	providerNames, err := db.FetchIdNameMap2(AiProviderManager, providerIds)
