@@ -1087,7 +1087,7 @@ func (guest *SGuest) ValidateDeleteCondition(ctx context.Context, info *api.Serv
 		if err != nil {
 			return err
 		}
-		if host.IsImport && (host.EnablePxeBoot.IsFalse() || !options.Options.BaremetalPrepareServerFakeDelete) {
+		if host.IsImport && !options.Options.BaremetalPrepareServerFakeDelete {
 			return httperrors.NewBadRequestError("Import baremetal can't delete by default")
 		}
 	}
