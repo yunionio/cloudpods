@@ -510,7 +510,7 @@ func (self *SBaremetalGuestDriver) CanStop(guest *models.SGuest) error {
 	if err != nil {
 		return err
 	}
-	if host.IsImport && host.IpmiInfo == nil {
+	if host.IsImport && host.IpmiIp == "" {
 		return httperrors.NewBadRequestError("Host %s is import no ipmi_info, can't stop", host.Id)
 	}
 	return nil
