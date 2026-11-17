@@ -391,6 +391,7 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 
 	if _, ok := kwargs[TELEGRAF_INPUT_NVIDIASMI]; ok {
 		conf += "[[inputs.nvidia_smi]]\n"
+		conf += "  timeout = \"30s\"\n" //  # timeout = "30s"
 		conf += "\n"
 	}
 
