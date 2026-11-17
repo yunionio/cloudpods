@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -22,10 +23,47 @@ type PodPostStopCleanupConfig struct {
 	Dirs []string `json:"dirs"`
 }
 
+// isolatedDeviceVramPlan is the VRAM floor used when stamping scheduler
+// IsolatedDeviceConfig entries.
+//
+// HAMI slices still use HamiClaimMb (weight + framework + KV), split across
+// HAMI devices. Whole cards (UNLIMITED / EXCLUSIVE / MPS) use WholeCardClaimMb
+// (weight + framework only, matching GPUStack estimate_model_vram). A card fits
+// when MemorySize * WholeCardUtilization covers its share of that claim.
+type isolatedDeviceVramPlan struct {
+	HamiClaimMb          int
+	WholeCardClaimMb     int
+	WholeCardUtilization float64
+}
+
+// usesLegacySplit reports a call that only has the historical single claim.
+// That claim is split across every device, which keeps HAMI tests and callers
+// that have not opted into the GPUStack whole-card fit.
+func (p isolatedDeviceVramPlan) usesLegacySplit() bool {
+	return p.WholeCardClaimMb == 0 && p.WholeCardUtilization == 0
+}
+
+// wholeCardScheduleMemoryMb is the minimum physical memory of one whole card.
+// ceil(claim / (count * utilization)) makes MemorySize >= result equivalent to
+// sum(MemorySize) * utilization >= claim for equal cards.
+func wholeCardScheduleMemoryMb(claimMb, count int, utilization float64) int {
+	if claimMb <= 0 || count <= 0 {
+		return 0
+	}
+	if utilization <= 0 || utilization > 1 {
+		return (claimMb + count - 1) / count
+	}
+	return int(math.Ceil(float64(claimMb) / (float64(count) * utilization)))
+}
+
 // BuildIsolatedDeviceConfigs builds pod IsolatedDeviceConfig list from SKU/LLM
 // devices. Empty or nil devices yield nil. HAMI devices without per-device
 // memory_mb require a positive vramClaimMb (evenly split across devices).
 func BuildIsolatedDeviceConfigs(effectiveDevices *api.Devices, vramClaimMb int) ([]*computeapi.IsolatedDeviceConfig, error) {
+	return buildIsolatedDeviceConfigs(effectiveDevices, isolatedDeviceVramPlan{HamiClaimMb: vramClaimMb})
+}
+
+func buildIsolatedDeviceConfigs(effectiveDevices *api.Devices, plan isolatedDeviceVramPlan) ([]*computeapi.IsolatedDeviceConfig, error) {
 	if effectiveDevices == nil || effectiveDevices.IsZero() {
 		return nil, nil
 	}
@@ -34,6 +72,49 @@ func BuildIsolatedDeviceConfigs(effectiveDevices *api.Devices, vramClaimMb int) 
 	for i := range devices {
 		normalizeLLMSkuDevice(&devices[i])
 	}
+	if plan.usesLegacySplit() {
+		return buildLegacyIsolatedDeviceConfigs(devices, plan.HamiClaimMb)
+	}
+
+	hamiCount := 0
+	wholeCount := 0
+	hasHAMINeedingClaim := false
+	for i := range devices {
+		if devices[i].SharingMode == computeapi.DEVICE_SHARING_MODE_HAMI {
+			hamiCount++
+			if devices[i].MemoryMb <= 0 {
+				hasHAMINeedingClaim = true
+			}
+			continue
+		}
+		wholeCount++
+	}
+	if hasHAMINeedingClaim && plan.HamiClaimMb <= 0 {
+		return nil, errors.Wrap(httperrors.ErrInputParameter,
+			"vram claim is 0 for HAMI devices: set devices[].memory_mb, mount InstantModel with weight_size_bytes, or use a non-HAMI sharing_mode")
+	}
+	perHami := 0
+	if plan.HamiClaimMb > 0 && hamiCount > 0 {
+		perHami = (plan.HamiClaimMb + hamiCount - 1) / hamiCount
+	}
+	perWhole := wholeCardScheduleMemoryMb(plan.WholeCardClaimMb, wholeCount, plan.WholeCardUtilization)
+
+	out := make([]*computeapi.IsolatedDeviceConfig, 0, len(devices))
+	for i := range devices {
+		memMb := devices[i].MemoryMb
+		if memMb <= 0 {
+			if devices[i].SharingMode == computeapi.DEVICE_SHARING_MODE_HAMI {
+				memMb = perHami
+			} else {
+				memMb = perWhole
+			}
+		}
+		out = append(out, isolatedDeviceConfigFromDevice(&devices[i], memMb))
+	}
+	return out, nil
+}
+
+func buildLegacyIsolatedDeviceConfigs(devices api.Devices, vramClaimMb int) ([]*computeapi.IsolatedDeviceConfig, error) {
 	hasHAMINeedingClaim := false
 	for i := range devices {
 		if devices[i].SharingMode == computeapi.DEVICE_SHARING_MODE_HAMI && devices[i].MemoryMb <= 0 {
@@ -45,31 +126,32 @@ func BuildIsolatedDeviceConfigs(effectiveDevices *api.Devices, vramClaimMb int) 
 		return nil, errors.Wrap(httperrors.ErrInputParameter,
 			"vram claim is 0 for HAMI devices: set devices[].memory_mb, mount InstantModel with weight_size_bytes, or use a non-HAMI sharing_mode")
 	}
-	// Evenly split estimated vram claim across requested devices when a
-	// device does not set memory_mb. Ceiling division so the sum is never
-	// less than the claim.
 	perDevFromClaim := 0
 	if vramClaimMb > 0 && len(devices) > 0 {
 		perDevFromClaim = (vramClaimMb + len(devices) - 1) / len(devices)
 	}
 	out := make([]*computeapi.IsolatedDeviceConfig, 0, len(devices))
-	for i := 0; i < len(devices); i++ {
+	for i := range devices {
 		memMb := devices[i].MemoryMb
 		if memMb <= 0 {
 			memMb = perDevFromClaim
 		}
-		out = append(out, &computeapi.IsolatedDeviceConfig{
-			DevType:       devices[i].DevType,
-			SharingMode:   devices[i].SharingMode,
-			Vendor:        devices[i].Vendor,
-			Model:         devices[i].Model,
-			DevicePath:    devices[i].DevicePath,
-			MemoryMb:      memMb,
-			MemoryRequest: memMb,
-			SmUtilLimit:   devices[i].SmUtilLimit,
-		})
+		out = append(out, isolatedDeviceConfigFromDevice(&devices[i], memMb))
 	}
 	return out, nil
+}
+
+func isolatedDeviceConfigFromDevice(dev *api.Device, memMb int) *computeapi.IsolatedDeviceConfig {
+	return &computeapi.IsolatedDeviceConfig{
+		DevType:       dev.DevType,
+		SharingMode:   dev.SharingMode,
+		Vendor:        dev.Vendor,
+		Model:         dev.Model,
+		DevicePath:    dev.DevicePath,
+		MemoryMb:      memMb,
+		MemoryRequest: memMb,
+		SmUtilLimit:   dev.SmUtilLimit,
+	}
 }
 
 func GetLLMBasePodCreateInput(
@@ -78,7 +160,7 @@ func GetLLMBasePodCreateInput(
 	input *api.LLMBaseCreateInput,
 	llmBase *SLLMBase,
 	skuBase *SLLMSkuBase,
-	vramClaimMb int,
+	plan isolatedDeviceVramPlan,
 	eip string,
 ) (*computeapi.ServerCreateInput, error) {
 	data := computeapi.ServerCreateInput{}
@@ -115,7 +197,7 @@ func GetLLMBasePodCreateInput(
 	}
 
 	// isolated devices
-	isolatedDevices, err := BuildIsolatedDeviceConfigs(getEffectiveDevices(llmBase, skuBase), vramClaimMb)
+	isolatedDevices, err := buildIsolatedDeviceConfigs(getEffectiveDevices(llmBase, skuBase), plan)
 	if err != nil {
 		return nil, err
 	}

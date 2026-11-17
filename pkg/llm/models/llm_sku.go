@@ -380,6 +380,19 @@ func (sku *SLLMSku) EstimateModelVramMb() int {
 	return EstimateModelVramMbFromMountedModels(sku.LLMType, sku.GetMountedModels())
 }
 
+// isolatedDeviceVramPlan selects the GPUStack whole-card claim (no KV) and the
+// configured gpu-memory-utilization, while HAMI keeps the KV-inclusive claim.
+func (sku *SLLMSku) isolatedDeviceVramPlan() isolatedDeviceVramPlan {
+	if sku == nil {
+		return isolatedDeviceVramPlan{}
+	}
+	return isolatedDeviceVramPlan{
+		HamiClaimMb:          sku.EstimateVramClaimMb(),
+		WholeCardClaimMb:     sku.EstimateModelVramMb(),
+		WholeCardUtilization: skuGpuMemoryUtilization(sku),
+	}
+}
+
 // effectiveMaxModelLen returns SKU-configured max-model-len, or the platform default.
 func effectiveMaxModelLen(sku *SLLMSku) int {
 	if sku == nil {
@@ -453,15 +466,12 @@ func (sku *SLLMSku) GetLLMContainerDriver() ILLMContainerDriver {
 
 // buildSchedulableIsolatedDevices builds IsolatedDeviceConfig list for forecast
 // using the same path as pod create (GPU/NPU + SharingMode + MemoryMb).
-func buildSchedulableIsolatedDevices(devices *api.Devices, vramClaimMb int) ([]*computeapi.IsolatedDeviceConfig, int, error) {
-	isoDevs, err := BuildIsolatedDeviceConfigs(devices, vramClaimMb)
+func buildSchedulableIsolatedDevices(devices *api.Devices, plan isolatedDeviceVramPlan) ([]*computeapi.IsolatedDeviceConfig, int, error) {
+	isoDevs, err := buildIsolatedDeviceConfigs(devices, plan)
 	if err != nil {
 		return nil, 0, err
 	}
 	perDevMinMb := 0
-	if vramClaimMb > 0 && devices != nil && len(*devices) > 0 {
-		perDevMinMb = (vramClaimMb + len(*devices) - 1) / len(*devices)
-	}
 	for _, d := range isoDevs {
 		if d.MemoryMb > perDevMinMb {
 			perDevMinMb = d.MemoryMb
@@ -513,12 +523,13 @@ func (sku *SLLMSku) PerformSchedulableCheck(
 
 	var isoDevs []*computeapi.IsolatedDeviceConfig
 	if gpuCount > 0 {
-		vramClaimMb := sku.EstimateVramClaimMb()
+		plan := sku.isolatedDeviceVramPlan()
+		vramClaimMb := plan.HamiClaimMb
 		out.VramClaimMb = vramClaimMb
 
 		var err error
 		var perDevMinMb int
-		isoDevs, perDevMinMb, err = buildSchedulableIsolatedDevices(sku.Devices, vramClaimMb)
+		isoDevs, perDevMinMb, err = buildSchedulableIsolatedDevices(sku.Devices, plan)
 		if err != nil {
 			out.Reason = err.Error()
 			return out, nil
