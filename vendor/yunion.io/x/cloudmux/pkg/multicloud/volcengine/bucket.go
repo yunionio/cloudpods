@@ -204,6 +204,10 @@ func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUpload
 			UploadIDMarker: uploadIDMarker,
 		})
 		if err != nil {
+			err = cloudprovider.ConvertBucketError(err)
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return nil, err
+			}
 			return nil, errors.Wrap(err, "ListMultipartUploadsV2")
 		}
 		for i := range output.Uploads {
