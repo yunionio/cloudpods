@@ -92,6 +92,10 @@ func (self *SBaseResources) init(ctx context.Context) error {
 	if self.manager.GetKeyword() == compute.Hosts.GetKeyword() { // private and vmware
 		query["cloud_env"] = "private_or_onpremise"
 	}
+	// Fixed/public IPs are emulated EIPs; include them for eip_net collection.
+	if self.manager.GetKeyword() == compute.Elasticips.GetKeyword() {
+		query["show_emulated"] = true
+	}
 	if self.manager.GetKeyword() != compute.Cloudproviders.GetKeyword() {
 		query["filter.0"] = "external_id.isnotempty()"
 	}
@@ -161,6 +165,9 @@ func (self *SBaseResources) increment(ctx context.Context) error {
 	}
 	if self.manager.GetKeyword() == compute.Hosts.GetKeyword() {
 		query["cloud_env"] = "private_or_onpremise"
+	}
+	if self.manager.GetKeyword() == compute.Elasticips.GetKeyword() {
+		query["show_emulated"] = true
 	}
 	ret := []jsonutils.JSONObject{}
 	for {
@@ -289,6 +296,9 @@ func (self *SBaseResources) update(ctx context.Context) error {
 
 	if self.manager.GetKeyword() == compute.Hosts.GetKeyword() {
 		query["cloud_env"] = "private_or_onpremise"
+	}
+	if self.manager.GetKeyword() == compute.Elasticips.GetKeyword() {
+		query["show_emulated"] = true
 	}
 
 	ret := []jsonutils.JSONObject{}
