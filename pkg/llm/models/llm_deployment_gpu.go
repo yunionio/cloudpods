@@ -27,6 +27,10 @@ const (
 	autoGpuMemoryUtilizationMin          = 0.05
 	autoGpuMemoryUtilizationMax          = 1.0
 
+	// defaultGpuMemoryUtilization matches GPUStack's vLLM selector default.
+	// KV cache is whatever remains inside this fraction of each card.
+	defaultGpuMemoryUtilization = 0.9
+
 	sglangAutoGpuMemoryMetadataReserveMB = 512
 )
 
@@ -102,6 +106,98 @@ func gpuMemoryUtilizationRuntimeArgKey(llmType string) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+// skuGpuMemoryUtilization is the fraction of each whole card that vLLM/SGLang
+// will use. Explicit SKU args win; otherwise LLM backends default to 0.9, the
+// same default GPUStack applies when the flag is omitted. 0 means the runtime
+// does not use this fraction (compare the model claim directly).
+func skuGpuMemoryUtilization(sku *SLLMSku) float64 {
+	if sku == nil {
+		return 0
+	}
+	if v, ok := explicitGpuMemoryUtilization(sku); ok {
+		return v
+	}
+	if _, ok := gpuMemoryUtilizationRuntimeArgKey(sku.LLMType); ok {
+		return defaultGpuMemoryUtilization
+	}
+	return 0
+}
+
+func explicitGpuMemoryUtilization(sku *SLLMSku) (float64, bool) {
+	if sku == nil {
+		return 0, false
+	}
+	key, ok := gpuMemoryUtilizationRuntimeArgKey(sku.LLMType)
+	if !ok {
+		return 0, false
+	}
+	keys := []string{key}
+	if v, ok := floatFromBackendParameters(sku.BackendParameters, keys); ok {
+		return v, true
+	}
+	switch api.LLMContainerType(sku.LLMType) {
+	case api.LLM_CONTAINER_VLLM:
+		if sku.LLMSpec == nil || sku.LLMSpec.Vllm == nil {
+			return 0, false
+		}
+		for _, arg := range sku.LLMSpec.Vllm.CustomizedArgs {
+			if arg == nil || !runtimeArgKeyIn(arg.Key, keys) {
+				continue
+			}
+			if v, ok := parseGpuMemoryUtilizationValue(arg.Value); ok {
+				return v, true
+			}
+		}
+	case api.LLM_CONTAINER_SGLANG:
+		if sku.LLMSpec == nil || sku.LLMSpec.SGLang == nil {
+			return 0, false
+		}
+		for _, arg := range sku.LLMSpec.SGLang.CustomizedArgs {
+			if arg == nil || !runtimeArgKeyIn(arg.Key, keys) {
+				continue
+			}
+			if v, ok := parseGpuMemoryUtilizationValue(arg.Value); ok {
+				return v, true
+			}
+		}
+	}
+	return 0, false
+}
+
+func floatFromBackendParameters(items []string, keys []string) (float64, bool) {
+	var foundVal float64
+	found := false
+	for i := range items {
+		key, value, ok := splitBackendParameterFlag(items[i])
+		if !ok || !runtimeArgKeyIn(key, keys) {
+			continue
+		}
+		if value == "" && i+1 < len(items) {
+			next := strings.TrimSpace(items[i+1])
+			if next != "" && !strings.HasPrefix(next, "-") {
+				value = next
+			}
+		}
+		if v, ok := parseGpuMemoryUtilizationValue(value); ok {
+			foundVal = v
+			found = true
+		}
+	}
+	return foundVal, found
+}
+
+func parseGpuMemoryUtilizationValue(value string) (float64, bool) {
+	value = trimArgumentValue(value)
+	if value == "" {
+		return 0, false
+	}
+	v, err := strconv.ParseFloat(value, 64)
+	if err != nil || v <= 0 || v > 1 {
+		return 0, false
+	}
+	return v, true
 }
 
 func calculateAutoGpuMemoryUtilization(requiredVramMB int64, gpuMemoryMB int64, tensorParallelSize int) (float64, error) {

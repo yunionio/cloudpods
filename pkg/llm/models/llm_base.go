@@ -175,11 +175,7 @@ func groupIsolatedDeviceAttachConfigs(desired []*computeapi.IsolatedDeviceConfig
 // effective devices on restart: detach-all when desired differs from bound,
 // then attach by model/sharing_mode/memory_request.
 func (llm *SLLM) SyncIsolatedDevicesWithSku(ctx context.Context, userCred mcclient.TokenCredential, sku *SLLMSku) error {
-	vramClaimMb := 0
-	if sku != nil {
-		vramClaimMb = sku.EstimateVramClaimMb()
-	}
-	desired, err := BuildIsolatedDeviceConfigs(GetEffectiveDevices(llm, sku), vramClaimMb)
+	desired, err := buildIsolatedDeviceConfigs(GetEffectiveDevices(llm, sku), sku.isolatedDeviceVramPlan())
 	if err != nil {
 		return errors.Wrap(err, "BuildIsolatedDeviceConfigs")
 	}
