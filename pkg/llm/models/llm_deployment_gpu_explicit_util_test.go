@@ -7,6 +7,52 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 )
 
+func TestSkuGpuMemoryUtilizationDefaultAndExplicit(t *testing.T) {
+	if skuGpuMemoryUtilization(nil) != 0 {
+		t.Fatal("nil sku utilization should be 0")
+	}
+	ollama := &SLLMSku{LLMType: string(api.LLM_CONTAINER_OLLAMA)}
+	if skuGpuMemoryUtilization(ollama) != 0 {
+		t.Fatalf("ollama utilization = %v, want 0", skuGpuMemoryUtilization(ollama))
+	}
+
+	plain := &SLLMSku{LLMType: string(api.LLM_CONTAINER_VLLM)}
+	if skuGpuMemoryUtilization(plain) != defaultGpuMemoryUtilization {
+		t.Fatalf("default vllm utilization = %v, want %v", skuGpuMemoryUtilization(plain), defaultGpuMemoryUtilization)
+	}
+
+	explicit := &SLLMSku{
+		LLMType:           string(api.LLM_CONTAINER_VLLM),
+		BackendParameters: []string{"--gpu-memory-utilization=0.9"},
+	}
+	if skuGpuMemoryUtilization(explicit) != 0.9 {
+		t.Fatalf("explicit 0.9 = %v", skuGpuMemoryUtilization(explicit))
+	}
+	if skuGpuMemoryUtilization(explicit) != skuGpuMemoryUtilization(plain) {
+		t.Fatal("explicit 0.9 should match the vLLM default")
+	}
+
+	bySpec := &SLLMSku{
+		LLMType: string(api.LLM_CONTAINER_VLLM),
+		LLMSpec: &api.LLMSpec{
+			Vllm: &api.LLMSpecVllm{
+				CustomizedArgs: []*api.VllmCustomizedArg{{Key: "gpu-memory-utilization", Value: "0.85"}},
+			},
+		},
+	}
+	if skuGpuMemoryUtilization(bySpec) != 0.85 {
+		t.Fatalf("customized arg utilization = %v, want 0.85", skuGpuMemoryUtilization(bySpec))
+	}
+
+	sglang := &SLLMSku{
+		LLMType:           string(api.LLM_CONTAINER_SGLANG),
+		BackendParameters: []string{"--mem-fraction-static", "0.8"},
+	}
+	if skuGpuMemoryUtilization(sglang) != 0.8 {
+		t.Fatalf("sglang mem-fraction-static = %v, want 0.8", skuGpuMemoryUtilization(sglang))
+	}
+}
+
 func TestSkuHasExplicitGpuMemoryUtilization(t *testing.T) {
 	if skuHasExplicitGpuMemoryUtilization(nil) {
 		t.Fatal("nil sku should not have explicit GPU util")
