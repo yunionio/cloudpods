@@ -193,6 +193,8 @@ func (self *SApsaraClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]
 		return self.GetElbMetrics(opts)
 	case cloudprovider.METRIC_RESOURCE_TYPE_EIP:
 		return self.GetEipMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_NAT:
+		return self.GetNatMetrics(opts)
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.ResourceType)
 	}
@@ -527,6 +529,10 @@ func (self *SApsaraClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) 
 		metrics = map[string]string{
 			"ConnectionUsage": "",
 		}
+	case cloudprovider.RDS_METRIC_TYPE_CONN_COUNT:
+		metrics = map[string]string{
+			"ConnectionCount": "",
+		}
 	case cloudprovider.RDS_METRIC_TYPE_QPS:
 		metrics = map[string]string{
 			"MySQL_QPS": "",
@@ -637,15 +643,19 @@ func (self *SApsaraClient) GetElbMetrics(opts *cloudprovider.MetricListOptions) 
 
 func (self *SApsaraClient) GetEipMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	metricTags, tagKey := map[string]string{}, ""
+	// Fixed/public IPs on ECS are emulated EIPs (ExternalId == instanceId).
+	ecsPublicIpMetric := ""
 	switch opts.MetricType {
 	case cloudprovider.EIP_METRIC_TYPE_NET_BPS_RX:
 		metricTags = map[string]string{
 			"net_rx.rate": "",
 		}
+		ecsPublicIpMetric = "VPC_PublicIP_InternetInRate"
 	case cloudprovider.EIP_METRIC_TYPE_NET_BPS_TX:
 		metricTags = map[string]string{
 			"net_tx.rate": "",
 		}
+		ecsPublicIpMetric = "VPC_PublicIP_InternetOutRate"
 	case cloudprovider.EIP_METRIC_TYPE_NET_DROP_SPEED_TX:
 		metricTags = map[string]string{
 			"out_ratelimit_drop_speed": "",
@@ -673,6 +683,65 @@ func (self *SApsaraClient) GetEipMetrics(opts *cloudprovider.MetricListOptions) 
 						Timestamp: time.UnixMilli(result[i].Timestamp),
 						Value:     result[i].GetValue(),
 						Tags:      tags,
+					},
+				},
+			})
+		}
+	}
+	if len(ecsPublicIpMetric) > 0 {
+		result, err := self.ListMetrics("acs_ecs_dashboard", ecsPublicIpMetric, "", opts.StartTime, opts.EndTime)
+		if err != nil {
+			log.Errorf("ListMetric(%s) error: %v", ecsPublicIpMetric, err)
+		} else {
+			for i := range result {
+				if len(result[i].InstanceId) == 0 {
+					continue
+				}
+				ret = append(ret, cloudprovider.MetricValues{
+					Id:         result[i].InstanceId,
+					MetricType: opts.MetricType,
+					Values: []cloudprovider.MetricValue{
+						{
+							Timestamp: time.UnixMilli(result[i].Timestamp),
+							Value:     result[i].GetValue(),
+						},
+					},
+				})
+			}
+		}
+	}
+	return ret, nil
+}
+
+func (self *SApsaraClient) GetNatMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	metricTags := map[string]string{}
+	switch opts.MetricType {
+	case cloudprovider.NAT_METRIC_TYPE_NET_BPS_RX:
+		metricTags = map[string]string{
+			"BWRateInFromOutside": "",
+		}
+	case cloudprovider.NAT_METRIC_TYPE_NET_BPS_TX:
+		metricTags = map[string]string{
+			"BWRateOutToOutside": "",
+		}
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
+	}
+	ret := []cloudprovider.MetricValues{}
+	for metric := range metricTags {
+		result, err := self.ListMetrics("acs_nat_gateway", metric, "", opts.StartTime, opts.EndTime)
+		if err != nil {
+			log.Errorf("ListMetric(%s) error: %v", metric, err)
+			continue
+		}
+		for i := range result {
+			ret = append(ret, cloudprovider.MetricValues{
+				Id:         result[i].InstanceId,
+				MetricType: opts.MetricType,
+				Values: []cloudprovider.MetricValue{
+					{
+						Timestamp: time.UnixMilli(result[i].Timestamp),
+						Value:     result[i].GetValue(),
 					},
 				},
 			})

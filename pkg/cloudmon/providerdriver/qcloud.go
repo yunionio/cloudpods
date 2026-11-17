@@ -336,3 +336,144 @@ func (self *QcloudCollect) CollectK8sMetrics(ctx context.Context, manager api.Cl
 	base := &SCollectByResourceIdDriver{}
 	return base.CollectK8sMetrics(ctx, manager, provider, res, start, end)
 }
+
+func (self *QcloudCollect) CollectNatMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.NatgatewayDetails, start, end time.Time) error {
+	metrics := []influxdb.SMetricData{}
+	regionNats := map[string][]api.NatgatewayDetails{}
+	for i := range res {
+		regionId := res[i].RegionExtId
+		regionNats[regionId] = append(regionNats[regionId], res[i])
+	}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for regionId, nats := range regionNats {
+		wg.Add(1)
+		go func(regionId string, nats []api.NatgatewayDetails) {
+			defer wg.Done()
+			data := []cloudprovider.MetricValues{}
+			for i := 0; i < (len(nats)+9)/10; i++ {
+				opts := &cloudprovider.MetricListOptions{
+					ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_NAT,
+					RegionExtId:  regionId,
+					StartTime:    start,
+					EndTime:      end,
+				}
+				last := (i + 1) * 10
+				if last > len(nats) {
+					last = len(nats)
+				}
+				for j := range nats[i*10 : last] {
+					opts.ResourceIds = append(opts.ResourceIds, nats[i*10+j].ExternalId)
+				}
+				part, err := provider.GetMetrics(opts)
+				if err != nil {
+					if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+						log.Errorf("get nat %s(%s) error: %v", strings.Join(opts.ResourceIds, ","), regionId, err)
+					}
+					continue
+				}
+				data = append(data, part...)
+			}
+			for _, value := range data {
+				nat, ok := res[value.Id]
+				if !ok {
+					continue
+				}
+				tags := []influxdb.SKeyValue{}
+				for k, v := range nat.GetMetricTags() {
+					tags = append(tags, influxdb.SKeyValue{Key: k, Value: v})
+				}
+				for _, v := range value.Values {
+					metric := influxdb.SMetricData{
+						Name:      value.MetricType.Name(),
+						Timestamp: v.Timestamp,
+						Tags:      tags,
+						Metrics: []influxdb.SKeyValue{
+							{Key: value.MetricType.Key(), Value: strconv.FormatFloat(v.Value, 'E', -1, 64)},
+						},
+					}
+					mu.Lock()
+					metrics = append(metrics, metric)
+					mu.Unlock()
+				}
+			}
+		}(regionId, nats)
+	}
+	wg.Wait()
+	return self.sendMetrics(ctx, manager, "nat", len(res), metrics)
+}
+
+func (self *QcloudCollect) CollectEipMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.ElasticipDetails, start, end time.Time) error {
+	metrics := []influxdb.SMetricData{}
+	regionEips := map[string][]api.ElasticipDetails{}
+	ipMap := map[string]api.ElasticipDetails{}
+	for i := range res {
+		regionId := res[i].RegionExtId
+		regionEips[regionId] = append(regionEips[regionId], res[i])
+		if len(res[i].IpAddr) > 0 {
+			ipMap[res[i].IpAddr] = res[i]
+		}
+	}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for regionId, eips := range regionEips {
+		wg.Add(1)
+		go func(regionId string, eips []api.ElasticipDetails) {
+			defer wg.Done()
+			data := []cloudprovider.MetricValues{}
+			for i := 0; i < (len(eips)+9)/10; i++ {
+				opts := &cloudprovider.MetricListOptions{
+					ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_EIP,
+					RegionExtId:  regionId,
+					StartTime:    start,
+					EndTime:      end,
+				}
+				last := (i + 1) * 10
+				if last > len(eips) {
+					last = len(eips)
+				}
+				for j := range eips[i*10 : last] {
+					if len(eips[i*10+j].IpAddr) > 0 {
+						opts.ResourceIds = append(opts.ResourceIds, eips[i*10+j].IpAddr)
+					}
+				}
+				if len(opts.ResourceIds) == 0 {
+					continue
+				}
+				part, err := provider.GetMetrics(opts)
+				if err != nil {
+					if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+						log.Errorf("get eip %s(%s) error: %v", strings.Join(opts.ResourceIds, ","), regionId, err)
+					}
+					continue
+				}
+				data = append(data, part...)
+			}
+			for _, value := range data {
+				eip, ok := ipMap[value.Id]
+				if !ok {
+					continue
+				}
+				tags := []influxdb.SKeyValue{}
+				for k, v := range eip.GetMetricTags() {
+					tags = append(tags, influxdb.SKeyValue{Key: k, Value: v})
+				}
+				for _, v := range value.Values {
+					metric := influxdb.SMetricData{
+						Name:      value.MetricType.Name(),
+						Timestamp: v.Timestamp,
+						Tags:      tags,
+						Metrics: []influxdb.SKeyValue{
+							{Key: value.MetricType.Key(), Value: strconv.FormatFloat(v.Value, 'E', -1, 64)},
+						},
+					}
+					mu.Lock()
+					metrics = append(metrics, metric)
+					mu.Unlock()
+				}
+			}
+		}(regionId, eips)
+	}
+	wg.Wait()
+	return self.sendMetrics(ctx, manager, "elasticip", len(res), metrics)
+}
