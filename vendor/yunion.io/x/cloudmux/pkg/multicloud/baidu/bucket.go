@@ -386,6 +386,10 @@ func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUpload
 		}
 		resp, err := b.region.bosList(b.Name, "", params)
 		if err != nil {
+			err = cloudprovider.ConvertBucketError(err)
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return nil, err
+			}
 			return nil, errors.Wrap(err, "ListMultipartUploads")
 		}
 		ret := struct {
