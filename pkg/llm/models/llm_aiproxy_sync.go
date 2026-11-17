@@ -788,13 +788,24 @@ func (dep *SLLMDeployment) SetAiproxySyncStatus(ctx context.Context, userCred mc
 	return nil
 }
 
+// aiproxyStatusWhenNoRunningReplicas distinguishes "waiting for replicas to
+// start" from a deployment that was scaled to zero. The latter is a consistent
+// empty gateway, not an in-progress sync.
+func aiproxyStatusWhenNoRunningReplicas(dep *SLLMDeployment) (status, msg string) {
+	if dep != nil && dep.Replicas <= 0 {
+		return api.AIPROXY_SYNC_STATUS_SYNCED, "scaled to zero, no running replicas"
+	}
+	return api.AIPROXY_SYNC_STATUS_PENDING, "waiting for running replicas"
+}
+
 func inferAiproxySyncStatus(dep *SLLMDeployment) string {
 	if dep == nil || !dep.AutoRegisterAiproxy {
 		return api.AIPROXY_SYNC_STATUS_DISABLED
 	}
 	bindings := deploymentAiproxyBindings(dep)
 	if len(bindings) == 0 {
-		return api.AIPROXY_SYNC_STATUS_PENDING
+		status, _ := aiproxyStatusWhenNoRunningReplicas(dep)
+		return status
 	}
 	return resolveAiproxySyncStatusAfterReconcile(computeAiproxyBindingSyncResult(bindings, dep.ReadyReplicas))
 }
@@ -818,10 +829,20 @@ func ReconcileDeploymentAiproxy(ctx context.Context, userCred mcclient.TokenCred
 	}
 
 	if len(llms) == 0 {
+		if dep.Replicas <= 0 {
+			if routingId := strings.TrimSpace(dep.AiproxyRoutingId); routingId != "" {
+				session := aiproxyAdminSession(ctx)
+				if err := applyRoutingModels(session, routingId, []apapi.AiRoutingModelItem{}); err != nil {
+					_ = dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_FAILED, err.Error())
+					return err
+				}
+			}
+		}
 		if err := persistDeploymentAiproxyBindings(dep, dep.AiproxyRoutingId, nil); err != nil {
 			return err
 		}
-		return dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_PENDING, "waiting for running replicas")
+		status, msg := aiproxyStatusWhenNoRunningReplicas(dep)
+		return dep.SetAiproxySyncStatus(ctx, userCred, status, msg)
 	}
 
 	session := aiproxyAdminSession(ctx)
@@ -986,7 +1007,8 @@ func UnsyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, d
 		if err := persistDeploymentAiproxyBindings(dep, routingId, nil); err != nil {
 			return err
 		}
-		return dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_PENDING, "waiting for running replicas")
+		status, msg := aiproxyStatusWhenNoRunningReplicas(dep)
+		return dep.SetAiproxySyncStatus(ctx, userCred, status, msg)
 	}
 
 	items := make([]apapi.AiRoutingModelItem, 0, len(remaining))
