@@ -112,7 +112,7 @@ type CandidatePropertyGetter interface {
 
 	GetAllClassMetadata() (map[string]string, error)
 
-	GetIpmiInfo() types.SIPMIInfo
+	GetIpmiInfo() computeapi.SIpmiInfo
 
 	GetNics() []*types.SNic
 

@@ -14,55 +14,9 @@
 
 package types
 
-import "yunion.io/x/jsonutils"
-
 type PowerStatus string
 
 const (
 	POWER_STATUS_ON  PowerStatus = "on"
 	POWER_STATUS_OFF PowerStatus = "off"
 )
-
-type SIPMIInfo struct {
-	Username    string `json:"username,omitempty"`
-	Password    string `json:"password,omitempty"`
-	IpAddr      string `json:"ip_addr,omitempty"`
-	Present     bool   `json:"present,omitempty"`
-	LanChannel  uint8  `json:"lan_channel,omitzero"`
-	CipherSuite int    `json:"cipher_suite,omitzero"`
-	Verified    bool   `json:"verified,omitfalse"`
-	RedfishApi  bool   `json:"redfish_api,omitfalse"`
-	CdromBoot   bool   `json:"cdrom_boot,omitfalse"`
-	PxeBoot     bool   `json:"pxe_boot,omitfalse"`
-}
-
-func (info SIPMIInfo) ToPrepareParams() jsonutils.JSONObject {
-	data := jsonutils.NewDict()
-	if info.Username != "" {
-		data.Add(jsonutils.NewString(info.Username), "ipmi_username")
-	}
-	if info.Password != "" {
-		data.Add(jsonutils.NewString(info.Password), "ipmi_password")
-	}
-	if info.IpAddr != "" {
-		data.Add(jsonutils.NewString(info.IpAddr), "ipmi_ip_addr")
-	}
-	data.Add(jsonutils.NewBool(info.Present), "ipmi_present")
-	data.Add(jsonutils.NewInt(int64(info.LanChannel)), "ipmi_lan_channel")
-	if info.CipherSuite > 0 {
-		data.Add(jsonutils.NewInt(int64(info.CipherSuite)), "ipmi_cipher_suite")
-	}
-	if info.Verified {
-		data.Add(jsonutils.JSONTrue, "ipmi_verified")
-	}
-	if info.RedfishApi {
-		data.Add(jsonutils.JSONTrue, "ipmi_redfish_api")
-	}
-	if info.CdromBoot {
-		data.Add(jsonutils.JSONTrue, "ipmi_cdrom_boot")
-	}
-	if info.PxeBoot {
-		data.Add(jsonutils.JSONTrue, "ipmi_pxe_boot")
-	}
-	return data
-}

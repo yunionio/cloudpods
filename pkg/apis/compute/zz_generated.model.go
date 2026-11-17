@@ -1369,7 +1369,7 @@ type SHost struct {
 	// IPMI地址
 	IpmiIp string `json:"ipmi_ip"`
 	// IPMI详情
-	IpmiInfo jsonutils.JSONObject `json:"ipmi_info"`
+	IpmiInfo *SIpmiInfo `json:"ipmi_info"`
 	// 宿主机状态
 	// example: online
 	HostStatus string `json:"host_status"`
