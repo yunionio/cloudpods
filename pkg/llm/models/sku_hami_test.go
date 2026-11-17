@@ -255,7 +255,7 @@ func TestGetLLMBasePodCreateInputHAMIFields(t *testing.T) {
 	input.ProjectId = "proj-test"
 	input.Nets = []*computeapi.NetworkConfig{{Network: "net1"}}
 
-	out, err := GetLLMBasePodCreateInput(nil, nil, input, llm, sku, 20480, "")
+	out, err := GetLLMBasePodCreateInput(nil, nil, input, llm, sku, isolatedDeviceVramPlan{HamiClaimMb: 20480}, "")
 	if err != nil {
 		t.Fatalf("GetLLMBasePodCreateInput: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestGetLLMBasePodCreateInputHAMIRequiresClaim(t *testing.T) {
 	input.ProjectId = "proj-test"
 	input.Nets = []*computeapi.NetworkConfig{{Network: "net1"}}
 
-	if _, err := GetLLMBasePodCreateInput(nil, nil, input, llm, sku, 0, ""); err == nil {
+	if _, err := GetLLMBasePodCreateInput(nil, nil, input, llm, sku, isolatedDeviceVramPlan{}, ""); err == nil {
 		t.Fatal("expected error when HAMI with zero vram claim")
 	}
 }
@@ -310,7 +310,7 @@ func TestGetLLMBasePodCreateInputHAMIManualMemoryMb(t *testing.T) {
 	input.Nets = []*computeapi.NetworkConfig{{Network: "net1"}}
 
 	// Manual memory_mb allows claim=0.
-	out, err := GetLLMBasePodCreateInput(nil, nil, input, llm, sku, 0, "")
+	out, err := GetLLMBasePodCreateInput(nil, nil, input, llm, sku, isolatedDeviceVramPlan{}, "")
 	if err != nil {
 		t.Fatalf("GetLLMBasePodCreateInput: %v", err)
 	}
@@ -323,7 +323,7 @@ func TestGetLLMBasePodCreateInputHAMIManualMemoryMb(t *testing.T) {
 	}
 
 	// Manual memory_mb wins over claim split.
-	out2, err := GetLLMBasePodCreateInput(nil, nil, input, llm, sku, 40960, "")
+	out2, err := GetLLMBasePodCreateInput(nil, nil, input, llm, sku, isolatedDeviceVramPlan{HamiClaimMb: 40960}, "")
 	if err != nil {
 		t.Fatalf("GetLLMBasePodCreateInput with claim: %v", err)
 	}
@@ -352,7 +352,7 @@ func TestGetLLMBasePodCreateInputHAMIMixedMemoryFallback(t *testing.T) {
 
 	claim := 40960
 	perDevFromClaim := (claim + len(devs) - 1) / len(devs)
-	out, err := GetLLMBasePodCreateInput(nil, nil, input, llm, sku, claim, "")
+	out, err := GetLLMBasePodCreateInput(nil, nil, input, llm, sku, isolatedDeviceVramPlan{HamiClaimMb: claim}, "")
 	if err != nil {
 		t.Fatalf("GetLLMBasePodCreateInput: %v", err)
 	}
