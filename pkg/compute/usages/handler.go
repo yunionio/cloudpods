@@ -283,7 +283,7 @@ func getSystemGeneralUsage(
 
 		hostEnabledUsage,
 
-		BaremetalUsage(ctx, userToken, userCred, rbacscope.ScopeSystem, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
+		BaremetalHostUsage(ctx, userToken, userCred, rbacscope.ScopeSystem, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
 
 		StorageUsage(ctx, userToken, "", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, includeSystem, rbacscope.ScopeSystem, nil, policyResult),
 		StorageUsage(ctx, userToken, "system", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, true, rbacscope.ScopeSystem, nil, policyResult),
@@ -296,6 +296,10 @@ func getSystemGeneralUsage(
 		ContainerNormalUsage(ctx, userToken, "all.containers.last_week", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastWeek, policyResult),
 		ContainerNormalUsage(ctx, userToken, "all.containers.last_month", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastMonth, policyResult),
 
+		BaremetalNormalUsage(ctx, userToken, "all.baremetals", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, nil, policyResult),
+		BaremetalNormalUsage(ctx, userToken, "all.baremetals.last_week", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastWeek, policyResult),
+		BaremetalNormalUsage(ctx, userToken, "all.baremetals.last_month", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastMonth, policyResult),
+
 		GuestPendingDeleteUsage(ctx, userToken, "all.pending_delete_servers", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, nil, policyResult),
 		GuestPendingDeleteUsage(ctx, userToken, "all.pending_delete_servers.last_week", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastWeek, policyResult),
 		GuestPendingDeleteUsage(ctx, userToken, "all.pending_delete_servers.last_month", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastMonth, policyResult),
@@ -304,12 +308,17 @@ func getSystemGeneralUsage(
 		ContainerPendingDeleteUsage(ctx, userToken, "all.pending_delete_containers.last_week", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastWeek, policyResult),
 		ContainerPendingDeleteUsage(ctx, userToken, "all.pending_delete_containers.last_month", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastMonth, policyResult),
 
-		GuestReadyUsage(ctx, userToken, "all.ready_servers", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, policyResult),
+		BaremetalPendingDeleteUsage(ctx, userToken, "all.pending_delete_baremetals", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, nil, policyResult),
+		BaremetalPendingDeleteUsage(ctx, userToken, "all.pending_delete_baremetals.last_week", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastWeek, policyResult),
+		BaremetalPendingDeleteUsage(ctx, userToken, "all.pending_delete_baremetals.last_month", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, &lastMonth, policyResult),
 
+		GuestReadyUsage(ctx, userToken, "all.ready_servers", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, policyResult),
 		ContainerReadyUsage(ctx, userToken, "all.ready_containers", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, policyResult),
+		BaremetalReadyUsage(ctx, userToken, "all.ready_baremetals", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, policyResult),
 
 		guestRunningUsage,
 		containerRunningUsage,
+		BaremetalRunningUsage(ctx, userToken, "all.running_baremetals", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, includeSystem, policyResult),
 
 		IsolatedDeviceUsage(ctx, userToken, "", rbacscope.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, policyResult),
 
@@ -391,6 +400,7 @@ func getDomainGeneralUsage(ctx context.Context, userToken mcclient.TokenCredenti
 
 	count.Include(
 		ContainerNormalUsage(ctx, userToken, getKey(scope, "containers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
+		BaremetalNormalUsage(ctx, userToken, getKey(scope, "baremetals"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
 
 		VpcUsage(ctx, userToken, "domain", providers, brands, cloudEnv, cred, rbacscope.ScopeDomain, rangeObjs, policyResult),
 
@@ -400,7 +410,7 @@ func getDomainGeneralUsage(ctx context.Context, userToken mcclient.TokenCredenti
 
 		hostEnabledUsage,
 
-		BaremetalUsage(ctx, userToken, cred, rbacscope.ScopeDomain, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
+		BaremetalHostUsage(ctx, userToken, cred, rbacscope.ScopeDomain, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
 
 		StorageUsage(ctx, userToken, "", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, false, rbacscope.ScopeDomain, cred, policyResult),
 		StorageUsage(ctx, userToken, "system", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, true, rbacscope.ScopeDomain, cred, policyResult),
@@ -411,8 +421,12 @@ func getDomainGeneralUsage(ctx context.Context, userToken mcclient.TokenCredenti
 		ContainerNormalUsage(ctx, userToken, getKey(scope, "containers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
 		ContainerNormalUsage(ctx, userToken, getKey(scope, "containers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
 
+		BaremetalNormalUsage(ctx, userToken, getKey(scope, "baremetals.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
+		BaremetalNormalUsage(ctx, userToken, getKey(scope, "baremetals.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
+
 		guestRunningUsage,
 		containerRunningUsage,
+		BaremetalRunningUsage(ctx, userToken, "domain.running_baremetals", rbacscope.ScopeDomain, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
 
 		GuestPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
 		GuestPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
@@ -422,9 +436,13 @@ func getDomainGeneralUsage(ctx context.Context, userToken mcclient.TokenCredenti
 		ContainerPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_containers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
 		ContainerPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_containers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
 
-		GuestReadyUsage(ctx, userToken, getKey(scope, "ready_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
+		BaremetalPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_baremetals"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
+		BaremetalPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_baremetals.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
+		BaremetalPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_baremetals.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
 
+		GuestReadyUsage(ctx, userToken, getKey(scope, "ready_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
 		ContainerReadyUsage(ctx, userToken, getKey(scope, "ready_containers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
+		BaremetalReadyUsage(ctx, userToken, getKey(scope, "ready_baremetals"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
 
 		WireUsage(ctx, userToken, scope, cred, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
 		NetworkUsage(ctx, userToken, getKey(scope, ""), scope, cred, providers, brands, cloudEnv, rangeObjs, policyResult),
@@ -461,6 +479,7 @@ func getProjectGeneralUsage(ctx context.Context, userToken mcclient.TokenCredent
 
 	count.Include(
 		ContainerNormalUsage(ctx, userToken, getKey(scope, "containers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
+		BaremetalNormalUsage(ctx, userToken, getKey(scope, "baremetals"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
 
 		GuestNormalUsage(ctx, userToken, getKey(scope, "servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
 		GuestNormalUsage(ctx, userToken, getKey(scope, "servers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
@@ -468,9 +487,12 @@ func getProjectGeneralUsage(ctx context.Context, userToken mcclient.TokenCredent
 		ContainerNormalUsage(ctx, userToken, getKey(scope, "containers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
 		ContainerNormalUsage(ctx, userToken, getKey(scope, "containers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
 
-		GuestRunningUsage(ctx, userToken, getKey(scope, "running_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
+		BaremetalNormalUsage(ctx, userToken, getKey(scope, "baremetals.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
+		BaremetalNormalUsage(ctx, userToken, getKey(scope, "baremetals.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
 
+		GuestRunningUsage(ctx, userToken, getKey(scope, "running_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
 		ContainerRunningUsage(ctx, userToken, getKey(scope, "running_containers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
+		BaremetalRunningUsage(ctx, userToken, getKey(scope, "running_baremetals"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
 
 		GuestPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
 		GuestPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_servers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
@@ -480,8 +502,13 @@ func getProjectGeneralUsage(ctx context.Context, userToken mcclient.TokenCredent
 		ContainerPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_containers.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
 		ContainerPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_containers.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
 
+		BaremetalPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_baremetals"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, nil, policyResult),
+		BaremetalPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_baremetals.last_week"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastWeek, policyResult),
+		BaremetalPendingDeleteUsage(ctx, userToken, getKey(scope, "pending_delete_baremetals.last_month"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, &lastMonth, policyResult),
+
 		GuestReadyUsage(ctx, userToken, getKey(scope, "ready_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
 		ContainerReadyUsage(ctx, userToken, getKey(scope, "ready_containers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
+		ContainerReadyUsage(ctx, userToken, getKey(scope, "ready_baremetals"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, policyResult),
 
 		WireUsage(ctx, userToken, scope, cred, rangeObjs, hostTypes, providers, brands, cloudEnv, policyResult),
 		NetworkUsage(ctx, userToken, getKey(scope, ""), scope, cred, providers, brands, cloudEnv, rangeObjs, policyResult),
@@ -874,7 +901,7 @@ func HostEnabledUsage(ctx context.Context, userToken mcclient.TokenCredential, p
 	return hostUsage(ctx, userToken, userCred, scope, prefix, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, tristate.True, tristate.False, policyResult)
 }
 
-func BaremetalUsage(ctx context.Context, userToken mcclient.TokenCredential, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope, rangeObjs []db.IStandaloneModel,
+func BaremetalHostUsage(ctx context.Context, userToken mcclient.TokenCredential, userCred mcclient.IIdentityProvider, scope rbacscope.TRbacScope, rangeObjs []db.IStandaloneModel,
 	hostTypes []string, providers []string, brands []string, cloudEnv string, policyResult rbacutils.SPolicyResult) Usage {
 	prefix := getSysKey(scope, "baremetals")
 	count := hostUsage(ctx, userToken, userCred, scope, prefix, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, tristate.None, tristate.True, policyResult)
@@ -931,6 +958,12 @@ func ContainerNormalUsage(ctx context.Context, userToken mcclient.TokenCredentia
 	return containerUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, false, includeSystem, since, policyResult)
 }
 
+func BaremetalNormalUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
+	brands []string, cloudEnv string, includeSystem bool, since *time.Time, policyResult rbacutils.SPolicyResult) Usage {
+	return baremetalUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, false, includeSystem, since, policyResult)
+}
+
 func GuestPendingDeleteUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
 	brands []string, cloudEnv string, includeSystem bool, since *time.Time, policyResult rbacutils.SPolicyResult) Usage {
@@ -941,6 +974,12 @@ func ContainerPendingDeleteUsage(ctx context.Context, userToken mcclient.TokenCr
 	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
 	brands []string, cloudEnv string, includeSystem bool, since *time.Time, policyResult rbacutils.SPolicyResult) Usage {
 	return containerUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, true, includeSystem, since, policyResult)
+}
+
+func BaremetalPendingDeleteUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
+	brands []string, cloudEnv string, includeSystem bool, since *time.Time, policyResult rbacutils.SPolicyResult) Usage {
+	return baremetalUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, nil, true, includeSystem, since, policyResult)
 }
 
 func GuestRunningUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
@@ -959,6 +998,14 @@ func ContainerRunningUsage(ctx context.Context, userToken mcclient.TokenCredenti
 	return containerUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, []string{api.VM_RUNNING}, false, includeSystem, nil, policyResult)
 }
 
+func BaremetalRunningUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
+	brands []string, cloudEnv string, includeSystem bool,
+	policyResult rbacutils.SPolicyResult,
+) Usage {
+	return baremetalUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, []string{api.VM_RUNNING}, false, includeSystem, nil, policyResult)
+}
+
 func GuestReadyUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
 	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
 	brands []string, cloudEnv string, includeSystem bool, policyResult rbacutils.SPolicyResult) Usage {
@@ -971,6 +1018,14 @@ func ContainerReadyUsage(ctx context.Context, userToken mcclient.TokenCredential
 	policyResult rbacutils.SPolicyResult,
 ) Usage {
 	return containerUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, []string{api.VM_READY}, false, includeSystem, nil, policyResult)
+}
+
+func BaremetalReadyUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, cred mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string,
+	brands []string, cloudEnv string, includeSystem bool,
+	policyResult rbacutils.SPolicyResult,
+) Usage {
+	return baremetalUsage(ctx, userToken, prefix, scope, cred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, []string{api.VM_READY}, false, includeSystem, nil, policyResult)
 }
 
 func guestHypervisorsUsage(
@@ -1047,6 +1102,15 @@ func containerUsage(ctx context.Context, userToken mcclient.TokenCredential, pre
 	policyResult rbacutils.SPolicyResult,
 ) Usage {
 	hypervisors := sets.NewString(api.HYPERVISOR_POD)
+	return guestHypervisorsUsage(ctx, userToken, prefix, scope, userCred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, status, hypervisors.List(), pendingDelete, includeSystem, since, policyResult)
+}
+
+func baremetalUsage(ctx context.Context, userToken mcclient.TokenCredential, prefix string, scope rbacscope.TRbacScope, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel,
+	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string,
+	status []string, pendingDelete, includeSystem bool, since *time.Time,
+	policyResult rbacutils.SPolicyResult,
+) Usage {
+	hypervisors := sets.NewString(api.HYPERVISOR_BAREMETAL)
 	return guestHypervisorsUsage(ctx, userToken, prefix, scope, userCred, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, status, hypervisors.List(), pendingDelete, includeSystem, since, policyResult)
 }
 
