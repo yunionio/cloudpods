@@ -478,6 +478,11 @@ func (m *SBaremetalManager) verifyMacAddr(sshCli *ssh.Client) (error, bool) {
 			}
 			if len(res.Data) > 0 {
 				registered = true
+				hostType, _ := res.Data[0].GetString("host_type")
+				hostId, _ := res.Data[0].GetString("id")
+				if hostType != "baremetal" {
+					return fmt.Errorf("find host %s type %s is not support", hostId, hostType), false
+				}
 			}
 		}
 	}
