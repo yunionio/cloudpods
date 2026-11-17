@@ -359,6 +359,7 @@ type SResources struct {
 	Wires          TResource
 	Projects       TResource
 	ElasticIps     TResource
+	NatGateways    TResource
 }
 
 func (self *SResources) IsInit() bool {
@@ -381,6 +382,7 @@ func NewResources() *SResources {
 		Wires:          NewBaseResources(&compute.Wires),
 		Projects:       NewBaseResources(&identity.Projects),
 		ElasticIps:     NewBaseResources(&compute.Elasticips),
+		NatGateways:    NewBaseResources(&compute.NatGateways),
 	}
 }
 
@@ -439,6 +441,10 @@ func (self *SResources) Init(ctx context.Context, userCred mcclient.TokenCredent
 			err = self.ElasticIps.init(ctx)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "ElasticIps.init"))
+			}
+			err = self.NatGateways.init(ctx)
+			if err != nil {
+				errs = append(errs, errors.Wrapf(err, "NatGateways.init"))
 			}
 			err = self.Wires.init(ctx)
 			if err != nil {
@@ -517,6 +523,10 @@ func (self *SResources) IncrementSync(ctx context.Context, userCred mcclient.Tok
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Elasticips.increment"))
 		}
+		err = self.NatGateways.increment(ctx)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "NatGateways.increment"))
+		}
 		err = self.Wires.increment(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "Wires.increment"))
@@ -591,6 +601,10 @@ func (self *SResources) DecrementSync(ctx context.Context, userCred mcclient.Tok
 		err = self.ElasticIps.decrement(ctx)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "ElasticIps.decrement"))
+		}
+		err = self.NatGateways.decrement(ctx)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "NatGateways.decrement"))
 		}
 		err = self.Projects.decrement(ctx)
 		if err != nil {
@@ -864,6 +878,20 @@ func (res *SResources) CollectMetrics(ctx context.Context, userCred mcclient.Tok
 				err = driver.CollectEipMetrics(ctx, manager, provider, eips, startTime, endTime)
 				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
 					log.Errorf("CollectEipMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
+				}
+			}
+
+			resources = res.NatGateways.getResources(ctx, manager.Id)
+			nats := map[string]api.NatgatewayDetails{}
+			err = jsonutils.Update(&nats, resources)
+			if err != nil {
+				log.Errorf("unmarsha natgateways resources error: %v", err)
+			}
+
+			if len(nats) > 0 {
+				err = driver.CollectNatMetrics(ctx, manager, provider, nats, startTime, endTime)
+				if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("CollectNatMetrics for %s(%s) error: %v", manager.Name, manager.Provider, err)
 				}
 			}
 

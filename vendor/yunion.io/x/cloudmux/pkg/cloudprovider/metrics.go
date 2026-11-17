@@ -56,6 +56,7 @@ const (
 	METRIC_RESOURCE_TYPE_CLOUD_ACCOUNT  TResourceType = "cloudaccount_balance"
 	METRIC_RESOURCE_TYPE_MODELARTS_POOL TResourceType = "modelarts"
 	METRIC_RESOURCE_TYPE_EIP            TResourceType = "eip"
+	METRIC_RESOURCE_TYPE_NAT            TResourceType = "nat"
 )
 
 const (
@@ -93,7 +94,7 @@ const (
 	RDS_METRIC_TYPE_DISK_IO_PERCENT TMetricType = "rds_diskio.used_percent"
 
 	// RDS 连接数
-	// 支持平台: huawei, aws, qcloud, hcso
+	// 支持平台: huawei, aws, qcloud, hcso, aliyun, apsara
 	RDS_METRIC_TYPE_CONN_COUNT TMetricType = "rds_conn.used_count"
 	// RDS 活跃连接数
 	// 支持平台: azure
@@ -356,16 +357,23 @@ const (
 	WIRE_METRIC_TYPE_NET_RT               TMetricType = "wire_net.rt"               // 响应时间ms
 	WIRE_METRIC_TYPE_NET_UNREACHABLE_RATE TMetricType = "wire_net.unreachable_rate" // 不可达率
 
-	// EIP入带宽
-	// 支持平台: aliyun, apsara
+	// EIP入带宽（含阿里云/飞天 ECS 固定公网 IP）
+	// 支持平台: aliyun, apsara, huawei, hcso, aws, qcloud
 	EIP_METRIC_TYPE_NET_BPS_RX TMetricType = "eip_net.bps_recv"
-	// EIP出带宽
-	// 支持平台: aliyun, apsara
+	// EIP出带宽（含阿里云/飞天 ECS 固定公网 IP）
+	// 支持平台: aliyun, apsara, huawei, hcso, aws, qcloud
 	EIP_METRIC_TYPE_NET_BPS_TX TMetricType = "eip_net.bps_sent"
 
 	// EIP 出方向限速丢包率
 	// 支持平台: aliyun, apsara
 	EIP_METRIC_TYPE_NET_DROP_SPEED_TX TMetricType = "eip_net.drop_speed_rx"
+
+	// NAT入带宽
+	// 支持平台: aliyun, apsara, huawei, hcso, aws, qcloud
+	NAT_METRIC_TYPE_NET_BPS_RX TMetricType = "nat_net.bps_recv"
+	// NAT出带宽
+	// 支持平台: aliyun, apsara, huawei, hcso, aws, qcloud
+	NAT_METRIC_TYPE_NET_BPS_TX TMetricType = "nat_net.bps_sent"
 )
 
 var (
@@ -482,11 +490,16 @@ var (
 
 		EIP_METRIC_TYPE_NET_DROP_SPEED_TX,
 	}
+
+	ALL_NAT_TYPES = []TMetricType{
+		NAT_METRIC_TYPE_NET_BPS_RX,
+		NAT_METRIC_TYPE_NET_BPS_TX,
+	}
 )
 
 type MetricListOptions struct {
-	ResourceType TResourceType `choices:"rds|server|host|redis|lb|bucket|k8s|storage|wire|cloudaccount_balance|modelarts|eip"`
-	MetricType   TMetricType   `choices:"rds_cpu.usage_active|rds_mem.used_percent|rds_netio.bps_recv|rds_netio.bps_sent|rds_disk.used_percent|rds_diskio.read_bps|rds_diskio.write_bps|rds_diskio.used_percent|rds_conn.used_count|rds_conn.active_count|rds_conn.used_percent|rds_conn.failed_count|rds_qps.query_qps|rds_tps.trans_qps|rds_innodb.read_bps|rds_innodb.write_bps|vm_cpu.usage_active|vm_mem.used_percent|vm_disk.used_percent|vm_diskio.read_bps|vm_diskio.write_bps|vm_diskio.read_iops|vm_diskio.write_iops|vm_netio.bps_recv|vm_netio.bps_sent|vm_netio.out_bandwidth_usage|vm_netio.tcp_connections|vm_process.number|cpu.usage_active|mem.used_percent|diskio.read_bps|diskio.write_bps|net.bps_recv|net.bps_sent|diskio.read_iops|diskio.write_iops|system.uptime|system.load1_pcore|processes.zombies|processes.total|disk.used_percent|mem.available|dcs_cpu.usage_active|dcs_mem.used_percent|dcs_netio.bps_recv|dcs_netio.bps_sent|dcs_conn.used_conn|dcs_instantopt.opt_sec|dcs_cachekeys.key_count|dcs_cachekeys.expire_key_count|dcs_datamem.used_byte|haproxy.used_snat_port|haproxy.snat_conn_count|haproxy.bin|haproxy.bout|haproxy.packet_rx|haproxy.packet_tx|haproxy.inactive_connection|haproxy.active_connection|haproxy.max_connection|haproxy.unhealthy_server_count|haproxy.hrsp_Nxx|haproxy.drop_traffic_tx|haproxy.drop_traffic_rx|haproxy.drop_packet_tx|haproxy.drop_packet_rx|oss_netio.bps_sent|oss_netio.bps_recv|oss_latency.req_late|oss_req.req_count|oss_req.5xx_count|oss_req.4xx_count|oss_req.3xx_count|oss_req.2xx_count|oss_storage.size|k8s_node_cpu.usage_active|k8s_node_mem.used_percent|k8s_node_disk.used_percent|k8s_node_netio.bps_recv|k8s_node_netio.bps_sent|modelarts_pool_cpu.usage_percent|modelarts_pool_mem.usage_percent|modelarts_pool_gpu_mem.usage_percent|modelarts_pool_gpu_util.percent|modelarts_pool_npu_util.percent|modelarts_pool_npu_mem.usage_percent|modelarts_pool_disk.available_capacity|modelarts_pool_disk.capacity|modelarts_pool_disk.usage_percent|wire_cpu.usage_percent|wire_mem.usage_percent|wire_net.rt|wire_net.unreachable_rate|eip_net.bps_recv|eip_net.bps_sent|eip_net.drop_speed_rx"`
+	ResourceType TResourceType `choices:"rds|server|host|redis|lb|bucket|k8s|storage|wire|cloudaccount_balance|modelarts|eip|nat"`
+	MetricType   TMetricType   `choices:"rds_cpu.usage_active|rds_mem.used_percent|rds_netio.bps_recv|rds_netio.bps_sent|rds_disk.used_percent|rds_diskio.read_bps|rds_diskio.write_bps|rds_diskio.used_percent|rds_conn.used_count|rds_conn.active_count|rds_conn.used_percent|rds_conn.failed_count|rds_qps.query_qps|rds_tps.trans_qps|rds_innodb.read_bps|rds_innodb.write_bps|vm_cpu.usage_active|vm_mem.used_percent|vm_disk.used_percent|vm_diskio.read_bps|vm_diskio.write_bps|vm_diskio.read_iops|vm_diskio.write_iops|vm_netio.bps_recv|vm_netio.bps_sent|vm_netio.out_bandwidth_usage|vm_netio.tcp_connections|vm_process.number|cpu.usage_active|mem.used_percent|diskio.read_bps|diskio.write_bps|net.bps_recv|net.bps_sent|diskio.read_iops|diskio.write_iops|system.uptime|system.load1_pcore|processes.zombies|processes.total|disk.used_percent|mem.available|dcs_cpu.usage_active|dcs_mem.used_percent|dcs_netio.bps_recv|dcs_netio.bps_sent|dcs_conn.used_conn|dcs_instantopt.opt_sec|dcs_cachekeys.key_count|dcs_cachekeys.expire_key_count|dcs_datamem.used_byte|haproxy.used_snat_port|haproxy.snat_conn_count|haproxy.bin|haproxy.bout|haproxy.packet_rx|haproxy.packet_tx|haproxy.inactive_connection|haproxy.active_connection|haproxy.max_connection|haproxy.unhealthy_server_count|haproxy.hrsp_Nxx|haproxy.drop_traffic_tx|haproxy.drop_traffic_rx|haproxy.drop_packet_tx|haproxy.drop_packet_rx|oss_netio.bps_sent|oss_netio.bps_recv|oss_latency.req_late|oss_req.req_count|oss_req.5xx_count|oss_req.4xx_count|oss_req.3xx_count|oss_req.2xx_count|oss_storage.size|k8s_node_cpu.usage_active|k8s_node_mem.used_percent|k8s_node_disk.used_percent|k8s_node_netio.bps_recv|k8s_node_netio.bps_sent|modelarts_pool_cpu.usage_percent|modelarts_pool_mem.usage_percent|modelarts_pool_gpu_mem.usage_percent|modelarts_pool_gpu_util.percent|modelarts_pool_npu_util.percent|modelarts_pool_npu_mem.usage_percent|modelarts_pool_disk.available_capacity|modelarts_pool_disk.capacity|modelarts_pool_disk.usage_percent|wire_cpu.usage_percent|wire_mem.usage_percent|wire_net.rt|wire_net.unreachable_rate|eip_net.bps_recv|eip_net.bps_sent|eip_net.drop_speed_rx|nat_net.bps_recv|nat_net.bps_sent"`
 
 	ResourceId string
 	// batch metric pull for tencentcloud
