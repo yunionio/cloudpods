@@ -2727,7 +2727,7 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 	hasMthreads := false
 	hasNvidiasmi := false
 	hasNpusmi := false
-	hasRocmsmi := false
+	rocmsmiPath := ""
 	for _, dev := range devs {
 		vendorId := strings.Split(dev.GetVendorDeviceId(), ":")[0]
 		if vendorId == api.HYGON_VENDOR_ID {
@@ -2745,7 +2745,7 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 		if vendorId == api.MTHREADS_VENDOR_ID {
 			hasMthreads = true
 		}
-		if !utils.IsInStringArray(dev.GetSharingMode(), api.VIRTUAL_SHARING_MODES) {
+		if !utils.IsInStringArray(dev.GetSharingMode(), api.VAILD_SHARING_MODES) {
 			continue
 		}
 		if dev.GetDeviceType() == api.NETINT_TYPE {
@@ -2756,7 +2756,7 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 		switch vendorId {
 		case api.AMD_VENDOR_ID:
 			if _, err := procutils.RemoteStat("/opt/rocm/bin/rocm-smi"); err == nil {
-				hasRocmsmi = true
+				rocmsmiPath, _ = procutils.RemoteReadlink("/opt/rocm/bin/rocm-smi")
 			} else {
 				confMap, ok := conf[system_service.TELEGRAF_INPUT_RADEONTOP].(map[string]interface{})
 				if !ok {
@@ -2861,9 +2861,9 @@ func (h *SHostInfo) injectTelegrafDeviceConfig(conf map[string]interface{}) {
 			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: "/usr/local/bin/npu-smi",
 		}
 	}
-	if hasRocmsmi {
+	if rocmsmiPath != "" {
 		conf[system_service.TELEGRAF_INPUT_ROCM_SMI] = map[string]interface{}{
-			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: "/opt/rocm/bin/rocm-smi",
+			system_service.TELEGRAF_INPUT_CONF_BIN_PATH: rocmsmiPath,
 		}
 	}
 }
