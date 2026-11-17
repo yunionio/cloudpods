@@ -443,11 +443,13 @@ type SyncReadyReplicasOptions struct {
 // to the deployment row, and transitions the deployment status based on replica
 // health:
 //
-//	ready_replicas == 0 && desired > 0  → deploying (or create_fail / start_fail)
-//	0 < ready_replicas < desired        → partial
-//	ready_replicas == desired           → ready
-//	replica create_fail with 0 running  → create_fail
-//	replica start_fail with 0 running   → start_fail
+//	desired <= 0 && replicas still running or probing → deploying
+//	desired <= 0 && no running replicas              → ready
+//	ready_replicas == 0 && desired > 0               → deploying (or create_fail / start_fail)
+//	0 < ready_replicas < desired                     → partial
+//	ready_replicas == desired                        → ready
+//	replica create_fail with 0 running               → create_fail
+//	replica start_fail with 0 running                → start_fail
 //
 // Failure / lifecycle statuses (deleting, importing_model, etc.) are not
 // overridden once set. create_fail and start_fail may recover to ready/partial
@@ -539,7 +541,12 @@ func summarizeDeploymentReplicaStatuses(rows []deploymentReplicaStatusRow) deplo
 
 func computeDeploymentReplicaStatus(summary deploymentReplicaStatusSummary, desired int) string {
 	if desired <= 0 {
-		return ""
+		// Scale-to-zero is reconciled once nothing is still coming up.
+		// An empty string used to leave StartSyncReplicasTask's "syncing" in place.
+		if summary.Running > 0 || summary.HasProbing {
+			return api.LLM_DEPLOYMENT_STATUS_DEPLOYING
+		}
+		return api.STATUS_READY
 	}
 	switch {
 	case summary.Running >= desired:

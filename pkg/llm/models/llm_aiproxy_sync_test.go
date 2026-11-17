@@ -35,6 +35,31 @@ func TestUnsyncKeepsDeploymentRouting(t *testing.T) {
 	}
 }
 
+func TestAiproxyStatusWhenNoRunningReplicas(t *testing.T) {
+	synced, syncedMsg := aiproxyStatusWhenNoRunningReplicas(&SLLMDeployment{Replicas: 0})
+	if synced != api.AIPROXY_SYNC_STATUS_SYNCED {
+		t.Fatalf("replicas=0 status = %q, want %q", synced, api.AIPROXY_SYNC_STATUS_SYNCED)
+	}
+	if syncedMsg == "" {
+		t.Fatal("replicas=0 message must explain scale-to-zero")
+	}
+
+	pending, pendingMsg := aiproxyStatusWhenNoRunningReplicas(&SLLMDeployment{Replicas: 2})
+	if pending != api.AIPROXY_SYNC_STATUS_PENDING {
+		t.Fatalf("replicas>0 status = %q, want %q", pending, api.AIPROXY_SYNC_STATUS_PENDING)
+	}
+	if pendingMsg != "waiting for running replicas" {
+		t.Fatalf("replicas>0 message = %q", pendingMsg)
+	}
+
+	if got := inferAiproxySyncStatus(&SLLMDeployment{AutoRegisterAiproxy: true, Replicas: 0}); got != api.AIPROXY_SYNC_STATUS_SYNCED {
+		t.Fatalf("infer replicas=0 = %q, want synced", got)
+	}
+	if got := inferAiproxySyncStatus(&SLLMDeployment{AutoRegisterAiproxy: true, Replicas: 1}); got != api.AIPROXY_SYNC_STATUS_PENDING {
+		t.Fatalf("infer replicas>0 = %q, want pending", got)
+	}
+}
+
 func TestAiproxyCatalogDeleteEntrypoints(t *testing.T) {
 	if api.AIPROXY_SYNC_STATUS_DISABLED == "" {
 		t.Fatal("disabled status must remain the unregister/delete end state")

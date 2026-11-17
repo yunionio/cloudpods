@@ -103,7 +103,7 @@ func TestIsolatedDevicesNeedSync(t *testing.T) {
 func TestBuildSchedulableIsolatedDevices(t *testing.T) {
 	devs := api.Devices{{Model: "A100"}, {Model: "A100"}}
 	claim := 40960
-	iso, perDev, err := buildSchedulableIsolatedDevices(&devs, claim)
+	iso, perDev, err := buildSchedulableIsolatedDevices(&devs, isolatedDeviceVramPlan{HamiClaimMb: claim})
 	if err != nil {
 		t.Fatalf("buildSchedulableIsolatedDevices: %v", err)
 	}
@@ -128,12 +128,12 @@ func TestBuildSchedulableIsolatedDevices(t *testing.T) {
 }
 
 func TestBuildSchedulableIsolatedDevicesEmpty(t *testing.T) {
-	iso, perDev, err := buildSchedulableIsolatedDevices(nil, 0)
+	iso, perDev, err := buildSchedulableIsolatedDevices(nil, isolatedDeviceVramPlan{})
 	if err != nil || iso != nil || perDev != 0 {
 		t.Fatalf("nil devices: iso=%v perDev=%d err=%v", iso, perDev, err)
 	}
 	empty := api.Devices{}
-	iso, perDev, err = buildSchedulableIsolatedDevices(&empty, 0)
+	iso, perDev, err = buildSchedulableIsolatedDevices(&empty, isolatedDeviceVramPlan{})
 	if err != nil || iso != nil || perDev != 0 {
 		t.Fatalf("empty devices: iso=%v perDev=%d err=%v", iso, perDev, err)
 	}
@@ -193,5 +193,89 @@ func TestGroupIsolatedDeviceAttachConfigs(t *testing.T) {
 	}
 	if groups[1].Count != 1 || groups[1].SharingMode != computeapi.DEVICE_SHARING_MODE_UNLIMITED {
 		t.Fatalf("group1 = %#v", groups[1])
+	}
+}
+
+func TestWholeCardScheduleMemoryUsesUtilizationNotKV(t *testing.T) {
+	// weight*1.2+2GiB fits in 2x16311 MiB at 0.9 (GPUStack). Adding the KV
+	// reserve and splitting evenly asks each card for 18519 MiB, which a
+	// 16311 MiB RTX 5060 Ti cannot satisfy.
+	const (
+		modelClaimMb = 28846
+		kvReserveMb  = 8192
+		cardMb       = 16311
+	)
+	withKVPerCard := (modelClaimMb + kvReserveMb + 1) / 2
+	if withKVPerCard != 18519 || withKVPerCard <= cardMb {
+		t.Fatalf("fixture per-card KV split = %d, want 18519 > %d", withKVPerCard, cardMb)
+	}
+	want := wholeCardScheduleMemoryMb(modelClaimMb, 2, 0.9)
+	if want >= cardMb {
+		t.Fatalf("GPUStack floor %d should fit in %d MiB", want, cardMb)
+	}
+	if want != 16026 {
+		t.Fatalf("ceil(28846/(2*0.9)) = %d, want 16026", want)
+	}
+
+	devs := api.Devices{
+		{Model: "GeForce RTX 5060 Ti", SharingMode: computeapi.DEVICE_SHARING_MODE_UNLIMITED},
+		{Model: "GeForce RTX 5060 Ti", SharingMode: computeapi.DEVICE_SHARING_MODE_UNLIMITED},
+	}
+	plan := isolatedDeviceVramPlan{
+		HamiClaimMb:          modelClaimMb + kvReserveMb,
+		WholeCardClaimMb:     modelClaimMb,
+		WholeCardUtilization: 0.9,
+	}
+	out, err := buildIsolatedDeviceConfigs(&devs, plan)
+	if err != nil {
+		t.Fatalf("buildIsolatedDeviceConfigs: %v", err)
+	}
+	if len(out) != 2 {
+		t.Fatalf("len = %d", len(out))
+	}
+	for i, d := range out {
+		if d.MemoryMb != want || d.MemoryRequest != want {
+			t.Fatalf("dev%d MemoryMb=%d MemoryRequest=%d want %d", i, d.MemoryMb, d.MemoryRequest, want)
+		}
+	}
+}
+
+func TestWholeCardExplicitMemoryMbWins(t *testing.T) {
+	devs := api.Devices{{
+		Model:       "GeForce RTX 5060 Ti",
+		SharingMode: computeapi.DEVICE_SHARING_MODE_UNLIMITED,
+		MemoryMb:    8192,
+	}}
+	out, err := buildIsolatedDeviceConfigs(&devs, isolatedDeviceVramPlan{
+		WholeCardClaimMb:     28846,
+		WholeCardUtilization: 0.9,
+	})
+	if err != nil {
+		t.Fatalf("buildIsolatedDeviceConfigs: %v", err)
+	}
+	if out[0].MemoryMb != 8192 {
+		t.Fatalf("explicit memory_mb = %d, want 8192", out[0].MemoryMb)
+	}
+}
+
+func TestHAMISplitIgnoresGpuMemoryUtilization(t *testing.T) {
+	devs := api.Devices{{Model: "A100"}, {Model: "A100"}}
+	claim := 40960
+	out, err := buildIsolatedDeviceConfigs(&devs, isolatedDeviceVramPlan{
+		HamiClaimMb:          claim,
+		WholeCardClaimMb:     10000,
+		WholeCardUtilization: 0.9,
+	})
+	if err != nil {
+		t.Fatalf("buildIsolatedDeviceConfigs: %v", err)
+	}
+	want := (claim + len(devs) - 1) / len(devs)
+	for i, d := range out {
+		if d.SharingMode != computeapi.DEVICE_SHARING_MODE_HAMI {
+			t.Fatalf("dev%d SharingMode = %q", i, d.SharingMode)
+		}
+		if d.MemoryMb != want || d.MemoryRequest != want {
+			t.Fatalf("dev%d MemoryMb=%d want %d (HAMI must not divide by utilization)", i, d.MemoryMb, want)
+		}
 	}
 }
