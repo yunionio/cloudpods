@@ -47,6 +47,51 @@ func TestCanRestartDeploymentStatus(t *testing.T) {
 	}
 }
 
+func TestComputeDeploymentReplicaStatusScaleToZero(t *testing.T) {
+	cases := []struct {
+		name    string
+		summary deploymentReplicaStatusSummary
+		desired int
+		want    string
+	}{
+		{
+			name:    "zero replicas and nothing running is ready",
+			desired: 0,
+			want:    api.STATUS_READY,
+		},
+		{
+			name:    "negative replicas is ready",
+			desired: -1,
+			want:    api.STATUS_READY,
+		},
+		{
+			name:    "still running while scaling to zero stays deploying",
+			summary: deploymentReplicaStatusSummary{Running: 1},
+			desired: 0,
+			want:    api.LLM_DEPLOYMENT_STATUS_DEPLOYING,
+		},
+		{
+			name:    "probing while scaling to zero stays deploying",
+			summary: deploymentReplicaStatusSummary{HasProbing: true},
+			desired: 0,
+			want:    api.LLM_DEPLOYMENT_STATUS_DEPLOYING,
+		},
+		{
+			name:    "positive desired with no running stays deploying",
+			desired: 2,
+			want:    api.LLM_DEPLOYMENT_STATUS_DEPLOYING,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := computeDeploymentReplicaStatus(tc.summary, tc.desired)
+			if got != tc.want {
+				t.Fatalf("computeDeploymentReplicaStatus() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestCanUpdateReplicaHealthStatus(t *testing.T) {
 	cases := []struct {
 		current string
