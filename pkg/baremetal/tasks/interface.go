@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/cloudmux/pkg/apis/compute"
 	"yunion.io/x/jsonutils"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/baremetal/pxe"
 	baremetaltypes "yunion.io/x/onecloud/pkg/baremetal/types"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -43,7 +44,7 @@ type IBaremetal interface {
 	SaveDesc(ctx context.Context, desc jsonutils.JSONObject) error
 	GetNics() []types.SNic
 	GetNicByMac(net.HardwareAddr) *types.SNic
-	GetRawIPMIConfig() *types.SIPMIInfo
+	GetRawIPMIConfig() *computeapi.SIpmiInfo
 	GetIPMINic(mac net.HardwareAddr) *types.SNic
 	SetExistingIPMIIPAddr(ipAddr string)
 	GetServer() baremetaltypes.IBaremetalServer

@@ -57,6 +57,8 @@ const (
 	HOST_IPMI_PASSWORD_OPTIONAL = "IPMI密码"
 	HOST_MNG_IP_ADDR_OPTIONAL   = "管理口IP地址"
 	HOST_MNG_MAC_ADDR_OPTIONAL  = "管理口MAC地址"
+	HOST_IPMI_PORT              = "IPMI端口（默认623）"
+	HOST_IPMI_REDFISH_PORT      = "Redfish端口（默认443）"
 )
 
 const (
@@ -68,7 +70,43 @@ var (
 	BatchHostRegisterTemplate    = []string{HOST_MAC, HOST_NAME, HOST_IPMI_ADDR_OPTIONAL, HOST_IPMI_USERNAME_OPTIONAL, HOST_IPMI_PASSWORD_OPTIONAL}
 	BatchHostISORegisterTemplate = []string{HOST_NAME, HOST_IPMI_ADDR, HOST_IPMI_USERNAME, HOST_IPMI_PASSWORD, HOST_MNG_IP_ADDR}
 	BatchHostPXERegisterTemplate = []string{HOST_NAME, HOST_IPMI_ADDR, HOST_IPMI_USERNAME, HOST_IPMI_PASSWORD, HOST_MNG_MAC_ADDR_OPTIONAL, HOST_MNG_IP_ADDR_OPTIONAL}
+	batchHostPortColumns         = []string{HOST_IPMI_PORT, HOST_IPMI_REDFISH_PORT}
 )
+
+func batchHostTemplate(cols []string) []string {
+	ret := make([]string, len(cols), len(cols)+len(batchHostPortColumns))
+	copy(ret, cols)
+	return append(ret, batchHostPortColumns...)
+}
+
+func batchHostHeaderOK(header []string) bool {
+	if len(header) == 0 {
+		return false
+	}
+	for _, template := range [][]string{BatchHostRegisterTemplate, BatchHostISORegisterTemplate, BatchHostPXERegisterTemplate} {
+		if batchHostHeaderMatches(header, template) {
+			return true
+		}
+	}
+	return false
+}
+
+func batchHostHeaderMatches(header, required []string) bool {
+	allowed := batchHostTemplate(required)
+	seen := make(map[string]bool, len(header))
+	for _, title := range header {
+		if seen[title] || !utils.IsInStringArray(title, allowed) {
+			return false
+		}
+		seen[title] = true
+	}
+	for _, title := range required {
+		if !seen[title] {
+			return false
+		}
+	}
+	return true
+}
 
 func FetchSession(ctx context.Context, r *http.Request) *mcclient.ClientSession {
 	token := AppContextToken(ctx)
@@ -214,21 +252,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 		return
 	}
 
-	// check header line
-	titlesOk := false
-	for _, t := range [][]string{BatchHostRegisterTemplate, BatchHostISORegisterTemplate, BatchHostPXERegisterTemplate} {
-		if len(t) == len(rows[0]) {
-			for _, title := range rows[0] {
-				if !utils.IsInStringArray(title, t) {
-					break
-				}
-			}
-
-			titlesOk = true
-		}
-	}
-
-	if !titlesOk {
+	if !batchHostHeaderOK(rows[0]) {
 		httperrors.InputParameterError(ctx, w, "template file is invalid. please check.")
 		return
 	}
@@ -249,6 +273,10 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 			paramKeys = append(paramKeys, "ipmi_username")
 		case HOST_IPMI_PASSWORD, HOST_IPMI_PASSWORD_OPTIONAL:
 			paramKeys = append(paramKeys, "ipmi_password")
+		case HOST_IPMI_PORT:
+			paramKeys = append(paramKeys, "ipmi_port")
+		case HOST_IPMI_REDFISH_PORT:
+			paramKeys = append(paramKeys, "ipmi_redfish_port")
 		case HOST_MNG_IP_ADDR, HOST_MNG_IP_ADDR_OPTIONAL:
 			i2 = i
 			paramKeys = append(paramKeys, "access_ip")
@@ -486,13 +514,13 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 	var content bytes.Buffer
 	switch template {
 	case "BatchHostRegister":
-		records := [][]string{BatchHostRegisterTemplate}
+		records := [][]string{batchHostTemplate(BatchHostRegisterTemplate)}
 		content, err = writeXlsx("hosts", records)
 	case "BatchHostISORegister":
-		records := [][]string{BatchHostISORegisterTemplate}
+		records := [][]string{batchHostTemplate(BatchHostISORegisterTemplate)}
 		content, err = writeXlsx("hosts", records)
 	case "BatchHostPXERegister":
-		records := [][]string{BatchHostPXERegisterTemplate}
+		records := [][]string{batchHostTemplate(BatchHostPXERegisterTemplate)}
 		content, err = writeXlsx("hosts", records)
 	case "BatchUserRegister":
 		records := [][]string{{"*用户名（user）", "*用户密码（password）", "*显示名（displayname）", "*部门/域（domain）", "*是否登录控制台（allow_web_console：true、false）"}}

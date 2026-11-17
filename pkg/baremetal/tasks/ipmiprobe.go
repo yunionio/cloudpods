@@ -59,7 +59,7 @@ func (self *SBaremetalIpmiProbeTask) GetName() string {
 func (self *SBaremetalIpmiProbeTask) DoIpmiProbe(ctx context.Context, args interface{}) error {
 	ipmiInfo := self.Baremetal.GetRawIPMIConfig()
 	if ipmiInfo == nil {
-		ipmiInfo = &types.SIPMIInfo{}
+		ipmiInfo = &api.SIpmiInfo{}
 	}
 	if ipmiInfo.IpAddr == "" {
 		return errors.Error("empty IPMI ip_addr")
@@ -72,7 +72,7 @@ func (self *SBaremetalIpmiProbeTask) DoIpmiProbe(ctx context.Context, args inter
 	}
 	// FIXME: 通过 redfish 探测出来的管理口网卡地址可能和 PXE 启动的网卡地址不一致
 	// 所以暂时注释掉这个探测逻辑，使用 doRawIpmiProbe
-	/* redfishCli := redfish.NewRedfishDriver(ctx, "https://"+ipmiInfo.IpAddr, ipmiInfo.Username, ipmiInfo.Password, false)
+	/* redfishCli := redfish.NewRedfishDriver(ctx, ipmiInfo.RedfishEndpoint(), ipmiInfo.Username, ipmiInfo.Password, false)
 	if redfishCli != nil {
 		redfishSuccess, err := self.doRedfishIpmiProbe(ctx, redfishCli)
 		if err == nil {
@@ -85,7 +85,7 @@ func (self *SBaremetalIpmiProbeTask) DoIpmiProbe(ctx context.Context, args inter
 		// else, redfish call fails, try IPMI
 	} */
 	log.Warningf("BMC not redfish-compatible for IPMI: %s, use raw probe", ipmiInfo.IpAddr)
-	ipmiTool, err := ipmitool.NewLanPlusIPMI(ipmiInfo.IpAddr, ipmiInfo.Username, ipmiInfo.Password)
+	ipmiTool, err := ipmitool.NewLanPlusIPMIWithPort(ipmiInfo.IpAddr, ipmiInfo.Username, ipmiInfo.Password, ipmiInfo.GetIpmiPort())
 	if err != nil {
 		return errors.Wrap(err, "NewLanPlusIPMI")
 	}
@@ -130,7 +130,7 @@ func (self *SBaremetalIpmiProbeTask) doRedfishIpmiProbe(ctx context.Context, drv
 	updateInfo["is_baremetal"] = true
 	ipmiInfo := self.Baremetal.GetRawIPMIConfig()
 	if ipmiInfo == nil {
-		ipmiInfo = &types.SIPMIInfo{}
+		ipmiInfo = &api.SIpmiInfo{}
 	}
 	ipmiInfo.Present = true
 	ipmiInfo.Verified = true
@@ -208,7 +208,7 @@ func (self *SBaremetalIpmiProbeTask) doRawIpmiProbe(ctx context.Context, cli ipm
 	}
 	ipmiInfo := self.Baremetal.GetRawIPMIConfig()
 	if ipmiInfo == nil {
-		ipmiInfo = &types.SIPMIInfo{}
+		ipmiInfo = &api.SIpmiInfo{}
 	}
 	discovery, err := ipmitool.DiscoverLanConfig(cli, preferredChannels, ipmitool.LanConfigSelectionOptions{
 		ConnectedIP:         ipmiInfo.IpAddr,
