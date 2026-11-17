@@ -300,7 +300,11 @@ func (bucket *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartU
 	defer close(doneCh)
 	for info := range bucket.client.S3Client().ListIncompleteUploads(bucket.Name, "", true, doneCh) {
 		if info.Err != nil {
-			return nil, errors.Wrap(info.Err, "ListIncompleteUploads")
+			err := cloudprovider.ConvertBucketError(info.Err)
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return nil, err
+			}
+			return nil, errors.Wrap(err, "ListIncompleteUploads")
 		}
 		if len(info.UploadID) == 0 {
 			continue

@@ -14,7 +14,11 @@
 
 package cloudprovider
 
-import "yunion.io/x/pkg/errors"
+import (
+	"strings"
+
+	"yunion.io/x/pkg/errors"
+)
 
 const (
 	ErrMissingParameter    = errors.Error("MissingParameterError")
@@ -41,3 +45,31 @@ const (
 
 	ErrUnknown = errors.Error("UnknownError")
 )
+
+// IsBucketNotFoundError reports whether err indicates the object-store bucket is gone.
+func IsBucketNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Cause(err) == ErrNotFound {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "nosuchbucket") ||
+		strings.Contains(msg, "no such bucket") ||
+		strings.Contains(msg, "the specified bucket does not exist") ||
+		strings.Contains(msg, "bucket does not exist") ||
+		strings.Contains(msg, "bucket not found") ||
+		strings.Contains(msg, "notexistbucket")
+}
+
+// ConvertBucketError maps remote bucket-missing errors to ErrNotFound.
+func ConvertBucketError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if IsBucketNotFoundError(err) {
+		return errors.Wrap(ErrNotFound, err.Error())
+	}
+	return err
+}

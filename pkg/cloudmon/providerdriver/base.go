@@ -92,6 +92,10 @@ func (self *SBaseCollectDriver) CollectEipMetrics(ctx context.Context, manager a
 	return cloudprovider.ErrNotImplemented
 }
 
+func (self *SBaseCollectDriver) CollectNatMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.NatgatewayDetails, start, end time.Time) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (self *SBaseCollectDriver) CollectStorageMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.StorageDetails, start, end time.Time) error {
 	metrics := []influxdb.SMetricData{}
 	for _, storage := range res {
@@ -1245,4 +1249,274 @@ func (driver *SCollectByMetricTypeDriver) CollectLoadbalancerMetrics(ctx context
 	wg.Wait()
 
 	return driver.sendMetrics(ctx, manager, "slb", len(res), metrics)
+}
+
+func (self *SCollectByMetricTypeDriver) CollectEipMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.ElasticipDetails, start, end time.Time) error {
+	metrics := []influxdb.SMetricData{}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for _, _metricType := range cloudprovider.ALL_EIP_TYPES {
+		wg.Add(1)
+		go func(metricType cloudprovider.TMetricType) {
+			defer func() {
+				wg.Done()
+			}()
+			opts := &cloudprovider.MetricListOptions{
+				ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_EIP,
+				MetricType:   metricType,
+				StartTime:    start,
+				EndTime:      end,
+			}
+			data, err := provider.GetMetrics(opts)
+			if err != nil {
+				if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("get eip %s(%s) %s error: %v", manager.Name, manager.Id, metricType, err)
+					return
+				}
+				return
+			}
+			for _, value := range data {
+				eip, ok := res[value.Id]
+				if !ok {
+					continue
+				}
+				tags := []influxdb.SKeyValue{}
+				for k, v := range eip.GetMetricTags() {
+					tags = append(tags, influxdb.SKeyValue{
+						Key:   k,
+						Value: v,
+					})
+				}
+				for _, v := range value.Values {
+					metric := influxdb.SMetricData{
+						Name:      value.MetricType.Name(),
+						Timestamp: v.Timestamp,
+						Tags:      []influxdb.SKeyValue{},
+						Metrics: []influxdb.SKeyValue{
+							{
+								Key:   value.MetricType.Key(),
+								Value: strconv.FormatFloat(v.Value, 'E', -1, 64),
+							},
+						},
+					}
+					for k, v := range v.Tags {
+						metric.Tags = append(metric.Tags, influxdb.SKeyValue{
+							Key:   k,
+							Value: v,
+						})
+					}
+					metric.Tags = append(metric.Tags, tags...)
+					mu.Lock()
+					metrics = append(metrics, metric)
+					mu.Unlock()
+				}
+			}
+		}(_metricType)
+	}
+	wg.Wait()
+
+	return self.sendMetrics(ctx, manager, "elasticip", len(res), metrics)
+}
+
+func (self *SCollectByMetricTypeDriver) CollectNatMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.NatgatewayDetails, start, end time.Time) error {
+	metrics := []influxdb.SMetricData{}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for _, _metricType := range cloudprovider.ALL_NAT_TYPES {
+		wg.Add(1)
+		go func(metricType cloudprovider.TMetricType) {
+			defer func() {
+				wg.Done()
+			}()
+			opts := &cloudprovider.MetricListOptions{
+				ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_NAT,
+				MetricType:   metricType,
+				StartTime:    start,
+				EndTime:      end,
+			}
+			data, err := provider.GetMetrics(opts)
+			if err != nil {
+				if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("get nat %s(%s) %s error: %v", manager.Name, manager.Id, metricType, err)
+					return
+				}
+				return
+			}
+			for _, value := range data {
+				nat, ok := res[value.Id]
+				if !ok {
+					continue
+				}
+				tags := []influxdb.SKeyValue{}
+				for k, v := range nat.GetMetricTags() {
+					tags = append(tags, influxdb.SKeyValue{
+						Key:   k,
+						Value: v,
+					})
+				}
+				for _, v := range value.Values {
+					metric := influxdb.SMetricData{
+						Name:      value.MetricType.Name(),
+						Timestamp: v.Timestamp,
+						Tags:      []influxdb.SKeyValue{},
+						Metrics: []influxdb.SKeyValue{
+							{
+								Key:   value.MetricType.Key(),
+								Value: strconv.FormatFloat(v.Value, 'E', -1, 64),
+							},
+						},
+					}
+					for k, v := range v.Tags {
+						metric.Tags = append(metric.Tags, influxdb.SKeyValue{
+							Key:   k,
+							Value: v,
+						})
+					}
+					metric.Tags = append(metric.Tags, tags...)
+					mu.Lock()
+					metrics = append(metrics, metric)
+					mu.Unlock()
+				}
+			}
+		}(_metricType)
+	}
+	wg.Wait()
+
+	return self.sendMetrics(ctx, manager, "nat", len(res), metrics)
+}
+
+func (self *SCollectByResourceIdDriver) CollectEipMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.ElasticipDetails, start, end time.Time) error {
+	ch := make(chan struct{}, options.Options.CloudResourceCollectMetricsBatchCount)
+	defer close(ch)
+	metrics := []influxdb.SMetricData{}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i := range res {
+		ch <- struct{}{}
+		wg.Add(1)
+		go func(eip api.ElasticipDetails) {
+			defer func() {
+				wg.Done()
+				<-ch
+			}()
+			opts := &cloudprovider.MetricListOptions{
+				ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_EIP,
+				StartTime:    start,
+				EndTime:      end,
+			}
+			opts.ResourceId = eip.ExternalId
+			opts.RegionExtId = eip.RegionExtId
+
+			tags := []influxdb.SKeyValue{}
+			for k, v := range eip.GetMetricTags() {
+				tags = append(tags, influxdb.SKeyValue{
+					Key:   k,
+					Value: v,
+				})
+			}
+			data, err := provider.GetMetrics(opts)
+			if err != nil {
+				if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("get eip %s(%s) error: %v", eip.Name, eip.Id, err)
+					return
+				}
+				return
+			}
+			for _, values := range data {
+				for _, value := range values.Values {
+					metric := influxdb.SMetricData{
+						Name:      values.MetricType.Name(),
+						Timestamp: value.Timestamp,
+						Tags:      tags,
+						Metrics: []influxdb.SKeyValue{
+							{
+								Key:   values.MetricType.Key(),
+								Value: strconv.FormatFloat(value.Value, 'E', -1, 64),
+							},
+						},
+					}
+					for k, v := range value.Tags {
+						metric.Tags = append(metric.Tags, influxdb.SKeyValue{
+							Key:   k,
+							Value: v,
+						})
+					}
+					mu.Lock()
+					metrics = append(metrics, metric)
+					mu.Unlock()
+				}
+			}
+		}(res[i])
+	}
+	wg.Wait()
+
+	return self.sendMetrics(ctx, manager, "elasticip", len(res), metrics)
+}
+
+func (self *SCollectByResourceIdDriver) CollectNatMetrics(ctx context.Context, manager api.CloudproviderDetails, provider cloudprovider.ICloudProvider, res map[string]api.NatgatewayDetails, start, end time.Time) error {
+	ch := make(chan struct{}, options.Options.CloudResourceCollectMetricsBatchCount)
+	defer close(ch)
+	metrics := []influxdb.SMetricData{}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i := range res {
+		ch <- struct{}{}
+		wg.Add(1)
+		go func(nat api.NatgatewayDetails) {
+			defer func() {
+				wg.Done()
+				<-ch
+			}()
+			opts := &cloudprovider.MetricListOptions{
+				ResourceType: cloudprovider.METRIC_RESOURCE_TYPE_NAT,
+				StartTime:    start,
+				EndTime:      end,
+			}
+			opts.ResourceId = nat.ExternalId
+			opts.RegionExtId = nat.RegionExtId
+
+			tags := []influxdb.SKeyValue{}
+			for k, v := range nat.GetMetricTags() {
+				tags = append(tags, influxdb.SKeyValue{
+					Key:   k,
+					Value: v,
+				})
+			}
+			data, err := provider.GetMetrics(opts)
+			if err != nil {
+				if errors.Cause(err) != cloudprovider.ErrNotImplemented && errors.Cause(err) != cloudprovider.ErrNotSupported {
+					log.Errorf("get nat %s(%s) error: %v", nat.Name, nat.Id, err)
+					return
+				}
+				return
+			}
+			for _, values := range data {
+				for _, value := range values.Values {
+					metric := influxdb.SMetricData{
+						Name:      values.MetricType.Name(),
+						Timestamp: value.Timestamp,
+						Tags:      tags,
+						Metrics: []influxdb.SKeyValue{
+							{
+								Key:   values.MetricType.Key(),
+								Value: strconv.FormatFloat(value.Value, 'E', -1, 64),
+							},
+						},
+					}
+					for k, v := range value.Tags {
+						metric.Tags = append(metric.Tags, influxdb.SKeyValue{
+							Key:   k,
+							Value: v,
+						})
+					}
+					mu.Lock()
+					metrics = append(metrics, metric)
+					mu.Unlock()
+				}
+			}
+		}(res[i])
+	}
+	wg.Wait()
+
+	return self.sendMetrics(ctx, manager, "nat", len(res), metrics)
 }

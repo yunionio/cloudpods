@@ -28,6 +28,9 @@ var rdsConn = SMeasurement{
 			"used_percent", "Connection usage", monitor.METRIC_UNIT_PERCENT,
 		},
 		{
+			"used_count", "Connection count", monitor.METRIC_UNIT_COUNT,
+		},
+		{
 			"active_count", "active connection count", monitor.METRIC_UNIT_COUNT,
 		},
 		{
