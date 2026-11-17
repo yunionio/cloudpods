@@ -321,6 +321,8 @@ func (self *SAliyunClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]
 		return self.GetK8sMetrics(opts)
 	case cloudprovider.METRIC_RESOURCE_TYPE_EIP:
 		return self.GetEipMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_NAT:
+		return self.GetNatMetrics(opts)
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.ResourceType)
 	}
@@ -568,6 +570,10 @@ func (self *SAliyunClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) 
 		metricTags = map[string]string{
 			"ConnectionUsage": "",
 		}
+	case cloudprovider.RDS_METRIC_TYPE_CONN_COUNT:
+		metricTags = map[string]string{
+			"ConnectionCount": "",
+		}
 	case cloudprovider.RDS_METRIC_TYPE_QPS:
 		metricTags = map[string]string{
 			"MySQL_QPS": "",
@@ -701,15 +707,20 @@ func (self *SAliyunClient) GetK8sMetrics(opts *cloudprovider.MetricListOptions) 
 
 func (self *SAliyunClient) GetEipMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
 	metricTags, tagKey := map[string]string{}, ""
+	// Fixed/public IPs on ECS are emulated EIPs (ExternalId == instanceId);
+	// they are not in acs_vpc_eip and must be read from ECS dashboard.
+	ecsPublicIpMetric := ""
 	switch opts.MetricType {
 	case cloudprovider.EIP_METRIC_TYPE_NET_BPS_RX:
 		metricTags = map[string]string{
 			"net.rx": "",
 		}
+		ecsPublicIpMetric = "VPC_PublicIP_InternetInRate"
 	case cloudprovider.EIP_METRIC_TYPE_NET_BPS_TX:
 		metricTags = map[string]string{
 			"net.tx": "",
 		}
+		ecsPublicIpMetric = "VPC_PublicIP_InternetOutRate"
 	case cloudprovider.EIP_METRIC_TYPE_NET_DROP_SPEED_TX:
 		metricTags = map[string]string{
 			"out_ratelimit_drop_speed": "",
@@ -737,6 +748,65 @@ func (self *SAliyunClient) GetEipMetrics(opts *cloudprovider.MetricListOptions) 
 						Timestamp: time.UnixMilli(result[i].Timestamp),
 						Value:     result[i].GetValue(),
 						Tags:      tags,
+					},
+				},
+			})
+		}
+	}
+	if len(ecsPublicIpMetric) > 0 {
+		result, err := self.ListMetrics("acs_ecs_dashboard", ecsPublicIpMetric, opts.StartTime, opts.EndTime)
+		if err != nil {
+			log.Errorf("ListMetric(%s) error: %v", ecsPublicIpMetric, err)
+		} else {
+			for i := range result {
+				if len(result[i].InstanceId) == 0 {
+					continue
+				}
+				ret = append(ret, cloudprovider.MetricValues{
+					Id:         result[i].InstanceId,
+					MetricType: opts.MetricType,
+					Values: []cloudprovider.MetricValue{
+						{
+							Timestamp: time.UnixMilli(result[i].Timestamp),
+							Value:     result[i].GetValue(),
+						},
+					},
+				})
+			}
+		}
+	}
+	return ret, nil
+}
+
+func (self *SAliyunClient) GetNatMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	metricTags := map[string]string{}
+	switch opts.MetricType {
+	case cloudprovider.NAT_METRIC_TYPE_NET_BPS_RX:
+		metricTags = map[string]string{
+			"BWRateInFromOutside": "",
+		}
+	case cloudprovider.NAT_METRIC_TYPE_NET_BPS_TX:
+		metricTags = map[string]string{
+			"BWRateOutToOutside": "",
+		}
+	default:
+		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
+	}
+	ret := []cloudprovider.MetricValues{}
+	for metric := range metricTags {
+		result, err := self.ListMetrics("acs_nat_gateway", metric, opts.StartTime, opts.EndTime)
+		if err != nil {
+			log.Errorf("ListMetric(%s) error: %v", metric, err)
+			continue
+		}
+		for i := range result {
+			ret = append(ret, cloudprovider.MetricValues{
+				Id:         result[i].InstanceId,
+				MetricType: opts.MetricType,
+				Values: []cloudprovider.MetricValue{
+					{
+						Timestamp: time.UnixMilli(result[i].Timestamp),
+						Value:     result[i].GetValue(),
 					},
 				},
 			})

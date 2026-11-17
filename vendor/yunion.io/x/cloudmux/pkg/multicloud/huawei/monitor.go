@@ -652,7 +652,137 @@ func (self *SHuaweiClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]
 		return self.getLoadbalancerMetrics(opts)
 	case cloudprovider.METRIC_RESOURCE_TYPE_MODELARTS_POOL:
 		return self.getModelartsPoolMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_NAT:
+		return self.getNatMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_EIP:
+		return self.getEipMetrics(opts)
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "%s", opts.ResourceType)
 	}
+}
+
+func (self *SHuaweiClient) getNatMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	params := map[string]interface{}{
+		"from":   opts.StartTime.UnixMilli(),
+		"to":     opts.EndTime.UnixMilli(),
+		"period": "1",
+		"filter": "average",
+	}
+	metrics := []interface{}{}
+	namespace, dimesionName, metricNames := "SYS.NAT", "nat_gateway_id", []string{
+		"inbound_bandwidth",
+		"outbound_bandwidth",
+	}
+	for _, metricName := range metricNames {
+		metrics = append(metrics, map[string]interface{}{
+			"namespace":   namespace,
+			"metric_name": metricName,
+			"dimensions": []map[string]string{
+				{
+					"name":  dimesionName,
+					"value": opts.ResourceId,
+				},
+			},
+		})
+	}
+	params["metrics"] = metrics
+	resp, err := self.post(SERVICE_CES, opts.RegionExtId, "batch-query-metric-data", params)
+	if err != nil {
+		return nil, err
+	}
+	metricData := []MetricData{}
+	err = resp.Unmarshal(&metricData, "metrics")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	result := []cloudprovider.MetricValues{}
+	for i := range metricData {
+		if len(metricData[i].Datapoints) == 0 {
+			continue
+		}
+		ret := cloudprovider.MetricValues{
+			Id:     opts.ResourceId,
+			Unit:   metricData[i].Unit,
+			Values: []cloudprovider.MetricValue{},
+		}
+		switch metricData[i].MetricName {
+		case "inbound_bandwidth":
+			ret.MetricType = cloudprovider.NAT_METRIC_TYPE_NET_BPS_RX
+		case "outbound_bandwidth":
+			ret.MetricType = cloudprovider.NAT_METRIC_TYPE_NET_BPS_TX
+		default:
+			continue
+		}
+		for _, value := range metricData[i].Datapoints {
+			ret.Values = append(ret.Values, cloudprovider.MetricValue{
+				Value:     value.Average,
+				Timestamp: time.UnixMilli(value.Timestamp),
+			})
+		}
+		result = append(result, ret)
+	}
+	return result, nil
+}
+
+func (self *SHuaweiClient) getEipMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	params := map[string]interface{}{
+		"from":   opts.StartTime.UnixMilli(),
+		"to":     opts.EndTime.UnixMilli(),
+		"period": "1",
+		"filter": "average",
+	}
+	metrics := []interface{}{}
+	namespace, dimesionName, metricNames := "SYS.VPC", "publicip_id", []string{
+		"downstream_bandwidth",
+		"upstream_bandwidth",
+	}
+	for _, metricName := range metricNames {
+		metrics = append(metrics, map[string]interface{}{
+			"namespace":   namespace,
+			"metric_name": metricName,
+			"dimensions": []map[string]string{
+				{
+					"name":  dimesionName,
+					"value": opts.ResourceId,
+				},
+			},
+		})
+	}
+	params["metrics"] = metrics
+	resp, err := self.post(SERVICE_CES, opts.RegionExtId, "batch-query-metric-data", params)
+	if err != nil {
+		return nil, err
+	}
+	metricData := []MetricData{}
+	err = resp.Unmarshal(&metricData, "metrics")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	result := []cloudprovider.MetricValues{}
+	for i := range metricData {
+		if len(metricData[i].Datapoints) == 0 {
+			continue
+		}
+		ret := cloudprovider.MetricValues{
+			Id:     opts.ResourceId,
+			Unit:   metricData[i].Unit,
+			Values: []cloudprovider.MetricValue{},
+		}
+		switch metricData[i].MetricName {
+		case "downstream_bandwidth":
+			ret.MetricType = cloudprovider.EIP_METRIC_TYPE_NET_BPS_RX
+		case "upstream_bandwidth":
+			ret.MetricType = cloudprovider.EIP_METRIC_TYPE_NET_BPS_TX
+		default:
+			continue
+		}
+		for _, value := range metricData[i].Datapoints {
+			ret.Values = append(ret.Values, cloudprovider.MetricValue{
+				Value:     value.Average,
+				Timestamp: time.UnixMilli(value.Timestamp),
+			})
+		}
+		result = append(result, ret)
+	}
+	return result, nil
 }
