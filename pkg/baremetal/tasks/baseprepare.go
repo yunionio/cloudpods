@@ -93,7 +93,7 @@ type baremetalPrepareInfo struct {
 	nicsInfo            []*types.SNicDevInfo
 	diskInfo            []*baremetal.BaremetalStorage
 	storageDriver       string
-	ipmiInfo            *types.SIPMIInfo
+	ipmiInfo            *api.SIpmiInfo
 	isolatedDevicesInfo []*isolated_device.PCIDevice
 }
 
@@ -172,7 +172,7 @@ func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*barem
 
 	ipmiInfo := task.baremetal.GetRawIPMIConfig()
 	if ipmiInfo == nil {
-		ipmiInfo = &types.SIPMIInfo{}
+		ipmiInfo = &api.SIpmiInfo{}
 	}
 	if !ipmiInfo.Verified && !ipmiInfo.Present && ipmiEnable {
 		ipmiInfo.Present = true
@@ -555,7 +555,11 @@ func (task *sBaremetalPrepareTask) tryLocalIpmiAddr(ctx context.Context, sshIPMI
 		log.Errorf("Failed to get lan config after %d tries", tried)
 		return false
 	}
-	rmcpIPMI, err := ipmitool.NewLanPlusIPMI(tryAddr, ipmiUser, ipmiPasswd)
+	ipmiPort := api.DefaultIpmiPort
+	if task.baremetal != nil {
+		ipmiPort = task.baremetal.GetRawIPMIConfig().GetIpmiPort()
+	}
+	rmcpIPMI, err := ipmitool.NewLanPlusIPMIWithPort(tryAddr, ipmiUser, ipmiPasswd, ipmiPort)
 	if err != nil {
 		log.Errorf("NewLanPlusIPMI for %s: %v", tryAddr, err)
 		return false
@@ -588,7 +592,7 @@ func (task *sBaremetalPrepareTask) tryLocalIpmiAddr(ctx context.Context, sshIPMI
 	return false
 }
 
-func (task *sBaremetalPrepareTask) getIPMIUserPasswd(oldIPMIConf *types.SIPMIInfo, profile *baremetalapi.BaremetalProfileSpec) (string, string, string) {
+func (task *sBaremetalPrepareTask) getIPMIUserPasswd(oldIPMIConf *api.SIpmiInfo, profile *baremetalapi.BaremetalProfileSpec) (string, string, string) {
 	var (
 		ipmiUser   string
 		ipmiPasswd string

@@ -16,9 +16,7 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -27,7 +25,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
-	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/redfish"
@@ -66,7 +63,7 @@ func (self *SBaremetalCdromTask) GetName() string {
 func (self *SBaremetalCdromTask) getRedfishApi(ctx context.Context) (redfish.IRedfishDriver, error) {
 	ipmiInfo := self.Baremetal.GetRawIPMIConfig()
 	if ipmiInfo == nil {
-		ipmiInfo = &types.SIPMIInfo{}
+		ipmiInfo = &api.SIpmiInfo{}
 	}
 	if ipmiInfo.IpAddr == "" {
 		return nil, errors.Error("empty IPMI ip_addr")
@@ -81,11 +78,7 @@ func (self *SBaremetalCdromTask) getRedfishApi(ctx context.Context) (redfish.IRe
 		return nil, errors.Error("mount Virtual Cdrom not supported")
 	}
 
-	var endpoint = "https://" + ipmiInfo.IpAddr
-	if strings.Contains(ipmiInfo.IpAddr, ":") {
-		endpoint = fmt.Sprintf("https://[%s]", ipmiInfo.IpAddr)
-	}
-	redfishCli := redfish.NewRedfishDriver(ctx, endpoint, ipmiInfo.Username, ipmiInfo.Password, false)
+	redfishCli := redfish.NewRedfishDriver(ctx, ipmiInfo.RedfishEndpoint(), ipmiInfo.Username, ipmiInfo.Password, false)
 	if redfishCli != nil {
 		return redfishCli, nil
 	} else {
