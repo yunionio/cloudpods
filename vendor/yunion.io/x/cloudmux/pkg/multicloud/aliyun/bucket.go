@@ -758,6 +758,10 @@ func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUpload
 	for {
 		output, err := ossBucket.ListMultipartUploads(keyMarker, uploadIDMarker)
 		if err != nil {
+			err = cloudprovider.ConvertBucketError(err)
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return nil, err
+			}
 			return nil, errors.Wrap(err, " coscli.Bucket.ListMultipartUploads(context.Background(), &input)")
 		}
 		for i := range output.Uploads {

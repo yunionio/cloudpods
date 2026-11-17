@@ -37,6 +37,8 @@ const (
 	METRIC_RES_TYPE_K8S          = "k8s"
 	METRIC_RES_TYPE_CONTAINER    = "container"
 	METRIC_RES_TYPE_SYSTEM       = "system"
+	METRIC_RES_TYPE_EIP          = "eip"
+	METRIC_RES_TYPE_NAT          = "nat"
 
 	//ext is prefix！
 	METRIC_RES_TYPE_JENKINS      = "ext_jenkins"
