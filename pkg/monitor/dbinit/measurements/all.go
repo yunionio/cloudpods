@@ -118,6 +118,9 @@ var All = []SMeasurement{
 	rdsNetio,
 	rdsDisk,
 
+	eipNet,
+	natNet,
+
 	redis,
 	redisKeyspace,
 

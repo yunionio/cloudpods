@@ -113,22 +113,29 @@ func (self *SEipAddress) GetAssociationType() string {
 	if self.ServiceManaged == "rnat" {
 		return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
 	}
+	eniType := ""
+	vpcId, subnetId := "", ""
 	if len(self.NetworkInterfaceId) > 0 {
 		net, err := self.region.GetNetworkInterface(self.NetworkInterfaceId)
-		if err != nil {
-			return ""
-		}
-		switch net.InterfaceType {
-		// AWS API enum is "natGateway"; some docs/filters use "nat_gateway"
-		case "natGateway", "nat_gateway":
-			return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
-		case "network_load_balancer":
-			return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
-		default:
-			return net.InterfaceType
+		if err == nil {
+			vpcId, subnetId = net.VpcId, net.SubnetId
+			switch net.InterfaceType {
+			// AWS API enum is "natGateway"; some docs/filters use "nat_gateway"
+			case "natGateway", "nat_gateway":
+				return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
+			case "network_load_balancer":
+				return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
+			default:
+				eniType = net.InterfaceType
+			}
 		}
 	}
-	return ""
+	// NAT EIP usually has empty AssociationId / NetworkInterfaceId; match via DescribeNatGateways
+	// (allocationId / publicIp on NatGatewayAddresses).
+	if natId := self.findAssociatedNatGatewayId(vpcId, subnetId); len(natId) > 0 {
+		return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
+	}
+	return eniType
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {
@@ -141,7 +148,7 @@ func (self *SEipAddress) GetAssociationExternalId() string {
 	if len(self.NetworkInterfaceId) > 0 {
 		net, err := self.region.GetNetworkInterface(self.NetworkInterfaceId)
 		if err != nil {
-			return ""
+			return self.findAssociatedNatGatewayId("", "")
 		}
 		switch net.InterfaceType {
 		case "natGateway", "nat_gateway":
@@ -152,11 +159,8 @@ func (self *SEipAddress) GetAssociationExternalId() string {
 			return self.findAssociatedNatGatewayId(net.VpcId, net.SubnetId)
 		}
 	}
-	// Associated EIP without instance/eni: try match NAT by allocation/public ip
-	if len(self.AssociationId) > 0 {
-		return self.findAssociatedNatGatewayId("", "")
-	}
-	return self.InstanceId
+	// NAT EIP usually has empty AssociationId / NetworkInterfaceId; match by allocation/public ip
+	return self.findAssociatedNatGatewayId("", "")
 }
 
 func (self *SEipAddress) findAssociatedNatGatewayId(vpcId, subnetId string) string {

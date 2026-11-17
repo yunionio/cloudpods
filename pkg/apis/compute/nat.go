@@ -79,3 +79,21 @@ type NatgatewayDetails struct {
 
 	Network string `json:"network"`
 }
+
+func (self NatgatewayDetails) GetMetricTags() map[string]string {
+	ret := map[string]string{
+		"id":             self.Id,
+		"name":           self.Name,
+		"status":         self.Status,
+		"cloudregion":    self.Cloudregion,
+		"cloudregion_id": self.CloudregionId,
+		"region_ext_id":  self.RegionExtId,
+		"brand":          self.Brand,
+		"domain_id":      self.DomainId,
+		"project_domain": self.ProjectDomain,
+		"external_id":    self.ExternalId,
+		"vpc_id":         self.VpcId,
+		"ip_addr":        self.IpAddr,
+	}
+	return AppendMetricTags(ret, self.MetadataResourceInfo)
+}

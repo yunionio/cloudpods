@@ -141,6 +141,10 @@ func (self *SQcloudClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]
 		return self.GetRdsMetrics(opts)
 	case cloudprovider.METRIC_RESOURCE_TYPE_K8S:
 		return self.GetK8sMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_NAT:
+		return self.GetNatMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_EIP:
+		return self.GetEipMetrics(opts)
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.ResourceType)
 	}
@@ -419,6 +423,95 @@ func (self *SQcloudClient) GetRdsMetrics(opts *cloudprovider.MetricListOptions) 
 			return nil, err
 		}
 		ret = append(ret, part...)
+	}
+	return ret, nil
+}
+
+func (self *SQcloudClient) GetNatMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	ret := []cloudprovider.MetricValues{}
+	resourceIds := opts.ResourceIds
+	if len(resourceIds) == 0 && len(opts.ResourceId) > 0 {
+		resourceIds = []string{opts.ResourceId}
+	}
+	for metricType, metricNames := range map[cloudprovider.TMetricType]map[string]string{
+		cloudprovider.NAT_METRIC_TYPE_NET_BPS_RX: {
+			"InBandwidth": "",
+		},
+		cloudprovider.NAT_METRIC_TYPE_NET_BPS_TX: {
+			"OutBandwidth": "",
+		},
+	} {
+		for metricName := range metricNames {
+			metrics, err := self.GetMonitorData("QCE/NAT_GATEWAY", metricName, 60, opts.StartTime, opts.EndTime, opts.RegionExtId, "natId", resourceIds)
+			if err != nil {
+				log.Errorf("GetMonitorData error: %v", err)
+				continue
+			}
+			for i := range metrics {
+				if len(metrics[i].Dimensions) < 1 {
+					continue
+				}
+				metric := cloudprovider.MetricValues{
+					Id:         metrics[i].Dimensions[0].Value,
+					MetricType: metricType,
+				}
+				for j := range metrics[i].Timestamps {
+					// Mbps -> bit/s
+					metric.Values = append(metric.Values, cloudprovider.MetricValue{
+						Value:     metrics[i].Values[j] * 1000 * 1000,
+						Timestamp: time.Unix(int64(metrics[i].Timestamps[j]), 0),
+					})
+				}
+				if len(metric.Values) > 0 {
+					ret = append(ret, metric)
+				}
+			}
+		}
+	}
+	return ret, nil
+}
+
+func (self *SQcloudClient) GetEipMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	ret := []cloudprovider.MetricValues{}
+	resourceIds := opts.ResourceIds
+	if len(resourceIds) == 0 && len(opts.ResourceId) > 0 {
+		resourceIds = []string{opts.ResourceId}
+	}
+	for metricType, metricNames := range map[cloudprovider.TMetricType]map[string]string{
+		cloudprovider.EIP_METRIC_TYPE_NET_BPS_RX: {
+			"VipIntraffic": "",
+		},
+		cloudprovider.EIP_METRIC_TYPE_NET_BPS_TX: {
+			"VipOuttraffic": "",
+		},
+	} {
+		for metricName := range metricNames {
+			// dimension value is EIP IP address
+			metrics, err := self.GetMonitorData("QCE/LB", metricName, 60, opts.StartTime, opts.EndTime, opts.RegionExtId, "eip", resourceIds)
+			if err != nil {
+				log.Errorf("GetMonitorData error: %v", err)
+				continue
+			}
+			for i := range metrics {
+				if len(metrics[i].Dimensions) < 1 {
+					continue
+				}
+				metric := cloudprovider.MetricValues{
+					Id:         metrics[i].Dimensions[0].Value,
+					MetricType: metricType,
+				}
+				for j := range metrics[i].Timestamps {
+					// Mbps -> bit/s
+					metric.Values = append(metric.Values, cloudprovider.MetricValue{
+						Value:     metrics[i].Values[j] * 1000 * 1000,
+						Timestamp: time.Unix(int64(metrics[i].Timestamps[j]), 0),
+					})
+				}
+				if len(metric.Values) > 0 {
+					ret = append(ret, metric)
+				}
+			}
+		}
 	}
 	return ret, nil
 }

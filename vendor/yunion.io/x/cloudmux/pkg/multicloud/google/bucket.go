@@ -242,6 +242,10 @@ func (b *SBucket) ListMultipartUploads() ([]cloudprovider.SBucketMultipartUpload
 	for {
 		output, err := b.region.client.storageXmlListMultipartUploads(b.Name, keyMarker, uploadIDMarker)
 		if err != nil {
+			err = cloudprovider.ConvertBucketError(err)
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				return nil, err
+			}
 			return nil, errors.Wrap(err, "storageXmlListMultipartUploads")
 		}
 		for i := range output.Uploads {

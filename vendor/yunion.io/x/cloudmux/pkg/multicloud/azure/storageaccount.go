@@ -1244,6 +1244,10 @@ func (sa *SStorageAccount) ListMultipartUploads() ([]cloudprovider.SBucketMultip
 		for {
 			part, err := containers[i].ListUncommittedBlobs(marker, 1000)
 			if err != nil {
+				err = cloudprovider.ConvertBucketError(err)
+				if errors.Cause(err) == cloudprovider.ErrNotFound {
+					return nil, err
+				}
 				return nil, errors.Wrapf(err, "ListUncommittedBlobs %s", containers[i].Name)
 			}
 			for j := range part.Blobs {
