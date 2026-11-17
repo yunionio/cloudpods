@@ -765,6 +765,10 @@ func (bucket *SBucket) GetDetailsMultipartUploads(
 	}
 	uploads, err := iBucket.ListMultipartUploads()
 	if err != nil {
+		// remote bucket already deleted: return empty list for cron/suggestion scanners
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			return output, nil
+		}
 		return output, errors.Wrap(err, "ListMultipartUploads")
 	}
 	for i := range uploads {

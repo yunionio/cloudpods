@@ -446,7 +446,109 @@ func (self *SHuaweiClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]
 		return self.getModelartsPoolMetrics(opts)
 	case cloudprovider.METRIC_RESOURCE_TYPE_LB:
 		return self.getLoadbalancerMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_NAT:
+		return self.getNatMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_EIP:
+		return self.getEipMetrics(opts)
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotSupported, "%s", opts.ResourceType)
 	}
+}
+
+func (self *SHuaweiClient) getNatMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	result := []cloudprovider.MetricValues{}
+	namespace, dimesionName, metricNames := "SYS.NAT", "nat_gateway_id", []string{
+		"inbound_bandwidth",
+		"outbound_bandwidth",
+	}
+	for _, metricName := range metricNames {
+		temp := make(map[string]string)
+		temp["namespace"] = namespace
+		temp["metric_name"] = metricName
+		temp["from"] = strconv.Itoa(int(opts.StartTime.UnixMilli()))
+		temp["to"] = strconv.Itoa(int(opts.EndTime.UnixMilli()))
+		temp["period"] = "1"
+		temp["filter"] = "average"
+		temp["dim.0"] = fmt.Sprintf("%s,%s", dimesionName, opts.ResourceId)
+		resp, err := self.commonMonitor(temp)
+		if err != nil {
+			log.Errorf("get monitor err:%s,input:%v", err.Error(), jsonutils.Marshal(temp))
+			continue
+		}
+		metricData := MetricData{}
+		err = resp.Unmarshal(&metricData)
+		if err != nil {
+			return nil, errors.Wrapf(err, "resp.Unmarshal")
+		}
+		ret := cloudprovider.MetricValues{
+			Id:     opts.ResourceId,
+			Unit:   metricData.Unit,
+			Values: []cloudprovider.MetricValue{},
+		}
+		switch metricData.MetricName {
+		case "inbound_bandwidth":
+			ret.MetricType = cloudprovider.NAT_METRIC_TYPE_NET_BPS_RX
+		case "outbound_bandwidth":
+			ret.MetricType = cloudprovider.NAT_METRIC_TYPE_NET_BPS_TX
+		default:
+			continue
+		}
+		for _, value := range metricData.Datapoints {
+			ret.Values = append(ret.Values, cloudprovider.MetricValue{
+				Value:     value.Average,
+				Timestamp: time.UnixMilli(value.Timestamp),
+			})
+		}
+		result = append(result, ret)
+	}
+	return result, nil
+}
+
+func (self *SHuaweiClient) getEipMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	result := []cloudprovider.MetricValues{}
+	namespace, dimesionName, metricNames := "SYS.VPC", "publicip_id", []string{
+		"downstream_bandwidth",
+		"upstream_bandwidth",
+	}
+	for _, metricName := range metricNames {
+		temp := make(map[string]string)
+		temp["namespace"] = namespace
+		temp["metric_name"] = metricName
+		temp["from"] = strconv.Itoa(int(opts.StartTime.UnixMilli()))
+		temp["to"] = strconv.Itoa(int(opts.EndTime.UnixMilli()))
+		temp["period"] = "1"
+		temp["filter"] = "average"
+		temp["dim.0"] = fmt.Sprintf("%s,%s", dimesionName, opts.ResourceId)
+		resp, err := self.commonMonitor(temp)
+		if err != nil {
+			log.Errorf("get monitor err:%s,input:%v", err.Error(), jsonutils.Marshal(temp))
+			continue
+		}
+		metricData := MetricData{}
+		err = resp.Unmarshal(&metricData)
+		if err != nil {
+			return nil, errors.Wrapf(err, "resp.Unmarshal")
+		}
+		ret := cloudprovider.MetricValues{
+			Id:     opts.ResourceId,
+			Unit:   metricData.Unit,
+			Values: []cloudprovider.MetricValue{},
+		}
+		switch metricData.MetricName {
+		case "downstream_bandwidth":
+			ret.MetricType = cloudprovider.EIP_METRIC_TYPE_NET_BPS_RX
+		case "upstream_bandwidth":
+			ret.MetricType = cloudprovider.EIP_METRIC_TYPE_NET_BPS_TX
+		default:
+			continue
+		}
+		for _, value := range metricData.Datapoints {
+			ret.Values = append(ret.Values, cloudprovider.MetricValue{
+				Value:     value.Average,
+				Timestamp: time.UnixMilli(value.Timestamp),
+			})
+		}
+		result = append(result, ret)
+	}
+	return result, nil
 }

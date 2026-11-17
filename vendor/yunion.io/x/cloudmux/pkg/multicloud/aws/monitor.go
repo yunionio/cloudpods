@@ -36,6 +36,10 @@ func (self *SAwsClient) GetMetrics(opts *cloudprovider.MetricListOptions) ([]clo
 		return self.GetRdsMetrics(opts)
 	case cloudprovider.METRIC_RESOURCE_TYPE_REDIS:
 		return self.GetRedisMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_NAT:
+		return self.GetNatMetrics(opts)
+	case cloudprovider.METRIC_RESOURCE_TYPE_EIP:
+		return self.GetEipMetrics(opts)
 	default:
 		return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.ResourceType)
 	}
@@ -190,4 +194,29 @@ func (self *SAwsClient) GetRedisMetrics(opts *cloudprovider.MetricListOptions) (
 		ret = append(ret, part...)
 	}
 	return ret, nil
+}
+
+func (self *SAwsClient) GetNatMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	ret := []cloudprovider.MetricValues{}
+	for metricType, metricNames := range map[cloudprovider.TMetricType]map[string]string{
+		cloudprovider.NAT_METRIC_TYPE_NET_BPS_RX: {
+			"BytesInFromDestination": "",
+		},
+		cloudprovider.NAT_METRIC_TYPE_NET_BPS_TX: {
+			"BytesOutToDestination": "",
+		},
+	} {
+		part, err := self.getMetrics(opts.RegionExtId, "AWS/NATGateway", metricType, metricNames, "NatGatewayId", opts.ResourceId, opts.StartTime, opts.EndTime)
+		if err != nil {
+			log.Errorf("getMetrics error: %v", err)
+			continue
+		}
+		ret = append(ret, part...)
+	}
+	return ret, nil
+}
+
+func (self *SAwsClient) GetEipMetrics(opts *cloudprovider.MetricListOptions) ([]cloudprovider.MetricValues, error) {
+	// AWS CloudWatch has no dedicated EIP bandwidth namespace; traffic shows on the associated resource.
+	return nil, errors.Wrapf(cloudprovider.ErrNotImplemented, "%s", opts.MetricType)
 }
