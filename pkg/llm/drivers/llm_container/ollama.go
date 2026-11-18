@@ -111,24 +111,26 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	vols := spec.VolumeMounts
 
 	// udevPath := filepath.Join(GetTmpSocketsHostPath(d.GetName()), "udev")
-	diskIndex := 0
-	ctrVols := []*commonapi.ContainerVolumeMount{
-		{
-			Disk: &commonapi.ContainerVolumeMountDisk{
-				SubDirectory: api.LLM_OLLAMA,
-				// Overlay: &commonapi.ContainerVolumeMountDiskOverlay{
-				// 	LowerDir: []string{api.LLM_OLLAMA_HOST_PATH},
-				// },
-				PostOverlay: postOverlays,
-				Index:       &diskIndex,
+	if models.SkuHasDataDisk(sku) {
+		diskIndex := 0
+		ctrVols := []*commonapi.ContainerVolumeMount{
+			{
+				Disk: &commonapi.ContainerVolumeMountDisk{
+					SubDirectory: api.LLM_OLLAMA,
+					// Overlay: &commonapi.ContainerVolumeMountDiskOverlay{
+					// 	LowerDir: []string{api.LLM_OLLAMA_HOST_PATH},
+					// },
+					PostOverlay: postOverlays,
+					Index:       &diskIndex,
+				},
+				Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+				MountPath:   api.LLM_OLLAMA_BASE_PATH,
+				ReadOnly:    false,
+				Propagation: commonapi.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
 			},
-			Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath:   api.LLM_OLLAMA_BASE_PATH,
-			ReadOnly:    false,
-			Propagation: commonapi.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
-		},
+		}
+		vols = append(vols, ctrVols...)
 	}
-	vols = append(vols, ctrVols...)
 
 	spec.VolumeMounts = vols
 
@@ -137,10 +139,10 @@ func (o *ollama) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	}
 }
 
-func (o *ollama) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
+func (o *ollama) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) ([]*computeapi.PodContainerCreateInput, error) {
 	return []*computeapi.PodContainerCreateInput{
 		o.GetContainerSpec(ctx, llm, image, sku, props, devices, diskId),
-	}
+	}, nil
 }
 
 // func (o *ollama) PullModelByInstall(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, modelName string, modelTag string) error {
