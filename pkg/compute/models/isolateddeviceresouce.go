@@ -87,6 +87,8 @@ func (manager *SIsolatedDeviceResourceBaseManager) FetchCustomizeColumns(
 		rows[i].Vendor = devRows[i].Vendor
 		rows[i].MemoryAllocated = devRows[i].MemoryAllocated
 		rows[i].AllocatedCount = devRows[i].AllocatedCount
+
+		rows[i].GpuDeviceDetails = devRows[i].GpuDeviceDetails
 	}
 	return rows
 }
