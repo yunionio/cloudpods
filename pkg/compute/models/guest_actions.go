@@ -1280,6 +1280,9 @@ func (self *SGuest) PerformStart(
 			}
 		}
 		if self.isAllDisksReady() {
+			if self.IsDaemon.IsTrue() {
+				self.SetMetadata(ctx, api.DAEMON_GUEST_MANUAL_STOP, "", userCred)
+			}
 			kwargs := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 			driver, err := self.GetDriver()
 			if err != nil {
@@ -4286,6 +4289,9 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 // 关机
 func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	input api.ServerStopInput) (jsonutils.JSONObject, error) {
+	if self.IsDaemon.IsTrue() {
+		self.SetMetadata(ctx, api.DAEMON_GUEST_MANUAL_STOP, true, userCred)
+	}
 	drv, err := self.GetDriver()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDriver")
