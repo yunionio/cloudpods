@@ -93,10 +93,8 @@ func (guest *SGuest) GetDetailsSshable(
 		tryData.PublicKey = publicKey[i]
 
 		if err := guest.sshableTryEach(ctx, userCred, tryData); err != nil {
+			log.Errorf("sshable try key %d %s failed: %v", i, tryData.PublicKey, err)
 			sshTryErrs = append(sshTryErrs, err)
-		} else {
-			sshTryErrs = nil
-			break
 		}
 	}
 	if len(sshTryErrs) > 0 {
