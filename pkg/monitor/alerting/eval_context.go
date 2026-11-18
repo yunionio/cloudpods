@@ -153,7 +153,7 @@ func (c *EvalContext) GetNewState() monitor.AlertStateType {
 	}
 
 	if c.Rule.For != 0 {
-		log.Errorf("ruleName:%s,since:%d,for:%d", c.Rule.Name, since/time.Second, c.Rule.For)
+		log.Debugf("ruleName:%s,since:%d,for:%d", c.Rule.Name, since/time.Second, c.Rule.For)
 	}
 	if ns == monitor.AlertStateAlerting && since/time.Second >= c.Rule.For {
 		return monitor.AlertStateAlerting
