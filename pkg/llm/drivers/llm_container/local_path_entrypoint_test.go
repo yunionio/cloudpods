@@ -9,7 +9,7 @@ import (
 )
 
 func TestBuildVLLMEntrypointScriptMountedModelsFlag(t *testing.T) {
-	sleepScript := buildVLLMEntrypointScript("", 1, nil, nil, false)
+	sleepScript := buildVLLMEntrypointScript("", 1, nil, nil, false, nil)
 	if !strings.Contains(sleepScript, "sleep infinity") {
 		t.Fatalf("expected idle script without model path, got %q", sleepScript)
 	}
@@ -21,7 +21,7 @@ func TestBuildVLLMEntrypointScriptMountedModelsFlag(t *testing.T) {
 	}
 
 	nested := "/data/models/huggingface/Qwen3-8B"
-	serveScript := buildVLLMEntrypointScript(nested, 1, nil, &api.LLMSpecVllm{PreferredModel: "Qwen3-8B"}, false)
+	serveScript := buildVLLMEntrypointScript(nested, 1, nil, &api.LLMSpecVllm{PreferredModel: "Qwen3-8B"}, false, nil)
 	if strings.Contains(serveScript, "sleep infinity") {
 		t.Fatalf("expected serve script with model path, got %q", serveScript)
 	}
@@ -44,7 +44,7 @@ func TestBuildVLLMEntrypointScriptMountedModelsFlag(t *testing.T) {
 
 func TestBuildVLLMEntrypointScriptHygonSourcesDTKEnv(t *testing.T) {
 	modelPath := "/data/models/huggingface/Qwen3-8B"
-	script := buildVLLMEntrypointScript(modelPath, 2, nil, nil, true)
+	script := buildVLLMEntrypointScript(modelPath, 2, nil, nil, true, nil)
 	if !strings.Contains(script, "/opt/dtk/env.sh") {
 		t.Fatalf("expected dtk env source, got %q", script)
 	}
@@ -62,13 +62,13 @@ func TestBuildVLLMEntrypointScriptHygonSourcesDTKEnv(t *testing.T) {
 }
 
 func TestBuildSGLangEntrypointScriptNestedModelPath(t *testing.T) {
-	sleepScript := buildSGLangEntrypointScript("", 1, nil, nil)
+	sleepScript := buildSGLangEntrypointScript("", 1, nil, nil, nil)
 	if !strings.Contains(sleepScript, "sleep infinity") {
 		t.Fatalf("expected idle script without model path, got %q", sleepScript)
 	}
 
 	nested := "/data/models/huggingface/Qwen3-8B"
-	serveScript := buildSGLangEntrypointScript(nested, 1, nil, &api.LLMSpecSGLang{PreferredModel: "Qwen3-8B"})
+	serveScript := buildSGLangEntrypointScript(nested, 1, nil, &api.LLMSpecSGLang{PreferredModel: "Qwen3-8B"}, nil)
 	if strings.Contains(serveScript, "sleep infinity") {
 		t.Fatalf("expected serve script with model path, got %q", serveScript)
 	}
@@ -104,7 +104,7 @@ func TestLocalPathSkuEnablesServeEntrypoint(t *testing.T) {
 	if modelPath != "/data/models/huggingface/Qwen3-8B" {
 		t.Fatalf("expected nested local_path mount, got %q", modelPath)
 	}
-	script := buildVLLMEntrypointScript(modelPath, 1, nil, nil, false)
+	script := buildVLLMEntrypointScript(modelPath, 1, nil, nil, false, nil)
 	if !strings.Contains(script, modelPath) {
 		t.Fatalf("expected script to embed mount path, got %q", script)
 	}

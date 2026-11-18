@@ -655,6 +655,10 @@ func (llm *SLLM) markInstantModelsMounted(ctx context.Context, userCred mcclient
 func (llm *SLLM) UpdateVolumeMountedModelFullNames(mdlFullNames []string) error {
 	volume, err := llm.GetVolume()
 	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			// Diskless instances have no volume to record mounted models on.
+			return nil
+		}
 		return errors.Wrap(err, "GetVolume")
 	}
 	return volume.UpdateMountedModelFullNames(mdlFullNames)

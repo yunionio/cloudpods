@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	llmscheduler "yunion.io/x/onecloud/pkg/llm/scheduler"
 	"yunion.io/x/onecloud/pkg/llm/utils/vram"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -218,6 +219,9 @@ func (manager *SLLMSkuManager) FetchCustomizeColumns(
 		templates, err := fetchTemplates(ctx, userCred, templateIds)
 		if err == nil {
 			for i, sku := range skus {
+				if sku.Volumes == nil || len(*sku.Volumes) == 0 {
+					continue
+				}
 				if templ, ok := templates[(*sku.Volumes)[0].TemplateId]; ok {
 					res[i].Template = templ.Name
 				}
@@ -262,6 +266,10 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 	}
 	if !api.IsLLMContainerType(input.LLMType) && input.LLMType != string(api.LLM_CONTAINER_DIFY) {
 		return input, errors.Wrap(httperrors.ErrInputParameter, "llm_type must be one of "+strings.Join(api.LLM_CONTAINER_TYPES.List(), ","))
+	}
+	if !api.IsLLMOptionalDiskType(input.LLMType) && (input.Volumes == nil || input.Volumes.IsZero()) {
+		return input, errors.Wrapf(httperrors.ErrMissingParameter,
+			"volumes (data disk) is required for llm_type %q", input.LLMType)
 	}
 	applySkuCgroupLimitDefaults(input)
 
@@ -511,7 +519,7 @@ func schedulableCheckMissingVram(sku *SLLMSku, vramClaimMb, perDevMinMb int) boo
 // GPUs still run forecast for CPU/memory/disk. Isolated-device VRAM checks
 // apply only when devices are configured.
 func (sku *SLLMSku) PerformSchedulableCheck(
-	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, _ api.LLMSchedulableCheckInput,
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMSchedulableCheckInput,
 ) (*api.LLMSchedulableCheckOutput, error) {
 	gpuCount := 0
 	if sku.Devices != nil {
@@ -519,6 +527,49 @@ func (sku *SLLMSku) PerformSchedulableCheck(
 	}
 	out := &api.LLMSchedulableCheckOutput{
 		GpuCount: gpuCount,
+	}
+	if input.Nnodes == 1 {
+		out.Reason = "nnodes=1 is not distributed inference; omit nnodes for auto planning"
+		return out, nil
+	}
+	if input.Nnodes < 0 {
+		out.Reason = "nnodes must be >= 0"
+		return out, nil
+	}
+	if input.PipelineParallelSize < 0 {
+		out.Reason = "pipeline_parallel_size must be >= 0"
+		return out, nil
+	}
+
+	parallelMode := api.NormalizeLLMDeploymentParallelMode(input.ParallelMode)
+	out.ParallelMode = parallelMode
+
+	// Validate parallel_mode against SKU backend pins and backend support.
+	if gpuCount > 0 {
+		user := llmscheduler.ParseUserParallelism(sku.BackendParameters)
+		if input.PipelineParallelSize > 0 {
+			pp := input.PipelineParallelSize
+			user.PP = &pp
+		}
+		if api.LLMContainerType(sku.LLMType) == api.LLM_CONTAINER_SGLANG && parallelMode == api.LLM_DEPLOYMENT_PARALLEL_MODE_DP {
+			out.Schedulable = false
+			out.Reason = "SGLang 不支持数据并行(DP)，请使用 parallel_mode=pp"
+			return out, nil
+		}
+		if parallelMode == api.LLM_DEPLOYMENT_PARALLEL_MODE_DP {
+			if user.PP != nil && *user.PP >= 2 {
+				out.Schedulable = false
+				out.Reason = fmt.Sprintf("parallel_mode=dp 与 SKU backend_parameters 中的 --pipeline-parallel-size %d 冲突，请移除其一", *user.PP)
+				return out, nil
+			}
+		}
+		if parallelMode == api.LLM_DEPLOYMENT_PARALLEL_MODE_PP {
+			if user.DP != nil && *user.DP >= 2 {
+				out.Schedulable = false
+				out.Reason = fmt.Sprintf("parallel_mode=pp 与 SKU backend_parameters 中的 --data-parallel-size %d 冲突，请移除其一", *user.DP)
+				return out, nil
+			}
+		}
 	}
 
 	var isoDevs []*computeapi.IsolatedDeviceConfig
@@ -541,7 +592,7 @@ func (sku *SLLMSku) PerformSchedulableCheck(
 		}
 	}
 
-	input := &schedulerapi.ScheduleInput{
+	schedInput := &schedulerapi.ScheduleInput{
 		ServerConfig: schedulerapi.ServerConfig{
 			ServerConfigs: &computeapi.ServerConfigs{
 				Hypervisor:      computeapi.HYPERVISOR_POD,
@@ -555,13 +606,18 @@ func (sku *SLLMSku) PerformSchedulableCheck(
 	}
 
 	s := auth.GetAdminSession(ctx, "")
-	canCreate, raw, err := schedulermodules.SchedManager.DoScheduleForecast(s, input, 1)
+	canCreate, raw, err := schedulermodules.SchedManager.DoScheduleForecast(s, schedInput, 1)
 	if err != nil {
 		return nil, errors.Wrap(err, "scheduler forecast")
 	}
 
 	out.Schedulable = canCreate
 	out.Reason = "Scheduler forecast completed — see hosts for qualifying candidates"
+	if canCreate && gpuCount > 0 {
+		// A single host fits; expose the trivial one-node layout explicitly.
+		out.DistributedNnodes = 1
+		out.GpusPerNode = gpuCount
+	}
 
 	candidates, _ := raw.GetArray("candidates")
 	out.TotalGpuHosts = len(candidates)
@@ -575,6 +631,26 @@ func (sku *SLLMSku) PerformSchedulableCheck(
 		if hostID != "" {
 			out.QualifiedHosts++
 		}
+	}
+
+	if canCreate && input.Nnodes < 2 {
+		if input.PipelineParallelSize <= 1 {
+			return out, nil
+		}
+		pp := input.PipelineParallelSize
+		if err := llmscheduler.ValidateSingleNodePipelineParallel(gpuCount, &pp); err == nil {
+			out.TensorParallelSize = gpuCount / pp
+			out.PipelineParallelSize = pp
+			out.DataParallelSize = 1
+			return out, nil
+		} else if !input.DistributedInference {
+			out.Schedulable = false
+			out.Reason = err.Error()
+			return out, nil
+		}
+		// The single-node layout cannot realize this pipeline pin; fall
+		// through to the multi-host forecast, which validates the pin per
+		// candidate layout.
 	}
 
 	if !canCreate {
@@ -594,7 +670,128 @@ func (sku *SLLMSku) PerformSchedulableCheck(
 		out.FilteredCandidates = fc
 	}
 
+	if (input.DistributedInference || input.Nnodes >= 2) && gpuCount > 0 {
+		if input.Nnodes >= 2 {
+			// A pinned node count never accepts a single-host fit.
+			out.Schedulable = false
+			out.DistributedNnodes = 0
+			out.GpusPerNode = 0
+			out.Reason = "pinned nnodes requires a multi-host layout"
+		}
+		tmpl, ok := skuDeviceTemplate(sku)
+		if ok && strings.TrimSpace(tmpl.Model) != "" {
+			hosts, invErr := ListFreeGPUInventoryByModel(ctx, userCred, tmpl.Model)
+			if invErr == nil {
+				distPlan, planErr := llmscheduler.PlanReplica(llmscheduler.PlanOptions{
+					TotalGPUs:             gpuCount,
+					DeviceTemplate:        tmpl,
+					PreferHosts:           input.PreferHosts,
+					PlacementStrategy:     input.PlacementStrategy,
+					DistributedInference:  true,
+					ForceSingleGPUPerNode: skuForceSingleGPUPerNode(sku),
+					ForceNNodes:           input.Nnodes,
+					Backend:               sku.LLMType,
+					BackendParameters:     sku.BackendParameters,
+					PipelineParallelSize:  input.PipelineParallelSize,
+					ParallelMode:          parallelMode,
+					Hosts:                 hosts,
+				})
+				if planErr == nil && distPlan != nil && distPlan.Distributed {
+					out.Schedulable = true
+					out.DistributedNnodes = distPlan.NNodes
+					out.GpusPerNode = distPlan.GpusPerNode
+					layout := ""
+					if distPlan.Parallelism != nil {
+						out.TensorParallelSize = distPlan.Parallelism.TP
+						out.PipelineParallelSize = distPlan.Parallelism.PP
+						out.DataParallelSize = distPlan.Parallelism.DP
+						out.DistShape = distPlanShape(distPlan.Parallelism)
+						modeLabel := "PP"
+						if parallelMode == api.LLM_DEPLOYMENT_PARALLEL_MODE_DP {
+							modeLabel = "DP"
+						}
+						layout = fmt.Sprintf(" (%s: TP=%d / PP=%d / DP=%d)",
+							modeLabel, distPlan.Parallelism.TP, distPlan.Parallelism.PP, distPlan.Parallelism.DP)
+					}
+					if input.Nnodes >= 2 {
+						out.Reason = fmt.Sprintf(
+							"%d 节点 × %d 卡%s", distPlan.NNodes, distPlan.GpusPerNode, layout,
+						)
+					} else {
+						out.Reason = fmt.Sprintf(
+							"单机放不下；多机规划 %d 节点 × %d 卡%s",
+							distPlan.NNodes, distPlan.GpusPerNode, layout,
+						)
+					}
+					byHost := make(map[string]llmscheduler.HostGPUInventory, len(hosts))
+					for _, h := range hosts {
+						byHost[h.HostId] = h
+					}
+					out.Hosts = make([]api.LLMSchedulableHostInfo, 0, len(distPlan.Members))
+					out.QualifiedHosts = 0
+					for _, m := range distPlan.Members {
+						info := api.LLMSchedulableHostInfo{
+							HostId:       m.HostId,
+							HostName:     m.HostName,
+							HostIp:       m.HostIp,
+							GpuAvailable: distPlan.GpusPerNode,
+						}
+						if h, ok := byHost[m.HostId]; ok {
+							if info.HostName == "" {
+								info.HostName = h.HostName
+							}
+							info.HostIp = h.HostIp
+							info.BestGpuModel = h.GpuModel
+							info.BestGpuVramMb = h.MinVRAMMb
+						}
+						out.Hosts = append(out.Hosts, info)
+						out.QualifiedHosts++
+					}
+					out.TotalGpuHosts = out.QualifiedHosts
+					out.FilteredCandidates = nil
+				} else if input.Nnodes >= 2 {
+					// The user pinned a node count; a single-host fit is not the
+					// requested layout, so surface the planning error instead.
+					if planErr != nil {
+						out.Reason = planErr.Error()
+					} else {
+						out.Reason = "pinned nnodes requires a multi-host layout, but the plan is single-host"
+					}
+					out.Hosts = nil
+					out.QualifiedHosts = 0
+				} else if input.PipelineParallelSize > 1 {
+					// The single-host layout could not realize the pinned PP;
+					// surface why the multi-host fallback failed too.
+					if planErr != nil {
+						out.Schedulable = false
+						out.Reason = planErr.Error()
+						out.Hosts = nil
+						out.QualifiedHosts = 0
+					}
+				}
+			} else if input.Nnodes >= 2 {
+				out.Reason = fmt.Sprintf("list free GPU inventory: %v", invErr)
+			}
+		}
+	}
+
 	return out, nil
+}
+
+// distPlanShape maps a derived parallel layout to the vLLM multi-node shape
+// name exposed by schedulable-check. Single-node and pure DP/PP layouts return
+// an empty shape.
+func distPlanShape(p *llmscheduler.PlanParallelism) string {
+	if p == nil || p.DP <= 1 && p.PP <= 1 {
+		return ""
+	}
+	if p.DP > 1 && p.PP > 1 {
+		return string(llmscheduler.ShapeNested)
+	}
+	if p.DP > 1 {
+		return string(llmscheduler.ShapeDPOnly)
+	}
+	return string(llmscheduler.ShapeMPOnly)
 }
 
 func ValidateLLMSkuReadyForUse(sku *SLLMSku) error {
@@ -612,6 +809,10 @@ func (sku *SLLMSku) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	input.LLMSkuBaseUpdateInput, err = sku.SLLMSkuBase.ValidateUpdateData(ctx, userCred, query, input.LLMSkuBaseUpdateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "validate LLMSkuBaseUpdateInput")
+	}
+	if !api.IsLLMOptionalDiskType(sku.LLMType) && (input.Volumes == nil || input.Volumes.IsZero()) {
+		return input, errors.Wrapf(httperrors.ErrMissingParameter,
+			"volumes (data disk) is required for llm_type %q", sku.LLMType)
 	}
 
 	if SkuHasLocalHostPathModel(sku) && input.Devices != nil {

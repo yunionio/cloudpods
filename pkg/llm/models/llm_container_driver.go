@@ -81,8 +81,8 @@ type ILLMContainerInstantModel interface {
 
 type ILLMContainerDriver interface {
 	GetType() llm.LLMContainerType
-	// GetContainerSpecs returns one or more container specs. If nil or empty, caller falls back to GetContainerSpec for a single container.
-	GetContainerSpecs(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput
+	// GetContainerSpecs returns one or more container specs.
+	GetContainerSpecs(ctx context.Context, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) ([]*computeapi.PodContainerCreateInput, error)
 	GetPrimaryContainer(ctx context.Context, llm *SLLM, containers []*computeapi.PodContainerDesc) (*computeapi.PodContainerDesc, error)
 
 	// StartLLM is called after the pod is running. Drivers that need a post-start hook implement it; drivers that start from the container entrypoint return nil.
@@ -154,9 +154,12 @@ func GetLLMContainerInstantModelDriver(typ llm.LLMContainerType) (ILLMContainerI
 	return nil, fmt.Errorf("driver %s does not support instant model operations", typ)
 }
 
-// GetDriverPodContainers returns the container(s) for the given driver. If the driver implements ILLMContainerDriverMultiContainer, GetContainerSpecs is used; otherwise a single-element slice from GetContainerSpec is returned.
-func GetDriverPodContainers(ctx context.Context, drv ILLMContainerDriver, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
-	containers := drv.GetContainerSpecs(ctx, llm, image, sku, props, devices, diskId)
+// GetDriverPodContainers returns the container(s) for the given driver.
+func GetDriverPodContainers(ctx context.Context, drv ILLMContainerDriver, llm *SLLM, image *SLLMImage, sku *SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) ([]*computeapi.PodContainerCreateInput, error) {
+	containers, err := drv.GetContainerSpecs(ctx, llm, image, sku, props, devices, diskId)
+	if err != nil {
+		return nil, err
+	}
 	if sku != nil {
 		var llmBase *SLLMBase
 		if llm != nil {
@@ -165,5 +168,5 @@ func GetDriverPodContainers(ctx context.Context, drv ILLMContainerDriver, llm *S
 		AppendLLMSkuVolumeMounts(containers, llmBase, &sku.SLLMSkuBase, nil)
 		AppendLLMSkuEnvs(containers, &sku.SLLMSkuBase)
 	}
-	return containers
+	return containers, nil
 }
