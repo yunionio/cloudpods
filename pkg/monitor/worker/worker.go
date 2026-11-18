@@ -44,6 +44,11 @@ func NewWorker(opts *options.AlerterOptions) (worker.IWorker, error) {
 		RunDelayMilliseconds: opts.APIRunDelayMilliseconds,
 		ListBatchSize:        opts.APIListBatchSize,
 		IncludeOtherCloudEnv: true,
+
+		// the apimap service only publishes the agents' network model
+		// sets; the monitor model sets have to be listed from the region
+		// API, as they were before the apimap rework
+		FetchFromComputeService: true,
 	}
 	apih, err := apihelper.NewAPIHelper(apiOpts, modelSets)
 	if err != nil {

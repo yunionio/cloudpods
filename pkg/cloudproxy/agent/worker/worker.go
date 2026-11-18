@@ -59,6 +59,11 @@ func NewWorker(commonOpts *common_options.CommonOptions, opts *agentoptions.Opti
 		CommonOptions:       *commonOpts,
 		SyncIntervalSeconds: opts.APISyncIntervalSeconds,
 		ListBatchSize:       opts.APIListBatchSize,
+
+		// the apimap service only publishes the agents' network model
+		// sets; the proxy endpoints and forwards have to be listed from
+		// the API directly
+		FetchFromComputeService: true,
 	}
 	apih, err := apihelper.NewAPIHelper(apiOpts, modelSets)
 	if err != nil {
