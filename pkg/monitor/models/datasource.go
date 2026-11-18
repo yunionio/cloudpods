@@ -612,10 +612,12 @@ func (m *SDataSourceManager) AddSubscription(subscription InfluxdbSubscription) 
 	if err != nil {
 		return err
 	}
+	// the query errored out above when it failed; the result sets are the
+	// influx response body, not errors
 	for _, result := range rtn {
 		for _, obj := range result {
 			objJson := jsonutils.Marshal(&obj)
-			log.Errorln(objJson.String())
+			log.Debugln(objJson.String())
 		}
 	}
 	return nil
@@ -637,10 +639,12 @@ func (m *SDataSourceManager) DropSubscription(subscription InfluxdbSubscription)
 	if err != nil {
 		return err
 	}
+	// the query errored out above when it failed; the result sets are the
+	// influx response body, not errors
 	for _, result := range rtn {
 		for _, obj := range result {
 			objJson := jsonutils.Marshal(&obj)
-			log.Errorln(objJson.String())
+			log.Debugln(objJson.String())
 		}
 	}
 	return nil
