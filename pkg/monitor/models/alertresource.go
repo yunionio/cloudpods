@@ -357,7 +357,7 @@ func (res *SAlertResource) LogPrefix() string {
 }
 
 func (res *SAlertResource) DetachAlert(ctx context.Context, userCred mcclient.TokenCredential, alertId string) error {
-	log.Errorf("=====resource %s detach alert %s", res.GetName(), alertId)
+	log.Debugf("=====resource %s detach alert %s", res.GetName(), alertId)
 	jObj, attached, err := res.isAttach2Alert(alertId)
 	if err != nil {
 		return errors.Wrap(err, "check isAttach2Alert")
