@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"sync"
 
 	"yunion.io/x/log"
 )
@@ -75,13 +76,28 @@ func Init(man ILockManager) {
 	_lockman = man
 }
 
+// backgroundCtxWarned remembers the locking paths that were already
+// reported, keyed by the offending context kind and the stack of the
+// goroutine taking the lock.
+var backgroundCtxWarned sync.Map
+
 func checkContext(ctx context.Context) {
+	kind := ""
 	if ctx == context.Background() {
-		log.Warningf("[!!!WARNING!!!] lock context of Background!")
-		debug.PrintStack()
+		kind = "Background"
 	} else if ctx == context.TODO() {
-		log.Warningf("[!!!WARNING!!!] lock context of TODO!")
-		debug.PrintStack()
+		kind = "TODO"
+	} else {
+		return
+	}
+	// internal workers (taskman tasks, tickers) legitimately lock objects
+	// without an incoming request context; dumping every goroutine of the
+	// process on each such lock turned this into a production log flood
+	// (thousands of full dumps per process). Report each distinct locking
+	// path once, with the current goroutine stack only.
+	stack := debug.Stack()
+	if _, seen := backgroundCtxWarned.LoadOrStore(kind+"\n"+string(stack), true); !seen {
+		log.Warningf("[!!!WARNING!!!] lock context of %s!\n%s", kind, stack)
 	}
 }
 
