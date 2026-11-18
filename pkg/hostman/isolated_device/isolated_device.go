@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/gpudb"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -53,6 +54,7 @@ type CloudDeviceInfo struct {
 	IsInfinibandNic     bool                        `json:"is_infiniband_nic"`
 	NvmeSizeMB          int                         `json:"nvme_size_mb"`
 	MemorySize          int                         `json:"memory_size"`
+	ChipsOnDevice       uint                        `json:"chips_on_device"`
 	DevicePath          string                      `json:"device_path"`
 	CardPath            string                      `json:"card_path"`
 	RenderPath          string                      `json:"render_path"`
@@ -116,6 +118,7 @@ type IDevice interface {
 	GetDeviceType() string
 	GetSharingMode() string
 	GetModelName() string
+	SetModelName(modelName string)
 	CustomProbe(idx int) error
 	SetDeviceInfo(info CloudDeviceInfo)
 	DetectByAddr() error
@@ -143,6 +146,9 @@ type IDevice interface {
 	// 0 means unknown / not applicable. Used downstream by the LLM scheduler to
 	// check whether a candidate host has enough VRAM for the model claim.
 	GetMemorySize() int
+
+	// GetChipsOnDevice 是一块卡上的 GPU 芯片数。单芯片为 1。
+	GetChipsOnDevice() uint
 
 	// legacy nvidia vgpu
 	GetMdevId() string
@@ -664,7 +670,29 @@ func (man *isolatedDeviceManager) ProbePCIDevices(opts *SIsolatedDeviceProbeOpti
 		man.probeNVIDIAVgpus(opts.NvidiaVgpuPFs)
 		man.probeGPUS(opts.SkipGPUs, opts.AmdVgpuPFs, opts.NvidiaVgpuPFs, opts.EnableWhitelist, devModels)
 	}
+	man.applyGPUModelNames()
 	log.Infof("==== ProbePCIDevices finished: total isolated devices=%d", len(man.devices))
+}
+
+func (man *isolatedDeviceManager) applyGPUModelNames() {
+	for _, dev := range man.devices {
+		if dev.GetModelName() != "Device" {
+			continue
+		}
+		vendorId, deviceId, ok := strings.Cut(dev.GetVendorDeviceId(), ":")
+		if !ok {
+			continue
+		}
+		memSizeGB := uint(0)
+		if mem := dev.GetMemorySize(); mem > 0 {
+			memSizeGB = uint(mem / 1000)
+		}
+		gpuInfo := gpudb.GetGPUInfo(vendorId, deviceId, memSizeGB, dev.GetChipsOnDevice())
+		if gpuInfo == nil || gpuInfo.Name == "" {
+			continue
+		}
+		dev.SetModelName(gpuInfo.Name)
+	}
 }
 
 type IsolatedDeviceModel struct {
@@ -747,6 +775,9 @@ func (man *isolatedDeviceManager) CheckDevIsNeedUpdate(dev IDevice, devInfo *Clo
 	// transient `nvidia-smi` failure returning 0 is ignored so we don't
 	// overwrite a previously-known good value.
 	if dev.GetMemorySize() > 0 && dev.GetMemorySize() != devInfo.MemorySize {
+		return true
+	}
+	if dev.GetChipsOnDevice() > 0 && dev.GetChipsOnDevice() != devInfo.ChipsOnDevice {
 		return true
 	}
 	if dev.GetNvidiaMpsMemoryLimit() != devInfo.MpsMemoryLimit {
@@ -1024,6 +1055,10 @@ func (dev *SBaseDevice) GetMemorySize() int {
 	return 0
 }
 
+func (dev *SBaseDevice) GetChipsOnDevice() uint {
+	return 1
+}
+
 func (dev *SBaseDevice) GetNVIDIAVgpuProfile() map[string]string {
 	return nil
 }
@@ -1128,6 +1163,9 @@ func GetApiResourceData(dev IDevice) *jsonutils.JSONDict {
 	}
 	if memSize := dev.GetMemorySize(); memSize > 0 {
 		data["memory_size"] = memSize
+	}
+	if chipsOnDevice := dev.GetChipsOnDevice(); chipsOnDevice > 0 {
+		data["chips_on_device"] = chipsOnDevice
 	}
 	if numaNode, err := dev.GetNumaNode(); err == nil {
 		data["numa_node"] = numaNode
