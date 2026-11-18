@@ -516,6 +516,9 @@ func SyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, dep
 	if dep == nil || llm == nil {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "nil deployment or llm")
 	}
+	if !llm.ShouldRegisterAiproxy() {
+		return nil, errors.Wrapf(httperrors.ErrNotSupported, "llm %s is a distributed follower", llm.Id)
+	}
 	if llm.Status != api.LLM_STATUS_RUNNING {
 		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "llm %s is not running", llm.Id)
 	}
@@ -583,7 +586,13 @@ func listRunningDeploymentLlms(depId string) ([]SLLM, error) {
 	if err := q.All(&rows); err != nil {
 		return nil, errors.Wrap(err, "list running llms")
 	}
-	return rows, nil
+	out := make([]SLLM, 0, len(rows))
+	for i := range rows {
+		if rows[i].ShouldRegisterAiproxy() {
+			out = append(out, rows[i])
+		}
+	}
+	return out, nil
 }
 
 func buildRoutingModelItems(
