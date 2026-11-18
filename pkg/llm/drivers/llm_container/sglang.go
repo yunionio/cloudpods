@@ -201,7 +201,7 @@ func (s *sglang) ValidateLLMUpdateSpec(ctx context.Context, userCred mcclient.To
 	return &api.LLMSpec{SGLang: base}, nil
 }
 
-func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
+func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) (*computeapi.PodContainerCreateInput, error) {
 	var postOverlays []*commonapi.ContainerVolumeMountDiskPostOverlay
 	if llm != nil {
 		var err error
@@ -209,10 +209,6 @@ func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 		if err != nil {
 			log.Errorf("GetMountedModelsPostOverlay failed %s", err)
 		}
-	}
-	tensorParallelSize := 1
-	if sku != nil && sku.Devices != nil && len(*sku.Devices) > 0 {
-		tensorParallelSize = len(*sku.Devices)
 	}
 	effSpec := (*api.LLMSpecSGLang)(nil)
 	if eff := s.GetEffectiveSpec(llm, sku); eff != nil {
@@ -222,13 +218,36 @@ func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	if sku != nil {
 		backendParameters = sku.BackendParameters
 	}
+	// The deployment-level pipeline pin overrides SKU backend parameters; it
+	// must land before the topology/command split so both the topology
+	// derivation and the single-node command see it.
+	if pp := deploymentPinnedPipelineParallel(llm); pp > 0 {
+		backendParameters = injectPipelineParallelParameter(backendParameters, "pp-size", pp)
+	}
+	// SGLang's --pp-size / --nnodes / --node-rank are managed flags, but a user
+	// pinned --pp-size must still be read before the filter drops it.
+	topologyParameters, backendParameters := splitDistributedBackendParameters(backendParameters, llm, protectedDistributedSGLangKeys())
+	if llm != nil && llm.IsDistributedMember() {
+		if effSpec != nil {
+			cp := *effSpec
+			cp.CustomizedArgs = filterSGLangCustomizedArgsForDistributed(cp.CustomizedArgs, protectedDistributedSGLangKeys())
+			effSpec = &cp
+		}
+	}
+	tensorParallelSize, distFlags, err := buildSGLangDistributedFlags(llm, sku, topologyParameters)
+	if err != nil {
+		return nil, errors.Wrap(err, "build sglang distributed flags")
+	}
 	preferred := ""
 	if effSpec != nil {
 		preferred = effSpec.PreferredModel
 	}
 	modelPath := models.PickContainerModelMountPath(models.CollectContainerModelMountPaths(llm, sku), preferred)
 	hasMountedModels := modelPath != "" || len(postOverlays) > 0 || models.SkuHasLocalHostPathModel(sku)
-	startScript := buildSGLangEntrypointScript(modelPath, tensorParallelSize, backendParameters, effSpec)
+	startScript := buildSGLangEntrypointScript(modelPath, tensorParallelSize, backendParameters, effSpec, distFlags)
+	if llm != nil && llm.IsDistributedMember() {
+		startScript = distributedStartScriptPrefix() + "\n" + startScript
+	}
 	envs := []*commonapi.ContainerKeyValue{
 		{
 			Key:   "HUGGING_FACE_HUB_CACHE",
@@ -239,6 +258,7 @@ func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 			Value: api.LLM_SGLANG_HF_ENDPOINT,
 		},
 	}
+	envs = appendDistributedEnv(envs, llm)
 	spec := computeapi.ContainerSpec{
 		ContainerSpec: commonapi.ContainerSpec{
 			Command:       []string{"/bin/sh", "-c"},
@@ -249,46 +269,55 @@ func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 		},
 	}
 	image.ApplyToContainerSpec(&spec.ContainerSpec)
-	if hasMountedModels {
+	if hasMountedModels && (llm == nil || !llm.IsDistFollower()) {
 		spec.StartupProbe = newLLMHTTPStartupProbe(api.LLM_SGLANG_DEFAULT_PORT, "/v1/models")
 	}
 
 	appendContainerIsolatedDevices(&spec, llm, sku, devices)
 
-	diskIndex := 0
-	ctrVols := []*commonapi.ContainerVolumeMount{
-		{
-			Disk: &commonapi.ContainerVolumeMountDisk{
-				SubDirectory: api.LLM_SGLANG,
-				Index:        &diskIndex,
-				PostOverlay:  postOverlays,
+	// /dev/shm sizing + IPC_LOCK per the vLLM GPUDirect RDMA guidance; SGLang
+	// uses the same NCCL IPC paths.
+	applyInferenceContainerShmAndCapabilities(&spec.ContainerSpec)
+
+	// Volume mounts only when the SKU requests a data disk.
+	if models.SkuHasDataDisk(sku) {
+		diskIndex := 0
+		ctrVols := []*commonapi.ContainerVolumeMount{
+			{
+				Disk: &commonapi.ContainerVolumeMountDisk{
+					SubDirectory: api.LLM_SGLANG,
+					Index:        &diskIndex,
+					PostOverlay:  postOverlays,
+				},
+				Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+				MountPath:   api.LLM_SGLANG_BASE_PATH,
+				ReadOnly:    false,
+				Propagation: commonapi.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
 			},
-			Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath:   api.LLM_SGLANG_BASE_PATH,
-			ReadOnly:    false,
-			Propagation: commonapi.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
-		},
-		{
-			Disk: &commonapi.ContainerVolumeMountDisk{
-				SubDirectory: "cache",
-				Index:        &diskIndex,
+			{
+				Disk: &commonapi.ContainerVolumeMountDisk{
+					SubDirectory: "cache",
+					Index:        &diskIndex,
+				},
+				Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+				MountPath: "/root/.cache",
+				ReadOnly:  false,
 			},
-			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath: "/root/.cache",
-			ReadOnly:  false,
-		},
+		}
+		spec.VolumeMounts = append(spec.VolumeMounts, ctrVols...)
 	}
-	spec.VolumeMounts = append(spec.VolumeMounts, ctrVols...)
 
 	return &computeapi.PodContainerCreateInput{
 		ContainerSpec: spec,
-	}
+	}, nil
 }
 
-func (s *sglang) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
-	return []*computeapi.PodContainerCreateInput{
-		s.GetContainerSpec(ctx, llm, image, sku, props, devices, diskId),
+func (s *sglang) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) ([]*computeapi.PodContainerCreateInput, error) {
+	ctr, err := s.GetContainerSpec(ctx, llm, image, sku, props, devices, diskId)
+	if err != nil {
+		return nil, err
 	}
+	return []*computeapi.PodContainerCreateInput{ctr}, nil
 }
 
 func (s *sglang) GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *models.LLMAccessInfoInput) (*api.LLMAccessUrlInfo, error) {
@@ -558,7 +587,7 @@ func appendSGLangRuntimeFlags(flags []string, backendParameters []string, effSpe
 	return appendRuntimeFlags(flags, mergedArgs)
 }
 
-func buildSGLangServeFlagsWithModelExpr(modelExpr string, servedModelNameExpr string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecSGLang) []string {
+func buildSGLangServeFlagsWithModelExpr(modelExpr string, servedModelNameExpr string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecSGLang, extraFlags []string) []string {
 	flags := []string{
 		fmt.Sprintf("--model-path %s", modelExpr),
 		fmt.Sprintf("--served-model-name %s", servedModelNameExpr),
@@ -566,10 +595,11 @@ func buildSGLangServeFlagsWithModelExpr(modelExpr string, servedModelNameExpr st
 		fmt.Sprintf("--port %d", api.LLM_SGLANG_DEFAULT_PORT),
 		fmt.Sprintf("--tp-size %d", tensorParallelSize),
 	}
+	flags = append(flags, extraFlags...)
 	return appendSGLangRuntimeFlags(flags, backendParameters, effSpec)
 }
 
-func buildSGLangServeFlags(modelPath string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecSGLang) []string {
+func buildSGLangServeFlags(modelPath string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecSGLang, extraFlags []string) []string {
 	modelQuoted := shellQuoteSingle(modelPath)
 	return buildSGLangServeFlagsWithModelExpr(
 		modelQuoted,
@@ -577,15 +607,16 @@ func buildSGLangServeFlags(modelPath string, tensorParallelSize int, backendPara
 		tensorParallelSize,
 		backendParameters,
 		effSpec,
+		extraFlags,
 	)
 }
 
-func buildSGLangEntrypointScript(modelPath string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecSGLang) string {
+func buildSGLangEntrypointScript(modelPath string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecSGLang, extraFlags []string) string {
 	modelPath = strings.TrimSpace(modelPath)
 	if modelPath == "" {
 		return "exec sleep infinity"
 	}
-	serveCmd := strings.Join(buildSGLangServeFlags(modelPath, tensorParallelSize, backendParameters, effSpec), " ")
+	serveCmd := strings.Join(buildSGLangServeFlags(modelPath, tensorParallelSize, backendParameters, effSpec, extraFlags), " ")
 	return strings.Join([]string{
 		"set -e",
 		fmt.Sprintf("exec %s %s", api.LLM_SGLANG_EXEC_PATH, serveCmd),

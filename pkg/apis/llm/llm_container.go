@@ -42,10 +42,26 @@ var (
 		string(LLM_CONTAINER_VLLM),
 		string(LLM_CONTAINER_SGLANG),
 	)
+	// LLM_OPTIONAL_DISK_TYPES are container types that work without a data
+	// disk. Desktop-like types (desktop / hermes-agent / openclaw) keep their
+	// workspace on the data disk and still require one.
+	LLM_OPTIONAL_DISK_TYPES = sets.NewString(
+		string(LLM_CONTAINER_OLLAMA),
+		string(LLM_CONTAINER_VLLM),
+		string(LLM_CONTAINER_SGLANG),
+		string(LLM_CONTAINER_COMFYUI),
+		string(LLM_CONTAINER_DIFY),
+	)
 )
 
 func IsLLMContainerType(t string) bool {
 	return LLM_CONTAINER_TYPES.Has(t)
+}
+
+// IsLLMOptionalDiskType reports whether the container type may be created
+// without a data disk.
+func IsLLMOptionalDiskType(t string) bool {
+	return LLM_OPTIONAL_DISK_TYPES.Has(t)
 }
 
 func IsLLMInstantModelType(t string) bool {
