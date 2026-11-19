@@ -12,6 +12,7 @@ type opt_1007_x86_64 struct {
 	*baseOptions_x86_64
 	*baseOptions_ge_310
 	*baseOptions_ge_800_x86_64
+	*baseOptions_ge_1000
 }
 
 func newOpt_10_0_7_x86_64() QemuOptions {
@@ -19,6 +20,7 @@ func newOpt_10_0_7_x86_64() QemuOptions {
 		baseOptions_x86_64:        newBaseOptions_x86_64(),
 		baseOptions_ge_800_x86_64: newBaseOptionsGE800_x86_64(),
 		baseOptions_ge_310:        newBaseOptionsGE310(),
+		baseOptions_ge_1000:       newBaseOptionsGE1000(),
 	}
 }
 
@@ -33,6 +35,7 @@ func newCmd_10_0_7_x86_64() QemuCommand {
 type opt_1007_aarch64 struct {
 	*baseOptions_aarch64
 	*baseOptions_ge_310
+	*baseOptions_ge_1000
 }
 
 func newCmd_10_0_7_aarch64() QemuCommand {
@@ -47,12 +50,14 @@ func newOpt_10_0_7_aarch64() QemuOptions {
 	return &opt_1007_aarch64{
 		baseOptions_aarch64: newBaseOptions_aarch64(),
 		baseOptions_ge_310:  newBaseOptionsGE310(),
+		baseOptions_ge_1000: newBaseOptionsGE1000(),
 	}
 }
 
 type opt_1007_riscv64 struct {
 	*baseOptions_riscv64
 	*baseOptions_ge_310
+	*baseOptions_ge_1000
 }
 
 func newCmd_10_0_7_riscv64() QemuCommand {
@@ -67,5 +72,6 @@ func newOpt_10_0_7_riscv64() QemuOptions {
 	return &opt_1007_riscv64{
 		baseOptions_riscv64: newBaseOptions_riscv64(),
 		baseOptions_ge_310:  newBaseOptionsGE310(),
+		baseOptions_ge_1000: newBaseOptionsGE1000(),
 	}
 }

@@ -129,6 +129,7 @@ type SGuestHardwareDesc struct {
 	VirtioScsi      *SGuestVirtioScsi       `json:",omitempty"`
 	PvScsi          *SGuestPvScsi           `json:",omitempty"`
 	SataController  *SGuestAhciDevice       `json:",omitempty"`
+	Iothreads       []*Object               `json:"iothreads"`
 	Cdroms          []*SGuestCdrom          `json:"cdroms,omitempty"`
 	Floppys         []*SGuestFloppy         `json:",omitempty"`
 	Disks           []*SGuestDisk           `json:",omitempty"`
@@ -207,6 +208,9 @@ type SGuestDisk struct {
 	Scsi *SCSIDevice `json:",omitempty"`
 	// disk driver ide/sata
 	Ide *IDEDevice `json:",omitempty"`
+
+	VirtioScsi  *SGuestVirtioScsi
+	IothreadIds []string `json:",omitempty"`
 }
 
 // -device ide-cd,drive=ide0-cd0,bus=ide.1
@@ -351,7 +355,8 @@ type SGuestVirtioSerial struct {
 type SGuestVirtioScsi struct {
 	*PCIDevice
 
-	NumQueues *uint8 `json:"num_queues"`
+	NumQueues   *uint8   `json:"num_queues,omitempty"`
+	IothreadIds []string `json:"iothread_ids,omitempty"`
 }
 
 type SGuestPvScsi struct {
