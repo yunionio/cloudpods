@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	json "yunion.io/x/jsonutils"
@@ -1065,6 +1066,42 @@ func IsolatedDeviceUsage(ctx context.Context, userToken mcclient.TokenCredential
 	count[prefix+".used"] = ret.DevicesUsed
 	count[prefix+".gpu"] = ret.Gpus
 	count[prefix+".gpu.used"] = ret.GpusUsed
+	for devType, devStat := range ret.Types {
+		devType = strings.ToLower(devType)
+		count[prefix+fmt.Sprintf(".%s.total", devType)] = devStat.Count
+		count[prefix+fmt.Sprintf(".%s.total.attached", devType)] = devStat.Used
+		count[prefix+fmt.Sprintf(".%s.tdp_w", devType)] = devStat.SumTdpW
+		count[prefix+fmt.Sprintf(".%s.fp16_tflops", devType)] = devStat.SumFp16Tflops
+		count[prefix+fmt.Sprintf(".%s.memory_size", devType)] = devStat.SumMemorySize
+	}
+	for devType, hypervisorStat := range ret.TypeHypervisors {
+		devType = strings.ToLower(devType)
+		for hypervisor, stat := range hypervisorStat {
+			if len(hypervisor) == 0 {
+				hypervisor = "unused"
+			}
+			count[prefix+fmt.Sprintf(".%s.%s.total", devType, hypervisor)] = stat.Count
+			count[prefix+fmt.Sprintf(".%s.%s.total.attached", devType, hypervisor)] = stat.Used
+			count[prefix+fmt.Sprintf(".%s.%s.tdp_w", devType, hypervisor)] = stat.SumTdpW
+			count[prefix+fmt.Sprintf(".%s.%s.fp16_tflops", devType, hypervisor)] = stat.SumFp16Tflops
+			count[prefix+fmt.Sprintf(".%s.%s.memory_size", devType, hypervisor)] = stat.SumMemorySize
+		}
+	}
+	count[prefix+".accelerator.total"] = ret.GpuStat.Count
+	count[prefix+".accelerator.total.attached"] = ret.GpuStat.Used
+	count[prefix+".accelerator.tdp_w"] = ret.GpuStat.SumTdpW
+	count[prefix+".accelerator.fp16_tflops"] = ret.GpuStat.SumFp16Tflops
+	count[prefix+".accelerator.memory_size"] = ret.GpuStat.SumMemorySize
+	for hypervisor, stat := range ret.GpuHypervisors {
+		if len(hypervisor) == 0 {
+			hypervisor = "unused"
+		}
+		count[prefix+fmt.Sprintf(".accelerator.%s.total", hypervisor)] = stat.Count
+		count[prefix+fmt.Sprintf(".accelerator.%s.total.attached", hypervisor)] = stat.Used
+		count[prefix+fmt.Sprintf(".accelerator.%s.tdp_w", hypervisor)] = stat.SumTdpW
+		count[prefix+fmt.Sprintf(".accelerator.%s.fp16_tflops", hypervisor)] = stat.SumFp16Tflops
+		count[prefix+fmt.Sprintf(".accelerator.%s.memory_size", hypervisor)] = stat.SumMemorySize
+	}
 	return count
 }
 
