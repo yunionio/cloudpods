@@ -71,13 +71,11 @@ func getSshProjectKeypair(ctx context.Context, tenantId string, ed25519PrivKey, 
 	if err != nil {
 		return nil, nil, err
 	}
-	rsaPriv, rsaPub, _ := _getKeys(ctx, tenantId, rsaPrivKey, rsaPubKey, false)
 	private := []string{ed25519Priv}
-	if len(rsaPriv) > 0 {
-		private = append(private, rsaPriv)
-	}
 	public := []string{ed25519Pub}
-	if len(rsaPub) > 0 {
+	rsaPriv, rsaPub, _ := _getKeys(ctx, tenantId, rsaPrivKey, rsaPubKey, false)
+	if len(rsaPriv) > 0 && len(rsaPub) > 0 {
+		private = append(private, rsaPriv)
 		public = append(public, rsaPub)
 	}
 	return private, public, nil
