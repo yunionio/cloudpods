@@ -1339,15 +1339,40 @@ func (manager *SIsolatedDeviceManager) totalCountQ(
 
 type IsolatedDeviceCountStat struct {
 	Devices     int
-	Gpus        int
 	DevicesUsed int
-	GpusUsed    int
+
+	Gpus     int
+	GpusUsed int
+
+	// dev_type -> IsolatedDeviceStat
+	Types map[string]*IsolatedDeviceStat
+	// dev_type:hypervisor -> IsolatedDeviceStat
+	TypeHypervisors map[string]map[string]*IsolatedDeviceStat
+
+	// gpu+npu -> IsolatedDeviceStat
+	GpuStat *IsolatedDeviceStat
+	// gpu+npu:hypervisor -> IsolatedDeviceStat
+	GpuHypervisors map[string]*IsolatedDeviceStat
 }
 
 type IsolatedDeviceStat struct {
-	DevType string
-	GuestId string
-	Count   int
+	DevType       string  `json:"dev_type"`
+	Hypervisor    string  `json:"hypervisor"`
+	Count         int     `json:"count"`
+	SumTdpW       int64   `json:"sum_tdp_w"`
+	SumFp16Tflops float64 `json:"sum_fp16_tflops"`
+	SumMemorySize int64   `json:"sum_memory_size"`
+	Used          int     `json:"used"`
+}
+
+func (s *IsolatedDeviceStat) Add(other IsolatedDeviceStat) {
+	s.DevType = ""
+	s.Hypervisor = ""
+	s.Count += other.Count
+	s.SumTdpW += other.SumTdpW
+	s.SumFp16Tflops += other.SumFp16Tflops
+	s.SumMemorySize += other.SumMemorySize
+	s.Used += other.Used
 }
 
 func (manager *SIsolatedDeviceManager) totalCount(
@@ -1377,14 +1402,24 @@ func (manager *SIsolatedDeviceManager) totalCount(
 		policyResult,
 	)
 	sq := iq.SubQuery()
-	guestIdevs := GuestIsolatedDeviceManager.Query().SubQuery()
+	guestIdevsQ := GuestIsolatedDeviceManager.Query("isolated_device_id")
+	guestsQ := GuestManager.Query().SubQuery()
+	guestIdevsQ = guestIdevsQ.Join(guestsQ, sqlchemy.Equals(guestIdevsQ.Field("guest_id"), guestsQ.Field("id")))
+	guestIdevsQ = guestIdevsQ.AppendField(sqlchemy.COUNT("used_count"))
+	guestIdevsQ = guestIdevsQ.AppendField(guestsQ.Field("hypervisor"))
+	guestIdevsQ = guestIdevsQ.GroupBy(guestIdevsQ.Field("isolated_device_id"), guestsQ.Field("hypervisor"))
+	guestIdevs := guestIdevsQ.SubQuery()
 	q := sq.Query(
 		sq.Field("dev_type"),
-		guestIdevs.Field("guest_id"),
+		guestIdevs.Field("hypervisor"),
 		sqlchemy.COUNT("count", sq.Field("id")),
+		sqlchemy.SUM("sum_tdp_w", sq.Field("tdp_w")),
+		sqlchemy.SUM("sum_fp16_tflops", sq.Field("fp16_tflops")),
+		sqlchemy.SUM("sum_memory_size", sq.Field("memory_size")),
+		sqlchemy.SUM("used", guestIdevs.Field("used_count")),
 	)
 	q = q.LeftJoin(guestIdevs, sqlchemy.Equals(sq.Field("id"), guestIdevs.Field("isolated_device_id")))
-	q = q.GroupBy(sq.Field("dev_type"), guestIdevs.Field("guest_id"))
+	q = q.GroupBy(sq.Field("dev_type"), guestIdevs.Field("hypervisor"))
 	ret := []IsolatedDeviceStat{}
 	err := q.All(&ret)
 	if err != nil {
@@ -1406,6 +1441,10 @@ func (manager *SIsolatedDeviceManager) TotalCount(
 	policyResult rbacutils.SPolicyResult,
 ) (IsolatedDeviceCountStat, error) {
 	ret := IsolatedDeviceCountStat{}
+	ret.Types = make(map[string]*IsolatedDeviceStat)
+	ret.TypeHypervisors = make(map[string]map[string]*IsolatedDeviceStat)
+	ret.GpuStat = &IsolatedDeviceStat{}
+	ret.GpuHypervisors = make(map[string]*IsolatedDeviceStat)
 	stat, err := manager.totalCount(
 		ctx,
 		scope, ownerId, nil, hostType, resourceTypes,
@@ -1416,14 +1455,23 @@ func (manager *SIsolatedDeviceManager) TotalCount(
 	}
 	for _, s := range stat {
 		ret.Devices += s.Count
-		if s.DevType == api.GPU_TYPE {
-			ret.Gpus += s.Count
+		ret.DevicesUsed += s.Used
+		if _, ok := ret.Types[s.DevType]; !ok {
+			ret.Types[s.DevType] = &IsolatedDeviceStat{}
 		}
-		if len(s.GuestId) > 0 {
-			ret.DevicesUsed += s.Count
-			if s.DevType == api.GPU_TYPE {
-				ret.GpusUsed += s.Count
+		ret.Types[s.DevType].Add(s)
+		if _, ok := ret.TypeHypervisors[s.DevType]; !ok {
+			ret.TypeHypervisors[s.DevType] = make(map[string]*IsolatedDeviceStat)
+		}
+		ret.TypeHypervisors[s.DevType][s.Hypervisor] = &s
+		if s.DevType == api.GPU_TYPE || s.DevType == api.NPU_TYPE {
+			ret.Gpus += s.Count
+			ret.GpusUsed += s.Used
+			ret.GpuStat.Add(s)
+			if _, ok := ret.GpuHypervisors[s.Hypervisor]; !ok {
+				ret.GpuHypervisors[s.Hypervisor] = &IsolatedDeviceStat{}
 			}
+			ret.GpuHypervisors[s.Hypervisor].Add(s)
 		}
 	}
 	return ret, nil
