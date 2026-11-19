@@ -85,6 +85,8 @@ type GuestRuntimeInstance interface {
 
 	SetNicDown(mac string) error
 	SetNicUp(nic *desc.SGuestNetwork) error
+
+	GetDescVersion() string
 }
 
 type sBaseGuestInstance struct {
@@ -139,6 +141,17 @@ func (s *sBaseGuestInstance) GetDescFilePath() string {
 
 func (s *sBaseGuestInstance) GetDesc() *desc.SGuestDesc {
 	return s.Desc
+}
+
+func (s *sBaseGuestInstance) GetDescVersion() string {
+	if s.SourceDesc == nil {
+		return desc.DESC_VERSION_V2
+	}
+
+	if s.SourceDesc.DescVersion == nil {
+		return desc.DESC_VERSION_V1
+	}
+	return *s.SourceDesc.DescVersion
 }
 
 func (s *sBaseGuestInstance) SetDesc(guestDesc *desc.SGuestDesc) {
@@ -380,6 +393,9 @@ func LoadDesc(s GuestRuntimeInstance) error {
 }
 
 func SaveDesc(s GuestRuntimeInstance, guestDesc *desc.SGuestDesc) error {
+	descVersion := s.GetDescVersion()
+	guestDesc.DescVersion = &descVersion
+
 	s.SetSourceDesc(guestDesc)
 	// fill in ovn vpc nic bridge field
 	for _, nic := range s.GetSourceDesc().Nics {
