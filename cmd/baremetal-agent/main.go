@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Some BMCs (for example Kunlun BMC 4.x) serve certificates with a negative
+// serial number, which Go rejects by default since 1.23.
+//
+//go:debug x509negativeserial=1
 package main
 
 import (
