@@ -58,7 +58,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
-	"yunion.io/x/onecloud/pkg/hostman/storageman/lvmutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -1353,17 +1352,19 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 
 	for _, disk := range guest.Desc.Disks {
 		if disk.Path != "" {
-			d, err := storageman.GetManager().GetDiskByPath(disk.Path)
-			if err != nil {
-				return nil, errors.Wrapf(err, "GetDiskByPath(%s)", disk.Path)
-			}
 			if disk.StorageType == compute.STORAGE_SLVM {
-				if err := lvmutils.LVActive(disk.Path, d.GetStorage().Lvmlockd(), false); err != nil {
-					return nil, errors.Wrap(err, "lvm active with shared")
+				storage := storageman.GetManager().GetStorage(disk.StorageId)
+				if storage == nil {
+					return nil, errors.Errorf("disk %s storage %s not found", disk.Path, disk.StorageId)
 				}
+				_, err := storage.GetDiskById(disk.DiskId)
+				if err != nil {
+					return nil, errors.Wrapf(err, "GetDiskById(%s)", disk.DiskId)
+				}
+			} else {
 				_, err := storageman.GetManager().GetDiskByPath(disk.Path)
 				if err != nil {
-					return nil, errors.Wrapf(err, "slvm GetDiskByPath(%s)", disk.Path)
+					return nil, errors.Wrapf(err, "GetDiskByPath(%s)", disk.Path)
 				}
 			}
 		}
