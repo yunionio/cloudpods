@@ -614,6 +614,48 @@ func (s *SKVMGuestInstance) ensureDevicePciAddress(
 	return nil
 }
 
+func (s *SKVMGuestInstance) ensureDevicePciAddressAtSlot(
+	dev *desc.PCIDevice, slot int,
+) error {
+	if dev.PCIAddr != nil {
+		if int(dev.Slot) == slot {
+			return s.ensureDevicePciAddress(dev, -1, nil)
+		}
+		dev.PCIAddr = nil
+	}
+	if slot < 0 {
+		return errors.Errorf("invalid pci slot %d", slot)
+	}
+	for bus := range s.pciAddrs.Buses {
+		pciBus := s.pciAddrs.Buses[bus]
+		if pciBus.Contorller != dev.Controller {
+			continue
+		}
+		if err := pciBus.EnsureSlotFunction(uint(slot), 0); err != nil {
+			return errors.Wrapf(err, "reserve pci slot %02x", slot)
+		}
+		dev.PCIAddr = &desc.PCIAddr{Bus: uint(bus), Slot: uint(slot)}
+		return nil
+	}
+	return errors.Errorf("no pci bus for controller %s", dev.Controller)
+}
+
+func (s *SKVMGuestInstance) getDiskPciSlot(index int) int {
+	base := 5
+	if s.IsVdiSpice() {
+		base += 10
+	}
+	return base + index
+}
+
+func (s *SKVMGuestInstance) getNicPciSlot(index int) int {
+	base := s.getDiskPciSlot(0) + 10
+	if len(s.Desc.IsolatedDevices) > 0 {
+		base += 10
+	}
+	return base + index
+}
+
 func (s *SKVMGuestInstance) findUnusedSlotForController(cont desc.PCI_CONTROLLER_TYPE, function int) (int, int, bool) {
 	var (
 		bus, slot = 0, 0
@@ -707,7 +749,11 @@ func (s *SKVMGuestInstance) ensurePciAddresses() error {
 
 	for i := 0; i < len(s.Desc.Disks); i++ {
 		if s.Desc.Disks[i].Pci != nil {
-			err = s.ensureDevicePciAddress(s.Desc.Disks[i].Pci, -1, nil)
+			if s.GetDescVersion() == desc.DESC_VERSION_V2 {
+				err = s.ensureDevicePciAddressAtSlot(s.Desc.Disks[i].Pci, s.getDiskPciSlot(int(s.Desc.Disks[i].Index)))
+			} else {
+				err = s.ensureDevicePciAddress(s.Desc.Disks[i].Pci, -1, nil)
+			}
 			if err != nil {
 				return errors.Wrapf(err, "ensure disk %d pci address", s.Desc.Disks[i].Index)
 			}
@@ -715,7 +761,11 @@ func (s *SKVMGuestInstance) ensurePciAddresses() error {
 	}
 	for i := 0; i < len(s.Desc.Nics); i++ {
 		if s.Desc.Nics[i].Pci != nil {
-			err = s.ensureDevicePciAddress(s.Desc.Nics[i].Pci, -1, nil)
+			if s.GetDescVersion() == desc.DESC_VERSION_V2 {
+				err = s.ensureDevicePciAddressAtSlot(s.Desc.Nics[i].Pci, s.getNicPciSlot(int(s.Desc.Nics[i].Index)))
+			} else {
+				err = s.ensureDevicePciAddress(s.Desc.Nics[i].Pci, -1, nil)
+			}
 			if err != nil {
 				return errors.Wrapf(err, "ensure nic %s pci address", s.Desc.Nics[i].Ifname)
 			}
