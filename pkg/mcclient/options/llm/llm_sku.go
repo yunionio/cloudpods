@@ -276,4 +276,32 @@ func (o *LLMSkuCloneOptions) Params() (jsonutils.JSONObject, error) {
 
 type LLMSkuSchedulableCheckOptions struct {
 	options.BaseIdOptions
+
+	DistributedInference bool     `help:"allow a multi-host forecast when no single host fits"`
+	PreferHosts          []string `help:"preferred host ids for multi-host placement"`
+	PlacementStrategy    string   `help:"multi-host placement: spread or binpack" choices:"spread|binpack"`
+	Nnodes               int      `help:"nodes per replica for the forecast: 0=auto, >=2=require exactly this many multi-host nodes"`
+	ParallelMode         string   `help:"distributed inference mode: pp (pipeline parallel, default) or dp (data parallel)" choices:"pp|dp"`
+	PipelineParallelSize int      `help:"pipeline parallel size for the forecast (vllm --pipeline-parallel-size / sglang --pp-size): 0=auto, >=2=pin"`
+}
+
+func (o *LLMSkuSchedulableCheckOptions) Params() (jsonutils.JSONObject, error) {
+	dict := jsonutils.NewDict()
+	dict.Set("distributed_inference", jsonutils.NewBool(o.DistributedInference))
+	if len(o.PreferHosts) > 0 {
+		dict.Set("prefer_hosts", jsonutils.NewStringArray(o.PreferHosts))
+	}
+	if strategy := strings.TrimSpace(o.PlacementStrategy); strategy != "" {
+		dict.Set("placement_strategy", jsonutils.NewString(strategy))
+	}
+	if o.Nnodes > 0 {
+		dict.Set("nnodes", jsonutils.NewInt(int64(o.Nnodes)))
+	}
+	if parallelMode := strings.TrimSpace(o.ParallelMode); parallelMode != "" {
+		dict.Set("parallel_mode", jsonutils.NewString(parallelMode))
+	}
+	if o.PipelineParallelSize > 0 {
+		dict.Set("pipeline_parallel_size", jsonutils.NewInt(int64(o.PipelineParallelSize)))
+	}
+	return dict, nil
 }
