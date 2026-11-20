@@ -262,6 +262,11 @@ func (h *SHostInfo) Init(ctx context.Context) error {
 		}
 	}
 
+	if err := h.isSdnAgentReady(); err != nil {
+		return errors.Wrap(err, "Sdnagent not ready")
+	}
+	log.Infof("sdnagent is ready")
+
 	if h.IsContainerHost() {
 		if err := h.initCRI(); err != nil {
 			return errors.Wrap(err, "init container runtime interface")
@@ -283,6 +288,23 @@ func (h *SHostInfo) Init(ctx context.Context) error {
 		}
 	}
 
+	// start check system service
+	yunionExecutor := system_service.NewBaseSystemService("yunion-executor", nil)
+	if !yunionExecutor.IsEnabled() {
+		if err := yunionExecutor.Enable(); err != nil {
+			return errors.Wrap(err, "enable yunion-executor")
+		}
+	}
+	return nil
+}
+
+func (h *SHostInfo) isSdnAgentReady() error {
+	sockPath := options.HostOptions.SdnSocketPath
+	conn, err := net.Dial("unix", sockPath)
+	if err != nil {
+		return errors.Wrap(err, "connect to Sdnagent")
+	}
+	defer conn.Close()
 	return nil
 }
 

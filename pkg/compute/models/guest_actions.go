@@ -1258,6 +1258,21 @@ func (self *SGuest) PerformStart(
 	query jsonutils.JSONObject,
 	input api.GuestPerformStartInput,
 ) (jsonutils.JSONObject, error) {
+	if input.QemuVersion != "" {
+		host, err := self.GetHost()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetHost")
+		}
+		qemuVersions := make([]string, 0)
+		err = host.SysInfo.Unmarshal(&qemuVersions, "qemu_versions")
+		if err != nil {
+			return nil, errors.Wrap(err, "Unmarshal qemuVersions")
+		}
+		if !utils.IsInStringArray(input.QemuVersion, qemuVersions) {
+			return nil, httperrors.NewBadRequestError("unsuppported qemu version %s", input.QemuVersion)
+		}
+	}
+
 	validStartStatuses := []string{api.VM_READY, api.VM_START_FAILED, api.VM_SAVE_DISK_FAILED, api.VM_SUSPEND, api.VM_KICKSTART_PENDING, api.VM_KICKSTART_FAILED}
 	if utils.IsInStringArray(self.Status, validStartStatuses) {
 		if err := self.ValidateEncryption(ctx, userCred); err != nil {
