@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/stringutils"
@@ -182,6 +183,18 @@ func (opslog *SOpsLog) GetModelManager() IModelManager {
 
 func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes interface{}, userCred mcclient.TokenCredential) {
 	if !consts.OpsLogEnabled() {
+		return
+	}
+	if gotypes.IsNil(model) {
+		log.Errorf("logevent with nil model: action=%s\n%s", action, debug.Stack())
+		return
+	}
+	if model.GetModelManager() == nil {
+		// A model created in memory may have been registered with a different
+		// virtual object (or none at all). Calling Keyword() on such a model
+		// dereferences a nil manager and panics, so skip it defensively and
+		// leave a stack trace to locate the offending constructor.
+		log.Errorf("logevent for model %T without model manager: action=%s\n%s", model, action, debug.Stack())
 		return
 	}
 	if shouldSkipOpsLog(model.Keyword(), action) {
