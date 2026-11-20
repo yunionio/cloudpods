@@ -242,22 +242,26 @@ func (d *dify) ValidateLLMUpdateSpec(ctx context.Context, userCred mcclient.Toke
 	return &api.LLMSpec{Dify: base}, nil
 }
 
-// GetContainerSpec is required by ILLMContainerDriver but not used for Dify; pod creation uses GetContainerSpecs. Return the first container so the interface is satisfied.
-func (d *dify) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
-	specs := d.GetContainerSpecs(ctx, llm, image, sku, props, devices, diskId)
-	if len(specs) == 0 {
-		return nil
+// GetContainerSpec is not used for Dify; pod creation uses GetContainerSpecs.
+// Return the first container so callers that expect a single spec still work.
+func (d *dify) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) (*computeapi.PodContainerCreateInput, error) {
+	specs, err := d.GetContainerSpecs(ctx, llm, image, sku, props, devices, diskId)
+	if err != nil {
+		return nil, err
 	}
-	return specs[0]
+	if len(specs) == 0 {
+		return nil, nil
+	}
+	return specs[0], nil
 }
 
 // GetContainerSpecs returns all Dify pod containers (postgres, redis, api, worker, nginx, etc.). Uses effective spec (llm + sku merged by driver).
-func (d *dify) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
+func (d *dify) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) ([]*computeapi.PodContainerCreateInput, error) {
 	spec := d.GetEffectiveSpec(llm, sku)
 	if spec == nil {
-		return nil
+		return nil, nil
 	}
-	return models.GetDifyContainersByNameAndSku(llm.GetName(), sku, nil, spec.(*api.LLMSpecDify))
+	return models.GetDifyContainersByNameAndSku(llm.GetName(), sku, nil, spec.(*api.LLMSpecDify)), nil
 }
 
 func (d *dify) MatchContainerToUpdate(ctr *computeapi.SContainer, podCtrs []*computeapi.PodContainerCreateInput) (*computeapi.PodContainerCreateInput, error) {
