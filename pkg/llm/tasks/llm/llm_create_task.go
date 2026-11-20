@@ -129,6 +129,15 @@ func (task *LLMCreateTask) OnLLMRefreshStatusComplete(ctx context.Context, llm *
 		})
 
 		for _, portMapping := range server.Nics[0].PortMappings {
+			if portMapping == nil || portMapping.HostPort == nil {
+				continue
+			}
+			// Internal distributed ports (master / DP RPC) are plumbing between
+			// replicas, not user-facing service ports: keep them out of the
+			// access list so llm-url still points at the API port.
+			if llm.IsDistributedMember() && models.IsDistInternalPort(llm.DistGroup, int(portMapping.Port)) {
+				continue
+			}
 			access := models.SAccessInfo{}
 			access.LLMId = llm.Id
 
