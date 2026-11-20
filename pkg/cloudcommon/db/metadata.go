@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/printutils"
 	"yunion.io/x/pkg/util/rbacscope"
 	"yunion.io/x/pkg/util/stringutils"
@@ -526,6 +527,12 @@ func (manager *SMetadataManager) SetValue(ctx context.Context, obj IModel, key s
 }
 
 func (manager *SMetadataManager) SetValuesWithLog(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential) error {
+	if gotypes.IsNil(obj) {
+		return errors.Errorf("SetValuesWithLog: nil model")
+	}
+	if obj.GetModelManager() == nil {
+		return errors.Errorf("SetValuesWithLog: model %T has no model manager", obj)
+	}
 	lockman.LockObject(ctx, obj)
 	defer lockman.ReleaseObject(ctx, obj)
 

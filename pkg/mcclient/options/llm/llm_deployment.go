@@ -16,9 +16,10 @@ import (
 type LLMDeploymentListOptions struct {
 	options.BaseListOptions
 
-	PlacementStrategy string `help:"filter by placement strategy (spread, binpack)" json:"placement_strategy"`
-	AccessPolicy      string `help:"filter by access policy (public, authed, allowed_users)" json:"access_policy"`
-	LLMSku            string `help:"filter by SKU id or name" json:"llm_sku"`
+	PlacementStrategy    string `help:"filter by placement strategy (spread, binpack)" json:"placement_strategy"`
+	AccessPolicy         string `help:"filter by access policy (public, authed, allowed_users)" json:"access_policy"`
+	LLMSku               string `help:"filter by SKU id or name" json:"llm_sku"`
+	DistributedInference *bool  `help:"filter by distributed inference flag" json:"distributed_inference"`
 }
 
 func (o *LLMDeploymentListOptions) Params() (jsonutils.JSONObject, error) {
@@ -72,15 +73,21 @@ type LLMDeploymentCreateOptions struct {
 
 	// Instance creation params
 	Net        []string `help:"Network descriptions; repeatable" json:"-"`
-	AutoStart  bool     `help:"auto start instances after creation" json:"auto_start"`
+	AutoStart  bool     `help:"deprecated; llm deployments always auto start" json:"-"`
 	PreferHost string   `help:"prefer specific host" json:"prefer_host"`
-	HostPaths  []string `json:"-" help:"host path mount in format path=<host_path>,type=<directory|file>,container_index=<index>,mount_path=<container_path>[,auto_create=<bool>][,read_only=<bool>][,propagation=<private|rslave|rshared>][,fs_user=<uid>][,fs_group=<gid>][,uid=<uid>][,gid=<gid>][,permissions=<mode>]; repeatable"`
+	// PreferHosts whitelists hosts for multi-host placement: hosts outside the
+	// list are excluded from distributed planning.
+	PreferHosts []string `help:"prefer specific hosts for multi-host placement; repeatable" json:"prefer_hosts,omitempty"`
+	HostPaths   []string `json:"-" help:"host path mount in format path=<host_path>,type=<directory|file>,container_index=<index>,mount_path=<container_path>[,auto_create=<bool>][,read_only=<bool>][,propagation=<private|rslave|rshared>][,fs_user=<uid>][,fs_group=<gid>][,uid=<uid>][,gid=<gid>][,permissions=<mode>]; repeatable"`
 
 	// Deployment config
 	Replicas                 int      `help:"number of replicas" default:"1" json:"replicas"`
 	PlacementStrategy        string   `help:"placement strategy" choices:"spread|binpack" json:"placement_strategy"`
 	CpuOffloading            *bool    `help:"enable CPU offloading" json:"cpu_offloading"`
 	DistributedInference     *bool    `help:"enable distributed inference" json:"distributed_inference"`
+	Nnodes                   int      `help:"nodes per replica for distributed inference: 0=auto (prefer single host), >=2=force that many nodes (requires distributed-inference)" json:"nnodes,omitempty"`
+	ParallelMode             string   `help:"distributed inference mode: pp (pipeline parallel, default) or dp (data parallel); only effective for multi-node vllm" json:"parallel_mode,omitempty"`
+	PipelineParallelSize     int      `help:"pipeline parallel size (vllm --pipeline-parallel-size / sglang --pp-size): 0=auto, >=2=pin; overrides SKU backend parameters; valid without distributed inference" json:"pipeline_parallel_size,omitempty"`
 	GpuMemoryUtilization     *float64 `token:"gpu-memory-utilization" help:"GPU memory utilization fraction for backend runtime (0-1)" json:"gpu_memory_utilization"`
 	GpuUtilization           *float64 `token:"gpu-utilization" help:"Alias of --gpu-memory-utilization" json:"-"`
 	AutoGpuMemoryUtilization *bool    `token:"auto-gpu-memory-utilization" help:"calculate GPU memory utilization from model VRAM and GPU memory (default true for supported backends; use false to disable)" json:"auto_gpu_memory_utilization"`
@@ -231,6 +238,10 @@ type LLMDeploymentUpdateOptions struct {
 	Name                     string   `help:"new name" json:"name"`
 	Replicas                 *int     `help:"number of replicas" json:"replicas"`
 	PlacementStrategy        string   `help:"placement strategy" json:"placement_strategy"`
+	DistributedInference     *bool    `help:"allow distributed inference for groups created after this update" json:"distributed_inference"`
+	Nnodes                   *int     `help:"nodes per replica for distributed inference: 0=auto, >=2=force that many nodes (requires distributed-inference)" json:"nnodes"`
+	ParallelMode             *string  `help:"distributed inference mode: pp (pipeline parallel, default) or dp (data parallel); only effective for multi-node vllm" json:"parallel_mode"`
+	PipelineParallelSize     *int     `help:"pipeline parallel size (vllm --pipeline-parallel-size / sglang --pp-size): 0=auto, >=2=pin; overrides SKU backend parameters; valid without distributed inference" json:"pipeline_parallel_size"`
 	GpuMemoryUtilization     *float64 `token:"gpu-memory-utilization" help:"GPU memory utilization fraction for backend runtime (0-1)" json:"gpu_memory_utilization"`
 	GpuUtilization           *float64 `token:"gpu-utilization" help:"Alias of --gpu-memory-utilization" json:"-"`
 	AutoGpuMemoryUtilization *bool    `token:"auto-gpu-memory-utilization" help:"calculate GPU memory utilization from model VRAM and GPU memory (default true for supported backends; use false to disable)" json:"auto_gpu_memory_utilization"`
@@ -327,4 +338,10 @@ func applyGpuUtilizationAlias(params *jsonutils.JSONDict, gpuMemoryUtilization, 
 		params.Set("gpu_memory_utilization", jsonutils.NewFloat64(*gpuUtilization))
 	}
 	return nil
+}
+
+// LLMDeploymentDistGroupsOptions selects a deployment whose distributed
+// replica groups are rendered by llm-deployment-dist-groups.
+type LLMDeploymentDistGroupsOptions struct {
+	options.BaseIdOptions
 }
