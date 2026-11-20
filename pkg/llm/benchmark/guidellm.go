@@ -141,8 +141,11 @@ func BuildGuideLLMSpec(input GuideLLMSpecInput) GuideLLMSpec {
 }
 
 const (
-	GuideLLMWarmupJSONPath = "/workdir/warmup.json"
-	GuideLLMWarmupCSVPath  = "/workdir/warmup.csv"
+	GuideLLMWarmupJSONPath    = "/workdir/warmup.json"
+	GuideLLMWarmupCSVPath     = "/workdir/warmup.csv"
+	GuideLLMPreflightJSONPath = "/workdir/dataset-preflight.json"
+	GuideLLMPreflightCSVPath  = "/workdir/dataset-preflight.csv"
+	GuideLLMPreflightLogPath  = "/workdir/dataset-preflight.log"
 )
 
 // WithoutGuideLLMWarmup copies a spec for the measured run.
@@ -534,7 +537,7 @@ func GuideLLMPreflightRunCommand(spec GuideLLMSpec) ([]string, error) {
 	for _, key := range keys {
 		parts = append(parts, "export "+key+"="+shellQuote(envs[key]))
 	}
-	parts = append(parts, "guidellm run --output kind=json,path=/workdir/dataset-preflight.json --output kind=csv,path=/workdir/dataset-preflight.csv > /workdir/dataset-preflight.log 2>&1")
+	parts = append(parts, "guidellm run --output kind=json,path="+GuideLLMPreflightJSONPath+" --output kind=csv,path="+GuideLLMPreflightCSVPath+" > "+GuideLLMPreflightLogPath+" 2>&1")
 	return []string{"sh", "-lc", strings.Join(parts, " && ")}, nil
 }
 
@@ -548,6 +551,20 @@ func GuideLLMResultExitPath(jsonPath string) string {
 
 func GuideLLMResultPidPath(jsonPath string) string {
 	return jsonPath + ".pid"
+}
+
+// GuideLLMLogPath returns the container-side log file path for a run whose
+// result JSON is written to jsonPath. The formal run and the auto-tune run
+// both write to /workdir/guidellm.log even though their JSON paths differ.
+func GuideLLMLogPath(jsonPath string) string {
+	switch jsonPath {
+	case GuideLLMWarmupJSONPath:
+		return "/workdir/warmup.log"
+	case GuideLLMPreflightJSONPath:
+		return GuideLLMPreflightLogPath
+	default:
+		return "/workdir/guidellm.log"
+	}
 }
 
 const (

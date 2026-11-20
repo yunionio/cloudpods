@@ -363,9 +363,9 @@ type LLMSchedulableCheckOutput struct {
 	GpusPerNode       int `json:"gpus_per_node,omitempty"`
 	// TensorParallelSize / PipelineParallelSize / DataParallelSize are the
 	// derived parallel layout of the recommended plan (0 when not computed).
-	TensorParallelSize   int    `json:"tensor_parallel_size,omitempty"`
-	PipelineParallelSize int    `json:"pipeline_parallel_size,omitempty"`
-	DataParallelSize     int    `json:"data_parallel_size,omitempty"`
+	TensorParallelSize   int `json:"tensor_parallel_size,omitempty"`
+	PipelineParallelSize int `json:"pipeline_parallel_size,omitempty"`
+	DataParallelSize     int `json:"data_parallel_size,omitempty"`
 	// DistShape is the vLLM multi-node layout shape: dp_only / mp_only / nested.
 	// Empty for single-host or SGLang forecasts.
 	DistShape string `json:"dist_shape,omitempty"`
