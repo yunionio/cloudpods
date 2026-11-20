@@ -35,9 +35,9 @@ type LLMBenchmarkRunTask struct {
 }
 
 const (
-	preflightRemoteJSON = "/workdir/dataset-preflight.json"
-	preflightRemoteCSV  = "/workdir/dataset-preflight.csv"
-	preflightRemoteLog  = "/workdir/dataset-preflight.log"
+	preflightRemoteJSON = bench.GuideLLMPreflightJSONPath
+	preflightRemoteCSV  = bench.GuideLLMPreflightCSVPath
+	preflightRemoteLog  = bench.GuideLLMPreflightLogPath
 )
 
 const (
@@ -262,6 +262,7 @@ func (task *LLMBenchmarkRunTask) run(ctx context.Context, b *models.SLLMBenchmar
 			bench.GuideLLMWarmupCSVPath,
 			warmupEnvs,
 		); err != nil {
+			_ = copyBenchmarkArtifacts(s, containerId, b)
 			return errors.Wrap(err, "guidellm warmup")
 		}
 		if stoppedBenchmark(b) {
@@ -767,9 +768,9 @@ func waitGuideLLMPhase(
 				case "ready":
 					return nil
 				case "missing":
-					return errors.Error("guidellm exited without result files")
+					return enrichGuideLLMExitError(s, containerId, jsonPath, errors.Error("guidellm exited without result files"))
 				case "exit":
-					return fmt.Errorf("guidellm exited %d", exitCode)
+					return enrichGuideLLMExitError(s, containerId, jsonPath, fmt.Errorf("guidellm exited %d", exitCode))
 				}
 			}
 		}
@@ -791,6 +792,24 @@ func execContainerSync(s *mcclient.ClientSession, containerId string, command []
 		Timeout: timeout,
 	}
 	return computemod.Containers.PerformAction(s, containerId, "exec-sync", jsonutils.Marshal(input))
+}
+
+// enrichGuideLLMExitError appends the full container-side guidellm log to the
+// phase error so the operation log shows why the container exited. The log is
+// read via exec-sync with a cat command.
+func enrichGuideLLMExitError(s *mcclient.ClientSession, containerId, jsonPath string, phaseErr error) error {
+	logPath := bench.GuideLLMLogPath(jsonPath)
+	catCmd := []string{"sh", "-lc", "cat " + shellPath(logPath) + " 2>/dev/null || true"}
+	resp, err := execContainerSync(s, containerId, catCmd, guideLLMPollTimeoutSeconds)
+	if err != nil {
+		return phaseErr
+	}
+	stdout, _ := resp.GetString("stdout")
+	logContent := strings.TrimSpace(stdout)
+	if logContent == "" {
+		return phaseErr
+	}
+	return fmt.Errorf("%s: %s", phaseErr.Error(), logContent)
 }
 
 func installExternalTokenizer(ctx context.Context, s *mcclient.ClientSession, containerId string, b *models.SLLMBenchmark) error {
@@ -895,6 +914,7 @@ func shellPath(path string) string {
 func copyBenchmarkArtifacts(s *mcclient.ClientSession, containerId string, b *models.SLLMBenchmark) error {
 	paths := map[string]string{
 		"/workdir/guidellm.log": filepath.Join(b.WorkDir, "guidellm.log"),
+		"/workdir/warmup.log":   filepath.Join(b.WorkDir, "warmup.log"),
 	}
 	if b.Profile == api.LLMBenchmarkProfilePeak || b.Profile == api.LLMBenchmarkProfileSlo {
 		paths[bench.AutoTuneRampPath] = filepath.Join(b.WorkDir, "benchmarks__ramp.json")
