@@ -15,6 +15,7 @@ import (
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/llm/models"
+	"yunion.io/x/onecloud/pkg/llm/scheduler"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -177,17 +178,18 @@ func appendVLLMRuntimeFlags(flags []string, backendParameters []string, effSpec 
 	return appendRuntimeFlags(flags, mergedArgs)
 }
 
-func buildVLLMServeFlagsWithModelExpr(modelExpr string, servedModelNameExpr string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecVllm) []string {
+func buildVLLMServeFlagsWithModelExpr(modelExpr string, servedModelNameExpr string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecVllm, extraFlags []string) []string {
 	flags := []string{
 		fmt.Sprintf("--model %s", modelExpr),
 		fmt.Sprintf("--served-model-name %s", servedModelNameExpr),
 		fmt.Sprintf("--port %d", api.LLM_VLLM_DEFAULT_PORT),
 		fmt.Sprintf("--tensor-parallel-size %d", tensorParallelSize),
 	}
+	flags = append(flags, extraFlags...)
 	return appendVLLMRuntimeFlags(flags, backendParameters, effSpec)
 }
 
-func buildVLLMServeFlags(modelPath string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecVllm) []string {
+func buildVLLMServeFlags(modelPath string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecVllm, extraFlags []string) []string {
 	modelQuoted := shellQuoteSingle(modelPath)
 	return buildVLLMServeFlagsWithModelExpr(
 		modelQuoted,
@@ -195,6 +197,7 @@ func buildVLLMServeFlags(modelPath string, tensorParallelSize int, backendParame
 		tensorParallelSize,
 		backendParameters,
 		effSpec,
+		extraFlags,
 	)
 }
 
@@ -211,12 +214,12 @@ func buildHygonVLLMEnvSourceLines() []string {
 	}
 }
 
-func buildVLLMEntrypointScript(modelPath string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecVllm, hygon bool) string {
+func buildVLLMEntrypointScript(modelPath string, tensorParallelSize int, backendParameters []string, effSpec *api.LLMSpecVllm, hygon bool, extraFlags []string) string {
 	modelPath = strings.TrimSpace(modelPath)
 	if modelPath == "" {
 		return "exec sleep infinity"
 	}
-	serveCmd := strings.Join(buildVLLMServeFlags(modelPath, tensorParallelSize, backendParameters, effSpec), " ")
+	serveCmd := strings.Join(buildVLLMServeFlags(modelPath, tensorParallelSize, backendParameters, effSpec, extraFlags), " ")
 	lines := []string{"set -e"}
 	if hygon {
 		lines = append(lines, buildHygonVLLMEnvSourceLines()...)
@@ -402,7 +405,7 @@ func (v *vllm) ValidateLLMUpdateSpec(ctx context.Context, userCred mcclient.Toke
 	return &api.LLMSpec{Vllm: base}, nil
 }
 
-func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) *computeapi.PodContainerCreateInput {
+func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) (*computeapi.PodContainerCreateInput, error) {
 	var postOverlays []*commonapi.ContainerVolumeMountDiskPostOverlay
 	if llm != nil {
 		var err error
@@ -411,10 +414,6 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 			log.Errorf("GetMountedModelsPostOverlay failed %s", err)
 		}
 	}
-	tensorParallelSize := 1
-	if sku != nil && sku.Devices != nil && len(*sku.Devices) > 0 {
-		tensorParallelSize = len(*sku.Devices)
-	}
 	effSpec := (*api.LLMSpecVllm)(nil)
 	if eff := v.GetEffectiveSpec(llm, sku); eff != nil {
 		effSpec = eff.(*api.LLMSpecVllm)
@@ -422,6 +421,28 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	var backendParameters []string
 	if sku != nil {
 		backendParameters = sku.BackendParameters
+	}
+	// The deployment-level pipeline pin overrides SKU backend parameters; it
+	// must land before the topology/command split so both the topology
+	// derivation and the single-node command see it.
+	if pp := deploymentPinnedPipelineParallel(llm); pp > 0 {
+		backendParameters = injectPipelineParallelParameter(backendParameters, "pipeline-parallel-size", pp)
+	}
+	// Derive the topology from the user's raw parameters; the filtered copy is
+	// only used to build the final command. Otherwise a planner-managed flag
+	// (e.g. --data-parallel-size or --pp-size) would be dropped before it can
+	// influence the layout it was meant to pin.
+	topologyParameters, backendParameters := splitDistributedBackendParameters(backendParameters, llm, protectedDistributedVLLMKeys())
+	if llm != nil && llm.IsDistributedMember() {
+		if effSpec != nil {
+			cp := *effSpec
+			cp.CustomizedArgs = filterVllmCustomizedArgsForDistributed(cp.CustomizedArgs, protectedDistributedVLLMKeys())
+			effSpec = &cp
+		}
+	}
+	tensorParallelSize, distFlags, distShape, err := buildVLLMDistributedFlags(llm, sku, topologyParameters)
+	if err != nil {
+		return nil, errors.Wrap(err, "build vllm distributed flags")
 	}
 	preferred := ""
 	if effSpec != nil {
@@ -434,7 +455,15 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	thead := models.HasTHeadDevices(llm, sku)
 	kunlunxin := models.HasKunlunxinDevices(llm, sku)
 	mthreads := models.HasMthreadsDevices(llm, sku)
-	startScript := buildVLLMEntrypointScript(modelPath, tensorParallelSize, backendParameters, effSpec, hygon)
+	startScript := buildVLLMEntrypointScript(modelPath, tensorParallelSize, backendParameters, effSpec, hygon, distFlags)
+	needsDPEnv := distShape == scheduler.ShapeDPOnly || distShape == scheduler.ShapeNested
+	if llm != nil && llm.IsDistributedMember() {
+		prefix := distributedStartScriptPrefix()
+		if needsDPEnv {
+			prefix = prefix + "\n" + vllmDPEnvScriptPrefix(llm)
+		}
+		startScript = prefix + "\n" + startScript
+	}
 	envs := []*commonapi.ContainerKeyValue{
 		{
 			Key:   "HUGGING_FACE_HUB_CACHE",
@@ -444,16 +473,10 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 			Key:   "HF_ENDPOINT",
 			Value: api.LLM_VLLM_HF_ENDPOINT,
 		},
-		// // Fix Error 803
-		// {
-		// 	Key:   "LD_LIBRARY_PATH",
-		// 	Value: "/lib64:/usr/local/cuda/lib64:/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}",
-		// },
-		// // Fix Error 803
-		// {
-		// 	Key:   "LD_PRELOAD",
-		// 	Value: "/lib/libcuda.so.1 /lib/libnvidia-ptxjitcompiler.so.1 /lib/libnvidia-gpucomp.so",
-		// },
+	}
+	envs = appendDistributedEnv(envs, llm)
+	if needsDPEnv {
+		envs = appendVLLMDPEnv(envs, llm)
 	}
 	spec := computeapi.ContainerSpec{
 		ContainerSpec: commonapi.ContainerSpec{
@@ -468,58 +491,64 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	if hygon || iluvatar || thead || kunlunxin || mthreads {
 		spec.Command = []string{"/bin/bash", "-c"}
 	}
-	if hasMountedModels {
+	// Followers run headless and do not expose the OpenAI HTTP API.
+	if hasMountedModels && (llm == nil || !llm.IsDistFollower()) {
 		spec.StartupProbe = newLLMHTTPStartupProbe(api.LLM_VLLM_DEFAULT_PORT, "/v1/models")
 	}
 
 	// GPU Devices
 	appendContainerIsolatedDevices(&spec, llm, sku, devices)
 
+	// /dev/shm sizing + IPC_LOCK per the vLLM GPUDirect RDMA guidance; Hygon
+	// adds SYS_PTRACE on top (merged, not overwritten).
+	applyInferenceContainerShmAndCapabilities(&spec.ContainerSpec)
 	if hygon {
-		spec.Capabilities = &commonapi.ContainerCapability{
-			Add: []string{"SYS_PTRACE"},
-		}
+		spec.Capabilities.Add = append(spec.Capabilities.Add, "SYS_PTRACE")
 		spec.SecurityContext = &commonapi.ContainerSecurityContext{
 			SupplementalGroupNames: []string{"video"},
 		}
 	}
 
-	// Volume Mounts
-	diskIndex := 0
-	ctrVols := []*commonapi.ContainerVolumeMount{
-		{
-			Disk: &commonapi.ContainerVolumeMountDisk{
-				SubDirectory: api.LLM_VLLM,
-				Index:        &diskIndex,
-				PostOverlay:  postOverlays,
+	// Volume Mounts (only when the SKU requests a data disk)
+	if models.SkuHasDataDisk(sku) {
+		diskIndex := 0
+		ctrVols := []*commonapi.ContainerVolumeMount{
+			{
+				Disk: &commonapi.ContainerVolumeMountDisk{
+					SubDirectory: api.LLM_VLLM,
+					Index:        &diskIndex,
+					PostOverlay:  postOverlays,
+				},
+				Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+				MountPath:   api.LLM_VLLM_BASE_PATH,
+				ReadOnly:    false,
+				Propagation: commonapi.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
 			},
-			Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath:   api.LLM_VLLM_BASE_PATH,
-			ReadOnly:    false,
-			Propagation: commonapi.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
-		},
-		{
-			// Mount cache dir to save HF cache
-			Disk: &commonapi.ContainerVolumeMountDisk{
-				SubDirectory: "cache",
-				Index:        &diskIndex,
+			{
+				// Mount cache dir to save HF cache
+				Disk: &commonapi.ContainerVolumeMountDisk{
+					SubDirectory: "cache",
+					Index:        &diskIndex,
+				},
+				Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+				MountPath: "/root/.cache",
+				ReadOnly:  false,
 			},
-			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath: "/root/.cache",
-			ReadOnly:  false,
-		},
+		}
+		spec.VolumeMounts = append(spec.VolumeMounts, ctrVols...)
 	}
-	spec.VolumeMounts = append(spec.VolumeMounts, ctrVols...)
 
 	return &computeapi.PodContainerCreateInput{
 		ContainerSpec: spec,
-	}
+	}, nil
 }
 
-func (v *vllm) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
-	return []*computeapi.PodContainerCreateInput{
-		v.GetContainerSpec(ctx, llm, image, sku, props, devices, diskId),
+func (v *vllm) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) ([]*computeapi.PodContainerCreateInput, error) {
+	ctr, err := v.GetContainerSpec(ctx, llm, image, sku, props, devices, diskId)
+	if err != nil {
+		return nil, err
 	}
+	return []*computeapi.PodContainerCreateInput{ctr}, nil
 }
 
 func (v *vllm) GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *models.LLMAccessInfoInput) (*api.LLMAccessUrlInfo, error) {

@@ -201,7 +201,6 @@ func (man *SLLMDeploymentManager) adoptOrphanLLM(ctx context.Context, userCred m
 	dep.PlacementStrategy = api.LLM_MODEL_PLACEMENT_SPREAD
 	dep.AccessPolicy = api.LLM_MODEL_ACCESS_AUTHED
 	dep.AutoRegisterAiproxy = false
-	dep.AutoStart = false
 	dep.Nets = nets
 	dep.RestartOnError = &restartOnError
 	dep.ProjectId = llm.ProjectId

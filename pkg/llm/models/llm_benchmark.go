@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	stderrors "errors"
+	"fmt"
+	"hash/crc32"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +17,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	apis "yunion.io/x/onecloud/pkg/apis"
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
@@ -62,6 +65,7 @@ type SLLMBenchmarkManager struct {
 
 type LLMBenchmarkTokenizerMount struct {
 	ImageId           string
+	HostPaths         *api.HostPaths
 	ModelPath         string
 	SizeMB            int
 	MountBase         string
@@ -121,7 +125,10 @@ func buildBenchmarkTokenizerMount(llmType string, model *SInstantModel) (*LLMBen
 	}, nil
 }
 
-func resolveBenchmarkTokenizerMount(llm *SLLM, model string) (*LLMBenchmarkTokenizerMount, error) {
+func resolveBenchmarkTokenizerMount(llm *SLLM, sku *SLLMSku, model string) (*LLMBenchmarkTokenizerMount, error) {
+	if SkuHasLocalHostPathModel(sku) {
+		return buildLocalPathBenchmarkTokenizerMount(llm, sku, model)
+	}
 	boolTrue := true
 	relations, err := llm.FetchModels(nil, &boolTrue, nil)
 	if err != nil {
@@ -141,6 +148,69 @@ func resolveBenchmarkTokenizerMount(llm *SLLM, model string) (*LLMBenchmarkToken
 		return nil, err
 	}
 	return buildBenchmarkTokenizerMount(llmType, selected)
+}
+
+// buildLocalPathBenchmarkTokenizerMount resolves the tokenizer directory for
+// local_path SKUs: the model files live on the host (mounted into the LLM
+// container via HostPaths), so the runner pod reuses the same host-path mounts
+// instead of an image overlay disk. The runner is scheduled onto the same host
+// as the LLM server, where those directories exist.
+func buildLocalPathBenchmarkTokenizerMount(llm *SLLM, sku *SLLMSku, model string) (*LLMBenchmarkTokenizerMount, error) {
+	hostPaths := GetEffectiveHostPaths(llm, sku)
+	if hostPaths == nil || hostPaths.IsZero() {
+		return nil, httperrors.NewInvalidStatusError("local_path model has no host path mounts")
+	}
+	paths := make([]string, 0, len(*hostPaths))
+	for _, hostPath := range *hostPaths {
+		rel := hostPath.GetHostPathByContainer(0)
+		if rel == nil {
+			continue
+		}
+		if p := strings.TrimSpace(rel.MountPath); p != "" {
+			paths = append(paths, p)
+		}
+	}
+	if len(paths) == 0 {
+		return nil, httperrors.NewInvalidStatusError("local_path model has no container mount path")
+	}
+	modelPath, err := pickLocalPathBenchmarkModelPath(paths, model)
+	if err != nil {
+		return nil, err
+	}
+	return &LLMBenchmarkTokenizerMount{
+		HostPaths: hostPaths,
+		ModelPath: modelPath,
+	}, nil
+}
+
+// pickLocalPathBenchmarkModelPath mirrors selectBenchmarkTokenizerModel: exact
+// or basename match against the served model name, with a single-path fallback.
+func pickLocalPathBenchmarkModelPath(paths []string, model string) (string, error) {
+	model = strings.TrimSpace(model)
+	if model != "" {
+		exact := make([]string, 0, 1)
+		basenames := make([]string, 0, 1)
+		for _, p := range paths {
+			if p == model {
+				exact = append(exact, p)
+			} else if filepath.Base(p) == model {
+				basenames = append(basenames, p)
+			}
+		}
+		if len(exact) == 1 {
+			return exact[0], nil
+		}
+		if len(exact) > 1 || len(basenames) > 1 {
+			return "", httperrors.NewInputParameterError("multiple mounted models match %s", model)
+		}
+		if len(basenames) == 1 {
+			return basenames[0], nil
+		}
+	}
+	if len(paths) == 1 {
+		return paths[0], nil
+	}
+	return "", httperrors.NewInputParameterError("cannot uniquely resolve tokenizer model %s", model)
 }
 
 type SLLMBenchmark struct {
@@ -305,7 +375,7 @@ func prepareLLMBenchmarkCreateInput(ctx context.Context, userCred mcclient.Token
 		input.Model = resolveBenchmarkModel(ctx, targetURL, sku.LLMType, llm)
 	}
 	if pkg == nil {
-		if _, err := resolveBenchmarkTokenizerMount(llm, input.Model); err != nil {
+		if _, err := resolveBenchmarkTokenizerMount(llm, sku, input.Model); err != nil {
 			return input, errors.Wrap(err, "resolve offline benchmark tokenizer")
 		}
 	}
@@ -768,7 +838,12 @@ func (b *SLLMBenchmark) ValidateUpdateData(ctx context.Context, userCred mcclien
 		if err != nil {
 			return input, errors.Wrap(err, "fetch benchmark LLM")
 		}
-		if _, err := resolveBenchmarkTokenizerMount(obj.(*SLLM), candidate.Model); err != nil {
+		llm := obj.(*SLLM)
+		sku, err := llm.GetLLMSku(llm.LLMSkuId)
+		if err != nil {
+			return input, errors.Wrap(err, "fetch benchmark LLM sku")
+		}
+		if _, err := resolveBenchmarkTokenizerMount(llm, sku, candidate.Model); err != nil {
 			return input, errors.Wrap(err, "resolve offline benchmark tokenizer")
 		}
 	}
@@ -1172,29 +1247,114 @@ func resolveBenchmarkImage(ctx context.Context, userCred mcclient.TokenCredentia
 		}
 		image = obj.(*SLLMImage)
 	} else {
-		defaultImage := options.Options.LLMBenchmarkDefaultImage
-		if defaultImage == "" {
-			defaultImage = api.LLMBenchmarkDefaultImage
-		}
-		name, label := parseImageRef(defaultImage)
-		image = &SLLMImage{}
-		err := GetLLMImageManager().Query().
-			Equals("image_name", name).
-			Equals("image_label", label).
-			Equals("llm_type", string(api.LLM_IMAGE_TYPE_BENCHMARK)).
-			First(image)
+		var err error
+		image, err = EnsureDefaultBenchmarkImage(ctx)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewNotFoundError("default benchmark llm_image %s not found, create it first", defaultImage)
-			}
-			return nil, errors.Wrap(err, "query default benchmark image")
+			return nil, err
 		}
-		image.SetModelManager(GetLLMImageManager(), image)
 	}
 	if image.LLMType != string(api.LLM_IMAGE_TYPE_BENCHMARK) {
 		return nil, errors.Wrapf(httperrors.ErrInputParameter, "image %s is not benchmark type", image.Name)
 	}
 	return image, nil
+}
+
+// EnsureDefaultBenchmarkImage returns the llm_image record matching the
+// configured default benchmark image (options.Options.LLMBenchmarkDefaultImage,
+// falling back to api.LLMBenchmarkDefaultImage). When no such record exists it
+// is auto-created as a public manual benchmark image, so benchmarks work out
+// of the box — including offline deployments where the option points at a
+// locally reachable registry.
+func EnsureDefaultBenchmarkImage(ctx context.Context) (*SLLMImage, error) {
+	defaultImage := options.Options.LLMBenchmarkDefaultImage
+	if defaultImage == "" {
+		defaultImage = api.LLMBenchmarkDefaultImage
+	}
+	name, label := parseImageRef(defaultImage)
+	image := &SLLMImage{}
+	err := GetLLMImageManager().Query().
+		Equals("image_name", name).
+		Equals("image_label", label).
+		Equals("llm_type", string(api.LLM_IMAGE_TYPE_BENCHMARK)).
+		First(image)
+	if err == nil {
+		image.SetModelManager(GetLLMImageManager(), image)
+		return image, nil
+	}
+	if errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "query default benchmark image")
+	}
+
+	isPublic := true
+	input := api.LLMImageCreateInput{
+		SharableVirtualResourceCreateInput: apis.SharableVirtualResourceCreateInput{
+			SharableResourceBaseCreateInput: apis.SharableResourceBaseCreateInput{
+				IsPublic:    &isPublic,
+				PublicScope: "system",
+			},
+		},
+		ImageName:   name,
+		ImageLabel:  label,
+		LLMType:     string(api.LLM_IMAGE_TYPE_BENCHMARK),
+		ImageSource: api.LLM_IMAGE_SOURCE_MANUAL,
+	}
+	input.Name = defaultBenchmarkImageName(name, label)
+	adminCred := auth.AdminCredential()
+	obj, err := db.DoCreate(GetLLMImageManager(), ctx, adminCred, nil, jsonutils.Marshal(input), adminCred)
+	if err != nil {
+		// A concurrent ensure may have created the row between the query and
+		// the insert; reuse it instead of failing the benchmark create.
+		existing := &SLLMImage{}
+		existErr := GetLLMImageManager().Query().
+			Equals("image_name", name).
+			Equals("image_label", label).
+			Equals("llm_type", string(api.LLM_IMAGE_TYPE_BENCHMARK)).
+			First(existing)
+		if existErr == nil {
+			existing.SetModelManager(GetLLMImageManager(), existing)
+			log.Infof("default benchmark llm_image %s created concurrently, reuse %s", defaultImage, existing.GetId())
+			return existing, nil
+		}
+		return nil, errors.Wrap(err, "auto create default benchmark llm_image")
+	}
+	image = obj.(*SLLMImage)
+	log.Infof("auto created default benchmark llm_image %s (%s)", defaultImage, image.GetId())
+	return image, nil
+}
+
+// defaultBenchmarkImageName derives the llm_image name for the auto-created
+// default benchmark image: "default-benchmark-" + sanitized label + a short
+// hash of the full ref for determinism. Always fits the 128-char name column.
+func defaultBenchmarkImageName(imageName, label string) string {
+	base := strings.Trim(sanitizeBenchmarkImageLabel(label), "-")
+	if base == "" {
+		base = strings.Trim(sanitizeBenchmarkImageLabel(imageName), "-")
+	}
+	if len(base) > 100 {
+		base = base[:100]
+	}
+	parts := []string{"default-benchmark"}
+	if base != "" {
+		parts = append(parts, base)
+	}
+	hash := crc32.ChecksumIEEE([]byte(imageName + ":" + label))
+	parts = append(parts, fmt.Sprintf("%08x", hash))
+	return strings.Join(parts, "-")
+}
+
+// sanitizeBenchmarkImageLabel lowercases and replaces non-alphanumeric
+// characters with '-', producing a readable fragment for image names.
+func sanitizeBenchmarkImageLabel(label string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(label) {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '.' || r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('-')
+		}
+	}
+	return b.String()
 }
 
 func parseImageRef(ref string) (string, string) {
@@ -1847,7 +2007,12 @@ func (b *SLLMBenchmark) ResolveTokenizerMount() (*LLMBenchmarkTokenizerMount, er
 	if err != nil {
 		return nil, errors.Wrap(err, "fetch benchmark LLM")
 	}
-	return resolveBenchmarkTokenizerMount(obj.(*SLLM), b.Model)
+	llm := obj.(*SLLM)
+	sku, err := llm.GetLLMSku(llm.LLMSkuId)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetch benchmark LLM sku")
+	}
+	return resolveBenchmarkTokenizerMount(llm, sku, b.Model)
 }
 
 func (b *SLLMBenchmark) RunnerPodInput(image *SLLMImage, server *computeapi.ServerDetails, tokenizer *LLMBenchmarkTokenizerMount) (*computeapi.ServerCreateInput, error) {
@@ -1897,11 +2062,19 @@ func (b *SLLMBenchmark) runnerPodInput(image *SLLMImage, networkId, hostId strin
 		input.PackageMountBase = api.LLMBenchmarkPackageMountBase
 		input.PackageSizeMB = int(pkg.ActualSizeMb) + 512
 	}
-	if tokenizer != nil {
+	if tokenizer != nil && (tokenizer.HostPaths == nil || tokenizer.HostPaths.IsZero()) {
 		input.ModelImageId = tokenizer.ImageId
 		input.ModelSizeMB = tokenizer.SizeMB
 		input.ModelMountBase = tokenizer.MountBase
 		input.ModelMountSubdirectory = tokenizer.MountSubdirectory
 	}
-	return bench.BuildRunnerPodInput(input), nil
+	ret := bench.BuildRunnerPodInput(input)
+	if tokenizer != nil && tokenizer.HostPaths != nil && !tokenizer.HostPaths.IsZero() {
+		// local_path tokenizer: mount the same host paths as the LLM
+		// container (the runner pod is scheduled onto the LLM's host) instead
+		// of an image overlay disk.
+		ret.Pod.Containers[0].VolumeMounts = append(ret.Pod.Containers[0].VolumeMounts,
+			GetHostPathVolumeMounts(tokenizer.HostPaths, 0)...)
+	}
+	return ret, nil
 }

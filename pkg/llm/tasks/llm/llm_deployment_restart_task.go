@@ -41,6 +41,8 @@ func (task *LLMDeploymentRestartTask) taskFailed(ctx context.Context, model *mod
 
 func (task *LLMDeploymentRestartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	model := obj.(*models.SLLMDeployment)
+	// A manual restart is an explicit retry: clear the paused reconcile state.
+	model.ResetReconcileFailures()
 
 	instances, err := fetchModelInstances(model.Id)
 	if err != nil {
