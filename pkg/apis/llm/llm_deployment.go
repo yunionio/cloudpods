@@ -262,34 +262,34 @@ type LLMDeploymentListInput struct {
 type LLMDeploymentDetails struct {
 	apis.VirtualResourceDetails
 
-	Source                   string   `json:"source"`
-	HuggingfaceRepoId        string   `json:"huggingface_repo_id"`
-	HuggingfaceFilename      string   `json:"huggingface_filename"`
-	ModelScopeModelId        string   `json:"model_scope_model_id"`
-	ModelScopeFilePath       string   `json:"model_scope_file_path"`
-	LocalPath                string   `json:"local_path"`
-	PreferHosts              []string `json:"prefer_hosts,omitempty"`
-	Categories               []string `json:"categories,omitempty"`
-	Backend                  string   `json:"backend"`
-	BackendVersion           string   `json:"backend_version"`
-	Replicas                 int      `json:"replicas"`
-	ReadyReplicas            int      `json:"ready_replicas"`
-	PlacementStrategy        string   `json:"placement_strategy"`
-	CpuOffloading            *bool    `json:"cpu_offloading,omitempty"`
-	DistributedInference     *bool    `json:"distributed_inference,omitempty"`
-	Nnodes                   int      `json:"nnodes"`
-	ParallelMode             string   `json:"parallel_mode"`
-	PipelineParallelSize     int      `json:"pipeline_parallel_size"`
-	GpuMemoryUtilization     *float64 `json:"gpu_memory_utilization,omitempty"`
+	Source               string   `json:"source"`
+	HuggingfaceRepoId    string   `json:"huggingface_repo_id"`
+	HuggingfaceFilename  string   `json:"huggingface_filename"`
+	ModelScopeModelId    string   `json:"model_scope_model_id"`
+	ModelScopeFilePath   string   `json:"model_scope_file_path"`
+	LocalPath            string   `json:"local_path"`
+	PreferHosts          []string `json:"prefer_hosts,omitempty"`
+	Categories           []string `json:"categories,omitempty"`
+	Backend              string   `json:"backend"`
+	BackendVersion       string   `json:"backend_version"`
+	Replicas             int      `json:"replicas"`
+	ReadyReplicas        int      `json:"ready_replicas"`
+	PlacementStrategy    string   `json:"placement_strategy"`
+	CpuOffloading        *bool    `json:"cpu_offloading,omitempty"`
+	DistributedInference *bool    `json:"distributed_inference,omitempty"`
+	Nnodes               int      `json:"nnodes"`
+	ParallelMode         string   `json:"parallel_mode"`
+	PipelineParallelSize int      `json:"pipeline_parallel_size"`
+	GpuMemoryUtilization *float64 `json:"gpu_memory_utilization,omitempty"`
 
 	// Derived parallel layout of the deployment. Empty for single-host
 	// deployments where pipeline parallelism is not pinned.
-	TensorParallelSize   int    `json:"tensor_parallel_size,omitempty"`
-	DataParallelSize     int    `json:"data_parallel_size,omitempty"`
-	DistShape            string `json:"dist_shape,omitempty"`
-	AutoGpuMemoryUtilization *bool    `json:"auto_gpu_memory_utilization,omitempty"`
-	RestartOnError           *bool    `json:"restart_on_error,omitempty"`
-	AccessPolicy             string   `json:"access_policy"`
+	TensorParallelSize       int    `json:"tensor_parallel_size,omitempty"`
+	DataParallelSize         int    `json:"data_parallel_size,omitempty"`
+	DistShape                string `json:"dist_shape,omitempty"`
+	AutoGpuMemoryUtilization *bool  `json:"auto_gpu_memory_utilization,omitempty"`
+	RestartOnError           *bool  `json:"restart_on_error,omitempty"`
+	AccessPolicy             string `json:"access_policy"`
 
 	// Computed: count of running SLLM instances (physical pods, including
 	// distributed followers).

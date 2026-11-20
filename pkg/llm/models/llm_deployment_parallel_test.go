@@ -10,16 +10,16 @@ import (
 
 func TestValidateDeploymentParallelMode(t *testing.T) {
 	cases := []struct {
-		name        string
-		mode        string
-		llmType     string
+		name          string
+		mode          string
+		llmType       string
 		backendParams []string
-		deploymentPP int
-		netType     string
-		distributed bool
-		nnodes      int
-		wantErr     bool
-		wantContain string
+		deploymentPP  int
+		netType       string
+		distributed   bool
+		nnodes        int
+		wantErr       bool
+		wantContain   string
 	}{
 		{
 			name:    "default pp valid",
@@ -57,33 +57,33 @@ func TestValidateDeploymentParallelMode(t *testing.T) {
 			nnodes:      2,
 		},
 		{
-			name:        "dp conflicts with deployment pp pin",
-			mode:        "dp",
-			llmType:     string(api.LLM_CONTAINER_VLLM),
+			name:         "dp conflicts with deployment pp pin",
+			mode:         "dp",
+			llmType:      string(api.LLM_CONTAINER_VLLM),
 			deploymentPP: 2,
-			wantErr:     true,
-			wantContain: "parallel_mode=dp 与 pipeline_parallel_size=2 冲突",
+			wantErr:      true,
+			wantContain:  "parallel_mode=dp 与 pipeline_parallel_size=2 冲突",
 		},
 		{
-			name:        "dp conflicts with sku pp pin",
-			mode:        "dp",
-			llmType:     string(api.LLM_CONTAINER_VLLM),
+			name:          "dp conflicts with sku pp pin",
+			mode:          "dp",
+			llmType:       string(api.LLM_CONTAINER_VLLM),
 			backendParams: []string{"--pipeline-parallel-size=2"},
-			wantErr:     true,
-			wantContain: "parallel_mode=dp 与 SKU backend_parameters 中的 --pipeline-parallel-size 2 冲突",
+			wantErr:       true,
+			wantContain:   "parallel_mode=dp 与 SKU backend_parameters 中的 --pipeline-parallel-size 2 冲突",
 		},
 		{
-			name:        "pp conflicts with sku dp pin",
-			mode:        "pp",
-			llmType:     string(api.LLM_CONTAINER_VLLM),
+			name:          "pp conflicts with sku dp pin",
+			mode:          "pp",
+			llmType:       string(api.LLM_CONTAINER_VLLM),
 			backendParams: []string{"--data-parallel-size=2"},
-			wantErr:     true,
-			wantContain: "parallel_mode=pp 与 SKU backend_parameters 中的 --data-parallel-size 2 冲突",
+			wantErr:       true,
+			wantContain:   "parallel_mode=pp 与 SKU backend_parameters 中的 --data-parallel-size 2 冲突",
 		},
 		{
-			name:    "explicit pins together allowed if no mode conflict",
-			mode:    "pp",
-			llmType: string(api.LLM_CONTAINER_VLLM),
+			name:          "explicit pins together allowed if no mode conflict",
+			mode:          "pp",
+			llmType:       string(api.LLM_CONTAINER_VLLM),
 			backendParams: []string{"--tensor-parallel-size=4"},
 		},
 	}
