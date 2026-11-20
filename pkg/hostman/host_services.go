@@ -21,6 +21,7 @@ import (
 
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
@@ -106,7 +107,9 @@ func (host *SHostService) RunService() {
 		log.Fatalf("Storage manager init error: %v", err)
 	}
 
-	initS3()
+	if err := initS3(); err != nil {
+		log.Errorf("init s3 error: %v", err)
+	}
 
 	var guestChan chan struct{}
 
@@ -177,10 +180,10 @@ func (host *SHostService) initHandlers(app *appsrv.Application) {
 
 const DEFAULT_SCREENDUMP_S3_BUCKET = "onecloud-screendump-new"
 
-func initS3() {
+func initS3() error {
 	url := options.HostOptions.S3Endpoint
 	if len(url) == 0 {
-		return
+		return nil
 	}
 
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
@@ -203,7 +206,7 @@ func initS3() {
 		"",
 	)
 	if err != nil {
-		log.Fatalf("failed init s3 client %s", err)
+		return errors.Wrap(err, "failed init s3 client")
 	}
 
 	lifecycle := fmt.Sprintf(
@@ -212,8 +215,9 @@ func initS3() {
 	)
 	err = s3.SetBucketLifecycle(lifecycle)
 	if err != nil {
-		log.Fatalf("failed set bucket lifecycle %s", lifecycle)
+		return errors.Wrap(err, "failed init s3 bucket lifecycle")
 	}
+	return nil
 }
 
 func StartService() {
