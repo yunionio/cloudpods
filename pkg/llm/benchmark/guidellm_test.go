@@ -134,6 +134,23 @@ func TestGuideLLMBackgroundCommand(t *testing.T) {
 	}
 }
 
+func TestGuideLLMLogPath(t *testing.T) {
+	cases := []struct {
+		jsonPath string
+		want     string
+	}{
+		{"/workdir/benchmarks.json", "/workdir/guidellm.log"},
+		{GuideLLMWarmupJSONPath, "/workdir/warmup.log"},
+		{GuideLLMPreflightJSONPath, GuideLLMPreflightLogPath},
+		{AutoTuneRampPath, "/workdir/guidellm.log"},
+	}
+	for _, c := range cases {
+		if got := GuideLLMLogPath(c.jsonPath); got != c.want {
+			t.Fatalf("GuideLLMLogPath(%q) = %q, want %q", c.jsonPath, got, c.want)
+		}
+	}
+}
+
 func TestBuildGuideLLMSpecKeepsFractionalRateAndWarmup(t *testing.T) {
 	spec := BuildGuideLLMSpec(GuideLLMSpecInput{
 		TargetURL:           "http://llm:8000",
