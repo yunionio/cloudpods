@@ -59,7 +59,7 @@ type PlanOptions struct {
 	// It only affects multi-node vLLM groups; single-node and SGLang groups
 	// ignore it.
 	ParallelMode string
-	Hosts                []HostGPUInventory
+	Hosts        []HostGPUInventory
 }
 
 // ReplicaMemberPlan is one pod in a logical replica.
