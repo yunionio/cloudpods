@@ -386,6 +386,8 @@ type HostResourceInfo struct {
 	HostEIP string `json:"host_eip"`
 	// 宿主机MAC
 	HostAccessMac string `json:"host_access_mac"`
+	// 物理机不支持 IPMI
+	HostNoIpmi bool `json:"host_no_ipmi"`
 }
 
 type HostFilterListInput struct {
