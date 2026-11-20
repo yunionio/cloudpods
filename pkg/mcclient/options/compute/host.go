@@ -178,6 +178,15 @@ func (o *HostCreateFromImportBaremetalOptions) Params() (jsonutils.JSONObject, e
 	return jsonutils.Marshal(o), nil
 }
 
+type HostBaremetalProbeIsolatedDevices struct {
+	options.BaseIdsOptions
+	SshPort int64 `help:"Server ssh port"`
+}
+
+func (o *HostBaremetalProbeIsolatedDevices) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.Marshal(o), nil
+}
+
 type HostStatusStatisticsOptions struct {
 	HostListOptions
 	options.StatusStatisticsOptions

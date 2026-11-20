@@ -5338,7 +5338,7 @@ func (hh *SHost) PerformStart(
 	if !utils.IsInStringArray(hh.Status, []string{api.BAREMETAL_READY}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot start baremetal with active guest")
 	}
-	if hh.IsImport && hh.IpmiInfo == nil {
+	if hh.IsImport && hh.IpmiIp == "" {
 		return nil, httperrors.NewBadRequestError("Baremetal no ipmi info")
 	}
 
@@ -5375,7 +5375,7 @@ func (hh *SHost) PerformStop(ctx context.Context, userCred mcclient.TokenCredent
 	if !utils.IsInStringArray(hh.Status, []string{api.BAREMETAL_RUNNING}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot stop baremetal with non-active guest")
 	}
-	if hh.IsImport && hh.IpmiInfo == nil {
+	if hh.IsImport && hh.IpmiIp == "" {
 		return nil, httperrors.NewBadRequestError("Baremetal no ipmi info")
 	}
 	guest := hh.GetBaremetalServer()
@@ -5422,7 +5422,7 @@ func (hh *SHost) PerformMaintenance(ctx context.Context, userCred mcclient.Token
 	if guest != nil && !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_ADMIN}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot do maintenance while guest status %s", guest.Status)
 	}
-	if hh.IsImport && (hh.EnablePxeBoot.IsFalse() || hh.IpmiInfo == nil) {
+	if hh.IsImport && (hh.EnablePxeBoot.IsFalse() || hh.IpmiIp == "") {
 		return nil, httperrors.NewBadRequestError("Baremetal no ipmi disabled")
 	}
 	params := jsonutils.NewDict()
@@ -5456,7 +5456,7 @@ func (hh *SHost) PerformUnmaintenance(ctx context.Context, userCred mcclient.Tok
 	if guest != nil && guest.Status != api.VM_ADMIN {
 		return nil, httperrors.NewInvalidStatusError("Wrong guest status %s", guest.Status)
 	}
-	if hh.IsImport && (hh.EnablePxeBoot.IsFalse() || hh.IpmiInfo == nil) {
+	if hh.IsImport && (hh.EnablePxeBoot.IsFalse() || hh.IpmiIp == "") {
 		return nil, httperrors.NewBadRequestError("Baremetal no ipmi disabled")
 	}
 	action, _ := data.GetString("action")
@@ -5950,6 +5950,10 @@ func (hh *SHost) PerformPrepare(ctx context.Context, userCred mcclient.TokenCred
 	if !hh.IsBaremetal {
 		return nil, httperrors.NewInvalidStatusError("not a baremetal")
 	}
+	if hh.IsImport {
+		return hh.PerformBaremetalProbeIsolatedDevices(ctx, userCred, query, data)
+	}
+
 	server := hh.GetBaremetalServer()
 	if server != nil && server.Status != api.VM_ADMIN {
 		return nil, httperrors.NewInvalidStatusError("Cannot prepare baremetal in server status %s", server.Status)
@@ -6147,11 +6151,16 @@ func (hh *SHost) PerformBaremetalProbeIsolatedDevices(
 	if err != nil {
 		return nil, errors.Wrap(err, "GetSshAdminKeypair")
 	}
-	privateKyes := append(private, private1...)
+	privateKeys := append(private, private1...)
 	params := jsonutils.NewDict()
 	params.Set("access_ip", jsonutils.NewString(accessIp))
 	params.Set("username", jsonutils.NewString(username))
-	params.Set("private_key", jsonutils.NewStringArray(privateKyes))
+	params.Set("private_key", jsonutils.NewStringArray(privateKeys))
+	if data.Contains("ssh_port") {
+		sshPort, _ := data.Int("ssh_port")
+		params.Set("ssh_port", jsonutils.NewInt(sshPort))
+	}
+
 	url := fmt.Sprintf("/baremetals/%s/probe-isolated-devices", hh.Id)
 	header := mcclient.GetTokenHeaders(userCred)
 	_, err = hh.BaremetalSyncRequest(ctx, "POST", url, header, params)
