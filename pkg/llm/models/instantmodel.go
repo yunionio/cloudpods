@@ -1100,7 +1100,10 @@ func (man *SInstantModelManager) DoImportWithParent(
 	parentTaskId string,
 ) (*SInstantModel, error) {
 	tempModel := &SInstantModel{}
-	tempModel.SetModelManager(man, &SInstantModel{})
+	// The virtual object MUST be the model itself. If a freshly allocated
+	// SInstantModel is passed instead, GetIModel() returns that object whose
+	// manager is nil, and any Keyword()/metadata/ops-log call panics.
+	tempModel.SetModelManager(man, tempModel)
 	tempModel.Name = buildInstantModelProvisionalName(string(input.LlmType), input.ModelName, input.ModelTag, utils.GenRequestId(instantModelImportNameSuffixLen/2))
 	tempModel.ModelName = input.ModelName
 	tempModel.ModelTag = input.ModelTag

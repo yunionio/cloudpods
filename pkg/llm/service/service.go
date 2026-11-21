@@ -71,6 +71,12 @@ func StartService() {
 	)
 
 	if !opts.IsSlaveNode {
+		// Auto-create (or reuse) the llm_image record for the configured
+		// default benchmark image, so benchmarks run without manual image
+		// registration (the record is also ensured lazily at benchmark create).
+		if _, err := models.EnsureDefaultBenchmarkImage(context.Background()); err != nil {
+			log.Errorf("ensure default benchmark llm_image: %v", err)
+		}
 		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount, opts.TimeZone)
 		cron.AddJobEveryFewDays("SyncLLMImageContainerImageMeta", 1, 3, 0, 0,
 			models.GetLLMImageManager().SyncContainerImageMeta, true)

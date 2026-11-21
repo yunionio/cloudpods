@@ -10,11 +10,17 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/llm"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/llm/options"
+	"yunion.io/x/onecloud/pkg/llm/scheduler"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	computeoptions "yunion.io/x/onecloud/pkg/mcclient/options/compute"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -72,6 +78,26 @@ type SLLMDeployment struct {
 	// Allow distributed inference across hosts
 	DistributedInference *bool `nullable:"true" list:"user" create:"optional" update:"user"`
 
+	// Expected number of pods per logical replica: 0 = auto (single host
+	// first), >= 2 = force multi-host with exactly this many nodes.
+	Nnodes int `nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
+
+	// ParallelMode selects the distributed inference layout for multi-node
+	// deployments: "pp" (pipeline parallel, default) or "dp" (data parallel).
+	ParallelMode string `width:"8" charset:"ascii" nullable:"true" default:"pp" list:"user" create:"optional" update:"user"`
+
+	// PipelineParallelSize pins the pipeline parallelism (vLLM
+	// --pipeline-parallel-size / SGLang --pp-size): 0 = auto, >= 2 = pin.
+	// Overrides the SKU backend parameters; valid without
+	// distributed_inference (single-node pipeline parallelism).
+	PipelineParallelSize int `nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
+
+	// ReconcileFailures counts consecutive distributed replica group creation
+	// failures. Automatic reconcile pauses once it reaches
+	// MaxDeploymentReconcileFailures so a broken runtime does not churn pods
+	// forever; user actions (restart / scale / update) reset it.
+	ReconcileFailures int `nullable:"false" default:"0" list:"user"`
+
 	// GPU selector, JSON
 	GpuSelector string `charset:"utf8" length:"long" nullable:"true" list:"user" create:"optional" update:"user"`
 
@@ -100,7 +126,6 @@ type SLLMDeployment struct {
 	// new SLLM replicas with the same network / start / mount settings as the originals.
 	// Scale request bodies don't carry these fields.
 	Nets        *api.LLMDeploymentNets `charset:"utf8" length:"medium" nullable:"true" list:"user"`
-	AutoStart   bool                   `nullable:"false" default:"false" list:"user"`
 	HostPaths   *api.HostPaths         `charset:"utf8" length:"medium" nullable:"true" list:"user"`
 	PreferHosts []string               `charset:"utf8" length:"medium" nullable:"true" list:"user" create:"optional" update:"user"`
 
@@ -164,6 +189,17 @@ func (man *SLLMDeploymentManager) ValidateCreateData(
 		input.LLMSkuId = lSku.GetId()
 		// ModelSpec is meaningless here
 		input.ModelSpec = nil
+		if err := validateDeploymentParallelMode(
+			input.ParallelMode,
+			lSku.LLMType,
+			lSku.BackendParameters,
+			input.PipelineParallelSize,
+			deploymentNetType(input.Nets),
+			input.DistributedInference != nil && *input.DistributedInference,
+			input.Nnodes,
+		); err != nil {
+			return input, err
+		}
 
 	case input.SkuSpec != nil:
 		// Mode B/C: SKU will be created in the task
@@ -203,6 +239,17 @@ func (man *SLLMDeploymentManager) ValidateCreateData(
 		if err := ValidateDeploymentDevices(input.SkuSpec.LLMType, skuInput); err != nil {
 			return input, err
 		}
+		if err := validateDeploymentParallelMode(
+			input.ParallelMode,
+			input.SkuSpec.LLMType,
+			input.SkuSpec.BackendParameters,
+			input.PipelineParallelSize,
+			deploymentNetType(input.Nets),
+			input.DistributedInference != nil && *input.DistributedInference,
+			input.Nnodes,
+		); err != nil {
+			return input, err
+		}
 	}
 
 	// Validate placement strategy
@@ -230,11 +277,85 @@ func (man *SLLMDeploymentManager) ValidateCreateData(
 		input.Replicas = 1
 	}
 
+	if input.DistributedInference != nil && *input.DistributedInference {
+		llmType := ""
+		if len(input.LLMSkuId) > 0 {
+			if skuObj, err := GetLLMSkuManager().FetchById(input.LLMSkuId); err == nil {
+				llmType = skuObj.(*SLLMSku).LLMType
+			}
+		} else if input.SkuSpec != nil {
+			llmType = input.SkuSpec.LLMType
+		}
+		switch api.LLMContainerType(llmType) {
+		case api.LLM_CONTAINER_VLLM, api.LLM_CONTAINER_SGLANG:
+		default:
+			return input, errors.Wrapf(httperrors.ErrInputParameter,
+				"distributed_inference is only supported for vllm and sglang, got %q", llmType)
+		}
+	}
+
+	if input.Nnodes < 0 {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "nnodes must be >= 0")
+	}
+	if input.Nnodes == 1 {
+		return input, errors.Wrap(httperrors.ErrInputParameter,
+			"nnodes=1 is not distributed inference; leave nnodes empty for auto planning or disable distributed_inference")
+	}
+	if input.Nnodes >= 2 {
+		if input.DistributedInference == nil || !*input.DistributedInference {
+			return input, errors.Wrap(httperrors.ErrInputParameter,
+				"nnodes requires distributed_inference=true")
+		}
+		gpuCount := 0
+		singleGPUPerNode := false
+		if len(input.LLMSkuId) > 0 {
+			if skuObj, err := GetLLMSkuManager().FetchById(input.LLMSkuId); err == nil {
+				sku := skuObj.(*SLLMSku)
+				gpuCount = skuDeviceCount(sku)
+				singleGPUPerNode = skuForceSingleGPUPerNode(sku)
+			}
+		} else if input.SkuSpec != nil && input.SkuSpec.Devices != nil {
+			gpuCount = len(*input.SkuSpec.Devices)
+		}
+		if err := validateDeploymentNnodes(input.Nnodes, gpuCount, singleGPUPerNode); err != nil {
+			return input, err
+		}
+	}
+
+	if input.PipelineParallelSize < 0 {
+		return input, errors.Wrap(httperrors.ErrInputParameter, "pipeline_parallel_size must be >= 0")
+	}
+	if input.PipelineParallelSize == 1 {
+		// 1 = a single pipeline stage = the default; normalize to auto.
+		input.PipelineParallelSize = 0
+	}
+	if input.PipelineParallelSize >= 2 {
+		llmType := ""
+		gpuCount := 0
+		if len(input.LLMSkuId) > 0 {
+			if skuObj, err := GetLLMSkuManager().FetchById(input.LLMSkuId); err == nil {
+				sku := skuObj.(*SLLMSku)
+				llmType = sku.LLMType
+				gpuCount = skuDeviceCount(sku)
+			}
+		} else if input.SkuSpec != nil {
+			llmType = input.SkuSpec.LLMType
+			if input.SkuSpec.Devices != nil {
+				gpuCount = len(*input.SkuSpec.Devices)
+			}
+		}
+		if err := validateDeploymentPipelineParallel(llmType, input.PipelineParallelSize, gpuCount); err != nil {
+			return input, err
+		}
+	}
+
 	if input.AutoRegisterAiproxy == nil {
 		t := true
 		input.AutoRegisterAiproxy = &t
 	}
 	input.AiproxyModelPrefix = strings.TrimSpace(input.AiproxyModelPrefix)
+
+	input.ParallelMode = api.NormalizeLLMDeploymentParallelMode(input.ParallelMode)
 
 	input.Status = api.STATUS_READY
 	return input, nil
@@ -287,6 +408,141 @@ func (model *SLLMDeployment) ValidateUpdateData(
 		}
 	}
 
+	if input.DistributedInference != nil && *input.DistributedInference {
+		llmType := ""
+		if model.LLMSkuId != "" {
+			skuObj, err := GetLLMSkuManager().FetchById(model.LLMSkuId)
+			if err != nil {
+				return input, errors.Wrapf(err, "fetch LLMSku %s", model.LLMSkuId)
+			}
+			llmType = skuObj.(*SLLMSku).LLMType
+		}
+		switch api.LLMContainerType(llmType) {
+		case api.LLM_CONTAINER_VLLM, api.LLM_CONTAINER_SGLANG:
+		default:
+			return input, errors.Wrapf(httperrors.ErrInputParameter,
+				"distributed_inference is only supported for vllm and sglang, got %q", llmType)
+		}
+	}
+
+	if input.Nnodes != nil {
+		if *input.Nnodes < 0 {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "nnodes must be >= 0")
+		}
+		if *input.Nnodes == 1 {
+			return input, errors.Wrap(httperrors.ErrInputParameter,
+				"nnodes=1 is not distributed inference; clear nnodes for auto planning instead")
+		}
+		if *input.Nnodes >= 2 {
+			enabled := input.DistributedInference != nil && *input.DistributedInference
+			if input.DistributedInference == nil && model.DistributedInference != nil {
+				enabled = *model.DistributedInference
+			}
+			if !enabled {
+				return input, errors.Wrap(httperrors.ErrInputParameter,
+					"nnodes requires distributed_inference=true")
+			}
+			gpuCount := 0
+			singleGPUPerNode := false
+			if model.LLMSkuId != "" {
+				if skuObj, err := GetLLMSkuManager().FetchById(model.LLMSkuId); err == nil {
+					sku := skuObj.(*SLLMSku)
+					gpuCount = skuDeviceCount(sku)
+					singleGPUPerNode = skuForceSingleGPUPerNode(sku)
+				}
+			}
+			if err := validateDeploymentNnodes(*input.Nnodes, gpuCount, singleGPUPerNode); err != nil {
+				return input, err
+			}
+		}
+	}
+
+	if input.PipelineParallelSize != nil {
+		if *input.PipelineParallelSize < 0 {
+			return input, errors.Wrap(httperrors.ErrInputParameter, "pipeline_parallel_size must be >= 0")
+		}
+		if *input.PipelineParallelSize == 1 {
+			// 1 = a single pipeline stage = the default; normalize to auto.
+			zero := 0
+			input.PipelineParallelSize = &zero
+		}
+		if *input.PipelineParallelSize >= 2 {
+			llmType := ""
+			gpuCount := 0
+			if model.LLMSkuId != "" {
+				if skuObj, err := GetLLMSkuManager().FetchById(model.LLMSkuId); err == nil {
+					sku := skuObj.(*SLLMSku)
+					llmType = sku.LLMType
+					gpuCount = skuDeviceCount(sku)
+				}
+			}
+			if err := validateDeploymentPipelineParallel(llmType, *input.PipelineParallelSize, gpuCount); err != nil {
+				return input, err
+			}
+		}
+	}
+
+	// Validate parallel_mode and its cross-field constraints using effective
+	// values (input overrides current model).
+	{
+		var sku *SLLMSku
+		if model.LLMSkuId != "" {
+			if skuObj, err := GetLLMSkuManager().FetchById(model.LLMSkuId); err == nil {
+				sku = skuObj.(*SLLMSku)
+			}
+		}
+		llmType := ""
+		backendParams := []string{}
+		if sku != nil {
+			llmType = sku.LLMType
+			backendParams = sku.BackendParameters
+		}
+		mode := model.ParallelMode
+		if input.ParallelMode != nil {
+			mode = *input.ParallelMode
+		}
+		distributed := false
+		if model.DistributedInference != nil {
+			distributed = *model.DistributedInference
+		}
+		if input.DistributedInference != nil {
+			distributed = *input.DistributedInference
+		}
+		nnodes := model.Nnodes
+		if input.Nnodes != nil {
+			nnodes = *input.Nnodes
+		}
+		deploymentPP := model.PipelineParallelSize
+		if input.PipelineParallelSize != nil {
+			deploymentPP = *input.PipelineParallelSize
+		}
+		netType := ""
+		if model.Nets != nil {
+			netType = deploymentNetType(*model.Nets)
+		}
+		if err := validateDeploymentParallelMode(mode, llmType, backendParams, deploymentPP, netType, distributed, nnodes); err != nil {
+			return input, err
+		}
+	}
+
+	// Turning distributed inference off leaves no valid node count: reset it to
+	// auto so later replica groups are not planned as multi-host. The pipeline
+	// pin is deliberately NOT cleared here: single-node pipeline parallelism
+	// stays valid without distributed inference.
+	if input.DistributedInference != nil && !*input.DistributedInference {
+		if input.Nnodes != nil && *input.Nnodes != 0 {
+			return input, errors.Wrap(httperrors.ErrInputParameter,
+				"nnodes requires distributed_inference=true; clear nnodes when disabling distributed inference")
+		}
+		zero := 0
+		input.Nnodes = &zero
+	}
+
+	if input.ParallelMode != nil {
+		mode := api.NormalizeLLMDeploymentParallelMode(*input.ParallelMode)
+		input.ParallelMode = &mode
+	}
+
 	return input, nil
 }
 
@@ -310,6 +566,9 @@ func (man *SLLMDeploymentManager) ListItemFilter(
 	}
 	if len(input.AccessPolicy) > 0 {
 		q = q.Equals("access_policy", input.AccessPolicy)
+	}
+	if input.DistributedInference != nil {
+		q = q.Equals("distributed_inference", *input.DistributedInference)
 	}
 	if len(input.LLMSku) > 0 {
 		skuObj, err := GetLLMSkuManager().FetchByIdOrName(ctx, userCred, input.LLMSku)
@@ -342,6 +601,9 @@ func (man *SLLMDeploymentManager) FetchCustomizeColumns(
 		res[i].PlacementStrategy = models[i].PlacementStrategy
 		res[i].CpuOffloading = models[i].CpuOffloading
 		res[i].DistributedInference = models[i].DistributedInference
+		res[i].Nnodes = models[i].Nnodes
+		res[i].ParallelMode = api.NormalizeLLMDeploymentParallelMode(models[i].ParallelMode)
+		res[i].PipelineParallelSize = models[i].PipelineParallelSize
 		res[i].GpuMemoryUtilization = models[i].GpuMemoryUtilization
 		res[i].AutoGpuMemoryUtilization = models[i].AutoGpuMemoryUtilization
 		res[i].RestartOnError = models[i].RestartOnError
@@ -373,6 +635,7 @@ func (man *SLLMDeploymentManager) FetchCustomizeColumns(
 				res[i].Categories = sku.Categories
 				res[i].Backend = sku.LLMType
 				res[i].BackendVersion = sku.BackendVersion
+				fillDeploymentDerivedParallelism(&res[i], models[i], sku)
 			}
 		}
 	} else {
@@ -406,14 +669,122 @@ func (man *SLLMDeploymentManager) FetchCustomizeColumns(
 			}
 			for i, m := range models {
 				if cnt, ok := countMap[m.Id]; ok {
+					// RunningInstances is physical (all running SLLM rows, including
+					// distributed followers). ReadyReplicas is logical and is kept
+					// from SyncReadyReplicas; do not overwrite it with pod counts.
 					res[i].RunningInstances = cnt
-					res[i].ReadyReplicas = cnt
 				}
 			}
 		}
 	}
 
+	// Distributed topology observability: aggregate groups from SLLM rows so
+	// the API can expose dist_nnodes, gpus_per_node and per-group rank health.
+	distModelIds := make([]string, 0)
+	for i := range models {
+		if models[i].DistributedInference != nil && *models[i].DistributedInference {
+			distModelIds = append(distModelIds, models[i].Id)
+		}
+	}
+	if len(distModelIds) > 0 {
+		var rows []distReplicaMemberRow
+		err := GetLLMManager().Query(
+			"id", "name", "status",
+			"dist_role", "dist_rank", "dist_nnodes", "dist_leader_id", "dist_group",
+			"cmp_id", "llm_ip", "llm_deployment_id",
+		).In("llm_deployment_id", distModelIds).All(&rows)
+		if err != nil {
+			log.Errorf("FetchCustomizeColumns fetch distributed members: %s", err)
+		} else {
+			byDeployment := make(map[string][]distReplicaMemberRow)
+			cmpIds := make([]string, 0, len(rows))
+			for _, r := range rows {
+				if !r.isDistributed() {
+					continue
+				}
+				byDeployment[r.LLMDeploymentId] = append(byDeployment[r.LLMDeploymentId], r)
+				if r.CmpId != "" {
+					cmpIds = append(cmpIds, r.CmpId)
+				}
+			}
+			servers := fetchDeploymentServerMap(ctx, cmpIds)
+			for i := range models {
+				if models[i].DistributedInference == nil || !*models[i].DistributedInference {
+					continue
+				}
+				members := byDeployment[models[i].Id]
+				if len(members) == 0 {
+					continue
+				}
+				maxNodes := 0
+				for _, m := range members {
+					if m.DistNnodes > maxNodes {
+						maxNodes = m.DistNnodes
+					}
+				}
+				// The SKU holds the GPUs of one full logical replica, so the
+				// per-node share is total / nnodes for a homogeneous plan.
+				totalGpus := 0
+				if sku, ok := skuMap[models[i].LLMSkuId]; ok && sku.Devices != nil {
+					totalGpus = len(*sku.Devices)
+				}
+				gpusPerNode := totalGpus
+				if maxNodes > 1 && totalGpus > 0 && totalGpus%maxNodes == 0 {
+					gpusPerNode = totalGpus / maxNodes
+				}
+				res[i].DistributedNnodes = maxNodes
+				res[i].GpusPerNode = gpusPerNode
+				res[i].DistGroups = buildDistGroupInfos(members, totalGpus, servers)
+			}
+		}
+	}
+
 	return res
+}
+
+// fetchDeploymentServerMap resolves the compute server rows behind distributed
+// replicas so group members can report their host. Failures degrade to empty
+// host fields instead of breaking the deployment list.
+func fetchDeploymentServerMap(ctx context.Context, ids []string) map[string]computeapi.ServerDetails {
+	out := make(map[string]computeapi.ServerDetails)
+	if len(ids) == 0 {
+		return out
+	}
+	unique := make([]string, 0, len(ids))
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	s := auth.GetAdminSession(ctx, options.Options.Region)
+	params := computeoptions.ServerListOptions{}
+	limit := 1000
+	params.Limit = &limit
+	details := true
+	params.Details = &details
+	params.Scope = "maxallowed"
+	for offset := 0; offset < len(unique); offset += limit {
+		last := offset + limit
+		if last > len(unique) {
+			last = len(unique)
+		}
+		params.Id = unique[offset:last]
+		results, err := compute.Servers.List(s, jsonutils.Marshal(params))
+		if err != nil {
+			log.Errorf("fetchDeploymentServerMap list servers: %s", err)
+			break
+		}
+		for i := range results.Data {
+			guest := computeapi.ServerDetails{}
+			if err := results.Data[i].Unmarshal(&guest); err == nil {
+				out[guest.Id] = guest
+			}
+		}
+	}
+	return out
 }
 
 // ValidateDeleteCondition is intentionally permissive.
@@ -463,14 +834,14 @@ func (model *SLLMDeployment) SyncReadyReplicas(ctx context.Context, userCred mcc
 		skipAiproxySync = opts[0].SkipAiproxySync
 		forceHealthStatus = opts[0].ForceHealthStatus
 	}
-	var rows []deploymentReplicaStatusRow
-	err := GetLLMManager().Query("status").
+	var rows []distReplicaMemberRow
+	err := GetLLMManager().Query("id", "name", "status", "dist_role", "dist_rank", "dist_nnodes", "dist_leader_id", "dist_group").
 		Equals("llm_deployment_id", model.Id).
 		All(&rows)
 	if err != nil {
 		return errors.Wrap(err, "fetch replica statuses")
 	}
-	summary := summarizeDeploymentReplicaStatuses(rows)
+	summary := summarizeDistReplicaGroups(rows)
 	if model.ReadyReplicas != summary.Running {
 		if _, err = db.Update(model, func() error {
 			model.ReadyReplicas = summary.Running
@@ -478,6 +849,14 @@ func (model *SLLMDeployment) SyncReadyReplicas(ctx context.Context, userCred mcc
 		}); err != nil {
 			return errors.Wrap(err, "update ready_replicas")
 		}
+	}
+
+	// A deployment with recorded group failures keeps its failure status
+	// instead of being flipped back to deploying/partial by later instance
+	// churn; the broken group is preserved for debugging. User actions reset
+	// the counter.
+	if model.ReconcileFailures > 0 && model.Status == api.LLM_STATUS_CREATE_FAIL {
+		return nil
 	}
 
 	desired := computeDeploymentReplicaStatus(summary, model.Replicas)
@@ -511,32 +890,11 @@ func (model *SLLMDeployment) transitionReplicaHealthStatus(ctx context.Context, 
 	return model.SetStatus(ctx, userCred, desired, fmt.Sprintf("ready_replicas=%d/%d", running, model.Replicas))
 }
 
-type deploymentReplicaStatusRow struct {
-	Status string `json:"status"`
-}
-
 type deploymentReplicaStatusSummary struct {
 	Running          int
 	HasCreateFailure bool
 	HasStartFailure  bool
 	HasProbing       bool
-}
-
-func summarizeDeploymentReplicaStatuses(rows []deploymentReplicaStatusRow) deploymentReplicaStatusSummary {
-	summary := deploymentReplicaStatusSummary{}
-	for i := range rows {
-		switch rows[i].Status {
-		case api.LLM_STATUS_RUNNING:
-			summary.Running++
-		case api.LLM_STATUS_CREATE_FAIL:
-			summary.HasCreateFailure = true
-		case api.LLM_STATUS_START_FAIL:
-			summary.HasStartFailure = true
-		case api.LLM_STATUS_PROBING:
-			summary.HasProbing = true
-		}
-	}
-	return summary
 }
 
 func computeDeploymentReplicaStatus(summary deploymentReplicaStatusSummary, desired int) string {
@@ -620,15 +978,23 @@ func TriggerLLMDeploymentReconcile(ctx context.Context, userCred mcclient.TokenC
 		return
 	}
 
-	// Count current instances
-	cnt, err := GetLLMManager().Query().Equals("llm_deployment_id", llmDeploymentId).CountWithError()
-	if err != nil {
-		log.Errorf("TriggerLLMDeploymentReconcile: count instances for model %s: %s", llmDeploymentId, err)
+	// Count current logical replicas (distributed groups count as one) and
+	// detect incomplete groups whose members were partially deleted.
+	var rows []distReplicaMemberRow
+	if err := GetLLMManager().Query("id", "name", "status", "dist_role", "dist_rank", "dist_nnodes", "dist_leader_id", "dist_group").
+		Equals("llm_deployment_id", llmDeploymentId).
+		All(&rows); err != nil {
+		log.Errorf("TriggerLLMDeploymentReconcile: list instances for model %s: %s", llmDeploymentId, err)
 		return
 	}
+	groups := groupDistReplicaMembers(rows)
+	// Broken distributed groups are preserved for debugging instead of being
+	// recreated, so an incomplete group alone does not trigger a reconcile;
+	// only a missing logical replica does.
+	needReconcile := len(groups) < model.Replicas
 
-	if cnt < model.Replicas {
-		log.Infof("TriggerLLMDeploymentReconcile: model %s has %d/%d instances, triggering reconcile", model.Name, cnt, model.Replicas)
+	if needReconcile {
+		log.Infof("TriggerLLMDeploymentReconcile: model %s has %d/%d logical replicas, triggering reconcile", model.Name, len(groups), model.Replicas)
 		if err := model.StartSyncReplicasTask(ctx, userCred, nil); err != nil {
 			log.Errorf("TriggerLLMDeploymentReconcile: start sync task for model %s: %s", model.Name, err)
 		}
@@ -648,7 +1014,6 @@ func (model *SLLMDeployment) PostCreate(ctx context.Context, userCred mcclient.T
 		if len(nets) > 0 {
 			model.Nets = &nets
 		}
-		model.AutoStart = input.AutoStart
 		if input.HostPaths != nil && !input.HostPaths.IsZero() {
 			model.HostPaths = input.HostPaths
 		}
@@ -707,7 +1072,12 @@ func (model *SLLMDeployment) StartSyncReplicasTask(ctx context.Context, userCred
 func (model *SLLMDeployment) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	model.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
 
-	if data.Contains("replicas") {
+	// Any placement-affecting change is an explicit retry: clear the paused
+	// reconcile state. Reconcile only (re)creates missing groups; existing
+	// healthy groups keep their layout.
+	if data.Contains("replicas") || data.Contains("distributed_inference") || data.Contains("nnodes") ||
+		data.Contains("parallel_mode") || data.Contains("pipeline_parallel_size") {
+		model.ResetReconcileFailures()
 		if err := model.StartSyncReplicasTask(ctx, userCred, data); err != nil {
 			log.Errorf("SLLMDeployment.PostUpdate start sync replicas task failed: %s", err)
 		}
@@ -941,4 +1311,274 @@ func (model *SLLMDeployment) CustomizeDelete(ctx context.Context, userCred mccli
 		return errors.Wrap(err, "NewTask LLMDeploymentDeleteTask")
 	}
 	return task.ScheduleRun(nil)
+}
+
+// skuDeviceCount returns the number of GPUs/devices a SKU requests.
+func skuDeviceCount(sku *SLLMSku) int {
+	if sku == nil || sku.Devices == nil {
+		return 0
+	}
+	return len(*sku.Devices)
+}
+
+// validateDeploymentNnodes checks that a pinned node count can be realized for
+// a SKU with gpuCount devices. singleGPUPerNode is true for device types that
+// allow at most one GPU per pod (Moore Threads HAMI).
+func validateDeploymentNnodes(nnodes, gpuCount int, singleGPUPerNode bool) error {
+	if nnodes < 2 {
+		return nil
+	}
+	if gpuCount <= 0 {
+		return errors.Wrap(httperrors.ErrInputParameter,
+			"nnodes >= 2 requires a SKU with GPUs")
+	}
+	if singleGPUPerNode && nnodes != gpuCount {
+		return errors.Wrapf(httperrors.ErrInputParameter,
+			"this device type allows one GPU per pod; %d GPUs require nnodes=%d, got %d",
+			gpuCount, gpuCount, nnodes)
+	}
+	if gpuCount%nnodes != 0 {
+		return errors.Wrapf(httperrors.ErrInputParameter,
+			"cannot split %d GPUs evenly into %d nodes", gpuCount, nnodes)
+	}
+	return nil
+}
+
+// validateDeploymentPipelineParallel checks a deployment-level pipeline pin
+// against the SKU. Single-node pipeline parallelism is valid, so there is no
+// distributed_inference requirement. vLLM homogeneous layouts always need
+// gpuCount % pp == 0; SGLang multi-node layouts only need pp <= nnodes, so
+// SGLang divisibility is validated by the planner for the chosen layout
+// instead.
+func validateDeploymentPipelineParallel(llmType string, pp, gpuCount int) error {
+	if pp < 2 {
+		return nil
+	}
+	switch api.LLMContainerType(llmType) {
+	case api.LLM_CONTAINER_VLLM, api.LLM_CONTAINER_SGLANG:
+	default:
+		return errors.Wrapf(httperrors.ErrInputParameter,
+			"pipeline_parallel_size is only supported for vllm and sglang, got %q", llmType)
+	}
+	if gpuCount <= 0 {
+		return errors.Wrap(httperrors.ErrInputParameter,
+			"pipeline_parallel_size >= 2 requires a SKU with GPUs")
+	}
+	if pp > gpuCount {
+		return errors.Wrapf(httperrors.ErrInputParameter,
+			"pipeline_parallel_size %d exceeds the SKU's %d GPUs", pp, gpuCount)
+	}
+	if api.LLMContainerType(llmType) == api.LLM_CONTAINER_VLLM && gpuCount%pp != 0 {
+		return errors.Wrapf(httperrors.ErrInputParameter,
+			"cannot split %d GPUs evenly into %d pipeline stages", gpuCount, pp)
+	}
+	return nil
+}
+
+// validateDeploymentParallelMode checks the deployment-level parallel mode and
+// its cross-field constraints. It must be called after the SKU is resolved so
+// backend parameters and the inference backend are known.
+func validateDeploymentParallelMode(
+	mode string,
+	llmType string,
+	backendParams []string,
+	deploymentPP int,
+	netType string,
+	distributed bool,
+	nnodes int,
+) error {
+	mode = api.NormalizeLLMDeploymentParallelMode(mode)
+
+	switch api.LLMContainerType(llmType) {
+	case api.LLM_CONTAINER_VLLM, api.LLM_CONTAINER_SGLANG:
+	default:
+		// Non-distributed backends ignore parallel_mode.
+		return nil
+	}
+
+	if api.LLMContainerType(llmType) == api.LLM_CONTAINER_SGLANG && mode == api.LLM_DEPLOYMENT_PARALLEL_MODE_DP {
+		return errors.Wrap(httperrors.ErrInputParameter,
+			"SGLang 不支持数据并行(DP)，请使用 parallel_mode=pp")
+	}
+
+	// hostlocal only supports DP across hosts; PP/TP need arbitrary NCCL ports.
+	if distributed && mode == api.LLM_DEPLOYMENT_PARALLEL_MODE_PP &&
+		netType == string(computeapi.NETWORK_TYPE_HOSTLOCAL) {
+		return errors.Wrap(httperrors.ErrInputParameter,
+			"hostlocal 网络不支持跨机流水线并行(PP 需要跨机 NCCL)，请设置 parallel_mode=dp 或改用 VPC 网络")
+	}
+
+	user := scheduler.ParseUserParallelism(backendParams)
+
+	if mode == api.LLM_DEPLOYMENT_PARALLEL_MODE_DP {
+		if deploymentPP >= 2 {
+			return errors.Wrapf(httperrors.ErrInputParameter,
+				"parallel_mode=dp 与 pipeline_parallel_size=%d 冲突，请移除其一", deploymentPP)
+		}
+		if user.PP != nil && *user.PP >= 2 {
+			return errors.Wrapf(httperrors.ErrInputParameter,
+				"parallel_mode=dp 与 SKU backend_parameters 中的 --pipeline-parallel-size %d 冲突，请移除其一", *user.PP)
+		}
+	}
+
+	if mode == api.LLM_DEPLOYMENT_PARALLEL_MODE_PP {
+		if user.DP != nil && *user.DP >= 2 {
+			return errors.Wrapf(httperrors.ErrInputParameter,
+				"parallel_mode=pp 与 SKU backend_parameters 中的 --data-parallel-size %d 冲突，请移除其一", *user.DP)
+		}
+	}
+
+	_ = nnodes
+	return nil
+}
+
+// deploymentNetType returns the effective network type for distributed topology
+// validation. An explicit hostlocal net is rejected for PP; anything else
+// (guest network or unspecified) is treated as VPC-capable.
+func deploymentNetType(nets []*computeapi.NetworkConfig) string {
+	if len(nets) == 0 {
+		return ""
+	}
+	return string(nets[0].NetType)
+}
+
+// deploymentParallelModeForLLM returns the parallel_mode of an SLLM's
+// deployment, normalizing empty values to "pp". It is safe for pod create-time
+// checks where the deployment may not exist.
+func deploymentParallelModeForLLM(llm *SLLM) string {
+	if llm == nil || llm.LLMDeploymentId == "" {
+		return api.LLM_DEPLOYMENT_PARALLEL_MODE_PP
+	}
+	obj, err := GetLLMDeploymentManager().FetchById(llm.LLMDeploymentId)
+	if err != nil {
+		return api.LLM_DEPLOYMENT_PARALLEL_MODE_PP
+	}
+	if deploy, ok := obj.(*SLLMDeployment); ok {
+		return api.NormalizeLLMDeploymentParallelMode(deploy.ParallelMode)
+	}
+	return api.LLM_DEPLOYMENT_PARALLEL_MODE_PP
+}
+
+// fillDeploymentDerivedParallelism computes the derived TP/PP/DP layout from
+// the deployment fields and SKU. It updates the details fields in place.
+func fillDeploymentDerivedParallelism(out *api.LLMDeploymentDetails, deployment SLLMDeployment, sku SLLMSku) {
+	out.ParallelMode = api.NormalizeLLMDeploymentParallelMode(deployment.ParallelMode)
+	totalGPUs := 0
+	if sku.Devices != nil {
+		totalGPUs = len(*sku.Devices)
+	}
+	if totalGPUs <= 0 {
+		return
+	}
+
+	// Use the actual node count from runtime groups when available, otherwise
+	// the pinned nnodes. Single-node deployments show no derived layout unless
+	// pipeline parallelism is pinned.
+	nnodes := deployment.Nnodes
+	if out.DistributedNnodes > 0 {
+		nnodes = out.DistributedNnodes
+	}
+
+	if nnodes >= 2 {
+		if totalGPUs%nnodes != 0 {
+			return
+		}
+		gpusPerNode := totalGPUs / nnodes
+		gpuPerNode := make([]int, nnodes)
+		for i := range gpuPerNode {
+			gpuPerNode[i] = gpusPerNode
+		}
+		user := scheduler.ParseUserParallelism(sku.BackendParameters)
+		if deployment.PipelineParallelSize > 0 {
+			pp := deployment.PipelineParallelSize
+			user.PP = &pp
+		}
+		if out.ParallelMode == api.LLM_DEPLOYMENT_PARALLEL_MODE_DP && user.DP == nil {
+			dp := nnodes
+			user.DP = &dp
+		}
+		scheduler.ApplyDefaultMultinodeParallelism(&user, gpuPerNode)
+		if topo, err := scheduler.ValidateMultinodeTopology(gpuPerNode, user); err == nil {
+			out.TensorParallelSize = topo.TP
+			out.PipelineParallelSize = topo.PP
+			out.DataParallelSize = topo.DP
+			out.DistShape = string(topo.Shape)
+		}
+		return
+	}
+
+	if deployment.PipelineParallelSize >= 2 {
+		pp := deployment.PipelineParallelSize
+		if totalGPUs%pp == 0 {
+			out.PipelineParallelSize = pp
+			out.TensorParallelSize = totalGPUs / pp
+			out.DataParallelSize = 1
+		}
+		return
+	}
+
+	// SKU backend parameter pins also produce a derived layout for single-node
+	// deployments.
+	user := scheduler.ParseUserParallelism(sku.BackendParameters)
+	if user.PP != nil && *user.PP >= 2 && totalGPUs%*user.PP == 0 {
+		out.PipelineParallelSize = *user.PP
+		out.TensorParallelSize = totalGPUs / *user.PP
+		out.DataParallelSize = 1
+	}
+}
+
+// MaxDeploymentReconcileFailures is the number of consecutive distributed
+// replica group failures after which automatic reconcile pauses. Without it a
+// runtime that always exits would recreate replicas forever.
+const MaxDeploymentReconcileFailures = 3
+
+// RecordDeploymentGroupFailure increments the consecutive group failure counter
+// and marks the deployment failed once the retry budget is spent.
+func RecordDeploymentGroupFailure(ctx context.Context, userCred mcclient.TokenCredential, deploy *SLLMDeployment, cause error) {
+	if deploy == nil {
+		return
+	}
+	failures := deploy.ReconcileFailures
+	if _, err := db.Update(deploy, func() error {
+		deploy.ReconcileFailures++
+		failures = deploy.ReconcileFailures
+		return nil
+	}); err != nil {
+		log.Errorf("RecordDeploymentGroupFailure: update %s: %s", deploy.Name, err)
+	}
+	// Failed members are preserved for debugging, so there is no automatic
+	// retry: surface the failure immediately.
+	reason := fmt.Sprintf("distributed replica group failed (attempt %d); members kept for debugging", failures)
+	if cause != nil {
+		reason = fmt.Sprintf("%s: %s", reason, cause.Error())
+	}
+	log.Warningf("deployment %s group failure #%d: %v", deploy.Name, failures, cause)
+	if err := deploy.SetStatus(ctx, userCred, api.LLM_STATUS_CREATE_FAIL, reason); err != nil {
+		log.Warningf("RecordDeploymentGroupFailure: set status %s: %s", deploy.Name, err)
+	}
+}
+
+// ResetReconcileFailures clears the consecutive failure counter. Called after a
+// group becomes ready and by user actions that explicitly retry.
+func (deploy *SLLMDeployment) ResetReconcileFailures() {
+	if deploy == nil || deploy.ReconcileFailures == 0 {
+		return
+	}
+	if _, err := db.Update(deploy, func() error {
+		deploy.ReconcileFailures = 0
+		return nil
+	}); err != nil {
+		log.Errorf("ResetReconcileFailures: update %s: %s", deploy.Name, err)
+	}
+}
+
+// CheckReconcileBudget refuses to create more distributed groups once the
+// retry budget is spent.
+func (deploy *SLLMDeployment) CheckReconcileBudget() error {
+	if deploy != nil && deploy.ReconcileFailures >= MaxDeploymentReconcileFailures {
+		return errors.Errorf(
+			"automatic reconcile paused after %d consecutive distributed group failures; fix the runtime issue, then restart or scale the deployment",
+			deploy.ReconcileFailures)
+	}
+	return nil
 }

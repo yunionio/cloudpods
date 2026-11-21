@@ -261,7 +261,13 @@ func (task *LLMRestartTask) OnRebindVolumeComplete(ctx context.Context, obj db.I
 		return
 	}
 
-	if volume != nil && len(*sku.Volumes) > 0 && (*sku.Volumes)[0].SizeMB > volume.SizeMB {
+	if volume == nil {
+		// No data disk: nothing to resize, go straight to container update.
+		task.updateContainersAndStart(ctx, llm, &input, &computeapi.DiskDetails{})
+		return
+	}
+
+	if models.SkuHasDataDisk(sku) && (*sku.Volumes)[0].SizeMB > volume.SizeMB {
 		task.SetStage("OnDiskResizeComplete", nil)
 		_, err := volume.StartResizeTask(ctx, task.UserCred, api.VolumeResizeTaskInput{
 			SizeMB:        (*sku.Volumes)[0].SizeMB,
@@ -289,6 +295,11 @@ func (task *LLMRestartTask) OnDiskResizeComplete(ctx context.Context, obj db.ISt
 	// TODO: 处理多个 volumes 的情况
 	volume, err := llm.GetVolume()
 	if err != nil {
+		if errors.Cause(err) == errors.ErrNotFound {
+			// No data disk: nothing to resize or reset.
+			task.updateContainersAndStart(ctx, llm, &input, &computeapi.DiskDetails{})
+			return
+		}
 		task.taskFailed(ctx, llm, errors.Wrap(err, "GetVolume").Error())
 		return
 	}
@@ -307,13 +318,16 @@ func (task *LLMRestartTask) OnDiskResizeComplete(ctx context.Context, obj db.ISt
 
 	var templateId *string
 	var backupId *string
-	if volume.TemplateId != (*sku.Volumes)[0].TemplateId || volume.TemplateId != disk.TemplateId {
-		// reset disk template
-		input.ResetDataDisk = true
-		templateId = &(*sku.Volumes)[0].TemplateId
+	var sizeGB int
+	if models.SkuHasDataDisk(sku) {
+		if volume.TemplateId != (*sku.Volumes)[0].TemplateId || volume.TemplateId != disk.TemplateId {
+			// reset disk template
+			input.ResetDataDisk = true
+			templateId = &(*sku.Volumes)[0].TemplateId
+		}
+		sizeGB = (*sku.Volumes)[0].SizeMB / 1024
 	}
 	var llmBackup *models.SLLMBackup
-	sizeGB := (*sku.Volumes)[0].SizeMB / 1024
 	if len(input.BackupName) > 0 {
 		llmBackupObj, err := models.GetLLMBackupManager().FetchById(input.BackupName)
 		if err != nil {
@@ -381,6 +395,29 @@ func (task *LLMRestartTask) OnResetDiskComplete(ctx context.Context, obj db.ISta
 	input := apis.LLMRestartTaskInput{}
 	task.GetParams().Unmarshal(&input)
 
+	// Instances without a data disk have no disk stage to run.
+	disk := &computeapi.DiskDetails{}
+	if volume, err := llm.GetVolume(); err != nil {
+		if errors.Cause(err) != errors.ErrNotFound {
+			task.taskFailed(ctx, llm, errors.Wrap(err, "GetVolume").Error())
+			return
+		}
+	} else {
+		gotDisk, err := volume.GetDisk(ctx)
+		if err != nil {
+			task.taskFailed(ctx, llm, errors.Wrap(err, "volume.GetDisk").Error())
+			return
+		}
+		disk = gotDisk
+	}
+
+	task.updateContainersAndStart(ctx, llm, &input, disk)
+}
+
+// updateContainersAndStart refreshes the pod containers for the requested
+// image/SKU and starts the server. disk is empty for instances without a data
+// disk.
+func (task *LLMRestartTask) updateContainersAndStart(ctx context.Context, llm *models.SLLM, input *apis.LLMRestartTaskInput, disk *computeapi.DiskDetails) {
 	imageId := llm.LLMImageId
 	if len(input.ImageId) > 0 {
 		imageId = input.ImageId
@@ -407,23 +444,6 @@ func (task *LLMRestartTask) OnResetDiskComplete(ctx context.Context, obj db.ISta
 		return
 	}
 
-	volume, err := llm.GetVolume()
-	if err != nil {
-		task.taskFailed(ctx, llm, errors.Wrap(err, "GetVolume").Error())
-		return
-	}
-
-	disk, err := volume.GetDisk(ctx)
-	if err != nil {
-		task.taskFailed(ctx, llm, errors.Wrap(err, "volume.GetDisk").Error())
-		return
-	}
-
-	/*diskCaseInsensitive := false
-	if disk.FsFeatures != nil && disk.FsFeatures.Ext4 != nil && disk.FsFeatures.Ext4.CaseInsensitive {
-		diskCaseInsensitive = true
-	}*/
-
 	// Refresh after GPU sync so container update uses the new bound device ids.
 	srvDetails, err := llm.GetServer(ctx)
 	if err != nil {
@@ -438,7 +458,7 @@ func (task *LLMRestartTask) OnResetDiskComplete(ctx context.Context, obj db.ISta
 		return
 	}
 	drv := llm.GetLLMContainerDriver()
-	containersToUpdateInput := models.NewContainersToUpdateInput(llm, &input, sku, llmImage, srvDetails, disk, ctrs)
+	containersToUpdateInput := models.NewContainersToUpdateInput(llm, input, sku, llmImage, srvDetails, disk, ctrs)
 	updates, err := models.GetContainersToUpdate(drv, ctx, containersToUpdateInput)
 	if err != nil {
 		task.taskFailed(ctx, llm, errors.Wrap(err, "drv.GetContainersToUpdate").Error())
@@ -483,9 +503,12 @@ func (task *LLMRestartTask) OnResetDiskComplete(ctx context.Context, obj db.ISta
 
 func (task *LLMRestartTask) OnStartComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	llm := obj.(*models.SLLM)
-	if _, err := llm.WaitServiceReady(ctx, task.GetUserCred(), 0); err != nil {
-		task.taskFailed(ctx, llm, errors.Wrap(err, "WaitServiceReady").Error())
-		return
+	// Distributed followers do not serve HTTP; container running is enough.
+	if !llm.IsDistFollower() {
+		if _, err := llm.WaitServiceReady(ctx, task.GetUserCred(), 0); err != nil {
+			task.taskFailed(ctx, llm, errors.Wrap(err, "WaitServiceReady").Error())
+			return
+		}
 	}
 	task.taskComplete(ctx, llm)
 }

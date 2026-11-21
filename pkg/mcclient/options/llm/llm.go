@@ -31,6 +31,10 @@ type LLMListOptions struct {
 	LlmSku   string   `help:"filter by llm sku"`
 	LlmImage string   `help:"filter by llm image"`
 	LLMTypes []string `help:"filter by llm types"`
+
+	DistRole        string `help:"filter by distributed role" choices:"leader|follower"`
+	DistGroup       *int   `help:"filter by distributed replica group index"`
+	LLMDeploymentId string `help:"filter by llm deployment id" json:"llm_deployment_id"`
 }
 
 func (o *LLMListOptions) Params() (jsonutils.JSONObject, error) {
