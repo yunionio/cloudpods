@@ -34,7 +34,7 @@ type LLMOptions struct {
 	StartTaskWorkerCount  int `help:"start task worker count" default:"128"`
 
 	LLMBenchmarkWorkDir               string `help:"llm benchmark working directory" default:"/opt/cloud/workspace/llm/benchmarks"`
-	LLMBenchmarkDefaultImage          string `help:"default GuideLLM benchmark image" default:"registry.cn-beijing.aliyuncs.com/cloudpods/guidellm:v0.7.0-amd64"`
+	LLMBenchmarkDefaultImage          string `help:"default GuideLLM benchmark image; the matching benchmark llm_image is auto-created if missing" default:"registry.cn-beijing.aliyuncs.com/cloudpods/guidellm:v0.7.0-amd64"`
 	LLMBenchmarkRunnerCPU             int    `help:"llm benchmark runner cpu" default:"1"`
 	LLMBenchmarkRunnerMemoryMB        int    `help:"llm benchmark runner memory MB" default:"2048"`
 	LLMBenchmarkDefaultRequestRate    int    `help:"default benchmark request rate" default:"1"`

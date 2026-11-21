@@ -325,10 +325,10 @@ func (h *hermesAgent) GetContainerSpec(ctx context.Context, llm *models.SLLM, im
 	}
 }
 
-func (h *hermesAgent) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
+func (h *hermesAgent) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) ([]*computeapi.PodContainerCreateInput, error) {
 	return []*computeapi.PodContainerCreateInput{
 		h.GetContainerSpec(ctx, llm, image, sku, props, devices, diskId),
-	}
+	}, nil
 }
 
 func (h *hermesAgent) GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *models.LLMAccessInfoInput) (*api.LLMAccessUrlInfo, error) {

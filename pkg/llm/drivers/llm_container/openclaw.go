@@ -275,7 +275,7 @@ func (c *openclaw) getOpenClawBaseConfig(llm *models.SLLM) *api.OpenClawConfig {
 	}
 }
 
-func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
+func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) ([]*computeapi.PodContainerCreateInput, error) {
 	diskIndex := 0
 
 	openclawVols := []*commonapi.ContainerVolumeMount{
@@ -334,7 +334,7 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 				Name:          fmt.Sprintf("%s-%d", llm.GetName(), 0),
 				ContainerSpec: openclawSpec,
 			},
-		}
+		}, nil
 	}
 	spec := llm.LLMSpec.OpenClaw
 	if spec.ManualConfig {
@@ -380,7 +380,7 @@ func (c *openclaw) GetContainerSpecs(ctx context.Context, llm *models.SLLM, imag
 			Name:          fmt.Sprintf("%s-%d", llm.GetName(), 0),
 			ContainerSpec: openclawSpec,
 		},
-	}
+	}, nil
 }
 
 func (c *openclaw) GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *models.LLMAccessInfoInput) (*api.LLMAccessUrlInfo, error) {

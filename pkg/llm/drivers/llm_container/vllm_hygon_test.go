@@ -35,13 +35,16 @@ func TestVLLMGetContainerSpecHygonRuntime(t *testing.T) {
 	}
 	hygonSku.HostPaths = &hostPaths
 	image := &models.SLLMImage{}
-	out := v.GetContainerSpec(context.Background(), nil, image, hygonSku, nil, nil, "")
+	out, err := v.GetContainerSpec(context.Background(), nil, image, hygonSku, nil, nil, "")
+	if err != nil {
+		t.Fatalf("GetContainerSpec: %v", err)
+	}
 	if out == nil {
 		t.Fatal("expected container spec")
 	}
 	spec := &out.ContainerSpec
-	if spec.Capabilities == nil || !reflect.DeepEqual(spec.Capabilities.Add, []string{"SYS_PTRACE"}) {
-		t.Fatalf("capabilities = %#v, want SYS_PTRACE", spec.Capabilities)
+	if spec.Capabilities == nil || !reflect.DeepEqual(spec.Capabilities.Add, []string{"IPC_LOCK", "SYS_PTRACE"}) {
+		t.Fatalf("capabilities = %#v, want [IPC_LOCK SYS_PTRACE]", spec.Capabilities)
 	}
 	if spec.SecurityContext == nil || !reflect.DeepEqual(spec.SecurityContext.SupplementalGroupNames, []string{"video"}) {
 		t.Fatalf("security context = %#v, want video group", spec.SecurityContext)
@@ -64,13 +67,16 @@ func TestVLLMGetContainerSpecNvidiaNoHygonRuntime(t *testing.T) {
 		},
 	}
 	image := &models.SLLMImage{}
-	out := v.GetContainerSpec(context.Background(), nil, image, nvSku, nil, nil, "")
+	out, err := v.GetContainerSpec(context.Background(), nil, image, nvSku, nil, nil, "")
+	if err != nil {
+		t.Fatalf("GetContainerSpec: %v", err)
+	}
 	if out == nil {
 		t.Fatal("expected container spec")
 	}
 	spec := &out.ContainerSpec
-	if spec.Capabilities != nil {
-		t.Fatalf("expected nil capabilities, got %#v", spec.Capabilities)
+	if spec.Capabilities == nil || !reflect.DeepEqual(spec.Capabilities.Add, []string{"IPC_LOCK"}) {
+		t.Fatalf("expected baseline [IPC_LOCK] capabilities, got %#v", spec.Capabilities)
 	}
 	if spec.SecurityContext != nil {
 		t.Fatalf("expected nil security context, got %#v", spec.SecurityContext)
@@ -109,13 +115,16 @@ func TestVLLMGetContainerSpecIluvatarRuntime(t *testing.T) {
 	}
 	sku.HostPaths = &hostPaths
 	image := &models.SLLMImage{}
-	out := v.GetContainerSpec(context.Background(), nil, image, sku, nil, nil, "")
+	out, err := v.GetContainerSpec(context.Background(), nil, image, sku, nil, nil, "")
+	if err != nil {
+		t.Fatalf("GetContainerSpec: %v", err)
+	}
 	if out == nil {
 		t.Fatal("expected container spec")
 	}
 	spec := &out.ContainerSpec
-	if spec.Capabilities != nil {
-		t.Fatalf("expected nil capabilities for iluvatar, got %#v", spec.Capabilities)
+	if spec.Capabilities == nil || !reflect.DeepEqual(spec.Capabilities.Add, []string{"IPC_LOCK"}) {
+		t.Fatalf("expected baseline [IPC_LOCK] capabilities for iluvatar, got %#v", spec.Capabilities)
 	}
 	if spec.SecurityContext != nil {
 		t.Fatalf("expected nil security context for iluvatar, got %#v", spec.SecurityContext)
@@ -142,13 +151,16 @@ func TestVLLMGetContainerSpecTHeadRuntime(t *testing.T) {
 		},
 	}
 	image := &models.SLLMImage{}
-	out := v.GetContainerSpec(context.Background(), nil, image, sku, nil, nil, "")
+	out, err := v.GetContainerSpec(context.Background(), nil, image, sku, nil, nil, "")
+	if err != nil {
+		t.Fatalf("GetContainerSpec: %v", err)
+	}
 	if out == nil {
 		t.Fatal("expected container spec")
 	}
 	spec := &out.ContainerSpec
-	if spec.Capabilities != nil {
-		t.Fatalf("expected nil capabilities for t-head, got %#v", spec.Capabilities)
+	if spec.Capabilities == nil || !reflect.DeepEqual(spec.Capabilities.Add, []string{"IPC_LOCK"}) {
+		t.Fatalf("expected baseline [IPC_LOCK] capabilities for t-head, got %#v", spec.Capabilities)
 	}
 	if spec.SecurityContext != nil {
 		t.Fatalf("expected nil security context for t-head, got %#v", spec.SecurityContext)
@@ -172,13 +184,16 @@ func TestVLLMGetContainerSpecKunlunxinRuntime(t *testing.T) {
 		},
 	}
 	image := &models.SLLMImage{}
-	out := v.GetContainerSpec(context.Background(), nil, image, sku, nil, nil, "")
+	out, err := v.GetContainerSpec(context.Background(), nil, image, sku, nil, nil, "")
+	if err != nil {
+		t.Fatalf("GetContainerSpec: %v", err)
+	}
 	if out == nil {
 		t.Fatal("expected container spec")
 	}
 	spec := &out.ContainerSpec
-	if spec.Capabilities != nil {
-		t.Fatalf("expected nil capabilities for kunlunxin, got %#v", spec.Capabilities)
+	if spec.Capabilities == nil || !reflect.DeepEqual(spec.Capabilities.Add, []string{"IPC_LOCK"}) {
+		t.Fatalf("expected baseline [IPC_LOCK] capabilities for kunlunxin, got %#v", spec.Capabilities)
 	}
 	if spec.SecurityContext != nil {
 		t.Fatalf("expected nil security context for kunlunxin, got %#v", spec.SecurityContext)
@@ -215,13 +230,19 @@ func TestVLLMGetContainerSpecMthreadsRuntime(t *testing.T) {
 	}
 	sku.HostPaths = &hostPaths
 	image := &models.SLLMImage{}
-	out := v.GetContainerSpec(context.Background(), nil, image, sku, nil, nil, "")
+	out, err := v.GetContainerSpec(context.Background(), nil, image, sku, nil, nil, "")
+	if err != nil {
+		t.Fatalf("GetContainerSpec: %v", err)
+	}
 	if out == nil {
 		t.Fatal("expected container spec")
 	}
 	spec := &out.ContainerSpec
-	if spec.Capabilities != nil {
-		t.Fatalf("expected nil capabilities for mthreads, got %#v", spec.Capabilities)
+	// All inference containers carry the GPUDirect RDMA baseline (IPC_LOCK);
+	// mthreads must not pick up vendor-specific extras (SYS_PTRACE) or a
+	// security context.
+	if spec.Capabilities == nil || len(spec.Capabilities.Add) != 1 || spec.Capabilities.Add[0] != "IPC_LOCK" {
+		t.Fatalf("expected baseline [IPC_LOCK] capabilities for mthreads, got %#v", spec.Capabilities)
 	}
 	if spec.SecurityContext != nil {
 		t.Fatalf("expected nil security context for mthreads, got %#v", spec.SecurityContext)
@@ -231,5 +252,40 @@ func TestVLLMGetContainerSpecMthreadsRuntime(t *testing.T) {
 	}
 	if len(spec.Args) == 0 || !strings.Contains(spec.Args[0], "--tensor-parallel-size 2") {
 		t.Fatalf("args = %#v, want tensor-parallel-size 2", spec.Args)
+	}
+}
+
+func TestVLLMGetContainerSpecDataDiskMounts(t *testing.T) {
+	v := newVLLM().(*vllm)
+	image := &models.SLLMImage{}
+
+	// No data disk: the spec must not reference any disk index, otherwise
+	// compute rejects pod creation with "disk.index 0 is large than disk size 0".
+	diskless := &models.SLLMSku{LLMType: string(api.LLM_CONTAINER_VLLM)}
+	out, err := v.GetContainerSpec(context.Background(), nil, image, diskless, nil, nil, "")
+	if err != nil {
+		t.Fatalf("GetContainerSpec: %v", err)
+	}
+	for _, vm := range out.ContainerSpec.VolumeMounts {
+		if vm.Disk != nil {
+			t.Fatalf("expected no disk mounts for a diskless SKU, got %#v", vm)
+		}
+	}
+
+	// With a data disk the two managed mounts are kept.
+	withDisk := &models.SLLMSku{LLMType: string(api.LLM_CONTAINER_VLLM)}
+	withDisk.Volumes = &api.Volumes{{SizeMB: 10240}}
+	out, err = v.GetContainerSpec(context.Background(), nil, image, withDisk, nil, nil, "")
+	if err != nil {
+		t.Fatalf("GetContainerSpec: %v", err)
+	}
+	diskMounts := 0
+	for _, vm := range out.ContainerSpec.VolumeMounts {
+		if vm.Disk != nil {
+			diskMounts++
+		}
+	}
+	if diskMounts != 2 {
+		t.Fatalf("disk mounts = %d, want 2", diskMounts)
 	}
 }

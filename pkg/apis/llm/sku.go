@@ -315,13 +315,30 @@ type LLMSkuCloneInput struct {
 // }
 
 // LLMSchedulableCheckInput is the body for
-// POST /llm_skus/{id}/schedulable-check. Specs come from the SKU; the body is empty.
-type LLMSchedulableCheckInput struct{}
+// POST /llm_skus/{id}/schedulable-check. Specs come from the SKU.
+type LLMSchedulableCheckInput struct {
+	// DistributedInference allows a multi-host forecast when no single host fits.
+	DistributedInference bool `json:"distributed_inference"`
+	// PreferHosts limits candidate hosts (ids) when set.
+	PreferHosts []string `json:"prefer_hosts,omitempty"`
+	// PlacementStrategy is spread (default) or binpack for multi-host planning.
+	PlacementStrategy string `json:"placement_strategy,omitempty"`
+	// Nnodes pins the nodes per replica: 0 = auto (single host first),
+	// 1 = force a single host, >= 2 = exactly this many multi-host nodes.
+	Nnodes int `json:"nnodes,omitempty"`
+	// ParallelMode selects the distributed inference layout for multi-node
+	// forecasts: "pp" (default) or "dp".
+	ParallelMode string `json:"parallel_mode,omitempty"`
+	// PipelineParallelSize pins the pipeline parallelism for the forecast
+	// (0 = auto, >= 2 = pin).
+	PipelineParallelSize int `json:"pipeline_parallel_size,omitempty"`
+}
 
 // LLMSchedulableHostInfo describes GPU availability on one candidate host.
 type LLMSchedulableHostInfo struct {
 	HostId        string `json:"host_id"`
 	HostName      string `json:"host_name"`
+	HostIp        string `json:"host_ip,omitempty"`
 	GpuAvailable  int    `json:"gpu_available"`
 	BestGpuVramMb int    `json:"best_gpu_vram_mb"`
 	BestGpuModel  string `json:"best_gpu_model,omitempty"`
@@ -340,4 +357,18 @@ type LLMSchedulableCheckOutput struct {
 	Hosts              []LLMSchedulableHostInfo `json:"hosts,omitempty"`
 	TotalGpuHosts      int                      `json:"total_gpu_hosts"`
 	QualifiedHosts     int                      `json:"qualified_hosts"`
+	// DistributedNnodes and GpusPerNode describe the recommended multi-host
+	// layout when the distributed forecast succeeds (0 for single-host).
+	DistributedNnodes int `json:"distributed_nnodes,omitempty"`
+	GpusPerNode       int `json:"gpus_per_node,omitempty"`
+	// TensorParallelSize / PipelineParallelSize / DataParallelSize are the
+	// derived parallel layout of the recommended plan (0 when not computed).
+	TensorParallelSize   int `json:"tensor_parallel_size,omitempty"`
+	PipelineParallelSize int `json:"pipeline_parallel_size,omitempty"`
+	DataParallelSize     int `json:"data_parallel_size,omitempty"`
+	// DistShape is the vLLM multi-node layout shape: dp_only / mp_only / nested.
+	// Empty for single-host or SGLang forecasts.
+	DistShape string `json:"dist_shape,omitempty"`
+	// ParallelMode is the mode used for the forecast (pp or dp).
+	ParallelMode string `json:"parallel_mode,omitempty"`
 }

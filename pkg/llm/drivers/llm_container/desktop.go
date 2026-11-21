@@ -50,7 +50,7 @@ func appendDesktopExtraEnvs(envs []*commonapi.ContainerKeyValue, extra map[strin
 	return envs
 }
 
-func (d *desktop) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
+func (d *desktop) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) ([]*computeapi.PodContainerCreateInput, error) {
 	diskIndex := 0
 	cfg, err := image.GetResolvedDesktopConfig()
 	if err != nil {
@@ -77,7 +77,7 @@ func (d *desktop) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image
 			Name:          fmt.Sprintf("%s-%d", llm.GetName(), 0),
 			ContainerSpec: desktopSpec,
 		},
-	}
+	}, nil
 }
 
 func (d *desktop) GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *models.LLMAccessInfoInput) (*api.LLMAccessUrlInfo, error) {
