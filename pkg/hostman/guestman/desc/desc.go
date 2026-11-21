@@ -424,7 +424,17 @@ type SGuestContainerDesc struct {
 	Containers []*host.ContainerDesc
 }
 
+const (
+	DESC_VERSION_V1 = "v1"
+	DESC_VERSION_V2 = "v2"
+)
+
+type SGuestDescBase struct {
+	DescVersion *string `json:",omitempty"`
+}
+
 type SGuestDesc struct {
+	SGuestDescBase
 	SGuestProjectDesc
 	SGuestRegionDesc
 	SGuestControlDesc
