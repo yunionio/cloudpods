@@ -115,6 +115,7 @@ func (manager *SHostResourceBaseManager) FetchCustomizeColumns(
 			rows[i].HostResourceType = host.ResourceType
 			rows[i].HostBillingType = host.BillingType
 			rows[i].ZoneId = host.ZoneId
+			rows[i].HostNoIpmi = host.IpmiIp == ""
 		}
 		zoneList[i] = &SZoneResourceBase{rows[i].ZoneId}
 		managerList[i] = &SManagedResourceBase{rows[i].ManagerId}
