@@ -64,6 +64,17 @@ type LLMListDetails struct {
 	LLMDeployment   string `json:"llm_deployment"`
 
 	MountedModelInfos []MountedModelInfo `json:"mounted_model_infos"`
+
+	// Distributed inference membership (empty DistRole means single-pod replica).
+	DistRole       string `json:"dist_role"`
+	DistRank       int    `json:"dist_rank"`
+	DistNnodes     int    `json:"dist_nnodes"`
+	DistLeaderId   string `json:"dist_leader_id"`
+	DistGroup      int    `json:"dist_group"`
+	DistMasterAddr string `json:"dist_master_addr"`
+	// Leader host's mapped ports for hostlocal networks (0 = in-pod port).
+	DistMasterPort int `json:"dist_master_port"`
+	DistDPRPCPort  int `json:"dist_dp_rpc_port"`
 }
 
 type LLMBaseCreateInput struct {
@@ -92,6 +103,17 @@ type LLMCreateInput struct {
 	// Devices/HostPaths override the corresponding sku fields when set.
 	HostPaths *HostPaths `json:"host_paths,omitempty"`
 	Devices   *Devices   `json:"devices,omitempty"`
+
+	// Distributed inference membership for multi-host replicas.
+	DistRole       string `json:"dist_role,omitempty"`
+	DistRank       int    `json:"dist_rank,omitempty"`
+	DistNnodes     int    `json:"dist_nnodes,omitempty"`
+	DistLeaderId   string `json:"dist_leader_id,omitempty"`
+	DistGroup      int    `json:"dist_group,omitempty"`
+	DistMasterAddr string `json:"dist_master_addr,omitempty"`
+	// Leader host's mapped ports for hostlocal networks (0 = in-pod port).
+	DistMasterPort int `json:"dist_master_port,omitempty"`
+	DistDPRPCPort  int `json:"dist_dp_rpc_port,omitempty"`
 }
 
 // LLMUpdateInput is the request body for updating an LLM (including llm_spec overrides).
@@ -133,6 +155,11 @@ type LLMListInput struct {
 	LLMTypes      []string `json:"llm_types"`      // filter by linked SKU's llm_types (e.g. [dify, openclaw])
 	LLMType       string   `json:"llm_type"`       // filter by linked SKU's llm_type (e.g. dify)
 	LLMDeployment string   `json:"llm_deployment"` // filter by LLMDeployment deployment
+
+	// Distributed inference membership filters.
+	DistRole        string `json:"dist_role"`
+	DistGroup       *int   `json:"dist_group"`
+	LLMDeploymentId string `json:"llm_deployment_id"`
 }
 
 type ModelInfo struct {

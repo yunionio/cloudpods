@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -270,51 +271,219 @@ func assignDeploymentAutoCreatedSku(model *models.SLLMDeployment, skuId string) 
 	return nil
 }
 
-// reconcileReplicas is the core logic that ensures actual SLLM count matches desired replicas.
-// - If actual < desired: create new instances (scale up)
-// - If actual > desired: delete excess instances (scale down, prefer unhealthy)
-// - If actual == desired: nothing to do
-//
-// `body` is the original task body (JSON dict) that contains the deployment create input,
-// including network config. We forward it to SLLM creation as-is to preserve all fields.
+// reconcileReplicas ensures the number of logical replicas matches deploy.Replicas.
+// A logical replica is either one single-pod SLLM or one distributed group.
 func reconcileReplicas(ctx context.Context, userCred mcclient.TokenCredential, deploy *models.SLLMDeployment, params jsonutils.JSONObject) error {
 	desired := deploy.Replicas
 	if desired < 0 {
 		desired = 0
 	}
 
-	// Fetch current instances
 	instances, err := fetchModelInstances(deploy.Id)
 	if err != nil {
 		return fmt.Errorf("fetch instances: %w", err)
 	}
-	actual := len(instances)
+	groups := groupInstanceInfos(instances)
 
+	// Distributed groups that failed or are structurally incomplete are kept
+	// as-is so the failed pods (logs, container state, placement) can be
+	// inspected. They are only removed by an explicit scale-down or deployment
+	// deletion. Single-pod groups keep the self-healing delete+recreate path.
+	healthy := make([]replicaGroupInfo, 0, len(groups))
+	preserved := make([]replicaGroupInfo, 0)
+	for _, g := range groups {
+		if replicaGroupHasFailure(g) || !replicaGroupComplete(g) {
+			if g.Group >= 0 {
+				log.Warningf("reconcile: preserve broken distributed group %s for debugging; skip automatic delete/recreate", g.Key)
+				preserved = append(preserved, g)
+				continue
+			}
+			if err := deleteReplicaGroup(ctx, userCred, deploy, g); err != nil {
+				log.Errorf("reconcile: delete incomplete group %s: %s", g.Key, err)
+				healthy = append(healthy, g)
+			}
+			continue
+		}
+		healthy = append(healthy, g)
+	}
+
+	// Preserved groups still occupy their replica slots: never create more
+	// groups on top of a broken one, but allow explicit scale-down to clean up.
+	actual := len(healthy) + len(preserved)
+	if actual < desired && len(preserved) > 0 {
+		log.Warningf("reconcile: %s has %d broken replicated group(s) preserved; not creating new replicas until they are cleaned up", deploy.Name, len(preserved))
+		return nil
+	}
 	if actual < desired {
-		// Scale up
 		return scaleUp(ctx, userCred, deploy, params, instances, desired-actual)
 	} else if actual > desired {
-		// Scale down
-		return scaleDown(ctx, userCred, deploy, instances, actual-desired)
+		return scaleDown(ctx, userCred, deploy, append(healthy, preserved...), actual-desired)
 	}
 
 	return nil
 }
 
+func replicaGroupComplete(g replicaGroupInfo) bool {
+	if g.Group < 0 {
+		return len(g.Members) == 1
+	}
+	expected := 0
+	leaders := 0
+	ranks := make(map[int]struct{}, len(g.Members))
+	for _, m := range g.Members {
+		if m.DistNnodes > expected {
+			expected = m.DistNnodes
+		}
+		switch m.DistRole {
+		case api.LLM_DIST_ROLE_LEADER:
+			leaders++
+			if m.DistRank != 0 {
+				return false
+			}
+		case api.LLM_DIST_ROLE_FOLLOWER:
+			if m.DistRank <= 0 {
+				return false
+			}
+		default:
+			return false
+		}
+		if _, dup := ranks[m.DistRank]; dup {
+			return false
+		}
+		ranks[m.DistRank] = struct{}{}
+	}
+	return expected >= 2 && len(g.Members) == expected && leaders == 1
+}
+
+func replicaGroupHasFailure(g replicaGroupInfo) bool {
+	for _, m := range g.Members {
+		switch m.Status {
+		case api.LLM_STATUS_CREATE_FAIL, api.LLM_STATUS_START_FAIL, api.LLM_STATUS_DELETE_FAILED:
+			return true
+		}
+	}
+	return false
+}
+
+func deleteReplicaGroup(ctx context.Context, userCred mcclient.TokenCredential, deploy *models.SLLMDeployment, group replicaGroupInfo) error {
+	if len(group.Members) == 0 {
+		return nil
+	}
+	// Tear followers down first so the leader keeps serving (and reconcile does
+	// not briefly observe a leader without its ranks).
+	members := append([]instanceInfo(nil), group.Members...)
+	sort.SliceStable(members, func(i, j int) bool {
+		return distRoleDeletePriority(members[i].DistRole) < distRoleDeletePriority(members[j].DistRole)
+	})
+	deleted := 0
+	for _, inst := range members {
+		llmObj, err := models.GetLLMManager().FetchById(inst.Id)
+		if err != nil {
+			log.Errorf("reconcile: fetch instance %s for deletion: %s", inst.Id, err)
+			continue
+		}
+		llm := llmObj.(*models.SLLM)
+		if err := llm.StartDeleteTask(ctx, userCred, ""); err != nil {
+			log.Errorf("reconcile: delete instance %s failed: %s", inst.Id, err)
+			continue
+		}
+		deleted++
+	}
+	if deleted == 0 {
+		return fmt.Errorf("no member of group %s could be deleted", group.Key)
+	}
+	log.Infof("reconcile: deleting incomplete/failed replica group %s (%d members) for %s", group.Key, deleted, deploy.Name)
+	db.OpsLog.LogEvent(deploy, db.ACT_UPDATE, jsonutils.NewString(fmt.Sprintf(
+		"rebuilding replica group %s: deleted %d incomplete/failed member(s)", group.Key, deleted)), userCred)
+	return nil
+}
+
+func distRoleDeletePriority(role string) int {
+	switch role {
+	case api.LLM_DIST_ROLE_FOLLOWER:
+		return 0
+	case api.LLM_DIST_ROLE_LEADER:
+		return 2
+	default:
+		return 1
+	}
+}
+
 type instanceInfo struct {
-	Id     string
-	Name   string
-	Status string
+	Id           string
+	Name         string
+	Status       string
+	DistRole     string
+	DistRank     int
+	DistNnodes   int
+	DistLeaderId string
+	DistGroup    int
+}
+
+type replicaGroupInfo struct {
+	Key      string
+	Group    int
+	Members  []instanceInfo
+	Priority int
 }
 
 func fetchModelInstances(modelId string) ([]instanceInfo, error) {
-	q := models.GetLLMManager().Query("id", "name", "status").Equals("llm_deployment_id", modelId)
+	q := models.GetLLMManager().Query("id", "name", "status", "dist_role", "dist_rank", "dist_nnodes", "dist_leader_id", "dist_group").
+		Equals("llm_deployment_id", modelId)
 	var rows []instanceInfo
 	err := q.All(&rows)
 	return rows, err
 }
 
-// scaleUp creates `count` new SLLM instances via the standard DBModelDispatcher.Create flow.
+func groupInstanceInfos(instances []instanceInfo) []replicaGroupInfo {
+	order := make([]string, 0)
+	byKey := make(map[string]*replicaGroupInfo)
+	for _, inst := range instances {
+		key := "s:" + inst.Id
+		group := -1
+		if inst.DistRole == api.LLM_DIST_ROLE_LEADER || inst.DistRole == api.LLM_DIST_ROLE_FOLLOWER {
+			key = fmt.Sprintf("g:%d", inst.DistGroup)
+			group = inst.DistGroup
+		}
+		g, ok := byKey[key]
+		if !ok {
+			g = &replicaGroupInfo{Key: key, Group: group}
+			byKey[key] = g
+			order = append(order, key)
+		}
+		g.Members = append(g.Members, inst)
+		p := instancePriority(inst.Status)
+		if len(g.Members) == 1 || p < g.Priority {
+			g.Priority = p
+		}
+	}
+	out := make([]replicaGroupInfo, 0, len(order))
+	for _, key := range order {
+		out = append(out, *byKey[key])
+	}
+	return out
+}
+
+func nextReplicaGroupIndex(deploymentName string, existing []instanceInfo) int {
+	nextIndex := 0
+	for _, inst := range existing {
+		if g, ok := models.ParseDistGroupFromInstanceName(deploymentName, inst.Name); ok {
+			if g >= nextIndex {
+				nextIndex = g + 1
+			}
+			continue
+		}
+		var idx int
+		if _, err := fmt.Sscanf(inst.Name, deploymentName+"-%d", &idx); err == nil {
+			if idx >= nextIndex {
+				nextIndex = idx + 1
+			}
+		}
+	}
+	return nextIndex
+}
+
+// scaleUp creates `count` new logical replicas.
 func scaleUp(ctx context.Context, userCred mcclient.TokenCredential, deployment *models.SLLMDeployment, params jsonutils.JSONObject, existing []instanceInfo, count int) error {
 	if deployment.LLMSkuId == "" {
 		return fmt.Errorf("scaleUp: deployment %s (id=%s) has empty LLMSkuId", deployment.Name, deployment.Id)
@@ -326,26 +495,13 @@ func scaleUp(ctx context.Context, userCred mcclient.TokenCredential, deployment 
 	llmSku := sku.(*models.SLLMSku)
 	imageId := llmSku.GetLLMImageId()
 
-	// Find the next index to use
-	nextIndex := len(existing)
-	for _, inst := range existing {
-		var idx int
-		if _, err := fmt.Sscanf(inst.Name, deployment.Name+"-%d", &idx); err == nil {
-			if idx >= nextIndex {
-				nextIndex = idx + 1
-			}
-		}
-	}
+	nextIndex := nextReplicaGroupIndex(deployment.Name, existing)
 
-	// Instance template (nets / auto_start / host_paths) lives on the deployment row,
-	// captured at create time by SLLMDeployment.PostCreate. Scale request
-	// bodies don't carry these fields, so the row is the source of truth.
 	if deployment.Nets == nil || len(*deployment.Nets) == 0 {
 		return fmt.Errorf("scaleUp: deployment %s has no stored nets template", deployment.Name)
 	}
 	var nets []*computeapi.NetworkConfig = *deployment.Nets
 
-	// Inject userCred into ctx so DBModelDispatcher.Create can fetch it
 	createCtx := context.WithValue(ctx, appctx.APP_CONTEXT_KEY_AUTH_TOKEN, userCred)
 	handler := db.NewModelHandler(models.GetLLMManager())
 
@@ -357,20 +513,81 @@ func scaleUp(ctx context.Context, userCred mcclient.TokenCredential, deployment 
 
 	var lastErr error
 	created := 0
+	reserved := make(map[string]int)
 	for i := 0; i < count; i++ {
-		instanceName := fmt.Sprintf("%s-%d", deployment.Name, nextIndex+i)
+		group := nextIndex + i
+		plan, planErr := models.PlanDeploymentReplicaWithReserved(ctx, userCred, deployment, llmSku, reserved)
+		if planErr != nil {
+			lastErr = planErr
+			log.Errorf("reconcile: plan replica group %d failed: %s", group, planErr)
+			continue
+		}
+		models.ReservePlanGPUs(reserved, plan)
+		if plan.Distributed {
+			log.Infof("reconcile: planning distributed replica group %d for %s: nnodes=%d gpus_per_node=%d",
+				group, deployment.Name, plan.NNodes, plan.GpusPerNode)
+			if err := deployment.CheckReconcileBudget(); err != nil {
+				// Stop recreating groups after repeated runtime failures.
+				lastErr = err
+				log.Warningf("reconcile: skip distributed group %d for %s: %s", group, deployment.Name, err)
+				break
+			}
+			hostIds := make([]string, 0, len(plan.Members))
+			for _, m := range plan.Members {
+				hostIds = append(hostIds, m.HostId)
+			}
+			layout := ""
+			if plan.Parallelism != nil {
+				layout = fmt.Sprintf("; tp=%d pp=%d dp=%d",
+					plan.Parallelism.TP, plan.Parallelism.PP, plan.Parallelism.DP)
+			}
+			db.OpsLog.LogEvent(deployment, db.ACT_UPDATE, jsonutils.NewString(fmt.Sprintf(
+				"replica group %d planned on %d hosts (%d GPUs each): %s%s",
+				group, plan.NNodes, plan.GpusPerNode, strings.Join(hostIds, ", "), layout)), userCred)
+			taskParams := jsonutils.Marshal(distributedGroupCreateParams{
+				DeploymentId: deployment.Id,
+				Group:        group,
+				Plan:         plan,
+				LLMSpec:      llmSpec,
+			}).(*jsonutils.JSONDict)
+			task, err := taskman.TaskManager.NewTask(ctx, "LLMDistributedGroupCreateTask", deployment, userCred, taskParams, "", "", nil)
+			if err != nil {
+				lastErr = err
+				log.Errorf("reconcile: new distributed group task: %s", err)
+				continue
+			}
+			if err := task.ScheduleRun(nil); err != nil {
+				lastErr = err
+				log.Errorf("reconcile: schedule distributed group task: %s", err)
+				continue
+			}
+			created++
+			log.Infof("reconcile: started distributed replica group %d for %s", group, deployment.Name)
+			continue
+		}
 
-		// Build typed LLMCreateInput, then marshal to JSON for handler.Create
-		preferHost := models.SelectPreferHostForInstanceIndex(preferHosts, nextIndex+i)
+		instanceName := models.DistLeaderInstanceName(deployment.Name, group)
+		preferHost := plan.Members[0].HostId
+		if preferHost == "" {
+			preferHost = models.SelectPreferHostForInstanceIndex(preferHosts, group)
+		}
+		if deployment.DistributedInference != nil && *deployment.DistributedInference && !plan.Distributed {
+			// Surface why a deployment that allows multi-host ended up on one host.
+			db.OpsLog.LogEvent(deployment, db.ACT_UPDATE, jsonutils.NewString(fmt.Sprintf(
+				"replica group %d planned on a single host %s: %d GPUs fit on one host (set nnodes >= 2 to force distributed inference)",
+				group, preferHost, plan.GpusPerNode)), userCred)
+		}
 		llmInput := buildDeploymentLLMCreateInput(deployment, nets, imageId, llmSpec, preferHost)
+		if len(plan.Members) > 0 && len(plan.Members[0].Devices) > 0 {
+			devs := plan.Members[0].Devices
+			llmInput.Devices = &devs
+		}
+		llmInput.DistGroup = group
 
 		llmParams := jsonutils.Marshal(llmInput).(*jsonutils.JSONDict)
-		// Name lives on the embedded VirtualResourceCreateInput → set explicitly
 		llmParams.Set("name", jsonutils.NewString(instanceName))
 		llmParams.Remove("generate_name")
 
-		// Use DBModelDispatcher.Create — the full framework flow:
-		// ValidateCreateData → CustomizeCreate → Insert → PostCreate → OnCreateComplete
 		_, err := handler.Create(createCtx, jsonutils.NewDict(), llmParams, nil)
 		if err != nil {
 			log.Errorf("reconcile: scale up instance %s failed: %s", instanceName, err)
@@ -390,7 +607,10 @@ func scaleUp(ctx context.Context, userCred mcclient.TokenCredential, deployment 
 func buildDeploymentLLMCreateInput(deployment *models.SLLMDeployment, nets []*computeapi.NetworkConfig, imageId string, llmSpec *api.LLMSpec, preferHost string) api.LLMCreateInput {
 	return api.LLMCreateInput{
 		LLMBaseCreateInput: api.LLMBaseCreateInput{
-			AutoStart:  deployment.AutoStart,
+			// Deployments always boot their replicas; there is no deployment-level
+			// auto_start switch anymore. Distributed members override this to false
+			// and are started by the group task after the whole group exists.
+			AutoStart:  true,
 			Nets:       nets,
 			PreferHost: preferHost,
 		},
@@ -402,37 +622,62 @@ func buildDeploymentLLMCreateInput(deployment *models.SLLMDeployment, nets []*co
 	}
 }
 
-// scaleDown deletes `count` SLLM instances, preferring unhealthy ones.
-func scaleDown(ctx context.Context, userCred mcclient.TokenCredential, model *models.SLLMDeployment, instances []instanceInfo, count int) error {
-	// Sort: unhealthy/error/stopped first, then by name descending (newest first)
-	sort.Slice(instances, func(i, j int) bool {
-		pi := instancePriority(instances[i].Status)
-		pj := instancePriority(instances[j].Status)
-		if pi != pj {
-			return pi < pj // lower priority = delete first
+// scaleDown deletes `count` logical replica groups, preferring unhealthy ones.
+func scaleDown(ctx context.Context, userCred mcclient.TokenCredential, model *models.SLLMDeployment, groups []replicaGroupInfo, count int) error {
+	sort.Slice(groups, func(i, j int) bool {
+		if groups[i].Priority != groups[j].Priority {
+			return groups[i].Priority < groups[j].Priority
 		}
-		return instances[i].Name > instances[j].Name // newer name = delete first
+		// Distributed groups: delete the highest group index first. Comparing
+		// "g:10" vs "g:9" as strings would order them incorrectly.
+		if groups[i].Group >= 0 && groups[j].Group >= 0 && groups[i].Group != groups[j].Group {
+			return groups[i].Group > groups[j].Group
+		}
+		if groups[i].Group >= 0 && groups[j].Group < 0 {
+			return true
+		}
+		if groups[i].Group < 0 && groups[j].Group >= 0 {
+			return false
+		}
+		return groups[i].Key > groups[j].Key
 	})
 
-	deleted := 0
-	for i := 0; i < count && i < len(instances); i++ {
-		inst := instances[i]
-		llmObj, err := models.GetLLMManager().FetchById(inst.Id)
-		if err != nil {
-			log.Errorf("reconcile: fetch instance %s for deletion: %s", inst.Id, err)
-			continue
+	deletedGroups := 0
+	for i := 0; i < count && i < len(groups); i++ {
+		group := groups[i]
+		// Delete followers first, then leader / single member.
+		members := append([]instanceInfo(nil), group.Members...)
+		sort.SliceStable(members, func(a, b int) bool {
+			if members[a].DistRole == api.LLM_DIST_ROLE_FOLLOWER && members[b].DistRole != api.LLM_DIST_ROLE_FOLLOWER {
+				return true
+			}
+			if members[b].DistRole == api.LLM_DIST_ROLE_FOLLOWER && members[a].DistRole != api.LLM_DIST_ROLE_FOLLOWER {
+				return false
+			}
+			return members[a].DistRank > members[b].DistRank
+		})
+		groupDeleted := 0
+		for _, inst := range members {
+			llmObj, err := models.GetLLMManager().FetchById(inst.Id)
+			if err != nil {
+				log.Errorf("reconcile: fetch instance %s for deletion: %s", inst.Id, err)
+				continue
+			}
+			llm := llmObj.(*models.SLLM)
+			if err := llm.StartDeleteTask(ctx, userCred, ""); err != nil {
+				log.Errorf("reconcile: delete instance %s failed: %s", inst.Id, err)
+				continue
+			}
+			groupDeleted++
+			log.Infof("reconcile: deleting LLM instance %s (%s) for model %s scale-down", inst.Name, inst.Id, model.Name)
 		}
-		llm := llmObj.(*models.SLLM)
-		if err := llm.StartDeleteTask(ctx, userCred, ""); err != nil {
-			log.Errorf("reconcile: delete instance %s failed: %s", inst.Id, err)
-			continue
+		if groupDeleted > 0 {
+			deletedGroups++
 		}
-		deleted++
-		log.Infof("reconcile: deleting LLM instance %s (%s) for model %s scale-down", inst.Name, inst.Id, model.Name)
 	}
 
-	if deleted == 0 && count > 0 {
-		return fmt.Errorf("failed to delete any instance")
+	if deletedGroups == 0 && count > 0 {
+		return fmt.Errorf("failed to delete any replica group")
 	}
 	return nil
 }

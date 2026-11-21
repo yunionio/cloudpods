@@ -90,78 +90,82 @@ func (c *comfyui) GetContainerSpec(ctx context.Context, llm *models.SLLM, image 
 	appendContainerIsolatedDevices(&spec, llm, sku, devices)
 
 	// Volume Mounts, see: https://github.com/YanWenKun/ComfyUI-Docker?tab=readme-ov-file#quick-start---nvidia-gpu
-	diskIndex := 0
-	ctrVols := []*commonapi.ContainerVolumeMount{
-		{
-			Disk: &commonapi.ContainerVolumeMountDisk{
-				Index:        &diskIndex,
-				SubDirectory: api.LLM_COMFYUI_STORAGE_VOLUME_SUBDIR,
+	// Skipped when the SKU has no data disk; the container then keeps everything
+	// in its own filesystem.
+	if models.SkuHasDataDisk(sku) {
+		diskIndex := 0
+		ctrVols := []*commonapi.ContainerVolumeMount{
+			{
+				Disk: &commonapi.ContainerVolumeMountDisk{
+					Index:        &diskIndex,
+					SubDirectory: api.LLM_COMFYUI_STORAGE_VOLUME_SUBDIR,
+				},
+				Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+				MountPath: "/root",
 			},
-			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath: "/root",
-		},
-		{
-			Disk: &commonapi.ContainerVolumeMountDisk{
-				Index:        &diskIndex,
-				SubDirectory: api.LLM_COMFYUI_MODELS_VOLUME_SUBDIR,
-				PostOverlay:  postOverlays,
+			{
+				Disk: &commonapi.ContainerVolumeMountDisk{
+					Index:        &diskIndex,
+					SubDirectory: api.LLM_COMFYUI_MODELS_VOLUME_SUBDIR,
+					PostOverlay:  postOverlays,
+				},
+				Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+				MountPath:   api.LLM_COMFYUI_MODELS_PATH,
+				Propagation: commonapi.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
 			},
-			Type:        commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath:   api.LLM_COMFYUI_MODELS_PATH,
-			Propagation: commonapi.MOUNTPROPAGATION_PROPAGATION_HOST_TO_CONTAINER,
-		},
-		{
-			Disk: &commonapi.ContainerVolumeMountDisk{
-				Index:        &diskIndex,
-				SubDirectory: "storage-models/hf-hub",
+			{
+				Disk: &commonapi.ContainerVolumeMountDisk{
+					Index:        &diskIndex,
+					SubDirectory: "storage-models/hf-hub",
+				},
+				Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+				MountPath: "/root/.cache/huggingface/hub",
 			},
-			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath: "/root/.cache/huggingface/hub",
-		},
-		{
-			Disk: &commonapi.ContainerVolumeMountDisk{
-				Index:        &diskIndex,
-				SubDirectory: "storage-models/torch-hub",
+			{
+				Disk: &commonapi.ContainerVolumeMountDisk{
+					Index:        &diskIndex,
+					SubDirectory: "storage-models/torch-hub",
+				},
+				Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+				MountPath: "/root/.cache/torch/hub",
 			},
-			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath: "/root/.cache/torch/hub",
-		},
-		{
-			Disk: &commonapi.ContainerVolumeMountDisk{
-				Index:        &diskIndex,
-				SubDirectory: "storage-user/input",
+			{
+				Disk: &commonapi.ContainerVolumeMountDisk{
+					Index:        &diskIndex,
+					SubDirectory: "storage-user/input",
+				},
+				Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+				MountPath: path.Join(api.LLM_COMFYUI_BASE_PATH, "input"),
 			},
-			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath: path.Join(api.LLM_COMFYUI_BASE_PATH, "input"),
-		},
-		{
-			Disk: &commonapi.ContainerVolumeMountDisk{
-				Index:        &diskIndex,
-				SubDirectory: "storage-user/output",
+			{
+				Disk: &commonapi.ContainerVolumeMountDisk{
+					Index:        &diskIndex,
+					SubDirectory: "storage-user/output",
+				},
+				Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+				MountPath: path.Join(api.LLM_COMFYUI_BASE_PATH, "output"),
 			},
-			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath: path.Join(api.LLM_COMFYUI_BASE_PATH, "output"),
-		},
-		{
-			Disk: &commonapi.ContainerVolumeMountDisk{
-				Index:        &diskIndex,
-				SubDirectory: "storage-user/workflows",
+			{
+				Disk: &commonapi.ContainerVolumeMountDisk{
+					Index:        &diskIndex,
+					SubDirectory: "storage-user/workflows",
+				},
+				Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
+				MountPath: path.Join(api.LLM_COMFYUI_BASE_PATH, "user/default/workflows"),
 			},
-			Type:      commonapi.CONTAINER_VOLUME_MOUNT_TYPE_DISK,
-			MountPath: path.Join(api.LLM_COMFYUI_BASE_PATH, "user/default/workflows"),
-		},
+		}
+		spec.VolumeMounts = append(spec.VolumeMounts, ctrVols...)
 	}
-	spec.VolumeMounts = append(spec.VolumeMounts, ctrVols...)
 
 	return &computeapi.PodContainerCreateInput{
 		ContainerSpec: spec,
 	}
 }
 
-func (c *comfyui) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) []*computeapi.PodContainerCreateInput {
+func (c *comfyui) GetContainerSpecs(ctx context.Context, llm *models.SLLM, image *models.SLLMImage, sku *models.SLLMSku, props []string, devices []computeapi.SIsolatedDevice, diskId string) ([]*computeapi.PodContainerCreateInput, error) {
 	return []*computeapi.PodContainerCreateInput{
 		c.GetContainerSpec(ctx, llm, image, sku, props, devices, diskId),
-	}
+	}, nil
 }
 
 func (c *comfyui) GetLLMAccessUrlInfo(ctx context.Context, userCred mcclient.TokenCredential, llm *models.SLLM, input *models.LLMAccessInfoInput) (*api.LLMAccessUrlInfo, error) {
