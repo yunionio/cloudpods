@@ -4013,7 +4013,6 @@ func (net *SNetwork) PerformSwitchWire(
 	logclient.AddActionLogWithContext(ctx, net, logclient.ACT_UPDATE, diff, userCred, true)
 	db.OpsLog.LogEvent(net, db.ACT_UPDATE, diff, userCred)
 
-	// fix vmware hostnics wire
 	hns, err := HostnetworkManager.fetchHostnetworksByNetwork(net.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "HostnetworkManager.fetchHostnetworksByNetwork")
@@ -4023,11 +4022,6 @@ func (net *SNetwork) PerformSwitchWire(
 		nic, err := hns[i].GetNetInterface()
 		if err != nil {
 			return nil, errors.Wrap(err, "Hostnetwork.GetNetInterface")
-		}
-		log.Errorf("PerformSwitchWire: change wireId for nic %s for hostnetwork %s", jsonutils.Marshal(nic), jsonutils.Marshal(hns[i]))
-		if len(nic.Bridge) > 0 {
-			log.Warningf("PerformSwitchWire: non-empty wireId %s for hostnetwork %s", jsonutils.Marshal(nic), jsonutils.Marshal(hns[i]))
-			continue
 		}
 		if nic.WireId != wire.Id {
 			_, err := db.Update(nic, func() error {
