@@ -72,6 +72,42 @@ const (
 	LLM_LLM_STATUS_NO_CONTAINER = "no_container"
 )
 
+// Distributed inference roles on SLLM instances that belong to one logical replica.
+const (
+	LLM_DIST_ROLE_LEADER   = "leader"
+	LLM_DIST_ROLE_FOLLOWER = "follower"
+)
+
+// Fixed in-pod ports for multi-node inference (each pod has its own network namespace).
+const (
+	LLM_DIST_MASTER_PORT = 29500
+	LLM_DIST_DP_RPC_PORT = 29501
+	// LLM_DIST_PORT_STRIDE is the number of ports reserved per replica group so
+	// pods on the same pod network never collide.
+	LLM_DIST_PORT_STRIDE = 2
+)
+
+// LLM_INFERENCE_SHM_SIZE_MB is the /dev/shm size of vLLM/SGLang containers,
+// per the vLLM GPUDirect RDMA guidance (docs: --shm-size=16G). It is a tmpfs
+// limit that is allocated lazily, not a memory reservation.
+const LLM_INFERENCE_SHM_SIZE_MB = 16 * 1024
+
+// LLMDistMasterPort returns the in-pod PyTorch / SGLang master port of a replica group.
+func LLMDistMasterPort(group int) int {
+	if group <= 0 {
+		return LLM_DIST_MASTER_PORT
+	}
+	return LLM_DIST_MASTER_PORT + group*LLM_DIST_PORT_STRIDE
+}
+
+// LLMDistDPRPCPort returns the in-pod vLLM DP RPC port of a replica group.
+func LLMDistDPRPCPort(group int) int {
+	if group <= 0 {
+		return LLM_DIST_DP_RPC_PORT
+	}
+	return LLM_DIST_DP_RPC_PORT + group*LLM_DIST_PORT_STRIDE
+}
+
 type TQuickModelMethod string
 
 const (

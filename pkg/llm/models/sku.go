@@ -74,9 +74,8 @@ func (man *SLLMSkuBaseManager) ValidateCreateData(ctx context.Context, userCred 
 	if input.Memory <= 0 {
 		return input, errors.Wrap(httperrors.ErrInputParameter, "mem must > 0")
 	}
-	if input.Volumes == nil {
-		return input, errors.Wrap(httperrors.ErrInputParameter, "volumes cannot be empty")
-	}
+	// A data disk is optional at the base layer; the concrete llm type decides
+	// whether it is required (see SLLMSkuManager.ValidateCreateData).
 
 	if err := normalizeLLMSkuDevices(input.Devices); err != nil {
 		return input, err
@@ -230,9 +229,38 @@ func (skuBase *SLLMSkuBase) ValidateUpdateData(ctx context.Context, userCred mcc
 		return input, errors.Wrap(err, "validate SharableVirtualResourceBaseUpdateInput")
 	}
 
+	// Data disks are optional for most llm types, so the client may explicitly
+	// clear them by sending an empty volumes array. When volumes are absent the
+	// stored ones are rebuilt with the legacy disk_size / storage_type
+	// overrides. Provided entries are merged onto the stored volume at the same
+	// index so callers that only send {"size_mb": ...} keep storage_type,
+	// template_id and the container mount relations.
 	volumes := []api.Volume{}
-	if err := jsonutils.Marshal(skuBase.Volumes).Unmarshal(&volumes); err != nil {
+	if input.Volumes != nil {
+		dbVolumes := []api.Volume{}
+		if err := jsonutils.Marshal(skuBase.Volumes).Unmarshal(&dbVolumes); err != nil {
+			return input, errors.Wrapf(err, "Unmarshal Volumes")
+		}
+		for i, volume := range *input.Volumes {
+			if i < len(dbVolumes) {
+				if volume.StorageType == "" {
+					volume.StorageType = dbVolumes[i].StorageType
+				}
+				if volume.TemplateId == "" {
+					volume.TemplateId = dbVolumes[i].TemplateId
+				}
+				if len(volume.Containers) == 0 {
+					volume.Containers = dbVolumes[i].Containers
+				}
+			}
+			volumes = append(volumes, volume)
+		}
+	} else if err := jsonutils.Marshal(skuBase.Volumes).Unmarshal(&volumes); err != nil {
 		return input, errors.Wrapf(err, "Unmarshal Volumes")
+	}
+	if len(volumes) == 0 && input.DiskSizeMB != nil && *input.DiskSizeMB > 0 {
+		// Adding a data disk to a previously diskless SKU.
+		volumes = append(volumes, api.Volume{SizeMB: *input.DiskSizeMB})
 	}
 	for i, volume := range volumes {
 		if input.DiskSizeMB != nil && *input.DiskSizeMB > 0 {
@@ -264,4 +292,9 @@ func (skuBase *SLLMSkuBase) ValidateUpdateData(ctx context.Context, userCred mcc
 	}
 
 	return input, nil
+}
+
+// SkuHasDataDisk reports whether the SKU requests a data disk. Nil-safe.
+func SkuHasDataDisk(sku *SLLMSku) bool {
+	return sku != nil && sku.Volumes != nil && !sku.Volumes.IsZero()
 }

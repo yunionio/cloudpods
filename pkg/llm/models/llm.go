@@ -89,6 +89,18 @@ type SLLM struct {
 
 	// LLMSpec overrides/extends sku LLMSpec when building container; merged with sku.LLMSpec (llm priority).
 	LLMSpec *api.LLMSpec `json:"llm_spec,omitempty" length:"long" list:"user" create:"optional" update:"user"`
+
+	// Distributed inference: empty DistRole means a normal single-pod replica.
+	DistRole       string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	DistRank       int    `nullable:"false" default:"0" list:"user" create:"optional"`
+	DistNnodes     int    `nullable:"false" default:"0" list:"user" create:"optional"`
+	DistLeaderId   string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" index:"true"`
+	DistGroup      int    `nullable:"false" default:"0" list:"user" create:"optional" index:"true"`
+	DistMasterAddr string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// DistMasterPort / DistDPRPCPort are the leader host's mapped ports used by
+	// followers on a hostlocal network (0 = use the in-pod port of DistGroup).
+	DistMasterPort int `nullable:"false" default:"0" list:"user" create:"optional"`
+	DistDPRPCPort  int `nullable:"false" default:"0" list:"user" create:"optional"`
 }
 
 // CustomizeCreate saves Dify customized envs from create input when present.
@@ -251,7 +263,88 @@ func (man *SLLMManager) ValidateCreateData(ctx context.Context, userCred mcclien
 		return input, err
 	}
 
+	if err := validateDistributedMemberCreateInput(input); err != nil {
+		return input, err
+	}
+	if err := validateDistributedMemberWritePermission(userCred, input); err != nil {
+		return input, err
+	}
+
 	return input, nil
+}
+
+// validateDistributedMemberWritePermission keeps dist_* membership fields
+// internal. A caller may only supply them while attaching to a deployment (the
+// group-create task always does) or as a system administrator. This stops a
+// regular user from fabricating a leader/follower that reconcile would mistake
+// for a real replica member.
+func validateDistributedMemberWritePermission(userCred mcclient.TokenCredential, input *api.LLMCreateInput) error {
+	if input == nil {
+		return nil
+	}
+	hasDist := input.DistRole != "" || input.DistRank != 0 || input.DistNnodes != 0 ||
+		input.DistLeaderId != "" || input.DistGroup != 0 || input.DistMasterAddr != "" ||
+		input.DistMasterPort != 0 || input.DistDPRPCPort != 0
+	if !hasDist {
+		return nil
+	}
+	if input.LLMDeploymentId != "" {
+		return nil
+	}
+	if userCred != nil && userCred.HasSystemAdminPrivilege() {
+		return nil
+	}
+	return httperrors.NewForbiddenError("dist_* fields are managed by the deployment task")
+}
+
+// validateDistributedMemberCreateInput enforces internal consistency for the
+// distributed membership fields. These are written by the deployment tasks;
+// a user-supplied combination must at least be structurally valid.
+func validateDistributedMemberCreateInput(input *api.LLMCreateInput) error {
+	if input == nil {
+		return nil
+	}
+	switch input.DistRole {
+	case "":
+		if input.DistRank != 0 || input.DistNnodes != 0 || input.DistLeaderId != "" ||
+			input.DistMasterPort != 0 || input.DistDPRPCPort != 0 {
+			return httperrors.NewInputParameterError("dist_rank, dist_nnodes, dist_leader_id and dist_master_port/dist_dp_rpc_port require dist_role")
+		}
+	case api.LLM_DIST_ROLE_LEADER:
+		if input.DistRank != 0 {
+			return httperrors.NewInputParameterError("distributed leader must have dist_rank 0")
+		}
+		if input.DistNnodes < 2 {
+			return httperrors.NewInputParameterError("distributed leader requires dist_nnodes >= 2")
+		}
+		if input.DistLeaderId != "" {
+			return httperrors.NewInputParameterError("distributed leader must not set dist_leader_id")
+		}
+		if input.DistGroup < 0 {
+			return httperrors.NewInputParameterError("dist_group must be >= 0")
+		}
+		// The leader binds the in-pod ports; host-mapped ports are only for
+		// followers reaching it.
+		if input.DistMasterPort != 0 || input.DistDPRPCPort != 0 {
+			return httperrors.NewInputParameterError("distributed leader must not set dist_master_port/dist_dp_rpc_port")
+		}
+	case api.LLM_DIST_ROLE_FOLLOWER:
+		if input.DistRank <= 0 {
+			return httperrors.NewInputParameterError("distributed follower must have dist_rank > 0")
+		}
+		if input.DistNnodes < 2 || input.DistRank >= input.DistNnodes {
+			return httperrors.NewInputParameterError("distributed follower rank must be within [1, dist_nnodes)")
+		}
+		if input.DistLeaderId == "" {
+			return httperrors.NewInputParameterError("distributed follower requires dist_leader_id")
+		}
+		if input.DistGroup < 0 {
+			return httperrors.NewInputParameterError("dist_group must be >= 0")
+		}
+	default:
+		return httperrors.NewInputParameterError("invalid dist_role %q", input.DistRole)
+	}
+	return nil
 }
 
 func (man *SLLMManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.LLMCreateInput) (*jsonutils.JSONDict, error) {
@@ -310,6 +403,15 @@ func (man *SLLMManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, 
 		}
 		q = q.Equals("llm_deployment_id", modelObj.GetId())
 	}
+	if input.LLMDeploymentId != "" {
+		q = q.Equals("llm_deployment_id", input.LLMDeploymentId)
+	}
+	if input.DistRole != "" {
+		q = q.Equals("dist_role", input.DistRole)
+	}
+	if input.DistGroup != nil {
+		q = q.Equals("dist_group", *input.DistGroup)
+	}
 
 	return q, nil
 }
@@ -349,6 +451,15 @@ func (man *SLLMManager) FetchCustomizeColumns(
 		res[idx].MountedModelInfos = mountedModelInfo
 		res[idx].NetworkType = llm.NetworkType
 		res[idx].NetworkId = llm.NetworkId
+		res[idx].LLMDeploymentId = llm.LLMDeploymentId
+		res[idx].DistRole = llm.DistRole
+		res[idx].DistRank = llm.DistRank
+		res[idx].DistNnodes = llm.DistNnodes
+		res[idx].DistLeaderId = llm.DistLeaderId
+		res[idx].DistGroup = llm.DistGroup
+		res[idx].DistMasterAddr = llm.DistMasterAddr
+		res[idx].DistMasterPort = llm.DistMasterPort
+		res[idx].DistDPRPCPort = llm.DistDPRPCPort
 	}
 
 	// fetch volume
@@ -572,7 +683,7 @@ func (llm *SLLM) SetStatus(ctx context.Context, userCred mcclient.TokenCredentia
 	// Restart/stop must not delete aiproxy routing or providers; catalog is
 	// removed only on deployment delete or manual unregister. Reconcile on
 	// running upserts the same routing/provider IDs (e.g. new pod URL).
-	if dep.AutoRegisterAiproxy && status == api.LLM_STATUS_RUNNING {
+	if dep.AutoRegisterAiproxy && status == api.LLM_STATUS_RUNNING && llm.ShouldRegisterAiproxy() {
 		if err := dep.StartAiproxySyncTask(ctx, userCred, llm.Id, ""); err != nil {
 			log.Warningf("SLLM.SetStatus: start aiproxy sync for llm %s: %v", llm.Id, err)
 		}
@@ -754,24 +865,46 @@ func (llm *SLLM) ServerCreate(ctx context.Context, userCred mcclient.TokenCreden
 	return id, nil
 }
 
+// rejectDistributedMemberLifecycle blocks per-instance lifecycle actions on
+// members of a multi-host replica. vLLM/SGLang ranks must start, stop and
+// restart together, so only the deployment-level action is safe.
+func (llm *SLLM) rejectDistributedMemberLifecycle(action string) error {
+	if llm == nil || !llm.IsDistributedMember() {
+		return nil
+	}
+	return httperrors.NewConflictError(
+		"llm %s is a member of distributed replica group %d; perform %s on the llm deployment instead",
+		llm.Name, llm.DistGroup, action)
+}
+
 func (llm *SLLM) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if err := llm.rejectDistributedMemberLifecycle("start"); err != nil {
+		return nil, err
+	}
 	// can't start while it's already running
 	if utils.IsInStringArray(llm.Status, computeapi.VM_RUNNING_STATUS) {
 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "llm id: %s status: %s", llm.Id, llm.Status)
 	}
 
-	_, err := llm.GetVolume()
-	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
+	if _, err := llm.GetVolume(); err != nil {
+		if errors.Cause(err) != errors.ErrNotFound {
+			return nil, errors.Wrap(err, "GetVolume")
+		}
+		// Diskless instances are fine; only SKUs that request a data disk
+		// require the volume to exist.
+		sku, skuErr := llm.GetLLMSku(llm.LLMSkuId)
+		if skuErr != nil {
+			return nil, errors.Wrap(skuErr, "GetLLMSku")
+		}
+		if SkuHasDataDisk(sku) {
 			return nil, errors.Wrapf(errors.ErrNotSupported, "llm id: %s missing volume", llm.Id)
 		}
-		return nil, errors.Wrap(err, "GetVolume")
 	}
 	taskinput := &api.LLMRestartTaskInput{
 		LLMId:     llm.Id,
 		LLMStatus: api.LLM_STATUS_READY,
 	}
-	_, err = llm.StartRestartTask(ctx, userCred, taskinput, "")
+	_, err := llm.StartRestartTask(ctx, userCred, taskinput, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "StartRestartTask")
 	}
@@ -796,6 +929,9 @@ func (llm *SLLM) StartStartTask(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (llm *SLLM) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if err := llm.rejectDistributedMemberLifecycle("stop"); err != nil {
+		return nil, err
+	}
 	if llm.Status == computeapi.VM_READY {
 		return nil, errors.Wrapf(errors.ErrInvalidStatus, "llm id: %s status: %s", llm.Id, llm.Status)
 	}
@@ -838,6 +974,9 @@ func (llm *SLLM) ValidateRestartInput(ctx context.Context, userCred mcclient.Tok
 }
 
 func (llm *SLLM) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.LLMRestartInput) (jsonutils.JSONObject, error) {
+	if err := llm.rejectDistributedMemberLifecycle("restart"); err != nil {
+		return nil, err
+	}
 	taskInput, err := llm.ValidateRestartInput(ctx, userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "ValidateRestartInput")
@@ -871,6 +1010,9 @@ func (llm *SLLM) StartRestartTask(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (llm *SLLM) PerformReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.LLMRestartInput) (jsonutils.JSONObject, error) {
+	if err := llm.rejectDistributedMemberLifecycle("reset"); err != nil {
+		return nil, err
+	}
 	taskInput, err := llm.ValidateRestartInput(ctx, userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "ValidateRestartInput")
@@ -927,6 +1069,9 @@ func (llm *SLLM) StartLLMStopTask(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (llm *SLLM) ValidateDeleteCondition(ctx context.Context, info jsonutils.JSONObject) error {
+	if err := llm.rejectDistributedMemberLifecycle("delete"); err != nil {
+		return err
+	}
 	if err := llm.SLLMBase.ValidateDeleteCondition(ctx, info); err != nil {
 		return err
 	}
