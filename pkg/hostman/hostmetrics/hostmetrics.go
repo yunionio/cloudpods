@@ -723,7 +723,7 @@ func NewGuestPodMonitor(
 				mthreadsAddrs = append(mthreadsAddrs, dev.Addr)
 			}
 		}
-		if !utils.IsInStringArray(dev.SharingMode, compute.VIRTUAL_SHARING_MODES) {
+		if !utils.IsInStringArray(dev.SharingMode, compute.VAILD_SHARING_MODES) {
 			continue
 		}
 		switch vendorId {
