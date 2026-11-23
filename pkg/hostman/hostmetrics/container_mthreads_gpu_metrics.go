@@ -15,7 +15,6 @@
 package hostmetrics
 
 import (
-	"sort"
 	"strconv"
 	"strings"
 
@@ -31,7 +30,7 @@ type MthreadsGpuProc struct {
 	Index   int
 	Pid     string
 	MemMiB  float64
-	MemUtil float64 // fraction, 0 to 1
+	MemUtil float64 // percent, 0 to 100
 	GpuUtil float64 // percent, 0 to 100
 }
 
@@ -78,8 +77,8 @@ func parseMthreadsProcessMonitor(output string) []MthreadsGpuProc {
 		out = append(out, MthreadsGpuProc{
 			Index:   idx,
 			Pid:     pid,
-			MemUtil: parseMthreadsMemPercent(fields[2]),
-			GpuUtil: parseMthreadsGpuPercent(fields[3]),
+			MemUtil: parseMthreadsPercent(fields[2]),
+			GpuUtil: parseMthreadsPercent(fields[3]),
 		})
 	}
 	return out
@@ -115,14 +114,6 @@ func parseMthreadsProcessMemory(output string) []MthreadsGpuProc {
 		})
 	}
 	return out
-}
-
-func parseMthreadsMemPercent(raw string) float64 {
-	return parseMthreadsPercent(raw) / 100
-}
-
-func parseMthreadsGpuPercent(raw string) float64 {
-	return parseMthreadsPercent(raw)
 }
 
 func parseMthreadsPercent(raw string) float64 {
@@ -193,51 +184,24 @@ func selectMthreadsGpuProcs(procs []MthreadsGpuProc, podProcs map[string]struct{
 }
 
 func (m *SGuestMonitor) getPodMthreadsGpuMetrics() []*PodMthreadsGpuMetrics {
-	if len(m.mthreadsGpuMetrics) == 0 {
-		return nil
-	}
-	type acc struct {
-		mem     float64
-		memUtil float64
-		gpuUtil float64
-	}
-	by := map[int]*acc{}
-	for _, p := range m.mthreadsGpuMetrics {
-		a := by[p.Index]
-		if a == nil {
-			a = &acc{}
-			by[p.Index] = a
-		}
-		a.mem += p.MemMiB
-		a.memUtil += p.MemUtil
-		if p.GpuUtil > a.gpuUtil {
-			a.gpuUtil = p.GpuUtil
-		}
-	}
-	indexes := make([]int, 0, len(by))
-	for idx := range by {
-		indexes = append(indexes, idx)
-	}
-	sort.Ints(indexes)
-	res := make([]*PodMthreadsGpuMetrics, 0, len(indexes))
-	for _, idx := range indexes {
-		a := by[idx]
-		memUtil := a.memUtil
-		if memUtil > 1 {
-			memUtil = 1
-		}
-		gpuUtil := a.gpuUtil
-		if gpuUtil > 100 {
-			gpuUtil = 100
-		}
-		res = append(res, &PodMthreadsGpuMetrics{
-			Index:   idx,
-			Mem:     a.mem,
-			MemUtil: memUtil,
-			GpuUtil: gpuUtil,
-		})
-	}
-	return res
+	return aggregatePodGpuMetrics(m.mthreadsGpuMetrics,
+		func(p MthreadsGpuProc) int { return p.Index },
+		func() *PodMthreadsGpuMetrics { return new(PodMthreadsGpuMetrics) },
+		func(gms *PodMthreadsGpuMetrics, p MthreadsGpuProc) {
+			gms.Index = p.Index
+			gms.Mem += p.MemMiB
+			gms.MemUtil += p.MemUtil
+			if gms.MemUtil > 100 {
+				gms.MemUtil = 100
+			}
+			if p.GpuUtil > gms.GpuUtil {
+				gms.GpuUtil = p.GpuUtil
+			}
+			if gms.GpuUtil > 100 {
+				gms.GpuUtil = 100
+			}
+		},
+	)
 }
 
 type PodMthreadsGpuMetrics struct {
@@ -245,7 +209,7 @@ type PodMthreadsGpuMetrics struct {
 
 	Index   int
 	Mem     float64
-	MemUtil float64
+	MemUtil float64 // percent, 0 to 100
 	GpuUtil float64
 }
 
