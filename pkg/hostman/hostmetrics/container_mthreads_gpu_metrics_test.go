@@ -30,7 +30,7 @@ func TestParseMthreadsProcessMonitor(t *testing.T) {
 		t.Fatalf("rows=%d, want 7", len(got))
 	}
 	worker := got[2]
-	if worker.Index != 0 || worker.Pid != "1306725" || worker.MemUtil != 0.10 || worker.GpuUtil != 100 {
+	if worker.Index != 0 || worker.Pid != "1306725" || worker.MemUtil != 10 || worker.GpuUtil != 100 {
 		t.Fatalf("worker=%+v", worker)
 	}
 	if got[0].MemUtil != 0 || got[0].GpuUtil != 0 {
@@ -76,11 +76,11 @@ func TestAggregateMthreadsPodGpu(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("gpus=%d, want 1", len(got))
 	}
-	if got[0].Index != 0 || got[0].Mem != 8830 || got[0].MemUtil != 0.10 || got[0].GpuUtil != 100 {
+	if got[0].Index != 0 || got[0].Mem != 8830 || got[0].MemUtil != 10 || got[0].GpuUtil != 100 {
 		t.Fatalf("metric=%+v", got[0])
 	}
 	fields := got[0].ToMap()
-	if fields[MTHREADS_GPU_MEM] != 8830.0 || fields[MTHREADS_GPU_MEM_UTIL] != 0.10 || fields[MTHREADS_GPU_GPU_UTIL] != 100.0 {
+	if fields[MTHREADS_GPU_MEM] != 8830.0 || fields[MTHREADS_GPU_MEM_UTIL] != 10.0 || fields[MTHREADS_GPU_GPU_UTIL] != 100.0 {
 		t.Fatalf("fields=%v", fields)
 	}
 	if got[0].GetUniformName() != "pod_gpu" {
@@ -90,11 +90,11 @@ func TestAggregateMthreadsPodGpu(t *testing.T) {
 
 func TestAggregateMthreadsMemUtilCapAndGpuMax(t *testing.T) {
 	m := &SGuestMonitor{mthreadsGpuMetrics: []MthreadsGpuProc{
-		{Index: 0, Pid: "1", MemMiB: 100, MemUtil: 0.6, GpuUtil: 20},
-		{Index: 0, Pid: "2", MemMiB: 50, MemUtil: 0.6, GpuUtil: 90},
+		{Index: 0, Pid: "1", MemMiB: 100, MemUtil: 60, GpuUtil: 20},
+		{Index: 0, Pid: "2", MemMiB: 50, MemUtil: 60, GpuUtil: 90},
 	}}
 	got := m.getPodMthreadsGpuMetrics()
-	if len(got) != 1 || got[0].Mem != 150 || got[0].MemUtil != 1 || got[0].GpuUtil != 90 {
+	if len(got) != 1 || got[0].Mem != 150 || got[0].MemUtil != 100 || got[0].GpuUtil != 90 {
 		t.Fatalf("metric=%+v", got)
 	}
 }
