@@ -1702,25 +1702,22 @@ func wmquery(manager db.IModelManager, uniqField, field string, wireIds []string
 
 	return sq.Query(
 		sq.Field("wire_id"),
-		sqlchemy.COUNT(field),
+		sqlchemy.COUNT(field, sq.Field(uniqField)),
 	).In("wire_id", wireIds).GroupBy(sq.Field("wire_id")).SubQuery()
 }
 
 func (manager *SWireManager) TotalResourceCount(wireIds []string) (map[string]api.WireUsage, error) {
-	// network
 	networkSQ := wmquery(NetworkManager, "id", "network_cnt", wireIds, nil)
 	hostSQ := wmquery(NetInterfaceManager, "baremetal_id", "host_cnt", wireIds, nil)
 
-	wires := manager.Query().SubQuery()
-	wireQ := wires.Query(
+	wireQ := manager.Query("id")
+	wireQ = wireQ.LeftJoin(networkSQ, sqlchemy.Equals(wireQ.Field("id"), networkSQ.Field("wire_id")))
+	wireQ = wireQ.LeftJoin(hostSQ, sqlchemy.Equals(wireQ.Field("id"), hostSQ.Field("wire_id")))
+
+	wireQ = wireQ.AppendField(
 		sqlchemy.SUM("networks", networkSQ.Field("network_cnt")),
 		sqlchemy.SUM("host_count", hostSQ.Field("host_cnt")),
 	)
-
-	wireQ.AppendField(wireQ.Field("id"))
-
-	wireQ = wireQ.LeftJoin(networkSQ, sqlchemy.Equals(wireQ.Field("id"), networkSQ.Field("wire_id")))
-	wireQ = wireQ.LeftJoin(hostSQ, sqlchemy.Equals(wireQ.Field("id"), hostSQ.Field("wire_id")))
 
 	wireQ = wireQ.Filter(sqlchemy.In(wireQ.Field("id"), wireIds)).GroupBy(wireQ.Field("id"))
 
