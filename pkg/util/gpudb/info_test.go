@@ -42,6 +42,7 @@ func TestGetGPUInfoRequiresVendorID(t *testing.T) {
 		{"10DE", "20B2", "A100-SXM4-80GB"},
 		{"19e5", "d500", "Atlas 300I Duo"},
 		{"1d94", "6210", "K100_AI"},
+		{"1d94", "6320", "BW1000"},
 		{"cabc", "0370", "MLU370-S8"},
 		{"1e36", "c035", "S60"},
 		{"9999", "4001", "曦云C500"},
