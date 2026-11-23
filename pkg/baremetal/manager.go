@@ -862,11 +862,8 @@ func (b *SBaremetalInstance) SyncStatusBackground() {
 	}()
 }
 
-func (b *SBaremetalInstance) InitializeServer(s *mcclient.ClientSession, name string) error {
-	params := jsonutils.NewDict()
-	params.Set("name", jsonutils.NewString(name))
-	_, err := modules.Hosts.PerformAction(s, b.GetId(), "initialize", params)
-	return err
+func (b *SBaremetalInstance) InitializeServer(s *mcclient.ClientSession, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	return modules.Hosts.PerformAction(s, b.GetId(), "initialize", params)
 }
 
 func (b *SBaremetalInstance) ServerLoadDesc(ctx context.Context) error {

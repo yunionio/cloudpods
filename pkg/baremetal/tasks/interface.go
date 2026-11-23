@@ -68,7 +68,7 @@ type IBaremetal interface {
 	GetImageUrl(needImageCache bool) string
 
 	RemoveServer()
-	InitializeServer(session *mcclient.ClientSession, name string) error
+	InitializeServer(session *mcclient.ClientSession, params *jsonutils.JSONDict) (jsonutils.JSONObject, error)
 	SaveSSHConfig(remoteAddr string, key string) error
 	ServerLoadDesc(ctx context.Context) error
 	GetDHCPServerIP() (net.IP, error)
