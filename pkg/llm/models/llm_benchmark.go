@@ -1827,16 +1827,39 @@ func (b *SLLMBenchmark) RealDelete(ctx context.Context, userCred mcclient.TokenC
 	return b.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
+func benchmarkRetestCreateInput(b *SLLMBenchmark) (*api.LLMBenchmarkCreateInput, error) {
+	createInput := benchmarkCreateInputFromModel(b)
+	createInput.BenchmarkImage = b.LLMImageId
+	createInput.BenchmarkPackage = b.BenchmarkPackageId
+	if b.IsExternal() {
+		createInput.LLMId = ""
+		createInput.LLMDeploymentId = ""
+		plain, err := openBenchmarkAPIKey(b.Id, createInput.ApiKey)
+		if err != nil {
+			return nil, err
+		}
+		createInput.ApiKey = plain
+		return createInput, nil
+	}
+	// TargetUrl on an internal benchmark is the resolved access URL, not a create input.
+	createInput.TargetUrl = ""
+	createInput.ApiKey = ""
+	createInput.Tokenizer = ""
+	createInput.NetworkId = ""
+	if createInput.LLMDeploymentId != "" {
+		createInput.LLMId = ""
+	}
+	return createInput, nil
+}
+
 func (b *SLLMBenchmark) PerformRetest(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.LLMBenchmarkRetestInput) (jsonutils.JSONObject, error) {
 	if err := validateBenchmarkMutableState(b.State); err != nil {
 		return nil, err
 	}
 
-	createInput := benchmarkCreateInputFromModel(b)
-	createInput.BenchmarkImage = b.LLMImageId
-	createInput.BenchmarkPackage = b.BenchmarkPackageId
-	if b.LLMDeploymentId != "" {
-		createInput.LLMId = ""
+	createInput, err := benchmarkRetestCreateInput(b)
+	if err != nil {
+		return nil, err
 	}
 	prepared, err := prepareLLMBenchmarkCreateInput(ctx, userCred, b.GetOwnerId(), createInput)
 	if err != nil {
