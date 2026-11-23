@@ -23,9 +23,15 @@ var hygonVendorInfo = SGPUVendorInfo{
 }
 
 var hygonDCU = SGPUGenInfo{
+	SGPUVendorInfo:      hygonVendorInfo,
+	Arch:                "DCU",
+	ComputeCap:          "gfx928",
+	MatrixPeakPrecision: "int8",
+}
+
+var hygonBW = SGPUGenInfo{
 	SGPUVendorInfo: hygonVendorInfo,
 	Arch:           "DCU",
-	ComputeCap:     "gfx928",
 }
 
 var hygonGPUInfos = []SGPUInfo{
@@ -35,7 +41,22 @@ var hygonGPUInfos = []SGPUInfo{
 		Name:        "K100_AI", Chip: "KONGMING",
 		ChipsOnDevice: 1,
 		ComputeBlock:  120,
-		MemorySizeGB:  64,
-		TdpW:          400, FormFactor: "PCIe",
+		MemorySizeGB:  64, MemoryType: "GDDR6", MemoryBusBit: 512,
+		BandwidthGBs: 896,
+		Fp32Tflops:   24.5, PeakVectorTflops: 24.5,
+		Tf32Tflops: 98,
+		Fp16Tflops: 196, Bf16Tflops: 196,
+		Int8Tops: 392, PeakMatrixTops: 392,
+		TdpW: 400, FormFactor: "PCIe", PcieGen: "4.0", PcieLanes: 16,
+	},
+	{
+		SGPUGenInfo: hygonBW,
+		DeviceId:    "6320",
+		Name:        "BW1000", Chip: "BW",
+		ChipsOnDevice: 1,
+		MemorySizeGB:  64, MemoryType: "HBM", MemoryBusBit: 512,
+		BandwidthGBs: 1800,
+		Fp16Tflops:   480, Bf16Tflops: 480,
+		TdpW: 1000, FormFactor: "PCIe", PcieGen: "5.0", PcieLanes: 16,
 	},
 }
