@@ -100,6 +100,14 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 		if err := data.Unmarshal(&deployInfo); err != nil {
 			log.Errorf("unmarshal SDeployGuestFsResponse: %v", err)
 		}
+	} else if jsonutils.QueryBoolean(self.Params, "fake_create_from_bm_import", false) {
+		host, _ := guest.GetHost()
+		osInfo := host.GetMetadataJson(ctx, api.HOST_METADATA_BM_REGISTER_OS_INFO, self.UserCred)
+		if osInfo != nil {
+			if err := osInfo.Unmarshal(&deployInfo); err != nil {
+				log.Errorf("unmarshal SDeployGuestFsResponse: %v", err)
+			}
+		}
 	}
 	drv.OnGuestDeployTaskDataReceived(ctx, guest, self, deployInfo)
 	action, _ := self.Params.GetString("deploy_action")
