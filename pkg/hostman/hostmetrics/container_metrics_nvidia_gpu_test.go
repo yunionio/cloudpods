@@ -114,8 +114,8 @@ func TestGetPodNvidiaGpuMetricsProcessPlusIdleAssigned(t *testing.T) {
 	if got[0].Mem != 1024 {
 		t.Errorf("gpu0 Mem=%d, want 1024", got[0].Mem)
 	}
-	if got[0].MemUtil != 1024.0/8192.0 {
-		t.Errorf("gpu0 MemUtil=%v, want %v", got[0].MemUtil, 1024.0/8192.0)
+	if got[0].MemUtil != 1024.0/8192.0*100 {
+		t.Errorf("gpu0 MemUtil=%v, want %v", got[0].MemUtil, 1024.0/8192.0*100)
 	}
 	if got[1].PhysicalIndex != 1 || got[1].Index != 1 {
 		t.Errorf("gpu1 PhysicalIndex=%d Index=%d, want 1, 1", got[1].PhysicalIndex, got[1].Index)
@@ -145,8 +145,8 @@ func TestGetPodNvidiaGpuMetricsHamiSliceUtil(t *testing.T) {
 	if got[0].Mem != 8192 {
 		t.Errorf("Mem=%d, want 8192", got[0].Mem)
 	}
-	if got[0].MemUtil != 1 {
-		t.Errorf("MemUtil=%v, want 1", got[0].MemUtil)
+	if got[0].MemUtil != 100 {
+		t.Errorf("MemUtil=%v, want 100", got[0].MemUtil)
 	}
 	if got[0].PhysicalIndex != 0 {
 		t.Errorf("PhysicalIndex=%d, want 0", got[0].PhysicalIndex)
@@ -161,12 +161,12 @@ func TestGetPodNvidiaGpuMetricsNilWithoutAssignedOrProcess(t *testing.T) {
 }
 
 func TestPodNvidiaGpuMetricsToMapIncludesMem(t *testing.T) {
-	m := PodNvidiaGpuMetrics{Mem: 512, MemUtil: 0.25, MemTotal: 2048}
+	m := PodNvidiaGpuMetrics{Mem: 512, MemUtil: 25, MemTotal: 2048}
 	got := m.ToMap()
 	if got[NVIDIA_GPU_MEM] != 512 {
 		t.Errorf("mem=%v, want 512", got[NVIDIA_GPU_MEM])
 	}
-	if got[NVIDIA_GPU_MEM_UTIL] != 0.25 {
-		t.Errorf("mem_util=%v, want 0.25", got[NVIDIA_GPU_MEM_UTIL])
+	if got[NVIDIA_GPU_MEM_UTIL] != 25.0 {
+		t.Errorf("mem_util=%v, want 25", got[NVIDIA_GPU_MEM_UTIL])
 	}
 }
