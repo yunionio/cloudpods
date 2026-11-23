@@ -27,7 +27,11 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/sshpart"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
@@ -306,13 +310,44 @@ func (s *sBaremetalRegisterTask) updateBmInfo(ctx context.Context, cli *ssh.Clie
 		s.baremetal.SyncStatus(ctx, "running", "Register update info success")
 		return nil
 	}
-	return s.initBaremetalServer(ctx)
+	return s.initBaremetalServer(ctx, cli)
 }
 
-func (s *sBaremetalRegisterTask) initBaremetalServer(ctx context.Context) error {
-	if err := s.baremetal.InitializeServer(s.getSession(), s.Hostname); err != nil {
-		return fmt.Errorf("Baremteal Create Server Failed %s", err)
+func (s *sBaremetalRegisterTask) initBaremetalServer(ctx context.Context, cli *ssh.Client) error {
+	params := jsonutils.NewDict()
+	params.Set("name", jsonutils.NewString(s.Hostname))
+
+	consts.SetAllowVmSELinux(true)
+	sshPart := sshpart.NewSSHPartition(cli, "", false)
+	sshPart.SetMountPath("/hostfs")
+
+	fsDriver, err := guestfs.DetectRootFs(sshPart)
+	if err != nil {
+		log.Errorf("detectRootFs failed %s", err)
+	} else {
+		osType := fsDriver.GetOs()
+		relInfo := fsDriver.GetReleaseInfo(fsDriver.GetPartition())
+		params.Set("os", jsonutils.NewString(osType))
+		params.Update(jsonutils.Marshal(relInfo))
 	}
+
+	if data, err := s.baremetal.InitializeServer(s.getSession(), params); err != nil {
+		return fmt.Errorf("Baremteal Create Server Failed %s", err)
+	} else {
+		adminPubKey, _ := data.GetString("admin_public_key")
+		projPubKey, _ := data.GetString("project_public_key")
+		pubkeys := &deployapi.SSHKeys{
+			AdminPublicKey:   adminPubKey,
+			ProjectPublicKey: projPubKey,
+		}
+		if adminPubKey != "" || projPubKey != "" {
+			err = fsDriver.DeployYunionroot(fsDriver.GetPartition(), pubkeys, false, false)
+			if err != nil {
+				log.Errorf("DeployYunionroot failed %s", err)
+			}
+		}
+	}
+
 	// if err := s.baremetal.SaveSSHConfig("", ""); err != nil {
 	// 	log.Errorf("Save ssh config failed %s", err)
 	// }

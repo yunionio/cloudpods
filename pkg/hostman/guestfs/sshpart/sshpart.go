@@ -55,6 +55,11 @@ func NewSSHPartition(term ISSHClient, partDev string, isLVM bool) *SSHPartition 
 	return p
 }
 
+func (p *SSHPartition) SetMountPath(mountPath string) string {
+	p.mountPath = mountPath
+	return p.mountPath
+}
+
 func (p *SSHPartition) GetMountPath() string {
 	return p.mountPath
 }
