@@ -34,9 +34,9 @@ import (
 */
 
 type IluvatarGpuProcessMetrics struct {
-	Pid     string // Process ID
-	MemUtil float64
-	Mem     float64
+	Pid     string  // Process ID
+	MemUtil float64 // percent, 0 to 100
+	Mem     float64 // MB
 	Enc     float64
 	Dec     float64
 	SmUtil  float64
@@ -95,7 +95,8 @@ func parseIluvatarGpuProcessMetrics(gpuMetricsStr string, hostinfo IHostInfo) []
 			log.Errorf("Parse MemPrecent %s failed", memPrecentStr)
 		}
 		memTotal := hostinfo.GetContainerIluvatarGpuMemSizeByIndex(int(idx))
-		mem := float64(memTotal) * memPrecent
+		// ixsmi pmon reports the mem column as a percentage (0-100)
+		mem := float64(memTotal) * memPrecent / 100
 		procMetrics := IluvatarGpuProcessMetrics{
 			Pid:     pid,
 			MemUtil: memPrecent,
