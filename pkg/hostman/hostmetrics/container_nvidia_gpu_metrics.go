@@ -37,6 +37,7 @@ type NvidiaGpuProcessMetrics struct {
 	FB      int     // Framebuffer Memory Usage
 	Ccpm    int     // Current CUDA Contexts Per Measurement
 	Sm      float64 // Streaming Multiprocessor Utilization
+	SmValid bool    // whether Sm was reported by pmon
 	Mem     float64 // Memory Utilization
 	Enc     float64 // Encoder Utilization
 	Dec     float64 // Decoder Utilization
@@ -101,6 +102,7 @@ func parseNvidiaGpuProcessMetrics(gpuMetricsStr string) []NvidiaGpuProcessMetric
 				log.Errorf("failed parse sm %s: %s", sm, err)
 			}
 			processMetrics.Sm = val
+			processMetrics.SmValid = true
 		}
 		if mem != "-" {
 			val, err := strconv.ParseFloat(mem, 64)
@@ -141,6 +143,39 @@ func parseNvidiaGpuProcessMetrics(gpuMetricsStr string) []NvidiaGpuProcessMetric
 		gpuProcessMetrics = append(gpuProcessMetrics, processMetrics)
 	}
 	return gpuProcessMetrics
+}
+
+// GetNvidiaGpuDeviceUtilizations returns the device-level GPU core utilization
+// in percent, keyed by GPU index. nvidia-smi pmon only reports per-process
+// utilization on a limited set of GPUs, so this is used as a fallback.
+func GetNvidiaGpuDeviceUtilizations() (map[int]float64, error) {
+	cmd := "nvidia-smi --query-gpu=index,utilization.gpu --format=csv,noheader,nounits"
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("bash", "-c", cmd).Output()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Execute %s failed: %s", cmd, output)
+	}
+	return parseNvidiaGpuDeviceUtilizations(string(output)), nil
+}
+
+func parseNvidiaGpuDeviceUtilizations(output string) map[int]float64 {
+	res := make(map[int]float64)
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Split(line, ",")
+		if len(fields) != 2 {
+			continue
+		}
+		index, err := strconv.Atoi(strings.TrimSpace(fields[0]))
+		if err != nil {
+			continue
+		}
+		utilStr := strings.TrimSuffix(strings.TrimSpace(fields[1]), "%")
+		util, err := strconv.ParseFloat(strings.TrimSpace(utilStr), 64)
+		if err != nil {
+			continue
+		}
+		res[index] = util
+	}
+	return res
 }
 
 func (s *SGuestMonitorCollector) collectGpuPodsProcesses() map[string]map[string]struct{} {
