@@ -192,6 +192,12 @@ class SwaggerCode(FuncDispatcher):
     def gen_cloudevent(self):
         self.run("cloudevent", pkg=["models"], out="cloudevent")
 
+    def gen_llm(self):
+        # Ensures pkg/generated/swagger/llm/doc.go (swagger:meta). Route annotations for
+        # dashboard_panels live in pkg/generated/swagger/llm/dashboard_panel.go (hand-maintained;
+        # swagger-gen only emits Model Manager routes and will not overwrite that file).
+        self.run("llm", pkg=["docapi"], out="llm")
+
 
 
 class SwaggerYAML(FuncDispatcher):
@@ -231,6 +237,9 @@ class SwaggerYAML(FuncDispatcher):
 
     def gen_cloudevent(self):
         self.run("cloudevent")
+
+    def gen_llm(self):
+        self.run("llm")
 
 class SwaggerServe(object):
 

@@ -1,0 +1,395 @@
+basePath: /
+consumes:
+    - application/json
+definitions:
+    DashboardCustomScriptValue:
+        properties:
+            api_allowlist:
+                description: allowlist
+                items:
+                    type: string
+                type: array
+                x-go-name: ApiAllowlist
+            content_sha256:
+                description: SHA256
+                type: string
+                x-go-name: ContentSha256
+            entry:
+                description: 入口 mount
+                type: string
+                x-go-name: Entry
+            language:
+                description: 语言，固定 javascript
+                type: string
+                x-go-name: Language
+            prompt:
+                description: 需求摘要
+                type: string
+                x-go-name: Prompt
+            scope:
+                description: 作用域
+                type: string
+                x-go-name: Scope
+            source:
+                description: JS 源码
+                type: string
+                x-go-name: Source
+            title:
+                description: 标题
+                type: string
+                x-go-name: Title
+            validated_at:
+                description: 校验时间 RFC3339
+                type: string
+                x-go-name: ValidatedAt
+            version:
+                description: 版本号
+                format: int64
+                type: integer
+                x-go-name: Version
+        title: DashboardCustomScriptValue is stored in yunionconf parameter.value.
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/llm
+    DashboardPanelChatMessage:
+        properties:
+            content:
+                description: 消息内容
+                type: string
+                x-go-name: Content
+            role:
+                description: 角色：user / assistant
+                type: string
+                x-go-name: Role
+        title: DashboardPanelChatMessage is optional multi-turn context for generate.
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/llm
+    DashboardPanelGenerateInput:
+        properties:
+            history:
+                description: 可选多轮上下文
+                items:
+                    $ref: '#/definitions/DashboardPanelChatMessage'
+                type: array
+                x-go-name: History
+            prompt:
+                description: 自然语言需求（必填）
+                type: string
+                x-go-name: Prompt
+            scope:
+                description: 可选。system|domain|project；省略则生成代码跟随前端视图的 ctx.scope
+                example: project
+                type: string
+                x-go-name: Scope
+            title:
+                description: 可选面板标题
+                type: string
+                x-go-name: Title
+        required:
+            - prompt
+        title: DashboardPanelGenerateInput is the body for POST /dashboard_panels/generate.
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/llm
+    DashboardPanelGenerateOutput:
+        properties:
+            api_allowlist:
+                description: 允许的只读 API 列表，如 GET /v2/rpc/usages/general-usage
+                items:
+                    type: string
+                type: array
+                x-go-name: ApiAllowlist
+            content_sha256:
+                description: 源码 SHA256
+                type: string
+                x-go-name: ContentSha256
+            entry:
+                description: 入口函数名，固定为 mount
+                example: mount
+                type: string
+                x-go-name: Entry
+            raw_model_text:
+                description: 原始模型文本（调试用，通常为空）
+                type: string
+                x-go-name: RawModelText
+            scope:
+                description: 作用域
+                type: string
+                x-go-name: Scope
+            source:
+                description: 生成并校验通过的 JS 源码（含 mount）
+                type: string
+                x-go-name: Source
+            title:
+                description: 面板标题
+                type: string
+                x-go-name: Title
+            warnings:
+                description: 非致命提示
+                items:
+                    type: string
+                type: array
+                x-go-name: Warnings
+        title: DashboardPanelGenerateOutput is returned without persisting to yunionconf.
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/llm
+    DashboardPanelLayoutHint:
+        properties:
+            h:
+                format: int64
+                type: integer
+                x-go-name: H
+            minH:
+                format: int64
+                type: integer
+                x-go-name: MinH
+            w:
+                format: int64
+                type: integer
+                x-go-name: W
+            x:
+                format: int64
+                type: integer
+                x-go-name: X
+            "y":
+                format: int64
+                type: integer
+                x-go-name: "Y"
+        title: DashboardPanelLayoutHint optionally places the widget into an existing overview panel.
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/llm
+    DashboardPanelSaveInput:
+        description: Source is re-validated server-side; generate never writes.
+        properties:
+            api_allowlist:
+                description: 可选 allowlist
+                items:
+                    type: string
+                type: array
+                x-go-name: ApiAllowlist
+            item_id:
+                description: 可选：布局项 id
+                type: string
+                x-go-name: ItemId
+            layout:
+                $ref: '#/definitions/DashboardPanelLayoutHint'
+            name:
+                description: 已有 parameter 名则更新，否则自动生成 dashboard-custom-script-{uuid}
+                type: string
+                x-go-name: Name
+            panel_parameter:
+                description: 可选：合并进该 overview panel 的 parameter 名
+                type: string
+                x-go-name: PanelParameter
+            prompt:
+                description: 原始自然语言需求摘要（审计）
+                type: string
+                x-go-name: Prompt
+            scope:
+                description: 可选。system|domain|project；省略表示运行时跟随前端视图 ctx.scope
+                type: string
+                x-go-name: Scope
+            source:
+                description: 最终确认的 JS 源码（必填，服务端会再校验）
+                type: string
+                x-go-name: Source
+            title:
+                description: 标题
+                type: string
+                x-go-name: Title
+        required:
+            - source
+        title: DashboardPanelSaveInput is the body for POST /dashboard_panels/save.
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/llm
+    DashboardPanelSaveOutput:
+        properties:
+            api_allowlist:
+                description: allowlist
+                items:
+                    type: string
+                type: array
+                x-go-name: ApiAllowlist
+            content_sha256:
+                description: 源码 SHA256
+                type: string
+                x-go-name: ContentSha256
+            entry:
+                description: 入口名
+                type: string
+                x-go-name: Entry
+            item_id:
+                description: 布局项 id
+                type: string
+                x-go-name: ItemId
+            name:
+                description: 写入的 parameter 名
+                type: string
+                x-go-name: Name
+            panel_parameter:
+                description: 若合并了 panel
+                type: string
+                x-go-name: PanelParameter
+            parameter_id:
+                description: parameter id
+                type: string
+                x-go-name: ParameterId
+            warnings:
+                description: 警告
+                items:
+                    type: string
+                type: array
+                x-go-name: Warnings
+        title: DashboardPanelSaveOutput is returned after writing yunionconf parameter(s).
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/llm
+    DashboardPanelValidateInput:
+        properties:
+            api_allowlist:
+                description: 可选 api_allowlist；为空则使用默认只读前缀
+                items:
+                    type: string
+                type: array
+                x-go-name: ApiAllowlist
+            source:
+                description: JS 源码
+                type: string
+                x-go-name: Source
+        required:
+            - source
+        title: DashboardPanelValidateInput is the body for POST /dashboard_panels/validate.
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/llm
+    DashboardPanelValidateOutput:
+        properties:
+            api_allowlist:
+                description: 规范化后的 allowlist
+                items:
+                    type: string
+                type: array
+                x-go-name: ApiAllowlist
+            content_sha256:
+                description: 源码 SHA256
+                type: string
+                x-go-name: ContentSha256
+            entry:
+                description: 入口名
+                type: string
+                x-go-name: Entry
+            error:
+                description: 失败原因（ok=false 时）
+                type: string
+                x-go-name: Error
+            ok:
+                description: 是否通过校验
+                type: boolean
+                x-go-name: Ok
+            warnings:
+                description: 警告
+                items:
+                    type: string
+                type: array
+                x-go-name: Warnings
+        title: DashboardPanelValidateOutput reports static validation result.
+        type: object
+        x-go-package: yunion.io/x/onecloud/pkg/apis/llm
+host: '"127.0.0.1:8889"'
+info:
+    contact:
+        email: lizexi@yunion.cn
+        name: Zexi Li
+    description: Cloudprovider API
+    license:
+        name: Apache 2.0
+        url: http://www.apache.org/licenses/LICENSE-2.0.html
+    version: "1.0"
+paths:
+    /dashboard_panels/generate:
+        post:
+            description: |-
+                使用 default MCP Agent 调用 AI 网关生成可在沙箱 iframe 中运行的 mount(root, ctx) 脚本。
+                生成结果仅返回，需用户预览确认后调用 /dashboard_panels/save 才会写入 yunionconf。
+            operationId: DashboardPanelGenerate
+            parameters:
+                - in: body
+                  name: Body
+                  required: true
+                  schema:
+                    $ref: '#/definitions/DashboardPanelGenerateInput'
+            responses:
+                "200":
+                    $ref: '#/responses/DashboardPanelGenerateOutput'
+            security:
+                - keystone: []
+            summary: 自然语言生成自定义控制面板 JS（不落库）
+            tags:
+                - dashboard_panel
+    /dashboard_panels/save:
+        post:
+            description: |-
+                再次静态校验后，以当前用户 session 写入 parameter（name=dashboard-custom-script-{uuid}）。
+                若指定 panel_parameter，会把 CustomJsPanel 布局项合并进对应 overview panel JSON。
+            operationId: DashboardPanelSave
+            parameters:
+                - in: body
+                  name: Body
+                  required: true
+                  schema:
+                    $ref: '#/definitions/DashboardPanelSaveInput'
+            responses:
+                "200":
+                    $ref: '#/responses/DashboardPanelSaveOutput'
+            security:
+                - keystone: []
+            summary: 确认保存自定义控制面板 JS 到 yunionconf
+            tags:
+                - dashboard_panel
+    /dashboard_panels/validate:
+        post:
+            description: 对源码做静态安全扫描（禁止 eval/fetch/innerHTML 等）、校验 mount 入口，并规范化 api_allowlist。
+            operationId: DashboardPanelValidate
+            parameters:
+                - in: body
+                  name: Body
+                  required: true
+                  schema:
+                    $ref: '#/definitions/DashboardPanelValidateInput'
+            responses:
+                "200":
+                    $ref: '#/responses/DashboardPanelValidateOutput'
+            security:
+                - keystone: []
+            summary: 校验自定义控制面板 JS
+            tags:
+                - dashboard_panel
+produces:
+    - application/json
+responses:
+    DashboardPanelGenerateOutput:
+        description: ""
+        schema:
+            properties:
+                dashboard_panels:
+                    $ref: '#/definitions/DashboardPanelGenerateOutput'
+            type: object
+    DashboardPanelSaveOutput:
+        description: ""
+        schema:
+            properties:
+                dashboard_panels:
+                    $ref: '#/definitions/DashboardPanelSaveOutput'
+            type: object
+    DashboardPanelValidateOutput:
+        description: ""
+        schema:
+            properties:
+                dashboard_panels:
+                    $ref: '#/definitions/DashboardPanelValidateOutput'
+            type: object
+schemes:
+    - https
+    - http
+securityDefinitions:
+    keystone:
+        in: header
+        name: X-Auth-Token
+        type: apiKey
+swagger: "2.0"
