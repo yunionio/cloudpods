@@ -161,12 +161,77 @@ func TestGetPodNvidiaGpuMetricsNilWithoutAssignedOrProcess(t *testing.T) {
 }
 
 func TestPodNvidiaGpuMetricsToMapIncludesMem(t *testing.T) {
-	m := PodNvidiaGpuMetrics{Mem: 512, MemUtil: 25, MemTotal: 2048}
+	m := PodNvidiaGpuMetrics{Mem: 512, MemUtil: 25, GpuUtil: 40, MemTotal: 2048}
 	got := m.ToMap()
 	if got[NVIDIA_GPU_MEM] != 512 {
 		t.Errorf("mem=%v, want 512", got[NVIDIA_GPU_MEM])
 	}
 	if got[NVIDIA_GPU_MEM_UTIL] != 25.0 {
 		t.Errorf("mem_util=%v, want 25", got[NVIDIA_GPU_MEM_UTIL])
+	}
+	if got[NVIDIA_GPU_GPU_UTIL] != 40.0 {
+		t.Errorf("gpu_util=%v, want 40", got[NVIDIA_GPU_GPU_UTIL])
+	}
+}
+
+func TestParseNvidiaGpuDeviceUtilizations(t *testing.T) {
+	got := parseNvidiaGpuDeviceUtilizations("0, 12\n1, 37 %\n2, [N/A]\n")
+	if len(got) != 2 || got[0] != 12 || got[1] != 37 {
+		t.Fatalf("got=%v", got)
+	}
+}
+
+func TestGetPodNvidiaGpuMetricsGpuUtilFallback(t *testing.T) {
+	m := &SGuestMonitor{
+		nvidiaGpuMetrics: []NvidiaGpuProcessMetrics{
+			{Index: 0, FB: 1024},
+		},
+		nvidiaGpuIndexMemoryMap: map[string]int{"0": 8192},
+		nvidiaGpuDeviceUtil:     map[int]float64{0: 37},
+	}
+	got := m.getPodNvidiaGpuMetrics()
+	if len(got) != 1 {
+		t.Fatalf("len(got)=%d, want 1", len(got))
+	}
+	if got[0].SmUtil != 0 {
+		t.Errorf("SmUtil=%v, want 0 when pmon reports no per-process utilization", got[0].SmUtil)
+	}
+	if got[0].GpuUtil != 37 {
+		t.Errorf("GpuUtil=%v, want device-level fallback 37", got[0].GpuUtil)
+	}
+}
+
+func TestGetPodNvidiaGpuMetricsGpuUtilFromPmon(t *testing.T) {
+	m := &SGuestMonitor{
+		nvidiaGpuMetrics: []NvidiaGpuProcessMetrics{
+			{Index: 0, Sm: 20, SmValid: true},
+			{Index: 0, Sm: 30, SmValid: true},
+		},
+		nvidiaGpuIndexMemoryMap: map[string]int{"0": 8192},
+		nvidiaGpuDeviceUtil:     map[int]float64{0: 90},
+	}
+	got := m.getPodNvidiaGpuMetrics()
+	if len(got) != 1 {
+		t.Fatalf("len(got)=%d, want 1", len(got))
+	}
+	if got[0].GpuUtil != 50 {
+		t.Errorf("GpuUtil=%v, want sum of per-process sm 50", got[0].GpuUtil)
+	}
+}
+
+func TestGetPodNvidiaGpuMetricsGpuUtilCap(t *testing.T) {
+	m := &SGuestMonitor{
+		nvidiaGpuMetrics: []NvidiaGpuProcessMetrics{
+			{Index: 0, Sm: 60, SmValid: true},
+			{Index: 0, Sm: 60, SmValid: true},
+		},
+		nvidiaGpuIndexMemoryMap: map[string]int{"0": 8192},
+	}
+	got := m.getPodNvidiaGpuMetrics()
+	if len(got) != 1 {
+		t.Fatalf("len(got)=%d, want 1", len(got))
+	}
+	if got[0].GpuUtil != 100 {
+		t.Errorf("GpuUtil=%v, want cap at 100", got[0].GpuUtil)
 	}
 }
