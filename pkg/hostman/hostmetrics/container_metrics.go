@@ -64,6 +64,7 @@ const (
 	NVIDIA_GPU_SM             = "sm"
 	NVIDIA_GPU_MEM            = "mem"
 	NVIDIA_GPU_MEM_UTIL       = "mem_util"
+	NVIDIA_GPU_GPU_UTIL       = "gpu_util"
 	NVIDIA_GPU_ENC            = "enc"
 	NVIDIA_GPU_DEC            = "dec"
 	NVIDIA_GPU_JPG            = "jpg"
@@ -340,6 +341,7 @@ type PodNvidiaGpuMetrics struct {
 	SmUtil      float64 // Streaming Multiprocessor Utilization
 	Mem         int     // Mem Usage
 	MemUtil     float64 // Memory Utilization, percent (0-100)
+	GpuUtil     float64 // GPU core Utilization, percent (0-100)
 	EncUtil     float64 // Encoder Utilization
 	DecUtil     float64 // Decoder Utilization
 	JpgUtil     float64 // JPEG Decoder Utilization
@@ -380,6 +382,7 @@ func (m PodNvidiaGpuMetrics) ToMap() map[string]interface{} {
 		NVIDIA_GPU_SM:             m.SmUtil,
 		NVIDIA_GPU_MEM:            m.Mem,
 		NVIDIA_GPU_MEM_UTIL:       m.MemUtil,
+		NVIDIA_GPU_GPU_UTIL:       m.GpuUtil,
 		NVIDIA_GPU_ENC:            m.EncUtil,
 		NVIDIA_GPU_DEC:            m.DecUtil,
 		NVIDIA_GPU_JPG:            m.JpgUtil,
@@ -1101,6 +1104,7 @@ func buildNvidiaGpuAssignedQuotas(inputs []nvidiaGpuAssignInput, indexById map[s
 
 func (m *SGuestMonitor) getPodNvidiaGpuMetrics() []*PodNvidiaGpuMetrics {
 	indexGpuMap := map[int]*PodNvidiaGpuMetrics{}
+	smValid := map[int]bool{}
 	for i := range m.nvidiaGpuMetrics {
 		index := m.nvidiaGpuMetrics[i].Index
 		gms, ok := indexGpuMap[index]
@@ -1110,6 +1114,9 @@ func (m *SGuestMonitor) getPodNvidiaGpuMetrics() []*PodNvidiaGpuMetrics {
 		gms.Framebuffer += m.nvidiaGpuMetrics[i].FB
 		gms.Ccpm += m.nvidiaGpuMetrics[i].Ccpm
 		gms.SmUtil += m.nvidiaGpuMetrics[i].Sm
+		if m.nvidiaGpuMetrics[i].SmValid {
+			smValid[index] = true
+		}
 		gms.EncUtil += m.nvidiaGpuMetrics[i].Enc
 		gms.DecUtil += m.nvidiaGpuMetrics[i].Dec
 		gms.JpgUtil += m.nvidiaGpuMetrics[i].Jpg
@@ -1143,6 +1150,15 @@ func (m *SGuestMonitor) getPodNvidiaGpuMetrics() []*PodNvidiaGpuMetrics {
 		gms.Mem = gms.Framebuffer
 		if gms.MemTotal > 0 {
 			gms.MemUtil = float64(gms.Framebuffer) / float64(gms.MemTotal) * 100
+		}
+		gms.GpuUtil = gms.SmUtil
+		if !smValid[index] {
+			// nvidia-smi pmon does not report per-process utilization on some
+			// GPUs (e.g. GeForce); fall back to device-level utilization.
+			gms.GpuUtil = m.nvidiaGpuDeviceUtil[index]
+		}
+		if gms.GpuUtil > 100 {
+			gms.GpuUtil = 100
 		}
 	}
 	sort.Ints(indexs)
