@@ -352,7 +352,7 @@ type PerformMetadataInput map[string]string
 // 设置资源的用户标签（元数据）输入
 type PerformUserMetadataInput map[string]string
 
-// 全量替换资源的用户标签（元数据）输入
+// 设置标签：全量替换资源的用户标签（元数据）输入，key-value 形式，例如 {"user:env": "prod"}
 type PerformSetUserMetadataInput map[string]string
 
 type PerformClassMetadataInput map[string]string

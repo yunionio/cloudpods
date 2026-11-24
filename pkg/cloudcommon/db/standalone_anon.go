@@ -704,8 +704,9 @@ func (model *SStandaloneAnonResourceBase) PerformMetadata(ctx context.Context, u
 	return nil, nil
 }
 
-// 更新资源的用户标签
+// 添加标签（增量更新资源的用户标签）
 // +onecloud:swagger-gen-ignore
+// +onecloud:swagger-gen-only-for=server,disk,image,guest_image,cachedimage,host,snapshot,instance_snapshot,instancebackup,diskbackup,backupstorage,secgroup,network,vpc,wire,eip,bucket,storage,loadbalancer,loadbalancercertificate,loadbalancercluster,loadbalanceragent,natgateway,cdn_domain,dbinstance,elasticcache,mongodb,globalvpc,dns_zone,dnsrecord,access_group,file_system,waf_instance,elastic_search,kafka,webapp,schedtag,inter_vpc_network,vpc_peering_connection,project,domain
 func (model *SStandaloneAnonResourceBase) PerformUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformUserMetadataInput) (jsonutils.JSONObject, error) {
 	err := model.GetIStandaloneModel().SetUserMetadataValues(ctx, input, userCred)
 	if err != nil {
@@ -714,8 +715,9 @@ func (model *SStandaloneAnonResourceBase) PerformUserMetadata(ctx context.Contex
 	return nil, nil
 }
 
-// 全量替换资源的所有用户标签
+// 设置标签（全量替换资源的所有用户标签）
 // +onecloud:swagger-gen-ignore
+// +onecloud:swagger-gen-only-for=server,disk,image,guest_image,cachedimage,host,snapshot,instance_snapshot,instancebackup,diskbackup,backupstorage,secgroup,network,vpc,wire,eip,bucket,storage,loadbalancer,loadbalancercertificate,loadbalancercluster,loadbalanceragent,natgateway,cdn_domain,dbinstance,elasticcache,mongodb,globalvpc,dns_zone,dnsrecord,access_group,file_system,waf_instance,elastic_search,kafka,webapp,schedtag,inter_vpc_network,vpc_peering_connection,project,domain
 func (model *SStandaloneAnonResourceBase) PerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetUserMetadataInput) (jsonutils.JSONObject, error) {
 	err := model.GetIStandaloneModel().SetUserMetadataAll(ctx, input, userCred)
 	if err != nil {

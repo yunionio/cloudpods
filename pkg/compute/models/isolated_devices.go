@@ -95,11 +95,9 @@ type SIsolatedDevice struct {
 	// # Specific device name read from lspci command, e.g. `Tesla K40m` ...
 	Model string `width:"512" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
 
-	// 云主机Id, keep for backward compatibility
-	// swagger:deprecated
+	// 已弃用：云主机Id，仅保留向后兼容
 	GuestId string `width:"36" charset:"ascii" nullable:"true"`
-	// guest network index, keep for backward compatibility
-	// swagger:deprecated
+	// 已弃用：guest network index，仅保留向后兼容
 	NetworkIndex int `nullable:"true" default:"-1"`
 
 	// Nic wire id
@@ -111,8 +109,7 @@ type SIsolatedDevice struct {
 	// NVME disk size
 	NvmeSizeMB int `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
-	// guest disk index, keep for backward compatibility
-	// swagger:deprecated
+	// 已弃用：guest disk index，仅保留向后兼容
 	DiskIndex int8 `nullable:"true" default:"-1"`
 
 	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus:addr:port`
