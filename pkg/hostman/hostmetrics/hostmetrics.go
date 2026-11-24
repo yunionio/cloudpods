@@ -203,6 +203,7 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 
 	var podStats []stats.PodStats = nil
 	var nvidiaGpuMetrics []NvidiaGpuProcessMetrics = nil
+	var nvidiaGpuDeviceUtil map[int]float64 = nil
 	var vastaitechGpuMetrics []VastaitechGpuProcessMetrics = nil
 	var amdGpuMetrics []AmdGpuProcessMetrics = nil
 	var mthreadsGpuMetrics []MthreadsGpuProc = nil
@@ -271,6 +272,10 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 					if err != nil {
 						log.Errorf("GetNvidiaGpuProcessMetrics %s", err)
 					}
+					nvidiaGpuDeviceUtil, err = GetNvidiaGpuDeviceUtilizations()
+					if err != nil {
+						log.Errorf("GetNvidiaGpuDeviceUtilizations %s", err)
+					}
 				}
 				if s.hostInfo.HasContainerVastaitechGpu() {
 					vastaitechGpuMetrics, err = GetVastaitechGpuProcessMetrics()
@@ -321,6 +326,7 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 				if err != nil {
 					return true
 				}
+				gm.nvidiaGpuDeviceUtil = nvidiaGpuDeviceUtil
 
 				gm.UpdateByInstance(instance)
 				gms[guestId] = gm
@@ -666,6 +672,7 @@ type SGuestMonitor struct {
 	nvidiaGpuMetrics        []NvidiaGpuProcessMetrics
 	nvidiaGpuIndexMemoryMap map[string]int
 	nvidiaGpuAssigned       []nvidiaGpuAssignedQuota
+	nvidiaGpuDeviceUtil     map[int]float64
 	vastaitechGpuMetrics    []VastaitechGpuProcessMetrics
 	amdGpuMetrics           []AmdGpuProcessMetrics
 	mthreadsGpuMetrics      []MthreadsGpuProc
