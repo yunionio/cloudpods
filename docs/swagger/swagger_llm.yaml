@@ -80,10 +80,6 @@ definitions:
                 example: project
                 type: string
                 x-go-name: Scope
-            stream:
-                description: 是否流式（当前不支持，请保持 false/省略）
-                type: boolean
-                x-go-name: Stream
             title:
                 description: 可选面板标题
                 type: string
@@ -370,15 +366,24 @@ responses:
     DashboardPanelGenerateOutput:
         description: ""
         schema:
-            $ref: '#/definitions/DashboardPanelGenerateOutput'
+            properties:
+                dashboard_panels:
+                    $ref: '#/definitions/DashboardPanelGenerateOutput'
+            type: object
     DashboardPanelSaveOutput:
         description: ""
         schema:
-            $ref: '#/definitions/DashboardPanelSaveOutput'
+            properties:
+                dashboard_panels:
+                    $ref: '#/definitions/DashboardPanelSaveOutput'
+            type: object
     DashboardPanelValidateOutput:
         description: ""
         schema:
-            $ref: '#/definitions/DashboardPanelValidateOutput'
+            properties:
+                dashboard_panels:
+                    $ref: '#/definitions/DashboardPanelValidateOutput'
+            type: object
 schemes:
     - https
     - http
