@@ -6200,7 +6200,13 @@ func (hh *SHost) PerformBaremetalProbeIsolatedDevices(
 	params.Set("private_key", jsonutils.NewStringArray(privateKeys))
 	if data.Contains("ssh_port") {
 		sshPort, _ := data.Int("ssh_port")
-		params.Set("ssh_port", jsonutils.NewInt(sshPort))
+		if sshPort > 0 {
+			params.Set("ssh_port", jsonutils.NewInt(sshPort))
+		}
+	}
+	if data.Contains("access_ip") {
+		accessIp, _ = data.GetString("access_ip")
+		params.Set("access_ip", jsonutils.NewString(accessIp))
 	}
 
 	url := fmt.Sprintf("/baremetals/%s/probe-isolated-devices", hh.Id)
