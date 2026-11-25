@@ -109,6 +109,7 @@ type ComputeOptions struct {
 	BaremetalPreparePackageUrl                  string `help:"Baremetal online register package"`
 	BaremetalPrepareServerFakeDelete            bool   `help:"Baremetal registed server fake delete" default:"false"`
 	BaremetalPrepareServerFakeDeleteKeepRunning bool   `help:"Baremetal registed server fake delete keep guest running" default:"true"`
+	BaremetalPrepareServerDeploySshKey          bool   `help:"Baremetal registed server deploy ssh key" default:"true"`
 
 	// snapshot options
 	AutoSnapshotDay  int `default:"1" help:"Days auto snapshot disks, default 1 day"`
