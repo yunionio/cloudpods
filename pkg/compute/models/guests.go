@@ -2804,7 +2804,7 @@ func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 	// __ssh_port=0 on every update that omitted ssh_port and broke sshable
 	// probing (dial :0 / cloudproxy missing remote_port).
 	if port, err := data.Int("ssh_port"); err == nil && port > 0 {
-		if err := self.SetSshPort(ctx, userCred, int(port)); err != nil {
+		if err := setSshPort(ctx, userCred, self, int(port)); err != nil {
 			log.Errorf("unable to set sshport for guest %s", self.GetId())
 		}
 	}
