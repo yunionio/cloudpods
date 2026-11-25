@@ -33,3 +33,24 @@ func TestParseNpuSmiChipCounts(t *testing.T) {
 		t.Fatalf("chip counts = %#v", got)
 	}
 }
+
+func TestParseNpuSmiNames(t *testing.T) {
+	out := `NPU ID                         Chip ID                        Chip Logic ID                  Chip Name
+0                              0                              0                              Ascend 910B2
+0                              1                              -                              Mcu
+1                              0                              1                              Ascend 910B2`
+	got := parseNpuSmiNames(out)
+	if got[0] != "Ascend 910B2" || got[1] != "Ascend 910B2" || len(got) != 2 {
+		t.Fatalf("NPU names = %#v", got)
+	}
+}
+
+func TestParseNpuSmiHBMCapacity(t *testing.T) {
+	out := `NPU ID                         : 0
+DDR Capacity(MB)               : 0
+HBM Capacity(MB)               : 65536
+HBM Clock Speed(MHz)           : 1600`
+	if got := parseNpuSmiHBMCapacity(out); got != 65536 {
+		t.Fatalf("HBM capacity = %d, want 65536", got)
+	}
+}
