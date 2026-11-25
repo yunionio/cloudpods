@@ -1100,10 +1100,13 @@ type ServerChangeDiskStorageInput struct {
 }
 
 type ServerChangeDiskDriverInput struct {
-	DiskId    string `json:"disk_id"`
-	Driver    string `json:"driver"`
-	CacheMode string `json:"cache_mode"`
-	AioMode   string `json:"aio_mode"`
+	DiskId       string `json:"disk_id"`
+	Driver       string `json:"driver"`
+	CacheMode    string `json:"cache_mode"`
+	AioMode      string `json:"aio_mode"`
+	NumQueues    *int8  `json:"num_queues"`
+	NumIothreads *int8  `json:"num_iothreads"`
+	Performance  string `json:"performance"`
 }
 
 type ServerChangeDiskStorageInternalInput struct {
