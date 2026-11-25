@@ -16,6 +16,7 @@ package session
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -128,6 +129,79 @@ func resolveServerIPPortById(ctx context.Context, s *mcclient.ClientSession, id 
 	return ip, port, guestDetails, nil
 }
 
+// hostHasIp checks whether the ip is exactly one of the host's addresses.
+func hostHasIp(host *compute_api.HostDetails, ip string) bool {
+	if host.AccessIp == ip || host.IpmiIp == ip || host.PublicIp == ip {
+		return true
+	}
+	for _, nic := range host.NicInfo {
+		if nic == nil {
+			continue
+		}
+		if nic.IpAddr == ip || nic.Ip6Addr == ip {
+			return true
+		}
+	}
+	return false
+}
+
+// serverHasIp checks whether the ip is exactly one of the server's addresses.
+func serverHasIp(server *compute_api.ServerDetails, ip string) bool {
+	if server.Eip == ip {
+		return true
+	}
+	for addr := range strings.SplitSeq(server.IPs, ",") {
+		if strings.TrimSpace(addr) == ip {
+			return true
+		}
+	}
+	for _, nic := range server.Nics {
+		if nic.IpAddr == ip || nic.Ip6Addr == ip {
+			return true
+		}
+	}
+	return false
+}
+
+// pickHostByIp returns the first host that carries the ip exactly. The list
+// query uses a fuzzy (regexp) match on the ip, so entries whose address only
+// happens to match the pattern (e.g. 10.22.42.26 for 10.22.42.2) must be
+// filtered out, otherwise the ssh session would be redirected to another
+// host's address.
+func pickHostByIp(hosts []jsonutils.JSONObject, ip string) *compute_api.HostDetails {
+	for i := range hosts {
+		hostDetails := compute_api.HostDetails{}
+		if err := hosts[i].Unmarshal(&hostDetails); err != nil {
+			continue
+		}
+		if hostHasIp(&hostDetails, ip) {
+			return &hostDetails
+		}
+	}
+	return nil
+}
+
+// orderServerCandidatesByIp puts servers carrying the ip exactly before the
+// ones that merely match the fuzzy list filter.
+func orderServerCandidatesByIp(servers []jsonutils.JSONObject, ip string) []compute_api.ServerDetails {
+	candidates := make([]compute_api.ServerDetails, 0, len(servers))
+	exact := make([]compute_api.ServerDetails, 0, len(servers))
+	for i := range servers {
+		serverDetails := compute_api.ServerDetails{}
+		if err := servers[i].Unmarshal(&serverDetails); err != nil {
+			continue
+		}
+		candidates = append(candidates, serverDetails)
+		if serverHasIp(&serverDetails, ip) {
+			exact = append(exact, serverDetails)
+		}
+	}
+	if len(exact) > 0 {
+		return exact
+	}
+	return candidates
+}
+
 // ResolveSSHIPPortByIp validates that the ip belongs to a host or server
 // accessible by the user and fills the connection info accordingly, so the
 // ssh console can not be used to dial arbitrary internal addresses.
@@ -135,20 +209,24 @@ func ResolveSSHIPPortByIp(ctx context.Context, s *mcclient.ClientSession, ip str
 	if port <= 0 {
 		port = 22
 	}
-	// try hosts first: the ip must be the access_ip of a host visible to
-	// the user
+	// try hosts first: the ip must be one of the host's addresses (access
+	// ip, ipmi ip, public ip or a nic ip) of a host visible to the user
 	hostQuery := jsonutils.NewDict()
 	hostQuery.Set("any_ip", jsonutils.NewStringArray([]string{ip}))
 	hostRes, err := compute.Hosts.List(s, hostQuery)
 	if err == nil && hostRes.Total > 0 {
-		hostDetails := compute_api.HostDetails{}
-		if err := hostRes.Data[0].Unmarshal(&hostDetails); err != nil {
-			return errors.Wrap(err, "Unmarshal host details")
+		// the any_ip filter is a regexp match, so only accept a host that
+		// really carries the requested ip, not one whose address merely
+		// matches the pattern
+		if hostDetails := pickHostByIp(hostRes.Data, ip); hostDetails != nil {
+			conn.IP = hostDetails.AccessIp
+			if len(conn.IP) == 0 {
+				conn.IP = ip
+			}
+			conn.Port = port
+			conn.HostDetails = hostDetails
+			return nil
 		}
-		conn.IP = hostDetails.AccessIp
-		conn.Port = port
-		conn.HostDetails = &hostDetails
-		return nil
 	}
 	// then servers: only servers visible to the user are listed
 	serverQuery := jsonutils.NewDict()
@@ -160,20 +238,25 @@ func ResolveSSHIPPortByIp(ctx context.Context, s *mcclient.ClientSession, ip str
 	if serverRes.Total == 0 {
 		return errors.Wrapf(httperrors.ErrNotFound, "no server or host found with ip %s", ip)
 	}
-	serverDetails := compute_api.ServerDetails{}
-	if err := serverRes.Data[0].Unmarshal(&serverDetails); err != nil {
-		return errors.Wrap(err, "Unmarshal server details")
-	}
-	// resolve via the standard server path, which also validates the ip
+	// the ip_addrs filter is a regexp match too, so try the servers carrying
+	// the exact ip first; resolveServerIPPortById also validates the ip
 	// against the server's network interfaces
-	resolvedIp, resolvedPort, guestDetails, err := resolveServerIPPortById(ctx, s, serverDetails.Id, ip, port)
-	if err != nil {
-		return err
+	var lastErr error
+	for _, serverDetails := range orderServerCandidatesByIp(serverRes.Data, ip) {
+		resolvedIp, resolvedPort, guestDetails, err := resolveServerIPPortById(ctx, s, serverDetails.Id, ip, port)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		conn.IP = resolvedIp
+		conn.Port = resolvedPort
+		conn.GuestDetails = guestDetails
+		return nil
 	}
-	conn.IP = resolvedIp
-	conn.Port = resolvedPort
-	conn.GuestDetails = guestDetails
-	return nil
+	if lastErr != nil {
+		return errors.Wrap(lastErr, "resolve server ssh info")
+	}
+	return errors.Wrapf(httperrors.ErrNotFound, "no server or host found with ip %s", ip)
 }
 
 func ResolveHostSSHIPPortById(ctx context.Context, s *mcclient.ClientSession, id string, ip string, port int) (string, int, *compute_api.HostDetails, error) {
