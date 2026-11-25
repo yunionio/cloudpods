@@ -23,9 +23,15 @@ const (
 	// DefaultModelCatalogURL is the catalog source used when none is
 	// configured. Overridable via options.ModelCatalogURL — values without an
 	// http:// or https:// prefix are treated as local file paths.
-	DefaultModelCatalogURL = "https://www.cloudpods.org/llm-catalog.yaml"
+	// Must match the default of options.ModelCatalogURL and the file published
+	// from the website repo's static/ directory.
+	DefaultModelCatalogURL = "https://www.cloudpods.org/model-catalog.yaml"
 	// DefaultModelCatalogModelScopeURL is the ModelScope mirror of the catalog.
 	DefaultModelCatalogModelScopeURL = "https://www.cloudpods.org/model-catalog-modelscope.yaml"
+	// legacyModelCatalogURL is the previous default, which is no longer
+	// published (404). Kept so deployments that still point at it get the
+	// ModelScope fallback instead of a hard failure.
+	legacyModelCatalogURL = "https://www.cloudpods.org/llm-catalog.yaml"
 	// DefaultLLMCatalogRefreshInterval is how often the LLM service polls the
 	// upstream source in the background. Local file sources are also re-read
 	// on each tick (cheap) so an admin edit is picked up without restart.
@@ -149,6 +155,7 @@ func (m *SLLMModelSetManager) Refresh(ctx context.Context) error {
 			continue
 		}
 		s.Id = s.Name
+		s.ParameterSizeB = s.SizeInB()
 		sets = append(sets, s)
 		setRef := &sets[len(sets)-1]
 		setsByName[s.Name] = setRef
@@ -372,10 +379,10 @@ func modelSetMatches(s *api.LLMModelSet, input api.LLMModelSetListInput) bool {
 			return false
 		}
 	}
-	if input.SizeMin != nil && s.Size < *input.SizeMin {
+	if input.SizeMin != nil && s.SizeInB() < *input.SizeMin {
 		return false
 	}
-	if input.SizeMax != nil && s.Size > *input.SizeMax {
+	if input.SizeMax != nil && s.SizeInB() > *input.SizeMax {
 		return false
 	}
 	if input.Search != "" {
@@ -463,10 +470,11 @@ func sortModelSets(sets []api.LLMModelSet, sortField, direction string) {
 			}
 			return sets[i].Likes > sets[j].Likes
 		case "size":
+			// Compare normalised parameter counts so T/M-sized sets sort correctly.
 			if asc {
-				return sets[i].Size < sets[j].Size
+				return sets[i].SizeInB() < sets[j].SizeInB()
 			}
-			return sets[i].Size > sets[j].Size
+			return sets[i].SizeInB() > sets[j].SizeInB()
 		case "name":
 			if asc {
 				return strings.ToLower(sets[i].Name) < strings.ToLower(sets[j].Name)
@@ -493,9 +501,13 @@ func unionOllamaCapabilities(tags []api.SOllamaTag) []string {
 	return out
 }
 
+// defaultHuggingFaceCatalogURLs lists the built-in catalog sources whose
+// contents are HuggingFace-sourced, i.e. the ones eligible for the ModelScope
+// swap below. legacyModelCatalogURL is included so deployments still pointing
+// at the retired default get the fallback rather than a 404.
 var defaultHuggingFaceCatalogURLs = map[string]struct{}{
-	DefaultModelCatalogURL:                         {},
-	"https://www.cloudpods.org/model-catalog.yaml": {},
+	DefaultModelCatalogURL: {},
+	legacyModelCatalogURL:  {},
 }
 
 // resolveModelCatalogSource switches to the ModelScope catalog URL when the
