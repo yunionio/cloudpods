@@ -229,7 +229,9 @@ type SimpleGuest struct {
 	// 磁盘吞吐
 	Bps int `json:"bps"`
 	// 计费类型
-	BillingType string `json:"billing_type"`
+	BillingType  string `json:"billing_type"`
+	NumQueues    int8   `json:"num_queues"`
+	NumIothreads int8   `json:"num_iothreads"`
 
 	// 磁盘绑定的快照策略列表
 	Snapshotpolicy []SimpleSnapshotPolicy `json:"snapshotpolicy"`

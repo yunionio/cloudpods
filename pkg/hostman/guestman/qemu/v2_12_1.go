@@ -31,6 +31,7 @@ func newCmd_2_12_1_x86_64() QemuCommand {
 
 type opt_2121_x86_64 struct {
 	*baseOptions_x86_64
+	*baseOptions_lt_620
 }
 
 func (o opt_2121_x86_64) ScsiDeviceId(serial string, driver string) string {
@@ -40,11 +41,13 @@ func (o opt_2121_x86_64) ScsiDeviceId(serial string, driver string) string {
 func newOpt_2_12_1_x86_64() QemuOptions {
 	return &opt_2121_x86_64{
 		baseOptions_x86_64: newBaseOptions_x86_64(),
+		baseOptions_lt_620: newBaseOptionsLT620(),
 	}
 }
 
 type opt_2121_aarch64 struct {
 	*baseOptions_aarch64
+	*baseOptions_lt_620
 }
 
 func (o opt_2121_aarch64) ScsiDeviceId(serial string, driver string) string {
@@ -54,6 +57,7 @@ func (o opt_2121_aarch64) ScsiDeviceId(serial string, driver string) string {
 func newOpt_2_12_1_aarch64() QemuOptions {
 	return &opt_2121_aarch64{
 		baseOptions_aarch64: newBaseOptions_aarch64(),
+		baseOptions_lt_620:  newBaseOptionsLT620(),
 	}
 }
 
