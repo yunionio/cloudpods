@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	modules "yunion.io/x/onecloud/pkg/mcclient/modules/compute"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 type SHostPingTask struct {
@@ -121,6 +122,13 @@ func (p *SHostPingTask) payload() api.SHostPingInput {
 	memTotal := int(info.Total / 1024 / 1024)
 	memFree := int(info.Available / 1024 / 1024)
 	memUsed := memTotal - memFree
+	if p.host.IsHugepagesEnabled() {
+		huges, err := sysutils.GetHugepages()
+		if err == nil {
+			memUsed = memUsed - int(huges.BytesMb()) + int(huges.BytesFreeMb())
+		}
+	}
+
 	data.MemoryUsedMb = memUsed
 	cpuUsage, err := cpu.Percent(time.Second, false)
 	if err != nil {
