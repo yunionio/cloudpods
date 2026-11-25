@@ -41,7 +41,9 @@ func ProcessStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 		fmt.Fprintf(w, "%s", jsonutils.Marshal(ret).String())
 		return
 	}
-	ret.ProcessStat.CpuPercent, _ = process.CPUPercent()
-	ret.ProcessStat.MemPercent, _ = process.MemoryPercent()
+	// Prefer cgroup (k8s/k3s) limits so percent reflects container quota,
+	// not host MemTotal / lifetime host-core average.
+	ret.ProcessStat.CpuPercent = getProcessCPUPercent(process)
+	ret.ProcessStat.MemPercent = getProcessMemPercent(process)
 	fmt.Fprintf(w, "%s", jsonutils.Marshal(ret).String())
 }
