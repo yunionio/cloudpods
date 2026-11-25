@@ -443,7 +443,7 @@ func (guest *SGuest) PerformMakeSshable(
 
 	// storage sshport
 	if input.Port != 0 {
-		err := guest.SetSshPort(ctx, userCred, input.Port)
+		err := setSshPort(ctx, userCred, guest, input.Port)
 		if err != nil {
 			return output, errors.Wrap(err, "unable to set sshport for guest")
 		}
@@ -575,23 +575,30 @@ grep -q "^$user " /etc/sudoers || echo "$user ALL=(ALL) NOPASSWD: ALL" | EDITOR=
 }
 
 func (guest *SGuest) GetSshPort(ctx context.Context, userCred mcclient.TokenCredential) int {
-	portStr := guest.GetMetadata(ctx, compute_api.SSH_PORT, userCred)
-	if portStr == "" {
+	port := getSshPort(ctx, userCred, guest)
+	if port <= 0 {
 		if guest.IsWindows() {
 			return 3389
 		}
 		return 22
+	} else {
+		return port
+	}
+}
+
+func getSshPort(ctx context.Context, userCred mcclient.TokenCredential, guest db.IStandaloneModel) int {
+	portStr := guest.GetMetadata(ctx, compute_api.SSH_PORT, userCred)
+	if portStr == "" {
+		return -1
 	}
 	port, err := strconv.Atoi(portStr)
-	// Treat missing/invalid/zero ports as the SSH default. Metadata may have
-	// been incorrectly written as "0" by a previous PostUpdate bug.
 	if err != nil || port <= 0 {
-		return 22
+		return -1
 	}
 	return port
 }
 
-func (guest *SGuest) SetSshPort(ctx context.Context, userCred mcclient.TokenCredential, port int) error {
+func setSshPort(ctx context.Context, userCred mcclient.TokenCredential, guest db.IStandaloneModel, port int) error {
 	if port <= 0 {
 		return httperrors.NewInputParameterError("invalid ssh port %d", port)
 	}
@@ -602,7 +609,7 @@ func (guest *SGuest) PerformSetSshport(ctx context.Context, userCred mcclient.To
 	if input.Port <= 0 {
 		return nil, httperrors.NewInputParameterError("invalid port")
 	}
-	return nil, guest.SetSshPort(ctx, userCred, input.Port)
+	return nil, setSshPort(ctx, userCred, guest, input.Port)
 }
 
 func (guest *SGuest) GetDetailsSshport(
