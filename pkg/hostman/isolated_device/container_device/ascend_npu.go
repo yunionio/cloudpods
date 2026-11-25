@@ -163,70 +163,99 @@ func parseNpuSmiChipCounts(output string) map[int]uint {
 	return counts
 }
 
+// parseNpuSmiBoardInfo extracts the PCI address reported by
+// `npu-smi info -t board`.
+func parseNpuSmiBoardInfo(output string) string {
+	var pciAddr string
+	for _, line := range strings.Split(output, "\n") {
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key, value := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+		switch key {
+		case "PCIe Bus Info":
+			pciAddr = value
+		}
+	}
+	return pciAddr
+}
+
+func parseNpuSmiNames(output string) map[int]string {
+	names := make(map[int]string)
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		id, err := strconv.Atoi(fields[0])
+		if err != nil {
+			continue // header or non-data line
+		}
+		// Chip Name is the final column; only chip 0 represents the NPU.
+		if fields[1] == "0" && !strings.EqualFold(fields[len(fields)-1], "Mcu") {
+			names[id] = strings.Join(fields[3:], " ")
+		}
+	}
+	return names
+}
+
+func parseNpuSmiHBMCapacity(output string) int {
+	for _, line := range strings.Split(output, "\n") {
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 || strings.TrimSpace(parts[0]) != "HBM Capacity(MB)" {
+			continue
+		}
+		capacity, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+		if err == nil && capacity > 0 {
+			return capacity
+		}
+	}
+	return 0
+}
+
 func getAscendNpus(m isolated_device.IContainerDeviceManager, sharingMode string) ([]isolated_device.IDevice, error) {
 	devs := make([]isolated_device.IDevice, 0)
 	chipCounts := map[int]uint{}
-	if chipOut, err := procutils.NewRemoteCommandAsFarAsPossible("npu-smi", "info", "-l").Output(); err != nil {
-		log.Warningf("npu-smi info -l: %s", err)
-	} else {
-		chipCounts = parseNpuSmiChipCounts(string(chipOut))
-	}
-	// Show all device's topology information
-	out, err := procutils.NewRemoteCommandAsFarAsPossible("npu-smi", "info").Output()
+	chipOut, err := procutils.NewRemoteCommandAsFarAsPossible("npu-smi", "info", "-l").Output()
 	if err != nil {
-		return nil, errors.Wrap(err, "npu-smi")
+		log.Warningf("npu-smi info -l: %s", err)
+		return nil, errors.Wrap(err, "npu-smi info -l")
 	}
-	lines := strings.Split(string(out), "\n")
-	for i := 6; i < len(lines); i += 3 {
-		if !strings.HasPrefix(lines[i], "|") {
+	chipCounts = parseNpuSmiChipCounts(string(chipOut))
+	nameOut, err := procutils.NewRemoteCommandAsFarAsPossible("npu-smi", "info", "-m").Output()
+	if err != nil {
+		return nil, errors.Wrap(err, "npu-smi info -m")
+	}
+	npuNames := parseNpuSmiNames(string(nameOut))
+	for npuId, chipCount := range chipCounts {
+		// parse pci addr
+		out, err := procutils.NewRemoteCommandAsFarAsPossible("npu-smi", "info", "-t", "board", "-i", strconv.Itoa(npuId)).Output()
+		if err != nil {
+			return nil, errors.Wrap(err, "npu-smi")
+		}
+		pciAddr := parseNpuSmiBoardInfo(string(out))
+		if pciAddr == "" {
 			continue
 		}
-		if len(lines) <= (i + 1) {
-			return nil, errors.Errorf("failed parse npu-smi unknown chip line")
-		}
-
-		fields := strings.Fields(lines[i])
-		if len(fields) < 3 {
-			return nil, errors.Errorf("failed parse npu-smi unknown npu line")
-		}
-
-		log.Debugf("fields %v", fields)
-		strNpuID := fields[1]
-		npuId, err := strconv.Atoi(strNpuID)
+		memOut, err := procutils.NewRemoteCommandAsFarAsPossible("npu-smi", "info", "-t", "memory", "-i", strconv.Itoa(npuId)).Output()
 		if err != nil {
-			log.Warningf("failed parse npuid %s: %s. break", strNpuID, err)
-			break
+			return nil, errors.Wrapf(err, "npu-smi info -t memory -i %d", npuId)
 		}
-		npuName := fields[2]
-		devPath := fmt.Sprintf("/dev/davinci%d", npuId)
-
-		fileds2 := strings.Fields(lines[i+1])
-		if len(fileds2) < 12 {
-			return nil, errors.Errorf("failed parse npu-smi unknonw chip line get busid, memory size")
-		}
-		log.Debugf("fileds2 %v", fileds2)
-		busID := fileds2[3]
-		hbmMemStr := fileds2[11]
-		hbmMem, err := strconv.Atoi(strings.TrimSpace(hbmMemStr))
+		hbmMem := parseNpuSmiHBMCapacity(string(memOut))
+		pciOutput, err := isolated_device.GetPCIStrByAddr(pciAddr)
 		if err != nil {
-			return nil, errors.Errorf("failed parse npu-smi unknonw chip line get hbm memory size %s: %s. break", hbmMemStr, err)
-		}
-
-		pciOutput, err := isolated_device.GetPCIStrByAddr(busID)
-		if err != nil {
-			return nil, errors.Wrapf(err, "GetPCIStrByAddr %s", busID)
+			return nil, errors.Wrapf(err, "GetPCIStrByAddr %s", pciAddr)
 		}
 		dev := isolated_device.NewPCIDevice2(pciOutput[0])
-		chips := uint(1)
-		if n, ok := chipCounts[npuId]; ok && n > 0 {
-			chips = n
-		}
+
+		devPath := fmt.Sprintf("/dev/davinci%d", npuId)
 		npuDev := &ascnedNPU{
 			manager:       m,
 			BaseDevice:    NewBaseDevice(dev, computeapi.NPU_TYPE, devPath, sharingMode, 1),
-			chipsOnDevice: chips,
+			chipsOnDevice: chipCount,
 		}
-		npuDev.SetModelName(npuName)
+		npuDev.SetModelName(npuNames[npuId])
 		npuDev.memorySize = hbmMem
 
 		devs = append(devs, npuDev)
