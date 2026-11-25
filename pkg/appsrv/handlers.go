@@ -98,6 +98,7 @@ func AddMiscHandlersToMuxRouter(app *Application, root *mux.Router, enableProfil
 	root.HandleFunc("/stats", adapterF(StatisticHandler))
 	root.HandleFunc("/ping", adapterF(PingHandler))
 	root.HandleFunc("/worker_stats", adapterF(WorkerStatsHandler))
+	root.HandleFunc("/process_stats", adapterF(ProcessStatsHandler))
 	if enableProfiling {
 		pp := "/debug/pprof"
 		ppPath := func(sufix string) string {

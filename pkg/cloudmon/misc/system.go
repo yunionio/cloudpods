@@ -415,7 +415,8 @@ func collectDatabaseMetrics(ctx context.Context, ep api.EndpointDetails, version
 }
 
 func collectProcessMetrics(ctx context.Context, ep api.EndpointDetails, version, token string) ([]influxdb.SMetricData, error) {
-	if utils.IsInStringArray(ep.ServiceType, []string{"monitor", "webconsole", "k8s", "mcp-server"}) {
+	// k8s (kubeserver) does not expose appsrv /process_stats
+	if utils.IsInStringArray(ep.ServiceType, []string{"k8s"}) {
 		return []influxdb.SMetricData{}, nil
 	}
 	statsUrl := httputils.JoinPath(baseUrlF(ep.Url), "process_stats")
@@ -525,6 +526,17 @@ func collectHostMetrics(ctx context.Context, host compute_api.HostDetails, token
 	part, err = collectApiStatsMetrics(ctx, service, "host", host.Region, host.ManagerUri, host.Version, token)
 	if err != nil {
 		log.Errorf("collect host %s metric error: %v", service, err)
+	} else {
+		metrics = append(metrics, part...)
+	}
+	hostEp := api.EndpointDetails{
+		ServiceName: service,
+		ServiceType: "host",
+	}
+	hostEp.Url = host.ManagerUri
+	part, err = collectProcessMetrics(ctx, hostEp, host.Version, token)
+	if err != nil {
+		log.Errorf("collect host %s process metric error: %v", service, err)
 	} else {
 		metrics = append(metrics, part...)
 	}
