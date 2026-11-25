@@ -127,8 +127,9 @@ const (
 )
 
 const (
-	HOST_METADATA_CPU_USAGE_PERCENT = "cpu_usage_percent"
-	HOST_METADATA_MEMORY_USED_MB    = "memory_used_mb"
+	HOST_METADATA_CPU_USAGE_PERCENT   = "cpu_usage_percent"
+	HOST_METADATA_MEMORY_USED_MB      = "memory_used_mb"
+	HOST_METADATA_BM_REGISTER_OS_INFO = "bm_register_os_info"
 )
 
 var HOST_TYPES = []string{

@@ -122,3 +122,12 @@ type SDeployGuestFsResponse struct {
 	AutoRenew bool                 `json:"auto_renew"`
 	HostIp    string               `json:"host_ip"`
 }
+
+type SDeployGuestFsOsInfo struct {
+	Os             string `json:"os"`
+	Arch           string `json:"arch"`
+	Distro         string `json:"distro"`
+	Version        string `json:"version"`
+	Language       string `json:"language"`
+	CurrentVersion string `json:"current_version"`
+}
