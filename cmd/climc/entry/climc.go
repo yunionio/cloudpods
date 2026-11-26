@@ -30,6 +30,7 @@ import (
 	"github.com/c-bata/go-prompt"
 	"github.com/cheggaaa/pb/v3"
 	"golang.org/x/net/http/httpproxy"
+	"golang.org/x/term"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -243,6 +244,23 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	return session, nil
 }
 
+func maxSuggestionForTerminal() uint16 {
+	const defaultMax = 16
+	rows, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || rows <= 0 {
+		return defaultMax
+	}
+	// go-prompt requires rows >= cursorY + 1 + maxSuggestion; assume single-line prompt.
+	maxSug := rows - 2
+	if maxSug < 3 {
+		maxSug = 3
+	}
+	if maxSug > defaultMax {
+		maxSug = defaultMax
+	}
+	return uint16(maxSug)
+}
+
 func enterInteractiveMode(
 	parser *structarg.ArgumentParser,
 	sessionFactory func() *mcclient.ClientSession,
@@ -254,7 +272,7 @@ func enterInteractiveMode(
 		promputils.Completer,
 		prompt.OptionPrefix("climc> "),
 		prompt.OptionTitle("Climc, a Command Line Interface to Manage Clouds"),
-		prompt.OptionMaxSuggestion(16),
+		prompt.OptionMaxSuggestion(maxSuggestionForTerminal()),
 	)
 	p.Run()
 }
