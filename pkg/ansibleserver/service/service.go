@@ -27,11 +27,15 @@ import (
 	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/util/telegraf"
 )
 
 func StartService() {
 	opts := &options.Options
 	common_options.ParseOptions(opts, os.Args, "ansibleserver.conf", "ansibleserver")
+	if err := telegraf.WriteAnsibleVars(telegraf.AnsibleVarsPath); err != nil {
+		log.Fatalf("generate shared telegraf Ansible vars: %v", err)
+	}
 
 	commonOpts := &opts.CommonOptions
 	common_app.InitAuth(commonOpts, func() {

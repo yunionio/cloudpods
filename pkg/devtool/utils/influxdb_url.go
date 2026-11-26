@@ -99,6 +99,7 @@ func getArgs(info *sServerInfo, influxdbUrl string) map[string]interface{} {
 		"scaling_group_id": info.serverDetails.ScalingGroupId,
 		"domain_id":        info.serverDetails.DomainId,
 		"project_domain":   info.serverDetails.ProjectDomain,
+		"hypervisor":       info.serverDetails.Hypervisor,
 	}
 	telegrafTags := make([]map[string]string, 0, len(tags))
 	for name, value := range tags {
