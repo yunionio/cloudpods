@@ -39,8 +39,9 @@ type Request struct {
 
 // Response is a non-streaming upstream response body.
 type Response struct {
-	StatusCode int
-	Body       []byte
+	StatusCode  int
+	Body        []byte
+	ContentType string
 }
 
 // StreamChunk is one SSE event payload (bytes after "data: ").
@@ -209,7 +210,11 @@ func HTTPDo(ctx context.Context, method string, req *Request) (*Response, *Error
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, errorFromResponse(resp, body)
 	}
-	return &Response{StatusCode: resp.StatusCode, Body: body}, nil
+	return &Response{
+		StatusCode:  resp.StatusCode,
+		Body:        body,
+		ContentType: strings.TrimSpace(resp.Header.Get("Content-Type")),
+	}, nil
 }
 
 func newUpstreamHTTPRequest(ctx context.Context, method string, req *Request) (*http.Request, error) {

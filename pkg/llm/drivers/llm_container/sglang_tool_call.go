@@ -54,6 +54,11 @@ func applySGLangToolCallDefaults(ctx context.Context, input *api.LLMSkuCreateInp
 	if input == nil || input.LLMType != string(api.LLM_CONTAINER_SGLANG) {
 		return nil
 	}
+	// Pooling/classification models do not serve chat completions; tool-call
+	// parser flags would be meaningless (and can break startup).
+	if skuCategoriesNeedNoToolCallDefaults(input.Categories) {
+		return nil
+	}
 	if input.LLMSpec == nil {
 		input.LLMSpec = &api.LLMSpec{}
 	}

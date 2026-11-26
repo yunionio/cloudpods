@@ -64,7 +64,13 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 		SetProcessTimeout(openaiShortProcessTimeout)
 	app.AddHandler2("POST", openaiCompatAPIPrefix+"/embeddings", embeddingsHandler, nil, "aiproxy_openai_v1_embeddings", nil).
 		SetProcessTimeout(openaiShortProcessTimeout)
+	app.AddHandler2("POST", openaiCompatAPIPrefix+"/rerank", rerankHandler, nil, "aiproxy_openai_v1_rerank", nil).
+		SetProcessTimeout(openaiShortProcessTimeout)
+	app.AddHandler2("POST", "/ai/openai/v2/rerank", rerankHandler, nil, "aiproxy_openai_v2_rerank", nil).
+		SetProcessTimeout(openaiShortProcessTimeout)
 	app.AddHandler2("POST", openaiCompatAPIPrefix+"/images/generations", imagesGenerationsHandler, nil, "aiproxy_openai_v1_images_generations", nil).
+		SetProcessTimeout(openaiShortProcessTimeout)
+	app.AddHandler2("POST", openaiCompatAPIPrefix+"/audio/speech", audioSpeechHandler, nil, "aiproxy_openai_v1_audio_speech", nil).
 		SetProcessTimeout(openaiShortProcessTimeout)
 	app.AddHandler2("GET", openaiCompatAPIPrefix+"/models", modelsHandler, nil, "aiproxy_openai_v1_models", nil)
 	app.AddHandler2("GET", openaiCompatAPIPrefix+"/models/<model>", modelRetrieveHandler, nil, "aiproxy_openai_v1_models_retrieve", nil)

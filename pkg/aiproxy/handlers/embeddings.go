@@ -24,10 +24,13 @@ import (
 
 	"yunion.io/x/onecloud/pkg/aiproxy/models"
 	"yunion.io/x/onecloud/pkg/aiproxy/providers"
+	"yunion.io/x/onecloud/pkg/aiproxy/providers/openai"
 	"yunion.io/x/onecloud/pkg/aiproxy/upstream"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
+
+const embeddingsUpstreamTimeout = 60 * time.Second
 
 // embeddingsHandler implements OpenAI-compatible POST /openai/v1/embeddings.
 func embeddingsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -67,6 +70,13 @@ func embeddingsHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	dbg := NewProxyDebugSession(ctx, "openai-embeddings")
 	dbg.ClientRequest(r, dict, nil, false)
 
+	if err := openai.ValidateEmbeddingsRequest(dict); err != nil {
+		dbg.Error("invalid request: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_request", err)
+		httperrors.InvalidInputError(ctx, w, "%v", err)
+		return
+	}
+
 	vk := extractVirtualKey(r)
 	userCred := auth.AdminCredential()
 	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict, extractRoutingId(r))
@@ -79,6 +89,13 @@ func embeddingsHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	dbg.RoutingResolved(dict, up)
 	fillAPILogFromUpstream(rec, up)
 
+	if err := up.AllowsKind(models.UpstreamKindEmbeddings); err != nil {
+		dbg.Error("capability check: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "capability", err)
+		httperrors.InvalidInputError(ctx, w, "%v", err)
+		return
+	}
+
 	if err := models.TakeVirtualKeyRequestsPerMinute(up.VirtualKeyId, up.RequestsPerMinute); err != nil {
 		dbg.Error("rate limit: %v", err)
 		failAPILogRecord(rec, http.StatusInternalServerError, "rate_limit", err)
@@ -87,19 +104,15 @@ func embeddingsHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	}
 
 	embProv := providers.GetEmbeddings(up.ProviderKey)
-	if _, err := embProv.BuildEmbeddingsRequest(&providers.ChatContext{
-		ProviderKey:   up.ProviderKey,
-		BaseURL:       up.BaseURL,
-		APIKey:        up.APIKey,
-		UpstreamModel: up.UpstreamModel,
-	}, dict); err != nil {
-		dbg.Error("provider request: %v", err)
-		failAPILogRecord(rec, http.StatusBadRequest, "provider_request", err)
-		httperrors.InvalidInputError(ctx, w, "provider request: %v", err)
-		return
+	buildUpstream := func() (*upstream.Request, error) {
+		req, err := buildEmbeddingsUpstream(up, dict)
+		if err == nil {
+			dbg.UpstreamRequest(req)
+		}
+		return req, err
 	}
 
-	resp, uerr := embeddingsWithKeyFailover(ctx, up, dict, 60*time.Second, dbg)
+	resp, uerr := upstreamWithKeyFailover(ctx, up, embeddingsUpstreamTimeout, buildUpstream)
 	if uerr != nil {
 		dbg.Error("upstream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
 		recordUpstreamError(rec, uerr)
@@ -116,47 +129,6 @@ func embeddingsHandler(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(out)
-}
-
-func embeddingsWithKeyFailover(
-	ctx context.Context,
-	up *models.ChatUpstream,
-	dict *jsonutils.JSONDict,
-	timeout time.Duration,
-	dbg *ProxyDebugSession,
-) (*upstream.Response, *upstream.Error) {
-	tried := make(map[string]bool)
-	if up.AiKeyId != "" {
-		tried[up.AiKeyId] = true
-	}
-	var last *upstream.Error
-	for attempt := 0; attempt < models.MaxAiKeyFailoverAttempts; attempt++ {
-		upReq, err := buildEmbeddingsUpstream(up, dict)
-		if err != nil {
-			return nil, &upstream.Error{StatusCode: http.StatusBadRequest, Message: err.Error()}
-		}
-		dbg.UpstreamRequest(upReq)
-		reqCtx, cancel := context.WithTimeout(ctx, timeout)
-		resp, uerr := upstream.ChatCompletion(reqCtx, upReq)
-		cancel()
-		if uerr == nil {
-			models.RecordAiKeySuccess(up.AiKeyId)
-			return resp, nil
-		}
-		last = uerr
-		status := upstreamErrorStatusCode(uerr)
-		models.RecordAiKeyFailure(up.AiKeyId, status)
-		if up.AiKeyId == "" || !models.IsRetryableAiKeyUpstreamStatus(status) || attempt+1 >= models.MaxAiKeyFailoverAttempts {
-			break
-		}
-		if err := models.RepickUpstreamAPIKey(up, tried); err != nil {
-			break
-		}
-		if up.AiKeyId != "" {
-			tried[up.AiKeyId] = true
-		}
-	}
-	return nil, last
 }
 
 func buildEmbeddingsUpstream(up *models.ChatUpstream, dict *jsonutils.JSONDict) (*upstream.Request, error) {

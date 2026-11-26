@@ -127,7 +127,10 @@ func (manager *SAiRoutingManager) FetchCustomizeColumns(
 		rows[i].Enabled = routing.GetEnabled()
 		routingIds[i] = routing.Id
 	}
-	if fields == nil || fields.Contains("routing_models") {
+	needRoutingModels := fields == nil || fields.Contains("routing_models")
+	needCategories := fields == nil || fields.Contains("categories") || needRoutingModels
+	routingEntries := make([][]SAiRoutingModel, len(objs))
+	if needRoutingModels || needCategories {
 		for i, rid := range routingIds {
 			if rid == "" {
 				continue
@@ -136,23 +139,92 @@ func (manager *SAiRoutingManager) FetchCustomizeColumns(
 			if err != nil {
 				continue
 			}
-			rows[i].RoutingModels = make([]api.AiRoutingModelDetails, len(entries))
-			for j := range entries {
-				e := entries[j]
-				rows[i].RoutingModels[j] = api.AiRoutingModelDetails{
-					Id:           e.Id,
-					Name:         e.Name,
-					AiRoutingId:  e.AiRoutingId,
-					AiProviderId: e.AiProviderId,
-					AiModelId:    e.AiModelId,
-					Priority:     e.Priority,
-					ModelPattern: e.ModelPattern,
-					Enabled:      e.Enabled.IsTrue(),
+			routingEntries[i] = entries
+			if needRoutingModels {
+				rows[i].RoutingModels = make([]api.AiRoutingModelDetails, len(entries))
+				for j := range entries {
+					e := entries[j]
+					rows[i].RoutingModels[j] = api.AiRoutingModelDetails{
+						Id:           e.Id,
+						Name:         e.Name,
+						AiRoutingId:  e.AiRoutingId,
+						AiProviderId: e.AiProviderId,
+						AiModelId:    e.AiModelId,
+						Priority:     e.Priority,
+						ModelPattern: e.ModelPattern,
+						Enabled:      e.Enabled.IsTrue(),
+					}
 				}
 			}
 		}
 	}
+	if needCategories {
+		modelIds := make([]string, 0, 16)
+		for _, entries := range routingEntries {
+			for j := range entries {
+				if !entries[j].Enabled.IsTrue() {
+					continue
+				}
+				if id := strings.TrimSpace(entries[j].AiModelId); id != "" {
+					modelIds = append(modelIds, id)
+				}
+			}
+		}
+		categoryByModelId, err := fetchAiModelCategoriesByIds(modelIds)
+		if err != nil {
+			log.Errorf("ai_routing FetchCustomizeColumns categories: %v", err)
+			categoryByModelId = map[string]string{}
+		}
+		for i, entries := range routingEntries {
+			rows[i].Categories = collectRoutingCategoriesFromEntries(entries, categoryByModelId)
+		}
+	}
 	return rows
+}
+
+// fetchAiModelCategoriesByIds returns ai_model id → category (empty config → llm).
+func fetchAiModelCategoriesByIds(ids []string) (map[string]string, error) {
+	ids = uniqueNonEmptyStrings(ids)
+	out := make(map[string]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows := make([]SAiModel, 0, len(ids))
+	if err := AiModelManager.Query().In("id", ids).All(&rows); err != nil {
+		return nil, errors.Wrap(err, "list ai_models for categories")
+	}
+	for i := range rows {
+		out[rows[i].Id] = rows[i].Config.CategoryOrLLM()
+	}
+	return out, nil
+}
+
+// collectRoutingCategoriesFromEntries unions categories of enabled bindings.
+// Missing model ids are skipped; known models always contribute a category
+// (legacy empty config is already normalized to llm by the lookup map).
+func collectRoutingCategoriesFromEntries(entries []SAiRoutingModel, categoryByModelId map[string]string) []string {
+	out := make([]string, 0, 4)
+	seen := make(map[string]struct{}, 4)
+	for i := range entries {
+		if !entries[i].Enabled.IsTrue() {
+			continue
+		}
+		id := strings.TrimSpace(entries[i].AiModelId)
+		cat, ok := categoryByModelId[id]
+		if !ok {
+			continue
+		}
+		cat = api.NormalizeModelCategory(cat)
+		if cat == "" {
+			continue
+		}
+		if _, exists := seen[cat]; exists {
+			continue
+		}
+		seen[cat] = struct{}{}
+		out = append(out, cat)
+	}
+	return out
 }
 
 func (routing *SAiRouting) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {

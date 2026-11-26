@@ -40,8 +40,8 @@ func TestAiproxyStatusWhenNoRunningReplicas(t *testing.T) {
 	if synced != api.AIPROXY_SYNC_STATUS_SYNCED {
 		t.Fatalf("replicas=0 status = %q, want %q", synced, api.AIPROXY_SYNC_STATUS_SYNCED)
 	}
-	if syncedMsg == "" {
-		t.Fatal("replicas=0 message must explain scale-to-zero")
+	if syncedMsg != "scaled to zero, routing disabled" {
+		t.Fatalf("replicas=0 message = %q, want the routing-disabled explanation", syncedMsg)
 	}
 
 	pending, pendingMsg := aiproxyStatusWhenNoRunningReplicas(&SLLMDeployment{Replicas: 2})
@@ -57,6 +57,27 @@ func TestAiproxyStatusWhenNoRunningReplicas(t *testing.T) {
 	}
 	if got := inferAiproxySyncStatus(&SLLMDeployment{AutoRegisterAiproxy: true, Replicas: 1}); got != api.AIPROXY_SYNC_STATUS_PENDING {
 		t.Fatalf("infer replicas>0 = %q, want pending", got)
+	}
+}
+
+func TestShouldDisableAiRouting(t *testing.T) {
+	cases := []struct {
+		name string
+		dep  *SLLMDeployment
+		want bool
+	}{
+		{name: "nil deployment", dep: nil, want: false},
+		{name: "auto register off", dep: &SLLMDeployment{Replicas: 0}, want: false},
+		{name: "scaled to zero", dep: &SLLMDeployment{AutoRegisterAiproxy: true, Replicas: 0}, want: true},
+		{name: "negative replicas", dep: &SLLMDeployment{AutoRegisterAiproxy: true, Replicas: -1}, want: true},
+		{name: "replicas>0 keeps routing enabled", dep: &SLLMDeployment{AutoRegisterAiproxy: true, Replicas: 2}, want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := shouldDisableAiRouting(tc.dep); got != tc.want {
+				t.Fatalf("shouldDisableAiRouting = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 

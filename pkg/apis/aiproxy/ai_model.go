@@ -28,6 +28,8 @@ type AiModelListInput struct {
 	AiProviderId string `json:"ai_provider_id"`
 	AiRoutingId  string `json:"ai_routing_id"`
 	ModelKey     string `json:"model_key"`
+	// Category filters by config.category (llm/embedding/reranker/...).
+	Category string `json:"category"`
 }
 
 type AiModelCreateInput struct {
@@ -72,6 +74,9 @@ type AiModelDetails struct {
 
 // SAiModelConfig stores per-model capability and extension settings.
 type SAiModelConfig struct {
+	// Category is the model's serving task (llm, embedding, reranker, image, ...).
+	// Empty means chat-like, preserving behavior for legacy rows.
+	Category string `json:"category,omitempty"`
 	// InputModalities declares native model modalities (e.g. text, image).
 	InputModalities []string            `json:"input_modalities,omitempty"`
 	Extensions      *SAiModelExtensions `json:"extensions,omitempty"`
@@ -106,10 +111,26 @@ func (c *SAiModelConfig) IsZero() bool {
 	if c == nil {
 		return true
 	}
-	if len(c.InputModalities) > 0 {
+	if NormalizeModelCategory(c.Category) != "" || len(c.InputModalities) > 0 {
 		return false
 	}
 	return c.Extensions == nil || c.Extensions.Visual == nil
+}
+
+// NormalizedCategory returns the trimmed lowercase category ("" for legacy rows).
+func (cfg *SAiModelConfig) NormalizedCategory() string {
+	if cfg == nil {
+		return ""
+	}
+	return NormalizeModelCategory(cfg.Category)
+}
+
+// CategoryOrLLM returns the model category, defaulting empty to "llm".
+func (cfg *SAiModelConfig) CategoryOrLLM() string {
+	if c := cfg.NormalizedCategory(); c != "" {
+		return c
+	}
+	return ModelCategoryLLM
 }
 
 // VisualEnabled reports whether visual extension is configured and enabled.
@@ -149,13 +170,18 @@ func (cfg *SAiModelConfig) NormalizedInputModalities() []string {
 }
 
 // InputModalitiesForCatalog returns Codex/OpenAI input_modalities for this model config.
-// Prefers explicit input_modalities; falls back to visual-delegation implying text+image.
+// Prefers explicit input_modalities; falls back to visual-delegation implying text+image,
+// and to text-only for embedding/reranker models.
 func (cfg *SAiModelConfig) InputModalitiesForCatalog() []string {
 	if mods := cfg.NormalizedInputModalities(); len(mods) > 0 {
 		return mods
 	}
 	if cfg.VisualEnabled() {
 		return []string{"text", "image"}
+	}
+	switch cfg.NormalizedCategory() {
+	case ModelCategoryEmbedding, ModelCategoryReranker:
+		return []string{"text"}
 	}
 	return nil
 }

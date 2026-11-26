@@ -76,9 +76,11 @@ func createUserProviderModel(
 			dataDict.Set("context_window", jsonutils.NewInt(int64(contextWindow)))
 		}
 		if config != nil {
-			mods := config.NormalizedInputModalities()
-			if len(mods) > 0 {
-				cfg := &api.SAiModelConfig{InputModalities: mods}
+			cfg := &api.SAiModelConfig{
+				Category:        api.NormalizeModelCategory(config.Category),
+				InputModalities: config.NormalizedInputModalities(),
+			}
+			if !cfg.IsZero() {
 				dataDict.Set("config", jsonutils.Marshal(cfg))
 			}
 		}
@@ -127,8 +129,11 @@ func createSelectedProviderModelSpecs(
 	for i := range specs {
 		spec := specs[i]
 		var cfg *api.SAiModelConfig
-		if len(spec.InputModalities) > 0 {
-			cfg = &api.SAiModelConfig{InputModalities: spec.InputModalities}
+		if len(spec.InputModalities) > 0 || strings.TrimSpace(spec.Category) != "" {
+			cfg = &api.SAiModelConfig{
+				Category:        api.NormalizeModelCategory(spec.Category),
+				InputModalities: spec.InputModalities,
+			}
 		}
 		if err := createUserProviderModel(ctx, userCred, ownerId, prov, spec.ModelKey, "", spec.ContextWindow, cfg); err != nil {
 			return err
@@ -157,6 +162,10 @@ func normalizeProviderModelSpecs(input api.AiProviderSetModelsInput) ([]api.AiPr
 			if input.Models[i].ContextWindow < 0 {
 				return nil, errors.Wrap(httperrors.ErrInputParameter, "context_window must be >= 0")
 			}
+			if err := api.ValidateModelCategory(input.Models[i].Category); err != nil {
+				return nil, errors.Wrap(httperrors.ErrInputParameter, err.Error())
+			}
+			spec.Category = api.NormalizeModelCategory(input.Models[i].Category)
 			if mods := (&api.SAiModelConfig{InputModalities: input.Models[i].InputModalities}).NormalizedInputModalities(); len(mods) > 0 {
 				spec.InputModalities = mods
 			}

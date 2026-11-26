@@ -38,6 +38,66 @@ func TestLLMModelSetSizeInB(t *testing.T) {
 	}
 }
 
+func TestSortModelSetsDefaultOrder(t *testing.T) {
+	names := func(sets []api.LLMModelSet) []string {
+		out := make([]string, len(sets))
+		for i := range sets {
+			out[i] = sets[i].Name
+		}
+		return out
+	}
+
+	base := []api.LLMModelSet{
+		{Name: "old", ReleaseDate: "2023-11-06"},
+		{Name: "undated"},
+		{Name: "newest", ReleaseDate: "2026-02-03"},
+		{Name: "middle", ReleaseDate: "2025-04-19"},
+	}
+
+	t.Run("default sorts newest first", func(t *testing.T) {
+		sets := append([]api.LLMModelSet(nil), base...)
+		sortModelSets(sets, "", "")
+		got := names(sets)
+		want := []string{"newest", "middle", "old", "undated"}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("default order = %v, want %v", got, want)
+			}
+		}
+	})
+
+	t.Run("explicit release_date honours direction", func(t *testing.T) {
+		sets := append([]api.LLMModelSet(nil), base...)
+		sortModelSets(sets, sortFieldReleaseDate, "asc")
+		got := names(sets)
+		want := []string{"old", "middle", "newest", "undated"}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("asc order = %v, want %v", got, want)
+			}
+		}
+	})
+
+	t.Run("undated sets stay last in both directions", func(t *testing.T) {
+		sets := append([]api.LLMModelSet(nil), base...)
+		sortModelSets(sets, sortFieldReleaseDate, "desc")
+		if last := names(sets)[len(sets)-1]; last != "undated" {
+			t.Fatalf("desc last = %q, want undated", last)
+		}
+	})
+
+	t.Run("other sort fields are unaffected", func(t *testing.T) {
+		sets := []api.LLMModelSet{
+			{Name: "a", Downloads: 10, ReleaseDate: "2026-01-01"},
+			{Name: "b", Downloads: 99, ReleaseDate: "2023-01-01"},
+		}
+		sortModelSets(sets, "downloads", "desc")
+		if got := names(sets); got[0] != "b" {
+			t.Fatalf("downloads order = %v, want b first", got)
+		}
+	})
+}
+
 // catalogPath resolves a catalog YAML for the parsing tests. The catalog is
 // published from the website repo rather than embedded here, so the tests skip
 // when no file can be found instead of failing.
@@ -170,9 +230,8 @@ func TestLLMModelSetManagerLoadsCatalog(t *testing.T) {
 	doc := loadCatalogDoc(t, path)
 
 	m := &SLLMModelSetManager{
-		setsByName: map[string]*api.LLMModelSet{},
-		specsById:  map[string]*specRef{},
-		source:     path,
+		slots:            map[string]*catalogSlot{},
+		configuredSource: path,
 	}
 	if err := m.Refresh(context.Background()); err != nil {
 		t.Fatalf("refresh from %s: %v", path, err)
@@ -193,10 +252,10 @@ func TestLLMModelSetManagerLoadsCatalog(t *testing.T) {
 		if s.Id != s.Name {
 			t.Errorf("set %q: id = %q, want name", s.Name, s.Id)
 		}
-		if _, ok := m.GetSet(s.Name); !ok {
+		if _, ok := m.GetSet(s.Name, ""); !ok {
 			t.Errorf("GetSet(%q) not found", s.Name)
 		}
-		specs, ok := m.ListSpecs(s.Name)
+		specs, ok := m.ListSpecs(s.Name, "")
 		if !ok || len(specs) != len(s.Specs) {
 			t.Fatalf("ListSpecs(%q) returned %d specs, want %d", s.Name, len(specs), len(s.Specs))
 		}
@@ -206,7 +265,7 @@ func TestLLMModelSetManagerLoadsCatalog(t *testing.T) {
 				t.Errorf("duplicate spec id %q", sp.Id)
 			}
 			seenIds[sp.Id] = struct{}{}
-			got, setName, ok := m.GetSpec(sp.Id)
+			got, setName, ok := m.GetSpec(sp.Id, "")
 			if !ok {
 				t.Errorf("GetSpec(%q) not found", sp.Id)
 				continue
@@ -231,4 +290,115 @@ func TestLLMModelSetManagerLoadsCatalog(t *testing.T) {
 			t.Errorf("set %q (size %v %s = %vB) passed size_min %v", s.Name, s.Size, s.SizeUnit, s.SizeInB(), min)
 		}
 	}
+
+	// Custom / single-file catalog: no dual-source picker.
+	if got := m.AvailableSources(); len(got) != 0 {
+		t.Fatalf("AvailableSources() = %v, want empty for custom catalog", got)
+	}
+}
+
+func TestLLMModelSetManagerDualCatalog(t *testing.T) {
+	hfPath := catalogPath(t, "LLM_MODEL_CATALOG_PATH", "model-catalog.yaml")
+	msPath := catalogPath(t, "LLM_MODEL_CATALOG_MODELSCOPE_PATH", "model-catalog-modelscope.yaml")
+
+	m := &SLLMModelSetManager{
+		slots:            map[string]*catalogSlot{},
+		dualMode:         true,
+		configuredSource: DefaultModelCatalogURL,
+		hfReachable:      true,
+		msReachable:      true,
+	}
+	if err := m.refreshSlot(context.Background(), api.LLM_MODEL_SOURCE_HUGGINGFACE, hfPath); err != nil {
+		t.Fatalf("refresh huggingface slot: %v", err)
+	}
+	if err := m.refreshSlot(context.Background(), api.LLM_MODEL_SOURCE_MODEL_SCOPE, msPath); err != nil {
+		t.Fatalf("refresh model_scope slot: %v", err)
+	}
+
+	sources := m.AvailableSources()
+	if len(sources) != 2 {
+		t.Fatalf("AvailableSources() = %v, want both sources", sources)
+	}
+
+	hfSets, hfTotal := m.ListSets(api.LLMModelSetListInput{
+		Source: api.LLM_MODEL_SOURCE_HUGGINGFACE,
+		Limit:  1000,
+	})
+	msSets, msTotal := m.ListSets(api.LLMModelSetListInput{
+		Source: api.LLM_MODEL_SOURCE_MODEL_SCOPE,
+		Limit:  1000,
+	})
+	if hfTotal == 0 || msTotal == 0 {
+		t.Fatalf("empty catalog: hf=%d ms=%d", hfTotal, msTotal)
+	}
+	if hfTotal != msTotal {
+		t.Fatalf("set count mismatch: hf=%d ms=%d", hfTotal, msTotal)
+	}
+
+	// Default (no source) prefers huggingface when both are available.
+	defaultSets, _ := m.ListSets(api.LLMModelSetListInput{Limit: 5})
+	if len(defaultSets) == 0 {
+		t.Fatal("default ListSets returned no sets")
+	}
+	for _, s := range defaultSets {
+		for _, sp := range s.Specs {
+			if sp.Source == "ollama" {
+				continue
+			}
+			if sp.Source != api.LLM_MODEL_SOURCE_HUGGINGFACE {
+				t.Fatalf("default source spec %q has source %q, want huggingface", sp.Id, sp.Source)
+			}
+		}
+	}
+
+	// Explicit model_scope returns ModelScope repo fields.
+	var foundMS bool
+	for _, s := range msSets {
+		for _, sp := range s.Specs {
+			if sp.Source != api.LLM_MODEL_SOURCE_MODEL_SCOPE {
+				continue
+			}
+			foundMS = true
+			if sp.ModelScopeModelId == "" {
+				t.Fatalf("model_scope spec %q missing model_scope_model_id", sp.Id)
+			}
+			got, _, ok := m.GetSpec(sp.Id, api.LLM_MODEL_SOURCE_MODEL_SCOPE)
+			if !ok || got.ModelScopeModelId != sp.ModelScopeModelId {
+				t.Fatalf("GetSpec(%q, model_scope) mismatch", sp.Id)
+			}
+			break
+		}
+		if foundMS {
+			break
+		}
+	}
+	if !foundMS {
+		t.Fatal("no model_scope specs found")
+	}
+
+	// Only ModelScope reachable → AvailableSources is just model_scope.
+	m.mu.Lock()
+	m.hfReachable = false
+	m.msReachable = true
+	m.mu.Unlock()
+	onlyMS := m.AvailableSources()
+	if len(onlyMS) != 1 || onlyMS[0] != api.LLM_MODEL_SOURCE_MODEL_SCOPE {
+		t.Fatalf("AvailableSources with only MS = %v", onlyMS)
+	}
+	fallback, _ := m.ListSets(api.LLMModelSetListInput{Limit: 5})
+	if len(fallback) == 0 {
+		t.Fatal("expected model_scope fallback sets")
+	}
+	for _, s := range fallback {
+		for _, sp := range s.Specs {
+			if sp.Source == "ollama" {
+				continue
+			}
+			if sp.Source != api.LLM_MODEL_SOURCE_MODEL_SCOPE {
+				t.Fatalf("MS-only default spec source = %q", sp.Source)
+			}
+		}
+	}
+
+	_ = hfSets
 }

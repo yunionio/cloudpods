@@ -77,10 +77,22 @@ type EmbeddingsProvider interface {
 	NormalizeEmbeddingsResponse(body []byte) ([]byte, error)
 }
 
+// RerankProvider converts OpenAI/Cohere /v1/rerank requests to provider-native APIs.
+type RerankProvider interface {
+	BuildRerankRequest(ctx *ChatContext, body *jsonutils.JSONDict) (*HTTPRequest, error)
+	NormalizeRerankResponse(body []byte) ([]byte, error)
+}
+
 // ImagesProvider converts OpenAI /v1/images/generations requests to provider-native APIs.
 type ImagesProvider interface {
 	BuildImagesGenerationsRequest(ctx *ChatContext, body *jsonutils.JSONDict) (*HTTPRequest, error)
 	NormalizeImagesGenerationsResponse(body []byte) ([]byte, error)
+}
+
+// SpeechProvider converts OpenAI /v1/audio/speech requests to provider-native APIs.
+// Successful responses are raw audio bytes (not JSON).
+type SpeechProvider interface {
+	BuildSpeechRequest(ctx *ChatContext, body *jsonutils.JSONDict) (*HTTPRequest, error)
 }
 
 // CompletionsProvider converts OpenAI /v1/completions requests to provider-native APIs.

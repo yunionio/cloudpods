@@ -335,6 +335,11 @@ func prepareLLMBenchmarkCreateInput(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return input, errors.Wrap(err, "GetLLMSku")
 	}
+	// The benchmark driver (GuideLLM) only speaks /v1/chat/completions, so
+	// embedding/reranker deployments would fail with an opaque upstream error.
+	if err := rejectNonChatBenchmarkTarget(sku); err != nil {
+		return input, err
+	}
 	image, err := resolveBenchmarkImage(ctx, userCred, input.BenchmarkImage)
 	if err != nil {
 		return input, err
@@ -675,6 +680,28 @@ func defaultLLMBenchmarkInput(input *api.LLMBenchmarkCreateInput, pkg *SLLMBench
 			input.DatasetOutputTokens = 128
 		}
 	}
+}
+
+// rejectNonChatBenchmarkTarget rejects embedding/reranker/image deployments.
+// GuideLLM only drives /v1/chat/completions, so benchmarking those targets would
+// surface as an opaque upstream 400 rather than a clear input error.
+func rejectNonChatBenchmarkTarget(sku *SLLMSku) error {
+	if sku == nil {
+		return nil
+	}
+	for _, cat := range []string{
+		api.LLM_MODEL_CATEGORY_EMBEDDING,
+		api.LLM_MODEL_CATEGORY_RERANKER,
+		api.LLM_MODEL_CATEGORY_IMAGE,
+		api.LLM_MODEL_CATEGORY_SPEECH_TO_TEXT,
+		api.LLM_MODEL_CATEGORY_TEXT_TO_SPEECH,
+	} {
+		if api.HasLLMModelCategory(sku.Categories, cat) {
+			return errors.Wrapf(httperrors.ErrInputParameter,
+				"benchmark only supports chat models; sku %s is a %s model", sku.Name, cat)
+		}
+	}
+	return nil
 }
 
 func validateLLMBenchmarkInput(input *api.LLMBenchmarkCreateInput, hasPackage bool) error {

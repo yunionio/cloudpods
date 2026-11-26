@@ -56,6 +56,11 @@ func applyVLLMToolCallDefaults(ctx context.Context, input *api.LLMSkuCreateInput
 	if input == nil || input.LLMType != string(api.LLM_CONTAINER_VLLM) {
 		return nil
 	}
+	// Pooling/classification models (embedding, reranker, image) do not serve chat
+	// completions; forcing tool-call flags makes vLLM abort at startup.
+	if skuCategoriesNeedNoToolCallDefaults(input.Categories) {
+		return nil
+	}
 	if input.LLMSpec == nil {
 		input.LLMSpec = &api.LLMSpec{}
 	}

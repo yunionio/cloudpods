@@ -79,6 +79,13 @@ func imagesGenerationsHandler(ctx context.Context, w http.ResponseWriter, r *htt
 	dbg.RoutingResolved(dict, up)
 	fillAPILogFromUpstream(rec, up)
 
+	if err := up.AllowsKind(models.UpstreamKindImages); err != nil {
+		dbg.Error("capability check: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "capability", err)
+		httperrors.InvalidInputError(ctx, w, "%v", err)
+		return
+	}
+
 	if err := models.TakeVirtualKeyRequestsPerMinute(up.VirtualKeyId, up.RequestsPerMinute); err != nil {
 		dbg.Error("rate limit: %v", err)
 		failAPILogRecord(rec, http.StatusInternalServerError, "rate_limit", err)

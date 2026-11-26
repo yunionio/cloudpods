@@ -33,6 +33,8 @@ type ModelsListEntry struct {
 	OwnedBy         string   `json:"owned_by"`
 	ContextWindow   int      `json:"context_window,omitempty"`
 	InputModalities []string `json:"input_modalities,omitempty"`
+	// Category is the model serving task (llm, embedding, reranker, ...). Omitted for legacy rows.
+	Category string `json:"category,omitempty"`
 }
 
 // ListModelsForVirtualKey returns OpenAI-compatible model ids reachable by the virtual key
@@ -382,6 +384,7 @@ func modelsListEntryFromModel(id, ownedBy string, created int64, mdl *SAiModel) 
 		if mods := mdl.Config.InputModalitiesForCatalog(); len(mods) > 0 {
 			entry.InputModalities = mods
 		}
+		entry.Category = mdl.Config.NormalizedCategory()
 	}
 	return entry
 }

@@ -30,7 +30,7 @@ const (
 	DefaultModelCatalogModelScopeURL = "https://www.cloudpods.org/model-catalog-modelscope.yaml"
 	// legacyModelCatalogURL is the previous default, which is no longer
 	// published (404). Kept so deployments that still point at it get the
-	// ModelScope fallback instead of a hard failure.
+	// dual-catalog / ModelScope path instead of a hard failure.
 	legacyModelCatalogURL = "https://www.cloudpods.org/llm-catalog.yaml"
 	// DefaultLLMCatalogRefreshInterval is how often the LLM service polls the
 	// upstream source in the background. Local file sources are also re-read
@@ -38,11 +38,33 @@ const (
 	DefaultLLMCatalogRefreshInterval = time.Hour
 	// catalogFetchTimeout caps a single HTTP fetch attempt.
 	catalogFetchTimeout = 30 * time.Second
+
+	catalogHubHuggingFace = "https://huggingface.co"
+	catalogHubModelScope  = "https://www.modelscope.cn"
+
+	// catalogSlotDefault is the sole slot key used for a custom ModelCatalogURL.
+	catalogSlotDefault = "default"
 )
+
+// catalogSlot holds one in-memory catalog view (HuggingFace, ModelScope, or
+// a custom single-file catalog).
+type catalogSlot struct {
+	sets        []api.LLMModelSet
+	setsByName  map[string]*api.LLMModelSet
+	specsById   map[string]*specRef
+	url         string
+	lastFetched time.Time
+	lastErr     error
+}
 
 // SLLMModelSetManager is an in-memory store of curated model sets (and their
 // deployable specs) loaded from a configurable YAML source. The YAML shape
 // matches GPUStack's model catalog (`model_sets` + `draft_models`).
+//
+// When the configured source is a built-in HuggingFace catalog URL, the
+// manager loads both the HuggingFace and ModelScope YAML mirrors into separate
+// slots so the UI can let the user pick a download source. Custom URLs keep a
+// single slot.
 //
 // Keys:
 //   - sets are keyed by their `name` field (required and unique upstream).
@@ -50,13 +72,13 @@ const (
 //     one at load time from (set name, mode, quantization, backend) and
 //     populates LLMModelSpec.SpecId on each spec.
 type SLLMModelSetManager struct {
-	mu          sync.RWMutex
-	sets        []api.LLMModelSet
-	setsByName  map[string]*api.LLMModelSet
-	specsById   map[string]*specRef
-	lastFetched time.Time
-	lastErr     error
-	source      string
+	mu               sync.RWMutex
+	slots            map[string]*catalogSlot
+	dualMode         bool
+	configuredSource string
+	hfReachable      bool
+	msReachable      bool
+	lastErr          error
 }
 
 // specRef tracks a spec plus the name of the set it belongs to.
@@ -72,8 +94,7 @@ var llmModelSetManagerOnce sync.Once
 func GetLLMModelSetManager() *SLLMModelSetManager {
 	llmModelSetManagerOnce.Do(func() {
 		llmModelSetManager = &SLLMModelSetManager{
-			setsByName: map[string]*api.LLMModelSet{},
-			specsById:  map[string]*specRef{},
+			slots: map[string]*catalogSlot{},
 		}
 	})
 	return llmModelSetManager
@@ -88,9 +109,9 @@ func (m *SLLMModelSetManager) Start(ctx context.Context, source string, interval
 	if source == "" {
 		source = DefaultModelCatalogURL
 	}
-	source = resolveModelCatalogSource(source)
 	m.mu.Lock()
-	m.source = source
+	m.configuredSource = source
+	m.dualMode = isBuiltinHuggingFaceCatalogURL(source)
 	m.mu.Unlock()
 
 	go func() {
@@ -118,26 +139,87 @@ func (m *SLLMModelSetManager) Start(ctx context.Context, source string, interval
 	}()
 }
 
-// Refresh re-loads the configured source and replaces the in-memory cache.
-// On error the previous cache is preserved.
+// Refresh re-loads the configured source(s) and replaces the in-memory cache.
+// On error the previous cache for a slot is preserved. Hub reachability is
+// re-probed and cached for AvailableSources.
 func (m *SLLMModelSetManager) Refresh(ctx context.Context) error {
 	m.mu.RLock()
-	source := m.source
+	configured := m.configuredSource
+	dual := m.dualMode
 	m.mu.RUnlock()
-	if source == "" {
-		source = DefaultModelCatalogURL
+
+	if configured == "" {
+		configured = DefaultModelCatalogURL
+		dual = isBuiltinHuggingFaceCatalogURL(configured)
 	}
 
+	hfReachable := canAccessCatalogURL(catalogHubHuggingFace)
+	msReachable := canAccessCatalogURL(catalogHubModelScope)
+
+	if dual {
+		var firstErr error
+		okCount := 0
+		if err := m.refreshSlot(ctx, api.LLM_MODEL_SOURCE_HUGGINGFACE, DefaultModelCatalogURL); err != nil {
+			log.Warningf("LLMModelSet: refresh huggingface catalog failed: %s", err)
+			firstErr = err
+		} else {
+			okCount++
+		}
+		if err := m.refreshSlot(ctx, api.LLM_MODEL_SOURCE_MODEL_SCOPE, DefaultModelCatalogModelScopeURL); err != nil {
+			log.Warningf("LLMModelSet: refresh model_scope catalog failed: %s", err)
+			if firstErr == nil {
+				firstErr = err
+			}
+		} else {
+			okCount++
+		}
+		m.mu.Lock()
+		m.configuredSource = configured
+		m.dualMode = true
+		m.hfReachable = hfReachable
+		m.msReachable = msReachable
+		if okCount == 0 {
+			m.lastErr = firstErr
+			m.mu.Unlock()
+			return firstErr
+		}
+		m.lastErr = nil
+		m.mu.Unlock()
+		return nil
+	}
+
+	if err := m.refreshSlot(ctx, catalogSlotDefault, configured); err != nil {
+		m.mu.Lock()
+		m.configuredSource = configured
+		m.dualMode = false
+		m.hfReachable = hfReachable
+		m.msReachable = msReachable
+		m.lastErr = err
+		m.mu.Unlock()
+		return err
+	}
+	m.mu.Lock()
+	m.configuredSource = configured
+	m.dualMode = false
+	m.hfReachable = hfReachable
+	m.msReachable = msReachable
+	m.lastErr = nil
+	m.mu.Unlock()
+	return nil
+}
+
+func (m *SLLMModelSetManager) refreshSlot(ctx context.Context, key, source string) error {
 	body, err := m.loadSource(ctx, source)
 	if err != nil {
-		m.recordErr(err)
+		m.recordSlotErr(key, source, err)
 		return err
 	}
 
 	doc := api.LLMCatalogDoc{}
 	if err := yaml.Unmarshal(body, &doc); err != nil {
-		m.recordErr(err)
-		return errors.Wrap(err, "parse catalog yaml")
+		err = errors.Wrap(err, "parse catalog yaml")
+		m.recordSlotErr(key, source, err)
+		return err
 	}
 
 	// Merge OneCloud's bundled Ollama registry into the catalog so the v2 UI
@@ -145,6 +227,20 @@ func (m *SLLMModelSetManager) Refresh(ctx context.Context) error {
 	// HF / ModelScope entries.
 	doc.ModelSets = append(doc.ModelSets, buildOllamaModelSets(api.OllamaRegistry)...)
 
+	slot, totalSpecs := buildCatalogSlot(doc, source)
+
+	m.mu.Lock()
+	if m.slots == nil {
+		m.slots = map[string]*catalogSlot{}
+	}
+	m.slots[key] = slot
+	m.mu.Unlock()
+
+	log.Infof("LLMModelSet: refreshed %d sets / %d specs from %s (slot=%s)", len(slot.sets), totalSpecs, source, key)
+	return nil
+}
+
+func buildCatalogSlot(doc api.LLMCatalogDoc, source string) (*catalogSlot, int) {
 	sets := make([]api.LLMModelSet, 0, len(doc.ModelSets))
 	setsByName := make(map[string]*api.LLMModelSet, len(doc.ModelSets))
 	specsById := make(map[string]*specRef)
@@ -160,13 +256,11 @@ func (m *SLLMModelSetManager) Refresh(ctx context.Context) error {
 		setRef := &sets[len(sets)-1]
 		setsByName[s.Name] = setRef
 
-		// Synthesise stable spec ids and back-populate parent set name.
 		usedIds := make(map[string]int)
 		for j := range setRef.Specs {
 			sp := &setRef.Specs[j]
 			sp.ModelSetName = setRef.Name
 			base := specBaseId(setRef.Name, sp)
-			// Dedup: append -2, -3 … on collision within the set.
 			id := base
 			if seen := usedIds[base]; seen > 0 {
 				id = fmt.Sprintf("%s-%d", base, seen+1)
@@ -179,17 +273,13 @@ func (m *SLLMModelSetManager) Refresh(ctx context.Context) error {
 			totalSpecs++
 		}
 	}
-
-	m.mu.Lock()
-	m.sets = sets
-	m.setsByName = setsByName
-	m.specsById = specsById
-	m.lastFetched = time.Now()
-	m.lastErr = nil
-	m.mu.Unlock()
-
-	log.Infof("LLMModelSet: refreshed %d sets / %d specs from %s", len(sets), totalSpecs, source)
-	return nil
+	return &catalogSlot{
+		sets:        sets,
+		setsByName:  setsByName,
+		specsById:   specsById,
+		url:         source,
+		lastFetched: time.Now(),
+	}, totalSpecs
 }
 
 func modelSpecLabel(sp *api.LLMModelSpec, id string) string {
@@ -278,20 +368,122 @@ func (m *SLLMModelSetManager) fetchHTTP(ctx context.Context, url string) ([]byte
 	return io.ReadAll(resp.Body)
 }
 
-func (m *SLLMModelSetManager) recordErr(err error) {
+func (m *SLLMModelSetManager) recordSlotErr(key, source string, err error) {
 	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.slots == nil {
+		m.slots = map[string]*catalogSlot{}
+	}
+	slot := m.slots[key]
+	if slot == nil {
+		slot = &catalogSlot{
+			setsByName: map[string]*api.LLMModelSet{},
+			specsById:  map[string]*specRef{},
+			url:        source,
+		}
+		m.slots[key] = slot
+	}
+	slot.lastErr = err
 	m.lastErr = err
-	m.mu.Unlock()
+}
+
+// AvailableSources returns catalog download sources the UI may offer. Empty
+// when dual-mode is off (custom ModelCatalogURL). When both hubs are
+// reachable, both sources are returned; otherwise only the reachable side.
+// If neither hub is reachable but catalogs are loaded, falls back to the
+// HuggingFace slot (matching the historical default preference).
+func (m *SLLMModelSetManager) AvailableSources() []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.availableSourcesLocked()
+}
+
+func (m *SLLMModelSetManager) availableSourcesLocked() []string {
+	if !m.dualMode {
+		return nil
+	}
+	var out []string
+	if m.hfReachable && m.slotHasSets(api.LLM_MODEL_SOURCE_HUGGINGFACE) {
+		out = append(out, api.LLM_MODEL_SOURCE_HUGGINGFACE)
+	}
+	if m.msReachable && m.slotHasSets(api.LLM_MODEL_SOURCE_MODEL_SCOPE) {
+		out = append(out, api.LLM_MODEL_SOURCE_MODEL_SCOPE)
+	}
+	if len(out) > 0 {
+		return out
+	}
+	// Neither hub reachable: still expose a loaded catalog so the UI works.
+	if m.slotHasSets(api.LLM_MODEL_SOURCE_HUGGINGFACE) {
+		return []string{api.LLM_MODEL_SOURCE_HUGGINGFACE}
+	}
+	if m.slotHasSets(api.LLM_MODEL_SOURCE_MODEL_SCOPE) {
+		return []string{api.LLM_MODEL_SOURCE_MODEL_SCOPE}
+	}
+	return nil
+}
+
+func (m *SLLMModelSetManager) slotHasSets(key string) bool {
+	slot := m.slots[key]
+	return slot != nil && len(slot.sets) > 0
+}
+
+// resolveSlotKey picks which catalog slot to serve. Must be called with m.mu held.
+func (m *SLLMModelSetManager) resolveSlotKey(requested string) string {
+	if !m.dualMode {
+		return catalogSlotDefault
+	}
+	available := m.availableSourcesLocked()
+	req := strings.TrimSpace(requested)
+	if req != "" {
+		for _, s := range available {
+			if s == req {
+				return req
+			}
+		}
+		// Requested source has a loaded slot even if currently marked
+		// unreachable — honour an explicit request when data exists.
+		if m.slotHasSets(req) {
+			return req
+		}
+	}
+	for _, preferred := range []string{api.LLM_MODEL_SOURCE_HUGGINGFACE, api.LLM_MODEL_SOURCE_MODEL_SCOPE} {
+		for _, s := range available {
+			if s == preferred {
+				return preferred
+			}
+		}
+	}
+	if len(available) > 0 {
+		return available[0]
+	}
+	if m.slotHasSets(api.LLM_MODEL_SOURCE_HUGGINGFACE) {
+		return api.LLM_MODEL_SOURCE_HUGGINGFACE
+	}
+	if m.slotHasSets(api.LLM_MODEL_SOURCE_MODEL_SCOPE) {
+		return api.LLM_MODEL_SOURCE_MODEL_SCOPE
+	}
+	return catalogSlotDefault
+}
+
+func (m *SLLMModelSetManager) slotLocked(requested string) *catalogSlot {
+	key := m.resolveSlotKey(requested)
+	return m.slots[key]
 }
 
 // ListSets returns sets matching the filter, plus the total count BEFORE
-// pagination is applied.
+// pagination is applied. input.Source selects the HuggingFace or ModelScope
+// catalog when dual-mode is active.
 func (m *SLLMModelSetManager) ListSets(input api.LLMModelSetListInput) ([]api.LLMModelSet, int) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	filtered := make([]api.LLMModelSet, 0, len(m.sets))
-	for _, s := range m.sets {
+	slot := m.slotLocked(input.Source)
+	if slot == nil {
+		return nil, 0
+	}
+
+	filtered := make([]api.LLMModelSet, 0, len(slot.sets))
+	for _, s := range slot.sets {
 		if !modelSetMatches(&s, input) {
 			continue
 		}
@@ -319,11 +511,16 @@ func (m *SLLMModelSetManager) ListSets(input api.LLMModelSetListInput) ([]api.LL
 }
 
 // GetSet returns the set with the given name (the YAML `name` field).
+// source selects the catalog slot in dual-mode; empty uses the default.
 // Returns a copy so callers can't mutate the cache.
-func (m *SLLMModelSetManager) GetSet(name string) (*api.LLMModelSet, bool) {
+func (m *SLLMModelSetManager) GetSet(name, source string) (*api.LLMModelSet, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	s, ok := m.setsByName[name]
+	slot := m.slotLocked(source)
+	if slot == nil {
+		return nil, false
+	}
+	s, ok := slot.setsByName[name]
 	if !ok {
 		return nil, false
 	}
@@ -332,10 +529,14 @@ func (m *SLLMModelSetManager) GetSet(name string) (*api.LLMModelSet, bool) {
 }
 
 // ListSpecs returns the specs under one set, identified by the set name.
-func (m *SLLMModelSetManager) ListSpecs(setName string) ([]api.LLMModelSpec, bool) {
+func (m *SLLMModelSetManager) ListSpecs(setName, source string) ([]api.LLMModelSpec, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	s, ok := m.setsByName[setName]
+	slot := m.slotLocked(source)
+	if slot == nil {
+		return nil, false
+	}
+	s, ok := slot.setsByName[setName]
 	if !ok {
 		return nil, false
 	}
@@ -345,22 +546,55 @@ func (m *SLLMModelSetManager) ListSpecs(setName string) ([]api.LLMModelSpec, boo
 }
 
 // GetSpec returns one spec by its synthetic id (and its parent set's name).
-func (m *SLLMModelSetManager) GetSpec(specId string) (*api.LLMModelSpec, string, bool) {
+// When source is empty in dual-mode, the default slot is tried first, then the
+// other slots (SpecIds collide across HF/MS mirrors).
+func (m *SLLMModelSetManager) GetSpec(specId, source string) (*api.LLMModelSpec, string, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	ref, ok := m.specsById[specId]
-	if !ok {
-		return nil, "", false
+	if source != "" || !m.dualMode {
+		slot := m.slotLocked(source)
+		if slot == nil {
+			return nil, "", false
+		}
+		ref, ok := slot.specsById[specId]
+		if !ok {
+			return nil, "", false
+		}
+		cp := *ref.Spec
+		return &cp, ref.SetName, true
 	}
-	cp := *ref.Spec
-	return &cp, ref.SetName, true
+	// Prefer the resolved default slot, then walk remaining slots.
+	primary := m.resolveSlotKey("")
+	order := []string{primary}
+	for _, key := range []string{api.LLM_MODEL_SOURCE_HUGGINGFACE, api.LLM_MODEL_SOURCE_MODEL_SCOPE} {
+		if key != primary {
+			order = append(order, key)
+		}
+	}
+	for _, key := range order {
+		slot := m.slots[key]
+		if slot == nil {
+			continue
+		}
+		ref, ok := slot.specsById[specId]
+		if !ok {
+			continue
+		}
+		cp := *ref.Spec
+		return &cp, ref.SetName, true
+	}
+	return nil, "", false
 }
 
-// LastFetched reports cache freshness; mostly for debug.
+// LastFetched reports cache freshness of the active/default slot; mostly for debug.
 func (m *SLLMModelSetManager) LastFetched() time.Time {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.lastFetched
+	slot := m.slotLocked("")
+	if slot == nil {
+		return time.Time{}
+	}
+	return slot.lastFetched
 }
 
 func modelSetMatches(s *api.LLMModelSet, input api.LLMModelSetListInput) bool {
@@ -447,18 +681,35 @@ func buildOllamaModelSets(reg api.SOllamaRegistry) []api.LLMModelSet {
 	return out
 }
 
-// sortModelSets sorts in place by the requested field. Empty `sort` leaves
-// the slice in its original (catalog declaration) order.
+// sortFieldReleaseDate is the default model-set ordering: newest model first.
+const sortFieldReleaseDate = "release_date"
+
+// sortModelSets sorts in place by the requested field. An empty `sort` orders
+// by release date, newest first, so the catalog opens on the latest models.
 //
-// Supported fields: "downloads", "likes", "size", "name". Direction defaults
-// to "desc"; pass "asc" to flip.
+// Supported fields: "release_date", "downloads", "likes", "size", "name".
+// Direction defaults to "desc"; pass "asc" to flip. Sets without a release date
+// always sink to the end, regardless of direction.
 func sortModelSets(sets []api.LLMModelSet, sortField, direction string) {
 	if sortField == "" {
+		sortModelSets(sets, sortFieldReleaseDate, "desc")
 		return
 	}
 	asc := strings.EqualFold(direction, "asc")
 	less := func(i, j int) bool {
 		switch sortField {
+		case sortFieldReleaseDate:
+			// Catalog dates are ISO-8601 (YYYY-MM-DD), so lexical order is
+			// chronological. Undated sets (e.g. bundled Ollama models) go last.
+			di := strings.TrimSpace(sets[i].ReleaseDate)
+			dj := strings.TrimSpace(sets[j].ReleaseDate)
+			if di != dj && (di == "" || dj == "") {
+				return dj == ""
+			}
+			if asc {
+				return di < dj
+			}
+			return di > dj
 		case "downloads":
 			if asc {
 				return sets[i].Downloads < sets[j].Downloads
@@ -502,28 +753,32 @@ func unionOllamaCapabilities(tags []api.SOllamaTag) []string {
 }
 
 // defaultHuggingFaceCatalogURLs lists the built-in catalog sources whose
-// contents are HuggingFace-sourced, i.e. the ones eligible for the ModelScope
-// swap below. legacyModelCatalogURL is included so deployments still pointing
-// at the retired default get the fallback rather than a 404.
+// contents are HuggingFace-sourced, i.e. the ones eligible for dual-catalog
+// loading (HF + ModelScope mirrors). legacyModelCatalogURL is included so
+// deployments still pointing at the retired default get both mirrors.
 var defaultHuggingFaceCatalogURLs = map[string]struct{}{
 	DefaultModelCatalogURL: {},
 	legacyModelCatalogURL:  {},
 }
 
+func isBuiltinHuggingFaceCatalogURL(source string) bool {
+	_, ok := defaultHuggingFaceCatalogURLs[strings.TrimSpace(source)]
+	return ok
+}
+
 // resolveModelCatalogSource switches to the ModelScope catalog URL when the
 // configured source is a built-in HuggingFace URL and HF is unreachable while
-// ModelScope is reachable. Mirrors GPUStack's get_builtin_model_catalog_file.
+// ModelScope is reachable. Kept for callers/tests that still expect the
+// historical single-URL resolution; dual-mode Start/Refresh no longer uses it.
 func resolveModelCatalogSource(source string) string {
 	source = strings.TrimSpace(source)
-	if _, ok := defaultHuggingFaceCatalogURLs[source]; !ok {
+	if !isBuiltinHuggingFaceCatalogURL(source) {
 		return source
 	}
-	hfURL := "https://huggingface.co"
-	msURL := "https://www.modelscope.cn"
-	if canAccessCatalogURL(hfURL) || !canAccessCatalogURL(msURL) {
+	if canAccessCatalogURL(catalogHubHuggingFace) || !canAccessCatalogURL(catalogHubModelScope) {
 		return source
 	}
-	log.Infof("Cannot access %s, using ModelScope model catalog at %s", hfURL, DefaultModelCatalogModelScopeURL)
+	log.Infof("Cannot access %s, using ModelScope model catalog at %s", catalogHubHuggingFace, DefaultModelCatalogModelScopeURL)
 	return DefaultModelCatalogModelScopeURL
 }
 

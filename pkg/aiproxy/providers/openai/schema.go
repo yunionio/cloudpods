@@ -167,6 +167,19 @@ func EmbeddingsURL(baseURL string) string {
 	return base + "/v1/embeddings"
 }
 
+// RerankURL builds an OpenAI/Cohere-compatible rerank endpoint. A base that
+// already ends with "/v1" or another version segment is extended directly.
+func RerankURL(baseURL string) string {
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if strings.HasSuffix(base, "/rerank") {
+		return base
+	}
+	if hasAPIVersionPathSuffix(base) {
+		return base + "/rerank"
+	}
+	return base + "/v1/rerank"
+}
+
 // ImagesGenerationsURL builds an OpenAI-compatible images/generations endpoint.
 func ImagesGenerationsURL(baseURL string) string {
 	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
@@ -177,6 +190,18 @@ func ImagesGenerationsURL(baseURL string) string {
 		return base + "/images/generations"
 	}
 	return base + "/v1/images/generations"
+}
+
+// SpeechURL builds an OpenAI-compatible audio/speech endpoint.
+func SpeechURL(baseURL string) string {
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if strings.HasSuffix(base, "/audio/speech") {
+		return base
+	}
+	if hasAPIVersionPathSuffix(base) {
+		return base + "/audio/speech"
+	}
+	return base + "/v1/audio/speech"
 }
 
 func hasAPIVersionPathSuffix(base string) bool {
@@ -297,6 +322,94 @@ func ParseEmbeddingInput(body *jsonutils.JSONDict) (texts []string, rawInput jso
 		return arr, rawInput, true, nil
 	}
 	return nil, rawInput, false, nil
+}
+
+// ValidateEmbeddingsRequest checks an OpenAI /v1/embeddings body without mutating it.
+// It intentionally accepts token-array inputs ([]int / [][]int) so pre-tokenized
+// clients are forwarded unchanged to the inference backend.
+func ValidateEmbeddingsRequest(body *jsonutils.JSONDict) error {
+	if body == nil {
+		return fmt.Errorf("request body must be a JSON object")
+	}
+	if s, _ := body.GetString("model"); strings.TrimSpace(s) == "" {
+		return fmt.Errorf("missing model")
+	}
+	inp, err := body.Get("input")
+	if err != nil {
+		return fmt.Errorf("missing input")
+	}
+	raw := []byte(inp.String())
+	var single string
+	var strList []string
+	var tokenList []int
+	var tokenBatch [][]int
+	switch {
+	case json.Unmarshal(raw, &single) == nil:
+		if single == "" {
+			return fmt.Errorf("input must not be empty")
+		}
+	case json.Unmarshal(raw, &strList) == nil:
+		if len(strList) == 0 {
+			return fmt.Errorf("input array must not be empty")
+		}
+	case json.Unmarshal(raw, &tokenList) == nil:
+		if len(tokenList) == 0 {
+			return fmt.Errorf("input token array must not be empty")
+		}
+	case json.Unmarshal(raw, &tokenBatch) == nil:
+		if len(tokenBatch) == 0 {
+			return fmt.Errorf("input token array must not be empty")
+		}
+	default:
+		return fmt.Errorf("input must be a string, string array, or token array")
+	}
+	if v, err := body.GetString("encoding_format"); err == nil {
+		switch strings.ToLower(strings.TrimSpace(v)) {
+		case "", "float", "base64":
+		default:
+			return fmt.Errorf("encoding_format must be float or base64")
+		}
+	}
+	if body.Contains("dimensions") {
+		d, err := body.Int("dimensions")
+		if err != nil || d < 1 {
+			return fmt.Errorf("dimensions must be >= 1")
+		}
+	}
+	return nil
+}
+
+// ValidateRerankRequest checks a rerank body (OpenAI/Cohere/vLLM shape) without mutating it.
+func ValidateRerankRequest(body *jsonutils.JSONDict) error {
+	if body == nil {
+		return fmt.Errorf("request body must be a JSON object")
+	}
+	if s, _ := body.GetString("model"); strings.TrimSpace(s) == "" {
+		return fmt.Errorf("missing model")
+	}
+	if q, _ := body.GetString("query"); strings.TrimSpace(q) == "" {
+		return fmt.Errorf("missing query")
+	}
+	docs, err := body.Get("documents")
+	if err != nil {
+		return fmt.Errorf("missing documents")
+	}
+	raw := []byte(docs.String())
+	var strList []string
+	if json.Unmarshal(raw, &strList) == nil {
+		if len(strList) == 0 {
+			return fmt.Errorf("documents must not be empty")
+		}
+		return nil
+	}
+	var objList []map[string]interface{}
+	if json.Unmarshal(raw, &objList) == nil {
+		if len(objList) == 0 {
+			return fmt.Errorf("documents must not be empty")
+		}
+		return nil
+	}
+	return fmt.Errorf("documents must be a string array or an array of objects")
 }
 
 // NewEmbeddingsResponse builds an OpenAI embeddings list response.

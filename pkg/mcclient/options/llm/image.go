@@ -21,6 +21,7 @@ type LLMImageListOptions struct {
 	LLMType     string `json:"llm_type" choices:"ollama|dify|comfyui|vllm|sglang|hermes-agent|desktop|benchmark" help:"filter by llm type"`
 	ImageName   string `json:"image_name" help:"filter by image name (substring match)"`
 	ImageSource string `json:"image_source" choices:"manual|container_image" help:"filter by image source"`
+	Capability  string `json:"capability" choices:"omni" help:"filter by image capability (e.g. omni)"`
 }
 
 func (o *LLMImageListOptions) Params() (jsonutils.JSONObject, error) {
@@ -29,12 +30,13 @@ func (o *LLMImageListOptions) Params() (jsonutils.JSONObject, error) {
 
 type LLMImageCreateOptions struct {
 	apis.SharableVirtualResourceCreateInput
-	IMAGE_NAME       string `json:"image_name"`
-	IMAGE_LABEL      string `json:"image_label"`
-	CredentialId     string `json:"credential_id"`
-	LLM_TYPE         string `json:"llm_type" choices:"ollama|dify|comfyui|vllm|sglang|hermes-agent|desktop|benchmark" help:"llm type: ollama, comfyui, vllm, sglang, hermes-agent, desktop, benchmark or dify"`
-	ImageSource      string `json:"image_source" choices:"manual|container_image" help:"image source: manual or container_image"`
-	ContainerImageId string `json:"container_image_id" help:"linked container_image id when image_source is container_image"`
+	IMAGE_NAME       string   `json:"image_name"`
+	IMAGE_LABEL      string   `json:"image_label"`
+	CredentialId     string   `json:"credential_id"`
+	LLM_TYPE         string   `json:"llm_type" choices:"ollama|dify|comfyui|vllm|sglang|hermes-agent|desktop|benchmark" help:"llm type: ollama, comfyui, vllm, sglang, hermes-agent, desktop, benchmark or dify"`
+	ImageSource      string   `json:"image_source" choices:"manual|container_image" help:"image source: manual or container_image"`
+	ContainerImageId string   `json:"container_image_id" help:"linked container_image id when image_source is container_image"`
+	Capabilities     []string `json:"capabilities" help:"image capabilities, e.g. omni"`
 }
 
 func (o *LLMImageCreateOptions) Params() (jsonutils.JSONObject, error) {
@@ -50,8 +52,9 @@ type LLMImageUpdateOptions struct {
 	CredentialId     string `json:"credential_id"`
 	LlmType          string `json:"llm_type" choices:"ollama|dify|vllm|sglang|comfyui|hermes-agent|desktop|benchmark" help:"llm type: ollama, comfyui, vllm, sglang, hermes-agent, desktop, benchmark or dify"`
 	AppName          string `json:"app_name" help:"desktop application identifier (LinuxServer image id), e.g. firefox, chromium, steam, webtop-ubuntu-xfce"`
-	ImageSource      string `json:"image_source" choices:"manual|container_image" help:"image source: manual or container_image"`
-	ContainerImageId string `json:"container_image_id" help:"linked container_image id when image_source is container_image"`
+	ImageSource      string   `json:"image_source" choices:"manual|container_image" help:"image source: manual or container_image"`
+	ContainerImageId string   `json:"container_image_id" help:"linked container_image id when image_source is container_image"`
+	Capabilities     []string `json:"capabilities" help:"image capabilities, e.g. omni (replaces existing list when set)"`
 }
 
 func (o *LLMImageUpdateOptions) GetId() string {

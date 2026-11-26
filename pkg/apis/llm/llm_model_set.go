@@ -168,19 +168,33 @@ type LLMModelSetListInput struct {
 	// Filter by backend — matches if ANY of the set's specs uses that backend
 	// (case-insensitive).
 	Backend string `json:"backend"`
+	// Catalog download source — "huggingface" or "model_scope". Only meaningful
+	// when the service is running with the built-in dual catalog; ignored for a
+	// custom ModelCatalogURL. Empty selects the default available source
+	// (huggingface when both hubs are reachable).
+	Source string `json:"source"`
 	// Inclusive lower / upper bounds on parameter count in billions (10^9),
 	// normalised across size_unit values (see LLMModelSet.SizeInB).
 	SizeMin *float64 `json:"size_min"`
 	SizeMax *float64 `json:"size_max"`
 
-	// Sort field — one of "" (default order), "downloads", "likes", "size",
-	// "name". Direction is "desc" by default; pass "asc" to reverse.
+	// Sort field — one of "" (default: newest release_date first),
+	// "release_date", "downloads", "likes", "size", "name". Direction is "desc"
+	// by default; pass "asc" to reverse.
 	Sort      string `json:"sort"`
 	Direction string `json:"direction"`
 
 	// Pagination (defaults: offset=0, limit=20).
 	Limit  int `json:"limit"`
 	Offset int `json:"offset"`
+}
+
+// LLMModelSetSourcesOutput is the response for GET /llm_model_sets/sources.
+// Sources is empty when dual-catalog mode is off (custom ModelCatalogURL).
+// When both HuggingFace and ModelScope hubs are reachable it contains both
+// "huggingface" and "model_scope".
+type LLMModelSetSourcesOutput struct {
+	Sources []string `json:"sources"`
 }
 
 // LLMModelSetListOutput mirrors the standard list-response envelope.

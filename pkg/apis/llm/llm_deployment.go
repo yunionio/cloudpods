@@ -3,6 +3,7 @@ package llm
 import (
 	"strings"
 
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -95,6 +96,71 @@ var LLM_MODEL_CATEGORIES = sets.NewString(
 	LLM_MODEL_CATEGORY_TEXT_TO_SPEECH,
 )
 
+// NormalizeLLMModelCategories lowercases, trims and deduplicates categories.
+// An empty result falls back to ["llm"] so deployments without an explicit
+// category keep their historical chat behavior.
+func NormalizeLLMModelCategories(in []string) []string {
+	out := make([]string, 0, len(in))
+	seen := make(map[string]struct{}, len(in))
+	for _, raw := range in {
+		c := strings.ToLower(strings.TrimSpace(raw))
+		if c == "" {
+			continue
+		}
+		if _, dup := seen[c]; dup {
+			continue
+		}
+		seen[c] = struct{}{}
+		out = append(out, c)
+	}
+	if len(out) == 0 {
+		return []string{LLM_MODEL_CATEGORY_LLM}
+	}
+	return out
+}
+
+// ValidateLLMModelCategories rejects unknown category values.
+func ValidateLLMModelCategories(in []string) error {
+	for _, raw := range in {
+		c := strings.ToLower(strings.TrimSpace(raw))
+		if c == "" {
+			continue
+		}
+		if !LLM_MODEL_CATEGORIES.Has(c) {
+			return errors.Errorf("invalid category %q, must be one of %s", raw, strings.Join(LLM_MODEL_CATEGORIES.List(), ","))
+		}
+	}
+	return nil
+}
+
+// HasLLMModelCategory reports whether cats contains want (case-insensitive).
+func HasLLMModelCategory(cats []string, want string) bool {
+	want = strings.ToLower(strings.TrimSpace(want))
+	for _, c := range cats {
+		if strings.ToLower(strings.TrimSpace(c)) == want {
+			return true
+		}
+	}
+	return false
+}
+
+// IsLLMEmbeddingCategory reports whether cats marks an embedding model.
+func IsLLMEmbeddingCategory(cats []string) bool {
+	return HasLLMModelCategory(cats, LLM_MODEL_CATEGORY_EMBEDDING)
+}
+
+// IsLLMRerankerCategory reports whether cats marks a reranker model.
+func IsLLMRerankerCategory(cats []string) bool {
+	return HasLLMModelCategory(cats, LLM_MODEL_CATEGORY_RERANKER)
+}
+
+// IsLLMOmniCategory reports whether cats needs vLLM-Omni (--omni), matching
+// GPUStack is_omni_model: image or text_to_speech.
+func IsLLMOmniCategory(cats []string) bool {
+	return HasLLMModelCategory(cats, LLM_MODEL_CATEGORY_IMAGE) ||
+		HasLLMModelCategory(cats, LLM_MODEL_CATEGORY_TEXT_TO_SPEECH)
+}
+
 // LLMDeploymentNets is a named slice type so it can be persisted on the
 // SLLMDeployment row as a JSON column via sqlchemy.
 type LLMDeploymentNets []*computeapi.NetworkConfig
@@ -113,6 +179,8 @@ const (
 	LLM_DEPLOYMENT_STATUS_SYNCING = "syncing"
 	// Restart of all replicas in progress.
 	LLM_DEPLOYMENT_STATUS_RESTARTING = "restarting"
+	// Desired replicas is zero and no instances remain (scaled to zero / stopped).
+	LLM_DEPLOYMENT_STATUS_STOPPED = "stopped"
 )
 
 // AiproxySyncStatus values stored on SLLMDeployment.AiproxySyncStatus.
@@ -227,6 +295,16 @@ type LLMDeploymentUpdateInput struct {
 
 type LLMDeploymentRestartInput struct {
 	Force bool `json:"force"`
+}
+
+// LLMDeploymentStopInput stops a deployment by scaling replicas to zero.
+type LLMDeploymentStopInput struct {
+}
+
+// LLMDeploymentStartInput starts a stopped deployment by scaling replicas up.
+// When Replicas is nil or <= 0, the target defaults to 1.
+type LLMDeploymentStartInput struct {
+	Replicas *int `json:"replicas"`
 }
 
 type LLMDeploymentSyncstatusInput struct {

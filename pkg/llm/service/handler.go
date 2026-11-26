@@ -59,10 +59,37 @@ func handleLLMModelSetList(ctx context.Context, w http.ResponseWriter, r *http.R
 	appsrv.SendJSON(w, resp)
 }
 
+// handleLLMModelSetSources: GET /llm_model_sets/sources
+//
+// Apigateway routes this as a resource Get(id="sources") and unwraps the
+// singular keyword `llm_model_set`, so the body must be wrapped that way.
+func handleLLMModelSetSources(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	sources := models.GetLLMModelSetManager().AvailableSources()
+	if sources == nil {
+		sources = []string{}
+	}
+	obj := jsonutils.NewDict()
+	obj.Set("id", jsonutils.NewString("sources"))
+	obj.Set("name", jsonutils.NewString("sources"))
+	obj.Set("sources", jsonutils.NewStringArray(sources))
+	resp := jsonutils.NewDict()
+	resp.Set("llm_model_set", obj)
+	appsrv.SendJSON(w, resp)
+}
+
+func catalogSourceFromQuery(r *http.Request) string {
+	query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
+	if err != nil || query == nil {
+		return ""
+	}
+	source, _ := query.GetString("source")
+	return source
+}
+
 // handleLLMModelSetShow: GET /llm_model_sets/<id>
 func handleLLMModelSetShow(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	id := lastPathSegment(r.URL.Path)
-	set, ok := models.GetLLMModelSetManager().GetSet(id)
+	set, ok := models.GetLLMModelSetManager().GetSet(id, catalogSourceFromQuery(r))
 	if !ok {
 		httperrors.NotFoundError(ctx, w, "model set %s not found", id)
 		return
@@ -79,7 +106,7 @@ func handleLLMModelSetSpecs(ctx context.Context, w http.ResponseWriter, r *http.
 		return
 	}
 	id := segs[len(segs)-2]
-	specs, ok := models.GetLLMModelSetManager().ListSpecs(id)
+	specs, ok := models.GetLLMModelSetManager().ListSpecs(id, catalogSourceFromQuery(r))
 	if !ok {
 		httperrors.NotFoundError(ctx, w, "model set %s not found", id)
 		return
@@ -97,7 +124,7 @@ func handleLLMModelSetSpecs(ctx context.Context, w http.ResponseWriter, r *http.
 // deployment-create page so it doesn't need to know which set the spec belongs to.
 func handleLLMModelSpecShow(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	id := lastPathSegment(r.URL.Path)
-	spec, _, ok := models.GetLLMModelSetManager().GetSpec(id)
+	spec, _, ok := models.GetLLMModelSetManager().GetSpec(id, catalogSourceFromQuery(r))
 	if !ok {
 		httperrors.NotFoundError(ctx, w, "model spec %s not found", id)
 		return
@@ -123,7 +150,9 @@ func handleLLMModelSetRefresh(ctx context.Context, w http.ResponseWriter, r *htt
 		httperrors.GeneralServerError(ctx, w, err)
 		return
 	}
-	sets, total := models.GetLLMModelSetManager().ListSets(api.LLMModelSetListInput{})
+	sets, total := models.GetLLMModelSetManager().ListSets(api.LLMModelSetListInput{
+		Source: catalogSourceFromQuery(r),
+	})
 	if sets == nil {
 		sets = []api.LLMModelSet{}
 	}
@@ -372,6 +401,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 	// Two-level structure matches GPUStack: sets (browsable cards) + specs
 	// (deployable variants under one set).
 	app.AddHandler2("GET", "/llm_model_sets", auth.Authenticate(handleLLMModelSetList), nil, "llm_model_set_list", nil)
+	app.AddHandler2("GET", "/llm_model_sets/sources", auth.Authenticate(handleLLMModelSetSources), nil, "llm_model_set_sources", nil)
 	app.AddHandler2("POST", "/llm_model_sets/refresh", auth.Authenticate(handleLLMModelSetRefresh), nil, "llm_model_set_refresh", nil)
 	app.AddHandler2("GET", "/llm_model_sets/<id>/specs", auth.Authenticate(handleLLMModelSetSpecs), nil, "llm_model_set_specs", nil)
 	app.AddHandler2("GET", "/llm_model_sets/<id>", auth.Authenticate(handleLLMModelSetShow), nil, "llm_model_set_show", nil)
