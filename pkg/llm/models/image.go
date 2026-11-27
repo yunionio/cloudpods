@@ -61,6 +61,8 @@ type SLLMImage struct {
 	DesktopConfig    *api.LLMImageDesktopConfig `json:"desktop_config" length:"long" nullable:"true" list:"user" create:"optional" update:"user"`
 	ImageSource      string                     `width:"32" charset:"ascii" nullable:"false" default:"manual" list:"user" create:"optional" update:"user"`
 	ContainerImageId string                     `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	// Capabilities marks optional features of the image (e.g. "omni" for vLLM-Omni).
+	Capabilities []string `charset:"utf8" length:"medium" nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 type containerImageMeta struct {
@@ -162,6 +164,11 @@ func (man *SLLMImageManager) ValidateCreateData(ctx context.Context, userCred mc
 			return input, errors.Wrap(httperrors.ErrInputParameter, "llm_type must be one of "+strings.Join(api.LLM_IMAGE_TYPES.List(), ","))
 		}
 	}
+
+	if err := api.ValidateLLMImageCapabilities(input.Capabilities); err != nil {
+		return input, httperrors.NewInputParameterError("%v", err)
+	}
+	input.Capabilities = api.NormalizeLLMImageCapabilities(input.Capabilities)
 
 	if input.LLMType == string(api.LLM_IMAGE_TYPE_DESKTOP) {
 		appName, err := api.ResolveAppName(input.ImageName, input.ImageLabel, input.AppName)
@@ -287,6 +294,14 @@ func (image *SLLMImage) ValidateUpdateData(ctx context.Context, userCred mcclien
 		}
 	}
 
+	if input.Capabilities != nil {
+		if err := api.ValidateLLMImageCapabilities(*input.Capabilities); err != nil {
+			return input, httperrors.NewInputParameterError("%v", err)
+		}
+		normalized := api.NormalizeLLMImageCapabilities(*input.Capabilities)
+		input.Capabilities = &normalized
+	}
+
 	llmType := image.LLMType
 	if input.LLMType != nil {
 		llmType = *input.LLMType
@@ -366,6 +381,9 @@ func (man *SLLMImageManager) ListItemFilter(
 	}
 	if len(input.ContainerImageId) > 0 {
 		q = q.Equals("container_image_id", input.ContainerImageId)
+	}
+	if cap := strings.TrimSpace(input.Capability); cap != "" {
+		q = q.Contains("capabilities", fmt.Sprintf("%q", strings.ToLower(cap)))
 	}
 	return q, nil
 }

@@ -1,5 +1,7 @@
 package llm
 
+import "strings"
+
 // LLMCatalogDoc is the shape of the YAML file pointed to by
 // options.ModelCatalogURL. Mirrors GPUStack's catalog with only the
 // model_sets section — draft models are not currently supported.
@@ -41,8 +43,30 @@ type LLMModelSet struct {
 	Downloads int64 `json:"downloads,omitempty" yaml:"downloads,omitempty"`
 	Likes     int64 `json:"likes,omitempty" yaml:"likes,omitempty"`
 
+	// ParameterSizeB is Size expressed in billions (10^9) parameters, computed
+	// server-side from Size + SizeUnit so list filters / sorting / mcclient
+	// columns can compare a single normalised number. Not present in the YAML.
+	ParameterSizeB float64 `json:"parameter_size_b,omitempty" yaml:"-"`
+
 	// Specs is the list of concrete deployable variants under this set.
 	Specs []LLMModelSpec `json:"specs" yaml:"specs"`
+}
+
+// SizeInB returns the parameter count in billions, normalising SizeUnit.
+// "M" scales down (millions), "T" scales up (trillions); an empty or unknown
+// unit is treated as billions, matching the catalog's convention for LLMs.
+func (s *LLMModelSet) SizeInB() float64 {
+	if s == nil {
+		return 0
+	}
+	switch strings.ToUpper(strings.TrimSpace(s.SizeUnit)) {
+	case "M":
+		return s.Size / 1000
+	case "T":
+		return s.Size * 1000
+	default:
+		return s.Size
+	}
 }
 
 // LLMModelSpec is one deployable variant under an LLMModelSet, matching
@@ -144,18 +168,33 @@ type LLMModelSetListInput struct {
 	// Filter by backend — matches if ANY of the set's specs uses that backend
 	// (case-insensitive).
 	Backend string `json:"backend"`
-	// Inclusive lower / upper bounds (in billions, assuming size_unit="B") for size.
+	// Catalog download source — "huggingface" or "model_scope". Only meaningful
+	// when the service is running with the built-in dual catalog; ignored for a
+	// custom ModelCatalogURL. Empty selects the default available source
+	// (huggingface when both hubs are reachable).
+	Source string `json:"source"`
+	// Inclusive lower / upper bounds on parameter count in billions (10^9),
+	// normalised across size_unit values (see LLMModelSet.SizeInB).
 	SizeMin *float64 `json:"size_min"`
 	SizeMax *float64 `json:"size_max"`
 
-	// Sort field — one of "" (default order), "downloads", "likes", "size",
-	// "name". Direction is "desc" by default; pass "asc" to reverse.
+	// Sort field — one of "" (default: newest release_date first),
+	// "release_date", "downloads", "likes", "size", "name". Direction is "desc"
+	// by default; pass "asc" to reverse.
 	Sort      string `json:"sort"`
 	Direction string `json:"direction"`
 
 	// Pagination (defaults: offset=0, limit=20).
 	Limit  int `json:"limit"`
 	Offset int `json:"offset"`
+}
+
+// LLMModelSetSourcesOutput is the response for GET /llm_model_sets/sources.
+// Sources is empty when dual-catalog mode is off (custom ModelCatalogURL).
+// When both HuggingFace and ModelScope hubs are reachable it contains both
+// "huggingface" and "model_scope".
+type LLMModelSetSourcesOutput struct {
+	Sources []string `json:"sources"`
 }
 
 // LLMModelSetListOutput mirrors the standard list-response envelope.

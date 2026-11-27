@@ -601,6 +601,14 @@ func (m *SContainerManager) validateSpecProbeHandler(probe apis.ContainerProbeHa
 		if port < 1 || port > 65535 {
 			return httperrors.NewInputParameterError("invalid http port: %d, must between [1,65535]", port)
 		}
+		switch strings.ToUpper(strings.TrimSpace(probe.HTTPGet.Method)) {
+		case "", "GET", "POST":
+		default:
+			return httperrors.NewInputParameterError("invalid http probe method: %s, must be GET or POST", probe.HTTPGet.Method)
+		}
+		if strings.TrimSpace(probe.HTTPGet.Body) != "" && !strings.EqualFold(strings.TrimSpace(probe.HTTPGet.Method), "POST") {
+			return httperrors.NewInputParameterError("http probe body requires method POST")
+		}
 	}
 	if isAllNil {
 		return httperrors.NewInputParameterError("one of [exec, http_get, tcp_socket] is required")

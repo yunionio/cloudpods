@@ -418,7 +418,7 @@ func upsertAiProvider(
 	return existingId, nil
 }
 
-func upsertAiModel(session *mcclient.ClientSession, name, providerId, modelKey, projectId, domainId string) (string, error) {
+func upsertAiModel(session *mcclient.ClientSession, name, providerId, modelKey, projectId, domainId string, categories []string) (string, error) {
 	filter := jsonutils.NewDict()
 	filter.Set("ai_provider_id", jsonutils.NewString(providerId))
 	filter.Set("model_key", jsonutils.NewString(modelKey))
@@ -431,6 +431,13 @@ func upsertAiModel(session *mcclient.ClientSession, name, providerId, modelKey, 
 	params.Set("model_key", jsonutils.NewString(modelKey))
 	params.Set("enabled", jsonutils.JSONTrue)
 	params.Set("name", jsonutils.NewString(name))
+	if cfg := aiproxyModelConfigForCategories(categories); cfg != nil {
+		params.Set("config", jsonutils.Marshal(cfg))
+	} else if firstResourceConfigCategory(rows) != "" {
+		// The SKU was switched away from embedding/reranker: clear the stale
+		// category so the model is no longer rejected on chat endpoints.
+		params.Set("config", jsonutils.NewDict())
+	}
 	if pid := strings.TrimSpace(projectId); pid != "" {
 		params.Set("project_id", jsonutils.NewString(pid))
 	}
@@ -466,6 +473,30 @@ func findAiRoutingIdByName(session *mcclient.ClientSession, name string) (string
 		return "", errors.Wrap(err, "list ai_routings by name")
 	}
 	return firstResourceID(rows), nil
+}
+
+// aiproxyModelConfigForCategories maps SKU categories to the ai_model config
+// written during aiproxy auto-registration. LLM/unknown categories return nil
+// so legacy chat models keep their previous (empty) config.
+func aiproxyModelConfigForCategories(categories []string) *apapi.SAiModelConfig {
+	switch {
+	case api.IsLLMEmbeddingCategory(categories):
+		return &apapi.SAiModelConfig{Category: apapi.ModelCategoryEmbedding, InputModalities: []string{"text"}}
+	case api.IsLLMRerankerCategory(categories):
+		return &apapi.SAiModelConfig{Category: apapi.ModelCategoryReranker, InputModalities: []string{"text"}}
+	default:
+		return nil
+	}
+}
+
+// firstResourceConfigCategory returns the category currently stored on the first
+// matched ai_model row ("" when absent).
+func firstResourceConfigCategory(rows []jsonutils.JSONObject) string {
+	if len(rows) == 0 {
+		return ""
+	}
+	cat, _ := rows[0].GetString("config", "category")
+	return strings.TrimSpace(cat)
 }
 
 func ensureAiRouting(
@@ -552,7 +583,7 @@ func SyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, dep
 	primaryModelId := ""
 	for _, mk := range modelKeys {
 		modelName := aiModelNameForLlm(llm, mk)
-		modelId, err := upsertAiModel(session, modelName, providerId, mk, dep.ProjectId, dep.DomainId)
+		modelId, err := upsertAiModel(session, modelName, providerId, mk, dep.ProjectId, dep.DomainId, sku.Categories)
 		if err != nil {
 			return nil, err
 		}
@@ -658,6 +689,34 @@ func applyRoutingModels(session *mcclient.ClientSession, routingId string, items
 		return errors.Wrap(err, "ai_routing set-models")
 	}
 	return nil
+}
+
+// setAiRoutingEnabled toggles ai_routing.enabled. Both actions are idempotent:
+// aiproxy's PerformEnable/PerformDisable go through db.EnabledPerformEnable,
+// which returns early when the state already matches.
+func setAiRoutingEnabled(session *mcclient.ClientSession, routingId string, enabled bool) error {
+	routingId = strings.TrimSpace(routingId)
+	if routingId == "" {
+		return nil
+	}
+	action := "disable"
+	if enabled {
+		action = "enable"
+	}
+	if _, err := apmodules.AiRoutings.PerformAction(session, routingId, action, nil); err != nil {
+		return errors.Wrapf(err, "ai_routing %s %s", routingId, action)
+	}
+	return nil
+}
+
+// shouldDisableAiRouting reports whether the deployment's ai_routing must be
+// disabled because no replica can serve traffic. Restart with replicas>0 keeps
+// the routing enabled (the pod comes back), only scale-to-zero disables it.
+func shouldDisableAiRouting(dep *SLLMDeployment) bool {
+	if dep == nil || !dep.AutoRegisterAiproxy {
+		return false
+	}
+	return dep.Replicas <= 0
 }
 
 func persistDeploymentAiproxyBindings(dep *SLLMDeployment, routingId string, bindings []api.AiproxyInstanceBinding) error {
@@ -802,7 +861,7 @@ func (dep *SLLMDeployment) SetAiproxySyncStatus(ctx context.Context, userCred mc
 // empty gateway, not an in-progress sync.
 func aiproxyStatusWhenNoRunningReplicas(dep *SLLMDeployment) (status, msg string) {
 	if dep != nil && dep.Replicas <= 0 {
-		return api.AIPROXY_SYNC_STATUS_SYNCED, "scaled to zero, no running replicas"
+		return api.AIPROXY_SYNC_STATUS_SYNCED, "scaled to zero, routing disabled"
 	}
 	return api.AIPROXY_SYNC_STATUS_PENDING, "waiting for running replicas"
 }
@@ -838,10 +897,17 @@ func ReconcileDeploymentAiproxy(ctx context.Context, userCred mcclient.TokenCred
 	}
 
 	if len(llms) == 0 {
-		if dep.Replicas <= 0 {
+		if shouldDisableAiRouting(dep) {
 			if routingId := strings.TrimSpace(dep.AiproxyRoutingId); routingId != "" {
 				session := aiproxyAdminSession(ctx)
 				if err := applyRoutingModels(session, routingId, []apapi.AiRoutingModelItem{}); err != nil {
+					_ = dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_FAILED, err.Error())
+					return err
+				}
+				// Keep the routing row (its id stays stable across stop/start) but
+				// take it out of service: an empty enabled routing would still be
+				// advertised by /v1/models and fail every request.
+				if err := setAiRoutingEnabled(session, routingId, false); err != nil {
 					_ = dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_FAILED, err.Error())
 					return err
 				}
@@ -871,6 +937,14 @@ func ReconcileDeploymentAiproxy(ctx context.Context, userCred mcclient.TokenCred
 		return err
 	}
 	if err := applyRoutingModels(session, routingId, items); err != nil {
+		_ = persistDeploymentAiproxyBindings(dep, routingId, bindings)
+		_ = dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_FAILED, err.Error())
+		return err
+	}
+	// Bindings are in place again, so re-enable a routing that scale-to-zero had
+	// disabled. Enabling happens after set-models so there is never an enabled
+	// routing without models.
+	if err := setAiRoutingEnabled(session, routingId, true); err != nil {
 		_ = persistDeploymentAiproxyBindings(dep, routingId, bindings)
 		_ = dep.SetAiproxySyncStatus(ctx, userCred, api.AIPROXY_SYNC_STATUS_FAILED, err.Error())
 		return err
@@ -1009,6 +1083,14 @@ func UnsyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, d
 			if err := applyRoutingModels(session, routingId, []apapi.AiRoutingModelItem{}); err != nil {
 				log.Warningf("clear ai_routing models %s: %v", routingId, err)
 			}
+			// Scale-to-zero also takes the routing out of service (see
+			// ReconcileDeploymentAiproxy); a restart with replicas>0 keeps it
+			// enabled so the pod's return needs no extra step.
+			if shouldDisableAiRouting(dep) {
+				if err := setAiRoutingEnabled(session, routingId, false); err != nil {
+					log.Warningf("disable ai_routing %s: %v", routingId, err)
+				}
+			}
 		}
 		if err := deleteAiProviderByLlmId(session, llmId); err != nil {
 			return err
@@ -1055,6 +1137,11 @@ func UnsyncLlmInstance(ctx context.Context, userCred mcclient.TokenCredential, d
 		bindings = append(bindings, b)
 	}
 	if err := applyRoutingModels(session, routingId, items); err != nil {
+		return err
+	}
+	// Replicas remain, so the routing (possibly disabled by an earlier
+	// scale-to-zero) must be back in service.
+	if err := setAiRoutingEnabled(session, routingId, true); err != nil {
 		return err
 	}
 	if err := deleteAiProviderByLlmId(session, llmId); err != nil {

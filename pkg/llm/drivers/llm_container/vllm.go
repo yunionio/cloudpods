@@ -422,6 +422,11 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	if sku != nil {
 		backendParameters = sku.BackendParameters
 	}
+	// Embedding/reranker models need a pooling runner. Inject the category-derived
+	// default in front so an explicit SKU/user parameter overrides it.
+	backendParameters = prependDefaultServingArgs(
+		string(api.LLM_CONTAINER_VLLM), skuBackendVersion(sku), skuCategories(sku), backendParameters,
+	)
 	// The deployment-level pipeline pin overrides SKU backend parameters; it
 	// must land before the topology/command split so both the topology
 	// derivation and the single-node command see it.
@@ -493,7 +498,9 @@ func (v *vllm) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *mo
 	}
 	// Followers run headless and do not expose the OpenAI HTTP API.
 	if hasMountedModels && (llm == nil || !llm.IsDistFollower()) {
-		spec.StartupProbe = newLLMHTTPStartupProbe(api.LLM_VLLM_DEFAULT_PORT, "/v1/models")
+		spec.StartupProbe = newLLMInferenceStartupProbe(
+			api.LLM_VLLM_DEFAULT_PORT, servedModelNameForPath(modelPath), skuCategories(sku),
+		)
 	}
 
 	// GPU Devices

@@ -60,6 +60,12 @@ type ContainerProbeHTTPGetAction struct {
 	// Defaults to HTTP.
 	// +optional
 	Scheme URIScheme `json:"scheme,omitempty"`
+	// Method is the HTTP method to use, optional, defaults to GET.
+	// +optional
+	Method string `json:"method,omitempty"`
+	// Body is an optional request body sent with the probe. Requires Method=POST.
+	// +optional
+	Body string `json:"body,omitempty"`
 	// Custom headers to set in the request. HTTP allows repeated headers.
 	// +optional
 	HTTPHeaders []HTTPHeader `json:"httpHeaders,omitempty"`

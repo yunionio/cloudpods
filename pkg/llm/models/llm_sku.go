@@ -267,6 +267,13 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 	if !api.IsLLMContainerType(input.LLMType) && input.LLMType != string(api.LLM_CONTAINER_DIFY) {
 		return input, errors.Wrap(httperrors.ErrInputParameter, "llm_type must be one of "+strings.Join(api.LLM_CONTAINER_TYPES.List(), ","))
 	}
+	if err := api.ValidateLLMModelCategories(input.Categories); err != nil {
+		return input, errors.Wrap(httperrors.ErrInputParameter, err.Error())
+	}
+	input.Categories = api.NormalizeLLMModelCategories(input.Categories)
+	if err := validateLLMModelCategoryForBackend(input.LLMType, input.Categories); err != nil {
+		return input, err
+	}
 	if !api.IsLLMOptionalDiskType(input.LLMType) && (input.Volumes == nil || input.Volumes.IsZero()) {
 		return input, errors.Wrapf(httperrors.ErrMissingParameter,
 			"volumes (data disk) is required for llm_type %q", input.LLMType)
@@ -306,11 +313,25 @@ func (man *SLLMSkuManager) ValidateCreateData(ctx context.Context, userCred mccl
 	return input, nil
 }
 
+// validateLLMModelCategoryForBackend rejects category/backend combinations that
+// cannot be enabled by the container drivers.
+func validateLLMModelCategoryForBackend(llmType string, cats []string) error {
+	if llmType == string(api.LLM_CONTAINER_OLLAMA) || llmType == "" {
+		return nil
+	}
+	if api.IsLLMEmbeddingCategory(cats) && api.IsLLMRerankerCategory(cats) {
+		return errors.Wrap(httperrors.ErrInputParameter,
+			"a model cannot be both embedding and reranker")
+	}
+	return nil
+}
+
 func (sku *SLLMSku) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	err := sku.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return errors.Wrap(err, "SSharableVirtualResourceBase.CustomizeCreate")
 	}
+	sku.Categories = api.NormalizeLLMModelCategories(sku.Categories)
 	return nil
 }
 
@@ -823,6 +844,17 @@ func (sku *SLLMSku) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 
 	if err := validateLocalPathSkuUpdatePreferHosts(ctx, userCred, sku, &input); err != nil {
 		return input, err
+	}
+
+	if input.Categories != nil {
+		if err := api.ValidateLLMModelCategories(*input.Categories); err != nil {
+			return input, errors.Wrap(httperrors.ErrInputParameter, err.Error())
+		}
+		normalized := api.NormalizeLLMModelCategories(*input.Categories)
+		if err := validateLLMModelCategoryForBackend(sku.LLMType, normalized); err != nil {
+			return input, err
+		}
+		input.Categories = &normalized
 	}
 
 	if sku.LLMSpec == nil {

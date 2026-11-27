@@ -15,8 +15,10 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	nethttp "net/http"
 	"net/url"
@@ -37,8 +39,18 @@ func NewWithDialContext(dialContext DialContextFunc) Prober {
 
 type DialContextFunc func(context.Context, string, string) (net.Conn, error)
 
+// Request describes one HTTP probe request. Method defaults to GET and Body is
+// only sent when non-empty (POST).
+type Request struct {
+	Method  string
+	Path    string
+	Body    []byte
+	Headers nethttp.Header
+}
+
 type Prober interface {
 	Probe(scheme string, host string, port int, reqPath string, headers nethttp.Header, timeout time.Duration) (probe.Result, string, error)
+	ProbeRequest(scheme string, host string, port int, req Request, timeout time.Duration) (probe.Result, string, error)
 }
 
 type httpProber struct {
@@ -46,11 +58,15 @@ type httpProber struct {
 }
 
 func (pr httpProber) Probe(scheme string, host string, port int, reqPath string, headers nethttp.Header, timeout time.Duration) (probe.Result, string, error) {
-	reqURL, err := buildProbeURL(scheme, host, port, reqPath)
+	return pr.ProbeRequest(scheme, host, port, Request{Path: reqPath, Headers: headers}, timeout)
+}
+
+func (pr httpProber) ProbeRequest(scheme string, host string, port int, req Request, timeout time.Duration) (probe.Result, string, error) {
+	reqURL, err := buildProbeURL(scheme, host, port, req.Path)
 	if err != nil {
 		return probe.Failure, err.Error(), nil
 	}
-	return DoHTTPProbeWithDialContext(reqURL, headers, timeout, pr.dialContext)
+	return DoHTTPProbeRequestWithDialContext(reqURL, req.Method, req.Body, req.Headers, timeout, pr.dialContext)
 }
 
 func buildProbeURL(scheme string, host string, port int, reqPath string) (string, error) {
@@ -88,12 +104,29 @@ func DoHTTPProbe(reqURL string, headers nethttp.Header, timeout time.Duration) (
 }
 
 func DoHTTPProbeWithDialContext(reqURL string, headers nethttp.Header, timeout time.Duration, dialContext DialContextFunc) (probe.Result, string, error) {
+	return DoHTTPProbeRequestWithDialContext(reqURL, "", nil, headers, timeout, dialContext)
+}
+
+// DoHTTPProbeRequestWithDialContext performs one probe request, optionally with
+// a non-GET method and a JSON body.
+func DoHTTPProbeRequestWithDialContext(reqURL, method string, body []byte, headers nethttp.Header, timeout time.Duration, dialContext DialContextFunc) (probe.Result, string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	req, err := nethttp.NewRequestWithContext(ctx, nethttp.MethodGet, reqURL, nil)
+	m := strings.ToUpper(strings.TrimSpace(method))
+	if m == "" {
+		m = nethttp.MethodGet
+	}
+	var bodyReader io.Reader
+	if len(body) > 0 {
+		bodyReader = bytes.NewReader(body)
+	}
+	req, err := nethttp.NewRequestWithContext(ctx, m, reqURL, bodyReader)
 	if err != nil {
 		return probe.Failure, err.Error(), nil
+	}
+	if len(body) > 0 && req.Header.Get("Content-Type") == "" {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	for key, values := range headers {
 		for _, value := range values {

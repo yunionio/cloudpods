@@ -92,6 +92,9 @@ type AiRoutingDetails struct {
 	RouterFallbackPolicy string                  `json:"router_fallback_policy"`
 	Enabled              bool                    `json:"enabled"`
 	RoutingModels        []AiRoutingModelDetails `json:"routing_models,omitempty"`
+	// Categories is the de-duplicated union of enabled routing_models' ai_model
+	// config.category values (derived; not stored on ai_routings).
+	Categories []string `json:"categories"`
 }
 
 // AiRoutingSetModelsInput replaces all ai_routing_models for an ai_routing.

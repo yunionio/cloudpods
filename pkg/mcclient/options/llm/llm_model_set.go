@@ -11,6 +11,7 @@ type LLMModelSetListOptions struct {
 
 	Category string   `help:"filter by category" choices:"llm|embedding|reranker|image|speech_to_text|text_to_speech"`
 	Backend  string   `help:"filter by backend type — matches sets that have at least one spec with this backend" choices:"ollama|vllm|sglang"`
+	Source   string   `help:"catalog download source when dual catalog is enabled" choices:"huggingface|model_scope" json:"source"`
 	SizeMin  *float64 `help:"minimum parameter size in billions" json:"size_min"`
 	SizeMax  *float64 `help:"maximum parameter size in billions" json:"size_max"`
 }

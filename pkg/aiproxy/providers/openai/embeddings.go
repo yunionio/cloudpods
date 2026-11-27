@@ -15,6 +15,7 @@
 package openai
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -44,6 +45,60 @@ func (p *EmbeddingCompat) BuildEmbeddingsRequest(ctx *providerapi.ChatContext, b
 	}, nil
 }
 
+// NormalizeEmbeddingsResponse fills in missing OpenAI envelope fields
+// (object / data[].object / data[].index) without touching the vector values:
+// with encoding_format=base64 the vectors are strings and must pass through.
 func (p *EmbeddingCompat) NormalizeEmbeddingsResponse(body []byte) ([]byte, error) {
-	return body, nil
+	return NormalizeEmbeddingsBody(body)
+}
+
+// NormalizeEmbeddingsBody is the package-level form of the embeddings normalizer.
+func NormalizeEmbeddingsBody(body []byte) ([]byte, error) {
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(body, &root); err != nil {
+		return body, nil
+	}
+	changed := false
+	if _, ok := root["object"]; !ok {
+		root["object"] = json.RawMessage(`"list"`)
+		changed = true
+	}
+	var data []json.RawMessage
+	if raw, ok := root["data"]; ok {
+		if err := json.Unmarshal(raw, &data); err != nil {
+			return body, nil
+		}
+		for i, itemRaw := range data {
+			var item map[string]json.RawMessage
+			if err := json.Unmarshal(itemRaw, &item); err != nil {
+				continue
+			}
+			if _, ok := item["object"]; !ok {
+				item["object"] = json.RawMessage(`"embedding"`)
+				changed = true
+			}
+			if _, ok := item["index"]; !ok {
+				item["index"] = json.RawMessage(fmt.Sprintf("%d", i))
+				changed = true
+			}
+			patched, err := json.Marshal(item)
+			if err != nil {
+				return body, nil
+			}
+			data[i] = patched
+		}
+		patchedData, err := json.Marshal(data)
+		if err != nil {
+			return body, nil
+		}
+		root["data"] = patchedData
+	}
+	if !changed {
+		return body, nil
+	}
+	out, err := json.Marshal(root)
+	if err != nil {
+		return body, nil
+	}
+	return out, nil
 }

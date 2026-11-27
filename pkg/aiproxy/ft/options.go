@@ -53,3 +53,32 @@ type ProviderCreateOptions struct {
 	NonInteractive bool   `help:"fail instead of prompting (AIPROXY_PROVIDER_TEST_NONINTERACTIVE=1)"`
 	KeepResources  bool   `help:"keep created ai_provider after test (AIPROXY_TEST_KEEP_RESOURCES=1)"`
 }
+
+type EmbeddingOptions struct {
+	Provider       string `help:"provider_key from catalog"`
+	Model          string `help:"model_key from catalog"`
+	ApiKey         string `help:"upstream API key (or use env AIPROXY_TEST_API_KEY / provider-specific env)"`
+	Dimensions     int    `help:"optional dimensions to request in the batch case"`
+	KeyName        string `help:"ai_key resource name override"`
+	VkName         string `help:"ai_virtual_key resource name override"`
+	RoutingName    string `help:"ai_routing resource name override"`
+	AiproxyURL     string `help:"aiproxy public base URL (default: AIPROXY_URL or endpoint-list)"`
+	SkipBatch      bool   `help:"skip the batch input / dimensions case"`
+	SkipBase64     bool   `help:"skip the encoding_format=base64 case"`
+	NonInteractive bool   `help:"fail instead of prompting (also AIPROXY_TEST_NONINTERACTIVE=1)"`
+	KeepResources  bool   `help:"keep created test resources after run (AIPROXY_TEST_KEEP_RESOURCES=1)"`
+}
+
+type RerankOptions struct {
+	Provider       string `help:"provider_key from catalog"`
+	Model          string `help:"model_key from catalog"`
+	ApiKey         string `help:"upstream API key (or use env AIPROXY_TEST_API_KEY / provider-specific env)"`
+	Query          string `help:"query string"`
+	TopN           int    `help:"optional top_n"`
+	KeyName        string `help:"ai_key resource name override"`
+	VkName         string `help:"ai_virtual_key resource name override"`
+	RoutingName    string `help:"ai_routing resource name override"`
+	AiproxyURL     string `help:"aiproxy public base URL (default: AIPROXY_URL or endpoint-list)"`
+	NonInteractive bool   `help:"fail instead of prompting (also AIPROXY_TEST_NONINTERACTIVE=1)"`
+	KeepResources  bool   `help:"keep created test resources after run (AIPROXY_TEST_KEEP_RESOURCES=1)"`
+}

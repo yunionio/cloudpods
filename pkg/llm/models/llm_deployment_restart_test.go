@@ -55,14 +55,14 @@ func TestComputeDeploymentReplicaStatusScaleToZero(t *testing.T) {
 		want    string
 	}{
 		{
-			name:    "zero replicas and nothing running is ready",
+			name:    "zero replicas and nothing running is stopped",
 			desired: 0,
-			want:    api.STATUS_READY,
+			want:    api.LLM_DEPLOYMENT_STATUS_STOPPED,
 		},
 		{
-			name:    "negative replicas is ready",
+			name:    "negative replicas is stopped",
 			desired: -1,
-			want:    api.STATUS_READY,
+			want:    api.LLM_DEPLOYMENT_STATUS_STOPPED,
 		},
 		{
 			name:    "still running while scaling to zero stays deploying",
@@ -106,9 +106,11 @@ func TestCanUpdateReplicaHealthStatus(t *testing.T) {
 		{api.LLM_DEPLOYMENT_STATUS_RESTARTING, api.LLM_DEPLOYMENT_STATUS_DEPLOYING, false},
 		{api.LLM_DEPLOYMENT_STATUS_RESTARTING, api.LLM_STATUS_START_FAIL, false},
 		{api.LLM_STATUS_CREATE_FAIL, api.STATUS_READY, true},
-		{api.LLM_STATUS_CREATE_FAIL, api.LLM_DEPLOYMENT_STATUS_DEPLOYING, false},
+		{api.LLM_STATUS_CREATE_FAIL, api.LLM_DEPLOYMENT_STATUS_DEPLOYING, true},
+		{api.LLM_STATUS_CREATE_FAIL, api.LLM_DEPLOYMENT_STATUS_STOPPED, true},
 		{api.LLM_STATUS_START_FAIL, api.LLM_DEPLOYMENT_STATUS_PARTIAL, true},
-		{api.LLM_STATUS_START_FAIL, api.LLM_DEPLOYMENT_STATUS_DEPLOYING, false},
+		{api.LLM_STATUS_START_FAIL, api.LLM_DEPLOYMENT_STATUS_DEPLOYING, true},
+		{api.LLM_STATUS_START_FAIL, api.LLM_DEPLOYMENT_STATUS_STOPPED, true},
 		{api.LLM_DEPLOYMENT_STATUS_IMPORTING_MODEL, api.STATUS_READY, false},
 		{api.LLM_STATUS_DELETING, api.STATUS_READY, false},
 	}

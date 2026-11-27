@@ -234,12 +234,25 @@ func (pb *prober) runProbe(probeType apis.ContainerProbeType, p *apis.ContainerP
 		for _, header := range p.HTTPGet.HTTPHeaders {
 			headers.Add(header.Name, header.Value)
 		}
-		log.Infof("[startup-probe-trace] http probe pod=%s container=%s scheme=%s host=%s port=%d path=%s timeout=%s in_pod_netns=%v", pod.GetId(), container.Id, p.HTTPGet.Scheme, host, p.HTTPGet.Port, p.HTTPGet.Path, timeout, pb.shouldRunProbeInPodNetNS())
+		method := strings.ToUpper(strings.TrimSpace(p.HTTPGet.Method))
+		if method == "" {
+			method = nethttp.MethodGet
+		}
+		var body []byte
+		if strings.TrimSpace(p.HTTPGet.Body) != "" {
+			body = []byte(p.HTTPGet.Body)
+		}
+		log.Infof("[startup-probe-trace] http probe pod=%s container=%s scheme=%s host=%s port=%d path=%s method=%s body_len=%d timeout=%s in_pod_netns=%v", pod.GetId(), container.Id, p.HTTPGet.Scheme, host, p.HTTPGet.Port, p.HTTPGet.Path, method, len(body), timeout, pb.shouldRunProbeInPodNetNS())
 		httpProber := pb.http
 		if dialContext := pb.newPodNetNSDialContext(pod); dialContext != nil {
 			httpProber = httpprobe.NewWithDialContext(dialContext)
 		}
-		result, output, err := httpProber.Probe(string(p.HTTPGet.Scheme), host, p.HTTPGet.Port, p.HTTPGet.Path, headers, timeout)
+		result, output, err := httpProber.ProbeRequest(string(p.HTTPGet.Scheme), host, p.HTTPGet.Port, httpprobe.Request{
+			Method:  method,
+			Path:    p.HTTPGet.Path,
+			Body:    body,
+			Headers: headers,
+		}, timeout)
 		log.Infof("[startup-probe-trace] http probe result pod=%s container=%s result=%s output=%q error=%v", pod.GetId(), container.Id, result, output, err)
 		return result, output, err
 	}

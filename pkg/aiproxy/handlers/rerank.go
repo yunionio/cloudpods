@@ -1,0 +1,146 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package handlers
+
+import (
+	"context"
+	"io"
+	"net/http"
+	"time"
+
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/aiproxy/models"
+	"yunion.io/x/onecloud/pkg/aiproxy/providers"
+	"yunion.io/x/onecloud/pkg/aiproxy/providers/openai"
+	"yunion.io/x/onecloud/pkg/aiproxy/upstream"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+)
+
+const rerankUpstreamTimeout = 60 * time.Second
+
+// rerankHandler implements OpenAI/Cohere-compatible POST /openai/v1/rerank.
+func rerankHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	rec := newAPILogRecord(ctx, r, start)
+	defer finishAPILogRecord(rec, start)
+
+	if r.Method != http.MethodPost {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_method", nil)
+		httperrors.InvalidInputError(ctx, w, "only POST is supported")
+		return
+	}
+
+	defer r.Body.Close()
+	raw, err := io.ReadAll(r.Body)
+	if err != nil {
+		failAPILogRecord(rec, http.StatusBadRequest, "read_body", err)
+		httperrors.InvalidInputError(ctx, w, "read body: %v", err)
+		return
+	}
+
+	body, err := jsonutils.Parse(raw)
+	if err != nil {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_json", err)
+		httperrors.InvalidInputError(ctx, w, "invalid JSON body: %v", err)
+		return
+	}
+	dict, ok := body.(*jsonutils.JSONDict)
+	if !ok {
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_body", nil)
+		httperrors.InvalidInputError(ctx, w, "body must be a JSON object")
+		return
+	}
+	fillAPILogFromBody(rec, dict)
+	rec.Stream = false
+
+	dbg := NewProxyDebugSession(ctx, "openai-rerank")
+	dbg.ClientRequest(r, dict, nil, false)
+
+	if err := openai.ValidateRerankRequest(dict); err != nil {
+		dbg.Error("invalid request: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "invalid_request", err)
+		httperrors.InvalidInputError(ctx, w, "%v", err)
+		return
+	}
+
+	vk := extractVirtualKey(r)
+	userCred := auth.AdminCredential()
+	up, err := models.ResolveChatUpstream(ctx, userCred, vk, dict, extractRoutingId(r))
+	if err != nil {
+		dbg.Error("resolve upstream: %v", err)
+		failAPILogRecord(rec, http.StatusInternalServerError, "resolve_upstream", err)
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+	dbg.RoutingResolved(dict, up)
+	fillAPILogFromUpstream(rec, up)
+
+	if err := up.AllowsKind(models.UpstreamKindRerank); err != nil {
+		dbg.Error("capability check: %v", err)
+		failAPILogRecord(rec, http.StatusBadRequest, "capability", err)
+		httperrors.InvalidInputError(ctx, w, "%v", err)
+		return
+	}
+
+	if err := models.TakeVirtualKeyRequestsPerMinute(up.VirtualKeyId, up.RequestsPerMinute); err != nil {
+		dbg.Error("rate limit: %v", err)
+		failAPILogRecord(rec, http.StatusInternalServerError, "rate_limit", err)
+		httperrors.GeneralServerError(ctx, w, err)
+		return
+	}
+
+	rerankProv := providers.GetRerank(up.ProviderKey)
+	buildUpstream := func() (*upstream.Request, error) {
+		req, err := buildRerankUpstream(up, dict)
+		if err == nil {
+			dbg.UpstreamRequest(req)
+		}
+		return req, err
+	}
+
+	resp, uerr := upstreamWithKeyFailover(ctx, up, rerankUpstreamTimeout, buildUpstream)
+	if uerr != nil {
+		dbg.Error("upstream error status=%d body=%s", uerr.StatusCode, truncateLogBytes(uerr.Body, proxyDebugLogMax))
+		recordUpstreamError(rec, uerr)
+		writeUpstreamError(ctx, w, uerr)
+		return
+	}
+	dbg.UpstreamResponse(resp.Body)
+	out := resp.Body
+	if norm, nerr := rerankProv.NormalizeRerankResponse(out); nerr == nil && len(norm) > 0 {
+		out = norm
+	}
+	dbg.ClientResponse(out)
+	markAPILogSuccess(rec, out)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(out)
+}
+
+func buildRerankUpstream(up *models.ChatUpstream, dict *jsonutils.JSONDict) (*upstream.Request, error) {
+	rerankProv := providers.GetRerank(up.ProviderKey)
+	httpReq, err := rerankProv.BuildRerankRequest(&providers.ChatContext{
+		ProviderKey:   up.ProviderKey,
+		BaseURL:       up.BaseURL,
+		APIKey:        up.APIKey,
+		UpstreamModel: up.UpstreamModel,
+	}, dict)
+	if err != nil {
+		return nil, err
+	}
+	return providers.ToUpstreamRequest(httpReq, up.APIKey), nil
+}

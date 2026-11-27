@@ -17,4 +17,6 @@ func init() {
 	cmd.Perform("unregister-aiproxy", new(options.LLMDeploymentUnregisterAiproxyOptions))
 	cmd.Perform("restart", new(options.LLMDeploymentRestartOptions))
 	cmd.Perform("syncstatus", new(options.LLMDeploymentSyncstatusOptions))
+	cmd.Perform("stop", new(options.LLMDeploymentStopOptions))
+	cmd.Perform("start", new(options.LLMDeploymentStartOptions))
 }

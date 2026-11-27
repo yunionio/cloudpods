@@ -815,7 +815,7 @@ type SyncReadyReplicasOptions struct {
 // health:
 //
 //	desired <= 0 && replicas still running or probing → deploying
-//	desired <= 0 && no running replicas              → ready
+//	desired <= 0 && no running replicas              → stopped
 //	ready_replicas == 0 && desired > 0               → deploying (or create_fail / start_fail)
 //	0 < ready_replicas < desired                     → partial
 //	ready_replicas == desired                        → ready
@@ -853,9 +853,10 @@ func (model *SLLMDeployment) SyncReadyReplicas(ctx context.Context, userCred mcc
 
 	// A deployment with recorded group failures keeps its failure status
 	// instead of being flipped back to deploying/partial by later instance
-	// churn; the broken group is preserved for debugging. User actions reset
-	// the counter.
-	if model.ReconcileFailures > 0 && model.Status == api.LLM_STATUS_CREATE_FAIL {
+	// churn; the broken group is preserved for debugging. User actions
+	// (syncstatus / scale / start / stop) reset the counter or pass
+	// ForceHealthStatus to recover.
+	if !forceHealthStatus && model.ReconcileFailures > 0 && model.Status == api.LLM_STATUS_CREATE_FAIL {
 		return nil
 	}
 
@@ -904,7 +905,7 @@ func computeDeploymentReplicaStatus(summary deploymentReplicaStatusSummary, desi
 		if summary.Running > 0 || summary.HasProbing {
 			return api.LLM_DEPLOYMENT_STATUS_DEPLOYING
 		}
-		return api.STATUS_READY
+		return api.LLM_DEPLOYMENT_STATUS_STOPPED
 	}
 	switch {
 	case summary.Running >= desired:
@@ -933,18 +934,25 @@ func isDeploymentReplicaFailureStatus(status string) bool {
 
 // canUpdateReplicaHealthStatus reports whether replica-health-driven status can
 // override the current deployment value. Early lifecycle, restarting, and
-// terminal failure / delete states must not be clobbered, except create_fail
-// and start_fail may recover when replicas are running again. Restarting is
-// cleared only by SyncReadyReplicas with ForceHealthStatus after the restart task.
+// terminal failure / delete states must not be clobbered. create_fail /
+// start_fail may recover to ready/partial when replicas are healthy again, or
+// to deploying/stopped when there are no running replicas (empty recover).
+// Restarting is cleared only by SyncReadyReplicas with ForceHealthStatus after
+// the restart task.
 func canUpdateReplicaHealthStatus(current, desired string) bool {
 	if current == api.LLM_DEPLOYMENT_STATUS_RESTARTING {
 		return false
 	}
-	if current == api.LLM_STATUS_CREATE_FAIL {
-		return desired == api.STATUS_READY || desired == api.LLM_DEPLOYMENT_STATUS_PARTIAL
-	}
-	if current == api.LLM_STATUS_START_FAIL {
-		return desired == api.STATUS_READY || desired == api.LLM_DEPLOYMENT_STATUS_PARTIAL
+	if current == api.LLM_STATUS_CREATE_FAIL || current == api.LLM_STATUS_START_FAIL {
+		switch desired {
+		case api.STATUS_READY,
+			api.LLM_DEPLOYMENT_STATUS_PARTIAL,
+			api.LLM_DEPLOYMENT_STATUS_DEPLOYING,
+			api.LLM_DEPLOYMENT_STATUS_STOPPED:
+			return true
+		default:
+			return false
+		}
 	}
 	switch current {
 	case api.LLM_DEPLOYMENT_STATUS_IMPORTING_MODEL,
@@ -1222,6 +1230,119 @@ func (model *SLLMDeployment) StartRestartTask(ctx context.Context, userCred mccl
 	return task.ScheduleRun(nil)
 }
 
+// canScaleDeploymentReplicasStatus reports whether start/stop (replica scale) is allowed.
+func canScaleDeploymentReplicasStatus(status string) bool {
+	switch status {
+	case api.LLM_STATUS_DELETING,
+		api.LLM_STATUS_START_DELETE,
+		api.LLM_STATUS_DELETED,
+		api.LLM_STATUS_DELETE_FAILED,
+		"creating",
+		api.LLM_DEPLOYMENT_STATUS_IMPORTING_MODEL,
+		api.LLM_DEPLOYMENT_STATUS_CREATING_SKU,
+		api.LLM_DEPLOYMENT_STATUS_IMPORT_MODEL_FAILED,
+		api.LLM_DEPLOYMENT_STATUS_CREATE_SKU_FAILED,
+		api.LLM_DEPLOYMENT_STATUS_SYNCING,
+		api.LLM_DEPLOYMENT_STATUS_RESTARTING:
+		return false
+	}
+	return true
+}
+
+func (model *SLLMDeployment) ValidateStopInput(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input *api.LLMDeploymentStopInput,
+) error {
+	_ = ctx
+	_ = userCred
+	_ = input
+	if !canScaleDeploymentReplicasStatus(model.Status) {
+		return httperrors.NewInvalidStatusError("invalid deployment status %s", model.Status)
+	}
+	if model.Replicas <= 0 {
+		return httperrors.NewInvalidStatusError("deployment already stopped")
+	}
+	return nil
+}
+
+// PerformStop scales the deployment to zero replicas (GPUStack-style stop).
+func (model *SLLMDeployment) PerformStop(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.LLMDeploymentStopInput,
+) (jsonutils.JSONObject, error) {
+	_ = query
+	if input == nil {
+		input = &api.LLMDeploymentStopInput{}
+	}
+	if err := model.ValidateStopInput(ctx, userCred, input); err != nil {
+		return nil, err
+	}
+	if _, err := db.Update(model, func() error {
+		model.Replicas = 0
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "set replicas to 0")
+	}
+	model.ResetReconcileFailures()
+	if err := model.StartSyncReplicasTask(ctx, userCred, nil); err != nil {
+		return nil, errors.Wrap(err, "StartSyncReplicasTask")
+	}
+	return nil, nil
+}
+
+func (model *SLLMDeployment) ValidateStartInput(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input *api.LLMDeploymentStartInput,
+) error {
+	_ = ctx
+	_ = userCred
+	if !canScaleDeploymentReplicasStatus(model.Status) {
+		return httperrors.NewInvalidStatusError("invalid deployment status %s", model.Status)
+	}
+	if model.Replicas > 0 {
+		return httperrors.NewInvalidStatusError("deployment already started")
+	}
+	if input != nil && input.Replicas != nil && *input.Replicas < 0 {
+		return httperrors.NewInputParameterError("replicas must be >= 0")
+	}
+	return nil
+}
+
+// PerformStart scales a stopped deployment up (default 1 replica).
+func (model *SLLMDeployment) PerformStart(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input *api.LLMDeploymentStartInput,
+) (jsonutils.JSONObject, error) {
+	_ = query
+	if input == nil {
+		input = &api.LLMDeploymentStartInput{}
+	}
+	if err := model.ValidateStartInput(ctx, userCred, input); err != nil {
+		return nil, err
+	}
+	target := 1
+	if input.Replicas != nil && *input.Replicas > 0 {
+		target = *input.Replicas
+	}
+	if _, err := db.Update(model, func() error {
+		model.Replicas = target
+		return nil
+	}); err != nil {
+		return nil, errors.Wrapf(err, "set replicas to %d", target)
+	}
+	model.ResetReconcileFailures()
+	if err := model.StartSyncReplicasTask(ctx, userCred, nil); err != nil {
+		return nil, errors.Wrap(err, "StartSyncReplicasTask")
+	}
+	return nil, nil
+}
+
 // canSyncDeploymentStatus reports whether a deployment may sync replica statuses.
 func canSyncDeploymentStatus(status string) bool {
 	switch status {
@@ -1243,6 +1364,9 @@ func (model *SLLMDeployment) ValidateSyncstatusInput(
 	userCred mcclient.TokenCredential,
 	input *api.LLMDeploymentSyncstatusInput,
 ) error {
+	_ = ctx
+	_ = userCred
+	_ = input
 	if !canSyncDeploymentStatus(model.Status) {
 		return httperrors.NewInvalidStatusError("invalid deployment status %s", model.Status)
 	}
@@ -1254,8 +1378,9 @@ func (model *SLLMDeployment) ValidateSyncstatusInput(
 	if err != nil {
 		return errors.Wrap(err, "fetch deployment instances")
 	}
+	// No instances: deployment-level sync only (e.g. create_fail / stopped).
 	if len(rows) == 0 {
-		return httperrors.NewInvalidStatusError("no instances under deployment")
+		return nil
 	}
 	syncable := 0
 	for i := range rows {
@@ -1269,14 +1394,43 @@ func (model *SLLMDeployment) ValidateSyncstatusInput(
 	return nil
 }
 
+func (model *SLLMDeployment) countDeploymentInstances() (int, error) {
+	return GetLLMManager().Query().Equals("llm_deployment_id", model.Id).CountWithError()
+}
+
 func (model *SLLMDeployment) PerformSyncstatus(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	input *api.LLMDeploymentSyncstatusInput,
 ) (jsonutils.JSONObject, error) {
+	_ = query
+	if input == nil {
+		input = &api.LLMDeploymentSyncstatusInput{}
+	}
 	if err := model.ValidateSyncstatusInput(ctx, userCred, input); err != nil {
 		return nil, err
+	}
+	n, err := model.countDeploymentInstances()
+	if err != nil {
+		return nil, errors.Wrap(err, "count deployment instances")
+	}
+	if n == 0 {
+		// Recover stuck create_fail / start_fail with no instances: clear the
+		// reconcile pause, force status from replica health, and recreate if
+		// the deployment still wants replicas.
+		model.ResetReconcileFailures()
+		if err := model.SyncReadyReplicas(ctx, userCred, SyncReadyReplicasOptions{
+			ForceHealthStatus: true,
+		}); err != nil {
+			return nil, errors.Wrap(err, "SyncReadyReplicas")
+		}
+		if model.Replicas > 0 {
+			if err := model.StartSyncReplicasTask(ctx, userCred, nil); err != nil {
+				return nil, errors.Wrap(err, "StartSyncReplicasTask")
+			}
+		}
+		return nil, nil
 	}
 	if err := model.StartSyncStatusTask(ctx, userCred); err != nil {
 		return nil, errors.Wrap(err, "StartSyncStatusTask")

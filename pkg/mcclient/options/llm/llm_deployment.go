@@ -46,22 +46,25 @@ type LLMDeploymentCreateOptions struct {
 	LLMSkuId string `help:"existing LLM SKU id or name (mode A)" json:"-"`
 
 	// Mode B/C: SKU spec (all sku-* flags collapse into sku_spec)
-	SkuName          string   `help:"SKU name (default: <deploy-name>-sku)" json:"-"`
-	SkuLLMImageId    string   `help:"container image id (for SkuSpec)" json:"-"`
-	SkuLLMType       string   `help:"container llm type" choices:"ollama|vllm|comfyui|sglang|dify" json:"-"`
-	SkuCpu           int      `help:"SKU CPU cores" json:"-"`
-	SkuMemory        int      `help:"SKU memory MB" json:"-"`
-	SkuDiskSize      int      `help:"SKU disk size MB" json:"-"`
-	SkuBandwidth     int      `help:"SKU bandwidth (Mb/s)" json:"-"`
-	SkuStorageType   string   `help:"SKU storage type, e.g. local" json:"-"`
-	SkuTemplateId    string   `help:"SKU storage template id" json:"-"`
-	SkuPortMappings  []string `help:"port mapping protocol:port[:prefix][:offset][:envs]; repeatable" json:"-"`
-	SkuDevices       []string `help:"device model[:path[:dev_type[:sharing_mode]]]; repeatable" json:"-"`
-	SkuEnv           []string `help:"env key=value; repeatable" json:"-"`
-	SkuProperty      []string `help:"property key=value; repeatable" json:"-"`
-	SkuMountedModels []string `help:"already-imported InstantModel ref, format name:tag; repeatable" json:"-"`
-	SkuCategories    string   `help:"comma-separated categories: llm,embedding,image,..." json:"-"`
-	SkuBackendVer    string   `help:"inference backend version" json:"-"`
+	SkuName           string   `help:"SKU name (default: <deploy-name>-sku)" json:"-"`
+	SkuLLMImageId     string   `help:"container image id (for SkuSpec)" json:"-"`
+	SkuLLMType        string   `help:"container llm type" choices:"ollama|vllm|comfyui|sglang|dify" json:"-"`
+	SkuCpu            int      `help:"SKU CPU cores" json:"-"`
+	SkuMemory         int      `help:"SKU memory MB" json:"-"`
+	SkuDiskSize       int      `help:"SKU disk size MB" json:"-"`
+	SkuBandwidth      int      `help:"SKU bandwidth (Mb/s)" json:"-"`
+	SkuStorageType    string   `help:"SKU storage type, e.g. local" json:"-"`
+	SkuTemplateId     string   `help:"SKU storage template id" json:"-"`
+	SkuPortMappings   []string `help:"port mapping protocol:port[:prefix][:offset][:envs]; repeatable" json:"-"`
+	SkuDevices        []string `help:"device model[:path[:dev_type[:sharing_mode]]]; repeatable" json:"-"`
+	SkuEnv            []string `help:"env key=value; repeatable" json:"-"`
+	SkuProperty       []string `help:"property key=value; repeatable" json:"-"`
+	SkuMountedModels  []string `help:"already-imported InstantModel ref, format name:tag; repeatable" json:"-"`
+	SkuCategories     string   `help:"comma-separated categories: llm,embedding,reranker,image,..." json:"-"`
+	SkuBackendVer     string   `help:"inference backend version" json:"-"`
+	SkuVllmArg        []string `help:"vLLM args for the auto-created SKU in key=value form; repeatable" json:"-"`
+	SkuSGLangArg      []string `token:"sku-sglang-arg" help:"SGLang args for the auto-created SKU in key=value form; repeatable" json:"-"`
+	SkuPreferredModel string   `help:"preferred mounting model for the auto-created SKU" json:"-"`
 
 	// Mode C: ModelSpec (auto-import InstantModel before SKU)
 	ModelName     string `help:"model name to import (e.g. qwen3)" json:"-"`
@@ -110,7 +113,10 @@ func (o *LLMDeploymentCreateOptions) Params() (jsonutils.JSONObject, error) {
 
 	// Mode B/C: build SkuSpec from --sku-* flags
 	if o.hasSkuSpec() {
-		skuSpec := o.buildSkuSpec()
+		skuSpec, err := o.buildSkuSpec()
+		if err != nil {
+			return nil, err
+		}
 		params.Set("sku_spec", skuSpec)
 	}
 
@@ -143,10 +149,14 @@ func (o *LLMDeploymentCreateOptions) Params() (jsonutils.JSONObject, error) {
 }
 
 func (o *LLMDeploymentCreateOptions) hasSkuSpec() bool {
-	return o.SkuLLMImageId != "" || o.SkuLLMType != "" || o.SkuCpu > 0 || o.SkuMemory > 0 || o.SkuDiskSize > 0
+	if o.SkuLLMImageId != "" || o.SkuLLMType != "" || o.SkuCpu > 0 || o.SkuMemory > 0 || o.SkuDiskSize > 0 {
+		return true
+	}
+	// Category-driven serving args only make sense on an auto-created SKU.
+	return o.SkuCategories != "" || len(o.SkuVllmArg) > 0 || len(o.SkuSGLangArg) > 0 || o.SkuPreferredModel != ""
 }
 
-func (o *LLMDeploymentCreateOptions) buildSkuSpec() *jsonutils.JSONDict {
+func (o *LLMDeploymentCreateOptions) buildSkuSpec() (*jsonutils.JSONDict, error) {
 	dict := jsonutils.NewDict()
 
 	if o.SkuName != "" {
@@ -202,7 +212,38 @@ func (o *LLMDeploymentCreateOptions) buildSkuSpec() *jsonutils.JSONDict {
 		dict.Set("backend_version", jsonutils.NewString(o.SkuBackendVer))
 	}
 
-	return dict
+	// Backend args for the auto-created SKU: without these, models that require
+	// explicit flags (e.g. rerankers) can only be deployed from a pre-made SKU.
+	if len(o.SkuVllmArg) > 0 || len(o.SkuSGLangArg) > 0 || o.SkuPreferredModel != "" {
+		var spec *api.LLMSpec
+		switch o.SkuLLMType {
+		case string(api.LLM_CONTAINER_VLLM):
+			vllmSpec, err := newVLLMSpecFromArgs(o.SkuPreferredModel, o.SkuVllmArg)
+			if err != nil {
+				return nil, err
+			}
+			if vllmSpec != nil {
+				spec = &api.LLMSpec{Vllm: vllmSpec}
+			}
+		case string(api.LLM_CONTAINER_SGLANG):
+			sglangSpec, err := newSGLangSpecFromArgs(o.SkuPreferredModel, o.SkuSGLangArg)
+			if err != nil {
+				return nil, err
+			}
+			if sglangSpec != nil {
+				spec = &api.LLMSpec{SGLang: sglangSpec}
+			}
+		default:
+			if len(o.SkuVllmArg) > 0 || len(o.SkuSGLangArg) > 0 {
+				return nil, errors.Errorf("--sku-vllm-arg / --sku-sglang-arg require --sku-llm-type vllm|sglang")
+			}
+		}
+		if spec != nil {
+			dict.Set("llm_spec", jsonutils.Marshal(spec))
+		}
+	}
+
+	return dict, nil
 }
 
 func (o *LLMDeploymentCreateOptions) buildModelSpec() (*api.InstantModelImportInput, error) {
@@ -328,6 +369,35 @@ func (o *LLMDeploymentSyncstatusOptions) GetId() string {
 
 func (o *LLMDeploymentSyncstatusOptions) Params() (jsonutils.JSONObject, error) {
 	return jsonutils.NewDict(), nil
+}
+
+type LLMDeploymentStopOptions struct {
+	options.BaseIdOptions
+}
+
+func (o *LLMDeploymentStopOptions) GetId() string {
+	return o.ID
+}
+
+func (o *LLMDeploymentStopOptions) Params() (jsonutils.JSONObject, error) {
+	return jsonutils.NewDict(), nil
+}
+
+type LLMDeploymentStartOptions struct {
+	options.BaseIdOptions
+	Replicas int `help:"target replicas when starting (default 1)" json:"replicas"`
+}
+
+func (o *LLMDeploymentStartOptions) GetId() string {
+	return o.ID
+}
+
+func (o *LLMDeploymentStartOptions) Params() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	if o.Replicas > 0 {
+		params.Set("replicas", jsonutils.NewInt(int64(o.Replicas)))
+	}
+	return params, nil
 }
 
 func applyGpuUtilizationAlias(params *jsonutils.JSONDict, gpuMemoryUtilization, gpuUtilization *float64) error {

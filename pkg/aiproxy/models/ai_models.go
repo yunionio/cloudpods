@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -135,6 +136,13 @@ func (manager *SAiModelManager) ListItemFilter(
 	if key := strings.TrimSpace(query.ModelKey); key != "" {
 		q = q.Equals("model_key", key)
 	}
+	if rawCategory := strings.TrimSpace(query.Category); rawCategory != "" {
+		pattern, err := aiModelConfigCategoryPattern(rawCategory)
+		if err != nil {
+			return nil, err
+		}
+		q = q.Contains("config", pattern)
+	}
 	if routingRef := strings.TrimSpace(query.AiRoutingId); routingRef != "" {
 		routingId, err := resolveAiRoutingIdForListFilter(ctx, userCred, routingRef)
 		if err != nil {
@@ -151,6 +159,17 @@ func (manager *SAiModelManager) ListItemFilter(
 		}
 	}
 	return q, nil
+}
+
+// aiModelConfigCategoryPattern builds the LIKE pattern matching config.category
+// inside the serialized SAiModelConfig JSON. The column is written by
+// SAiModelConfig.String() using json.Marshal, i.e. compact (no spaces), so the
+// quoted-key form is stable.
+func aiModelConfigCategoryPattern(raw string) (string, error) {
+	if err := api.ValidateModelCategory(raw); err != nil {
+		return "", errors.Wrap(httperrors.ErrInputParameter, err.Error())
+	}
+	return fmt.Sprintf(`"category":%q`, api.NormalizeModelCategory(raw)), nil
 }
 
 func (manager *SAiModelManager) OrderByExtraFields(
@@ -313,6 +332,10 @@ func (manager *SAiModelManager) ValidateCreateData(
 		return input, err
 	}
 
+	if err := normalizeAiModelConfigCategory(input.Config); err != nil {
+		return input, err
+	}
+
 	return input, nil
 }
 
@@ -381,7 +404,23 @@ func (m *SAiModel) ValidateUpdateData(
 		return input, err
 	}
 
+	if err := normalizeAiModelConfigCategory(input.Config); err != nil {
+		return input, err
+	}
+
 	return input, nil
+}
+
+// normalizeAiModelConfigCategory lowercases and validates config.category in place.
+func normalizeAiModelConfigCategory(cfg *api.SAiModelConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	if err := api.ValidateModelCategory(cfg.Category); err != nil {
+		return errors.Wrap(httperrors.ErrInputParameter, err.Error())
+	}
+	cfg.Category = api.NormalizeModelCategory(cfg.Category)
+	return nil
 }
 
 func normalizeAiModelVisualFields(

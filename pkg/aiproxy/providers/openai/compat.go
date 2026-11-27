@@ -26,6 +26,8 @@ import (
 var (
 	defaultEmbeddings = NewEmbeddingCompat()
 	defaultImages     = NewImagesCompat()
+	defaultRerank     = NewRerankCompat()
+	defaultSpeech     = NewSpeechCompat()
 )
 
 // Compat forwards OpenAI-shaped JSON to OpenAI-compatible upstreams.
@@ -93,6 +95,14 @@ func (p *Compat) NormalizeImagesGenerationsResponse(body []byte) ([]byte, error)
 	return defaultImages.NormalizeImagesGenerationsResponse(body)
 }
 
+func (p *Compat) BuildRerankRequest(ctx *providerapi.ChatContext, body *jsonutils.JSONDict) (*providerapi.HTTPRequest, error) {
+	return defaultRerank.BuildRerankRequest(ctx, body)
+}
+
+func (p *Compat) NormalizeRerankResponse(body []byte) ([]byte, error) {
+	return defaultRerank.NormalizeRerankResponse(body)
+}
+
 // DefaultEmbeddingCompat returns the shared OpenAI-compatible embeddings adapter.
 func DefaultEmbeddingCompat() providerapi.EmbeddingsProvider {
 	return defaultEmbeddings
@@ -101,4 +111,14 @@ func DefaultEmbeddingCompat() providerapi.EmbeddingsProvider {
 // DefaultImagesCompat returns the shared OpenAI-compatible images adapter.
 func DefaultImagesCompat() providerapi.ImagesProvider {
 	return defaultImages
+}
+
+// DefaultRerankCompat returns the shared OpenAI-compatible rerank adapter.
+func DefaultRerankCompat() providerapi.RerankProvider {
+	return defaultRerank
+}
+
+// DefaultSpeechCompat returns the shared OpenAI-compatible speech adapter.
+func DefaultSpeechCompat() providerapi.SpeechProvider {
+	return defaultSpeech
 }

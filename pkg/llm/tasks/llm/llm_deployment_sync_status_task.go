@@ -44,7 +44,14 @@ func (task *LLMDeploymentSyncStatusTask) OnInit(ctx context.Context, obj db.ISta
 		return
 	}
 	if len(instances) == 0 {
-		task.taskFailed(ctx, model, errors.Error("no instances under deployment"))
+		// Race: instances may have disappeared after PerformSyncstatus.
+		// Fall back to deployment-level replica health refresh.
+		if err := model.SyncReadyReplicas(ctx, task.UserCred); err != nil {
+			log.Warningf("LLMDeploymentSyncStatusTask: SyncReadyReplicas for %s: %s", model.Name, err)
+		}
+		db.OpsLog.LogEvent(model, db.ACT_SYNC_STATUS, nil, task.UserCred)
+		logclient.AddActionLogWithStartable(task, model, logclient.ACT_SYNC_STATUS, nil, task.UserCred, true)
+		task.SetStageComplete(ctx, nil)
 		return
 	}
 

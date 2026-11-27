@@ -25,7 +25,9 @@ type (
 	StreamState          = api.StreamState
 	Provider             = api.Provider
 	EmbeddingsProvider   = api.EmbeddingsProvider
+	RerankProvider       = api.RerankProvider
 	ImagesProvider       = api.ImagesProvider
+	SpeechProvider       = api.SpeechProvider
 	CompletionsProvider  = api.CompletionsProvider
 	MessagesAdapter      = api.MessagesAdapter
 	AnthropicStreamChunk = api.AnthropicStreamChunk

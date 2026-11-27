@@ -45,7 +45,7 @@ type LLMSkuCreateOptions struct {
 	ModelScopeModelId   string `help:"ModelScope model ID" json:"model_scope_model_id"`
 	LocalPath           string `help:"local model path" json:"local_path"`
 	// Model metadata
-	Categories     string `help:"model categories, comma-separated: llm,embedding,image" json:"-"`
+	Categories     string `help:"model categories, comma-separated: llm,embedding,reranker,image,speech_to_text,text_to_speech" json:"-"`
 	BackendVersion string `help:"inference backend version" json:"backend_version"`
 
 	// ModelSpec import params. When set, SKU creation starts InstantModel import.

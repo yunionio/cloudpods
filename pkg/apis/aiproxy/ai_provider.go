@@ -194,6 +194,8 @@ type AiProviderSetModelSpec struct {
 	ModelKey        string   `json:"model_key"`
 	ContextWindow   int      `json:"context_window,omitempty"`
 	InputModalities []string `json:"input_modalities,omitempty"`
+	// Category is the model serving task (llm, embedding, reranker, ...).
+	Category string `json:"category,omitempty"`
 }
 
 // AiProviderSetModelsInput imports selected catalog models for an existing provider.

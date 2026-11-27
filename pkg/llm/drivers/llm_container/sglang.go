@@ -218,6 +218,11 @@ func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	if sku != nil {
 		backendParameters = sku.BackendParameters
 	}
+	// Embedding models need `--is-embedding`. Inject the category-derived default
+	// in front so an explicit SKU/user parameter overrides it.
+	backendParameters = prependDefaultServingArgs(
+		string(api.LLM_CONTAINER_SGLANG), skuBackendVersion(sku), skuCategories(sku), backendParameters,
+	)
 	// The deployment-level pipeline pin overrides SKU backend parameters; it
 	// must land before the topology/command split so both the topology
 	// derivation and the single-node command see it.
@@ -270,7 +275,9 @@ func (s *sglang) GetContainerSpec(ctx context.Context, llm *models.SLLM, image *
 	}
 	image.ApplyToContainerSpec(&spec.ContainerSpec)
 	if hasMountedModels && (llm == nil || !llm.IsDistFollower()) {
-		spec.StartupProbe = newLLMHTTPStartupProbe(api.LLM_SGLANG_DEFAULT_PORT, "/v1/models")
+		spec.StartupProbe = newLLMInferenceStartupProbe(
+			api.LLM_SGLANG_DEFAULT_PORT, servedModelNameForPath(modelPath), skuCategories(sku),
+		)
 	}
 
 	appendContainerIsolatedDevices(&spec, llm, sku, devices)

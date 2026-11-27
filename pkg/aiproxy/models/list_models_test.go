@@ -213,3 +213,71 @@ func TestModelKeyMatches(t *testing.T) {
 		t.Fatal("empty key should not match")
 	}
 }
+
+func TestModelsListEntryFromModelCategory(t *testing.T) {
+	entry := modelsListEntryFromModel("alias", "vllm", 0, &SAiModel{
+		ModelKey: "Qwen3-Embedding-0.6B",
+		Config:   &api.SAiModelConfig{Category: api.ModelCategoryEmbedding},
+	})
+	if entry.Category != api.ModelCategoryEmbedding {
+		t.Fatalf("category = %q, want %q", entry.Category, api.ModelCategoryEmbedding)
+	}
+	if len(entry.InputModalities) != 1 || entry.InputModalities[0] != "text" {
+		t.Fatalf("input_modalities = %v, want [text]", entry.InputModalities)
+	}
+
+	legacy := modelsListEntryFromModel("alias", "openai", 0, &SAiModel{ModelKey: "gpt-4o-mini"})
+	if legacy.Category != "" || legacy.InputModalities != nil {
+		t.Fatalf("legacy row gained capability metadata: %+v", legacy)
+	}
+}
+
+func TestChatUpstreamAllowsKind(t *testing.T) {
+	embedding := &ChatUpstream{
+		UpstreamModel: "Qwen3-Embedding-0.6B",
+		ModelConfig:   &api.SAiModelConfig{Category: api.ModelCategoryEmbedding},
+	}
+	if err := embedding.AllowsKind(UpstreamKindEmbeddings); err != nil {
+		t.Fatalf("embedding model rejected on embeddings: %v", err)
+	}
+	if err := embedding.AllowsKind(UpstreamKindChat); err == nil {
+		t.Fatal("embedding model accepted on chat completions")
+	}
+
+	reranker := &ChatUpstream{
+		UpstreamModel: "bge-reranker-v2-m3",
+		ModelConfig:   &api.SAiModelConfig{Category: api.ModelCategoryReranker},
+	}
+	if err := reranker.AllowsKind(UpstreamKindRerank); err != nil {
+		t.Fatalf("reranker rejected on rerank: %v", err)
+	}
+	if err := reranker.AllowsKind(UpstreamKindEmbeddings); err == nil {
+		t.Fatal("reranker accepted on embeddings")
+	}
+
+	legacy := &ChatUpstream{UpstreamModel: "gpt-4o-mini"}
+	if err := legacy.AllowsKind(UpstreamKindChat); err != nil {
+		t.Fatalf("legacy model rejected on chat: %v", err)
+	}
+
+	chat := &ChatUpstream{UpstreamModel: "qwen3-8b", ModelConfig: &api.SAiModelConfig{Category: api.ModelCategoryLLM}}
+	for _, kind := range []string{UpstreamKindChat, UpstreamKindCompletions, UpstreamKindResponses, UpstreamKindMessages, UpstreamKindEmbeddings, UpstreamKindSpeech} {
+		if err := chat.AllowsKind(kind); err != nil {
+			t.Fatalf("llm model rejected on %s: %v", kind, err)
+		}
+	}
+
+	tts := &ChatUpstream{
+		UpstreamModel: "qwen3-tts",
+		ModelConfig:   &api.SAiModelConfig{Category: api.ModelCategoryTextToSpeech},
+	}
+	if err := tts.AllowsKind(UpstreamKindSpeech); err != nil {
+		t.Fatalf("tts model rejected on speech: %v", err)
+	}
+	if err := tts.AllowsKind(UpstreamKindChat); err == nil {
+		t.Fatal("tts model accepted on chat completions")
+	}
+	if err := tts.AllowsKind(UpstreamKindEmbeddings); err == nil {
+		t.Fatal("tts model accepted on embeddings")
+	}
+}

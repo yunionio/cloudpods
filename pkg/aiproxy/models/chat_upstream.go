@@ -97,6 +97,75 @@ type AiRoutingLog struct {
 	Error         string
 }
 
+// Model kind constants used by ChatUpstream.AllowsKind.
+const (
+	UpstreamKindChat        = "chat"
+	UpstreamKindCompletions = "completions"
+	UpstreamKindResponses   = "responses"
+	UpstreamKindMessages    = "messages"
+	UpstreamKindEmbeddings  = "embeddings"
+	UpstreamKindRerank      = "rerank"
+	UpstreamKindImages      = "images"
+	UpstreamKindSpeech      = "speech"
+)
+
+// AllowsKind reports whether the resolved catalog model can serve the given API
+// surface. Only explicit, known-incompatible combinations are rejected:
+//   - chat-like endpoints reject embedding / reranker models;
+//   - /v1/embeddings rejects reranker models;
+//   - /v1/rerank rejects embedding models.
+//
+// Legacy rows with an empty category, and llm-category models, are always
+// allowed so existing deployments keep working unchanged (an llm-categorized
+// upstream may still legitimately serve embeddings, e.g. Ollama).
+func (up *ChatUpstream) AllowsKind(kind string) error {
+	if up == nil || up.ModelConfig == nil {
+		return nil
+	}
+	category := up.ModelConfig.NormalizedCategory()
+	if category == "" || category == api.ModelCategoryLLM {
+		return nil
+	}
+	reject := func(expected string) error {
+		model := up.UpstreamModel
+		if model == "" {
+			model = up.AiModelId
+		}
+		return errors.Wrapf(httperrors.ErrInputParameter,
+			"model %s has category %q and cannot serve this API; use %s instead", model, category, expected)
+	}
+	switch kind {
+	case UpstreamKindChat, UpstreamKindCompletions, UpstreamKindResponses, UpstreamKindMessages:
+		switch category {
+		case api.ModelCategoryEmbedding, api.ModelCategoryReranker,
+			api.ModelCategoryTextToSpeech, api.ModelCategorySpeechToText:
+			return reject(api.EndpointPathForCategory(category))
+		}
+	case UpstreamKindEmbeddings:
+		switch category {
+		case api.ModelCategoryReranker, api.ModelCategoryTextToSpeech, api.ModelCategorySpeechToText:
+			return reject(api.EndpointPathForCategory(category))
+		}
+	case UpstreamKindRerank:
+		switch category {
+		case api.ModelCategoryEmbedding, api.ModelCategoryTextToSpeech, api.ModelCategorySpeechToText:
+			return reject(api.EndpointPathForCategory(category))
+		}
+	case UpstreamKindImages:
+		switch category {
+		case api.ModelCategoryEmbedding, api.ModelCategoryReranker,
+			api.ModelCategoryTextToSpeech, api.ModelCategorySpeechToText:
+			return reject(api.EndpointPathForCategory(category))
+		}
+	case UpstreamKindSpeech:
+		switch category {
+		case api.ModelCategoryEmbedding, api.ModelCategoryReranker:
+			return reject(api.EndpointPathForCategory(category))
+		}
+	}
+	return nil
+}
+
 func modelKeyMatches(key, requestedModel string) bool {
 	key = strings.TrimSpace(key)
 	if key == "" {

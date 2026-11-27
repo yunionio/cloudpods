@@ -1,10 +1,65 @@
 package llm
 
 import (
+	"strings"
+
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/apis"
 )
+
+// LLM image capability markers (orthogonal to llm_type).
+const (
+	LLM_IMAGE_CAPABILITY_OMNI = "omni"
+)
+
+var LLM_IMAGE_CAPABILITIES = sets.NewString(
+	LLM_IMAGE_CAPABILITY_OMNI,
+)
+
+// NormalizeLLMImageCapabilities lowercases, trims and deduplicates capabilities.
+func NormalizeLLMImageCapabilities(in []string) []string {
+	out := make([]string, 0, len(in))
+	seen := make(map[string]struct{}, len(in))
+	for _, raw := range in {
+		c := strings.ToLower(strings.TrimSpace(raw))
+		if c == "" {
+			continue
+		}
+		if _, dup := seen[c]; dup {
+			continue
+		}
+		seen[c] = struct{}{}
+		out = append(out, c)
+	}
+	return out
+}
+
+// ValidateLLMImageCapabilities rejects unknown capability values.
+func ValidateLLMImageCapabilities(in []string) error {
+	for _, raw := range in {
+		c := strings.ToLower(strings.TrimSpace(raw))
+		if c == "" {
+			continue
+		}
+		if !LLM_IMAGE_CAPABILITIES.Has(c) {
+			return errors.Errorf("invalid capability %q, must be one of %s", raw, strings.Join(LLM_IMAGE_CAPABILITIES.List(), ","))
+		}
+	}
+	return nil
+}
+
+// HasLLMImageCapability reports whether caps contains want (case-insensitive).
+func HasLLMImageCapability(caps []string, want string) bool {
+	want = strings.ToLower(strings.TrimSpace(want))
+	for _, c := range caps {
+		if strings.ToLower(strings.TrimSpace(c)) == want {
+			return true
+		}
+	}
+	return false
+}
 
 type LLMImageType string
 
@@ -53,6 +108,9 @@ type LLMImageListInput struct {
 	AppName          string `json:"app_name"`
 	ImageSource      string `json:"image_source"`
 	ContainerImageId string `json:"container_image_id"`
+	// Capability filters images whose capabilities JSON contains this value
+	// (e.g. "omni").
+	Capability string `json:"capability"`
 }
 
 type LLMImageCreateInput struct {
@@ -66,6 +124,7 @@ type LLMImageCreateInput struct {
 	DesktopConfig    *LLMImageDesktopConfig `json:"desktop_config,omitempty"`
 	ImageSource      string                 `json:"image_source"`
 	ContainerImageId string                 `json:"container_image_id"`
+	Capabilities     []string               `json:"capabilities"`
 }
 
 type LLMImageUpdateInput struct {
@@ -79,6 +138,7 @@ type LLMImageUpdateInput struct {
 	DesktopConfig    *LLMImageDesktopConfig `json:"desktop_config,omitempty"`
 	ImageSource      *string                `json:"image_source,omitempty"`
 	ContainerImageId *string                `json:"container_image_id,omitempty"`
+	Capabilities     *[]string              `json:"capabilities,omitempty"`
 }
 
 type LLMImageDetails struct {
