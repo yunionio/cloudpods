@@ -356,12 +356,14 @@ func (o *openai) doChatStreamRequest(ctx context.Context, mcpAgent *models.SMCPA
 }
 
 func (o *openai) doChatRequest(ctx context.Context, mcpAgent *models.SMCPAgent, messages []OpenAIChatMessage, tools []OpenAITool) (*OpenAIChatResponse, error) {
-	req := OpenAIChatRequest{
+	return o.doChatRequestRaw(ctx, mcpAgent, OpenAIChatRequest{
 		Model:    mcpAgent.Model,
 		Messages: messages,
 		Tools:    tools,
-	}
+	})
+}
 
+func (o *openai) doChatRequestRaw(ctx context.Context, mcpAgent *models.SMCPAgent, req OpenAIChatRequest) (*OpenAIChatResponse, error) {
 	reqBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal request")
@@ -637,10 +639,39 @@ func (tf *OpenAIToolFunction) GetDescription() string                { return tf
 func (tf *OpenAIToolFunction) GetParameters() map[string]interface{} { return tf.Parameters }
 
 type OpenAIChatRequest struct {
-	Model    string              `json:"model"`
-	Messages []OpenAIChatMessage `json:"messages"`
-	Tools    []OpenAITool        `json:"tools,omitempty"`
-	Stream   bool                `json:"stream,omitempty"`
+	Model              string                 `json:"model"`
+	Messages           []OpenAIChatMessage    `json:"messages"`
+	Tools              []OpenAITool           `json:"tools,omitempty"`
+	Stream             bool                   `json:"stream,omitempty"`
+	MaxTokens          int                    `json:"max_tokens,omitempty"`
+	ChatTemplateKwargs map[string]interface{} `json:"chat_template_kwargs,omitempty"`
+}
+
+// ChatCompletionOptions optional knobs for one-shot / codegen chat calls.
+type ChatCompletionOptions struct {
+	MaxTokens       int
+	DisableThinking bool
+}
+
+// ChatWithOptions is like Chat but attaches max_tokens / thinking flags for OpenAI-compatible backends.
+func ChatWithOptions(ctx context.Context, mcpAgent *models.SMCPAgent, messages []OpenAIChatMessage, tools []OpenAITool, opts *ChatCompletionOptions) (*OpenAIChatResponse, error) {
+	o := newOpenAI().(*openai)
+	req := OpenAIChatRequest{
+		Model:    mcpAgent.Model,
+		Messages: messages,
+		Tools:    tools,
+	}
+	if opts != nil {
+		if opts.MaxTokens > 0 {
+			req.MaxTokens = opts.MaxTokens
+		}
+		if opts.DisableThinking {
+			req.ChatTemplateKwargs = map[string]interface{}{
+				"enable_thinking": false,
+			}
+		}
+	}
+	return o.doChatRequestRaw(ctx, mcpAgent, req)
 }
 
 type OpenAIChatResponse struct {

@@ -395,6 +395,7 @@ func InitHandlers(app *appsrv.Application, isSlave bool) {
 	app.AddHandler2("GET", "/mcp_agents/default-mcp-tools", auth.Authenticate(handleDefaultMcpTools), nil, "default_mcp_tools", nil)
 
 	registerLLMRouterAgentRoute(app)
+	registerDashboardPanelHandlers(app)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,
