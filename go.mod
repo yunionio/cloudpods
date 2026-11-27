@@ -434,3 +434,5 @@ require (
 replace github.com/influxdata/promql/v2 => github.com/zexi/promql/v2 v2.12.1
 
 replace inet.af/netaddr => github.com/inetaf/netaddr v0.0.0-20211027220019-c74959edd3b6
+
+replace github.com/c-bata/go-prompt => github.com/yunionio/go-prompt v0.2.7
