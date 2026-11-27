@@ -183,11 +183,18 @@ func (r *Render) Render(buffer *Buffer, completion *CompletionManager) {
 	// prepare area
 	_, y := r.toPos(cursor)
 
-	h := y + 1 + int(completion.max)
-	if h > int(r.row) || completionMargin > int(r.col) {
+	// Clamp suggestion height to the remaining rows instead of wiping the
+	// screen when the terminal is short (e.g. embedded CloudShell panels).
+	available := int(r.row) - y - 1
+	if available < 1 || completionMargin > int(r.col) {
 		r.renderWindowTooSmall()
 		return
 	}
+	origMax := completion.max
+	if int(completion.max) > available {
+		completion.max = uint16(available)
+	}
+	defer func() { completion.max = origMax }()
 
 	// Rendering
 	r.out.HideCursor()
