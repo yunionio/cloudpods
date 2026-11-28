@@ -45,7 +45,7 @@ func defaultPredicates() sets.String {
 		factory.RegisterFitPredicate("l-GuestResourceTypeFilter", &predicates.ResourceTypePredicate{}),
 		factory.RegisterFitPredicate("m-GuestDiskschedtagFilter", &predicates.DiskSchedtagPredicate{}),
 		factory.RegisterFitPredicate("n-ServerSkuFilter", &predicates.InstanceTypePredicate{}),
-		factory.RegisterFitPredicate("o-GuestNetschedtagFilter", &predicates.NetworkSchedtagPredicate{}),
+		factory.RegisterFitPredicate("o-GuestNetschedtagFilter", predicates.NewNetworkSchedtagPredicate()),
 		factory.RegisterFitPredicate("p-CloudproviderschedtagFilter", predicates.NewCloudproviderSchedtagPredicate()),
 		factory.RegisterFitPredicate("q-CloudregionschedtagFilter", predicates.NewCloudregionSchedtagPredicate()),
 		factory.RegisterFitPredicate("r-ZoneschedtagFilter", predicates.NewZoneSchedtagPredicate()),
