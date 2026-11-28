@@ -93,7 +93,9 @@ func (s *SKVMGuestInstance) initGuestDevicesDesc(pciRoot, pciBridge *desc.PCICon
 		return errors.Wrap(err, "init guest networks")
 	}
 
-	s.initIsolatedDevices(pciRoot, pciBridge)
+	if err := s.initIsolatedDevices(pciRoot, pciBridge); err != nil {
+		return err
+	}
 	s.initUsbController(pciRoot)
 	s.initRandomDevice(pciRoot, options.HostOptions.EnableVirtioRngDevice)
 	s.initQgaDesc()
@@ -333,7 +335,7 @@ func (s *SKVMGuestInstance) initGuestNetworks(pciRoot, pciBridge *desc.PCIContro
 	return nil
 }
 
-func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCIController) {
+func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCIController) error {
 	cType := s.getVfioDeviceHotPlugPciControllerType()
 	if cType == nil {
 		cType = &pciRoot.CType
@@ -345,6 +347,9 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 	manager := s.manager.GetHost().GetIsolatedDeviceManager()
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
+		if dev == nil {
+			return errors.Errorf("GetDeviceByAddr failed: addr: %v", s.Desc.IsolatedDevices[i].Addr)
+		}
 		if s.Desc.IsolatedDevices[i].DevType == compute.USB_TYPE {
 			s.Desc.IsolatedDevices[i].Usb = desc.NewUsbDevice("usb-host", dev.GetQemuId())
 			s.Desc.IsolatedDevices[i].Usb.Options = dev.GetPassthroughOptions()
@@ -366,6 +371,7 @@ func (s *SKVMGuestInstance) initIsolatedDevices(pciRoot, pciBridge *desc.PCICont
 			}
 		}
 	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) initCdromDesc() {
