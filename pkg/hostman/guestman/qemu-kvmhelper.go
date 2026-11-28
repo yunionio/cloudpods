@@ -1175,6 +1175,9 @@ func (s *SKVMGuestInstance) hasGPU() bool {
 	manager := s.manager.GetHost().GetIsolatedDeviceManager()
 	for i := 0; i < len(s.Desc.IsolatedDevices); i++ {
 		dev := manager.GetDeviceByAddr(s.Desc.IsolatedDevices[i].Addr)
+		if dev == nil {
+			continue
+		}
 		if dev.GetDeviceType() == api.GPU_TYPE {
 			return true
 		}
