@@ -17,6 +17,7 @@ package redfish
 import (
 	"context"
 	"encoding/base64"
+	stderrors "errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -52,6 +53,7 @@ type SBaseRedfishClient struct {
 
 	SessionToken string
 	sessionUrl   string
+	loggingIn    bool
 
 	Version    string
 	Registries map[string]string
@@ -98,11 +100,30 @@ func (r *SBaseRedfishClient) GetEndpoint() string {
 	return r.endpoint
 }
 
+// request sends a Redfish API call. Basic auth is tried first; when the BMC
+// rejects it with 401 or 403 and no session exists yet, the client logs in
+// once and retries the call with the session token.
 func (r *SBaseRedfishClient) request(ctx context.Context, method httputils.THttpMethod, path string, header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	urlStr := httputils.JoinPath(r.endpoint, path)
-	if header == nil {
-		header = http.Header{}
+	hdr, resp, err := r.doRequest(ctx, method, path, cloneHeader(header), body)
+	if err == nil || r.loggingIn || !r.shouldProbeSessionFallback(err) {
+		return hdr, resp, err
 	}
+	if loginErr := r.Login(ctx); loginErr != nil {
+		log.Debugf("redfish session login after %s %s failed: %v", method, path, loginErr)
+		return hdr, resp, err
+	}
+	return r.doRequest(ctx, method, path, cloneHeader(header), body)
+}
+
+func cloneHeader(header http.Header) http.Header {
+	if header == nil {
+		return http.Header{}
+	}
+	return header.Clone()
+}
+
+func (r *SBaseRedfishClient) doRequest(ctx context.Context, method httputils.THttpMethod, path string, header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	urlStr := httputils.JoinPath(r.endpoint, path)
 	if len(r.SessionToken) > 0 {
 		header.Set("X-Auth-Token", r.SessionToken)
 	} else {
@@ -208,12 +229,42 @@ func (r *SBaseRedfishClient) Probe(ctx context.Context) error {
 	return nil
 }
 
+func (r *SBaseRedfishClient) shouldProbeSessionFallback(err error) bool {
+	if len(r.SessionToken) > 0 {
+		return false
+	}
+	var jerr *httputils.JSONClientError
+	if !stderrors.As(err, &jerr) {
+		return false
+	}
+	return jerr.Code == http.StatusUnauthorized || jerr.Code == http.StatusForbidden
+}
+
+// Login creates a Redfish session. The standard collection is
+// SessionService/Sessions; some older BMCs expose Sessions directly under the
+// service root, so that path is tried second.
 func (r *SBaseRedfishClient) Login(ctx context.Context) error {
-	sessionurl := httputils.JoinPath(r.IRedfishDriver().BasePath(), "Sessions")
+	r.loggingIn = true
+	defer func() { r.loggingIn = false }()
+
+	basePath := r.IRedfishDriver().BasePath()
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(r.username), "UserName")
 	params.Add(jsonutils.NewString(r.password), "Password")
-	hdr, _, err := r.Post(ctx, sessionurl, params)
+	var hdr http.Header
+	var err error
+	for _, sessionurl := range []string{
+		httputils.JoinPath(basePath, "SessionService", "Sessions"),
+		httputils.JoinPath(basePath, "Sessions"),
+	} {
+		hdr, _, err = r.Post(ctx, sessionurl, params)
+		if err == nil && len(hdr.Get("X-Auth-Token")) > 0 {
+			break
+		}
+		if err == nil {
+			err = errors.Errorf("no X-Auth-Token in response from %s", sessionurl)
+		}
+	}
 	if err != nil {
 		return errors.Wrap(err, "Login")
 	}
