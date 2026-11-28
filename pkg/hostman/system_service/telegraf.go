@@ -29,6 +29,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	telegrafutil "yunion.io/x/onecloud/pkg/util/telegraf"
 )
 
 const (
@@ -57,8 +58,10 @@ func NewTelegrafService() *STelegraf {
 }
 
 func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
-	conf := ""
-	conf += "[global_tags]\n"
+	config := telegrafutil.Config{
+		GlobalTags: telegrafutil.ConfigSection{Name: "global_tags"},
+		Agent:      telegrafutil.ConfigSection{Name: "agent"},
+	}
 	if tags, ok := kwargs["tags"]; ok {
 		tgs, _ := tags.(map[string]string)
 		keys := []string{}
@@ -67,11 +70,9 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			conf += fmt.Sprintf("  %s = \"%s\"\n", k, tgs[k])
+			config.GlobalTags.Options = append(config.GlobalTags.Options, telegrafutil.ConfigOption{Key: k, Value: tgs[k]})
 		}
 	}
-	conf += "\n"
-	conf += "[agent]\n"
 	intVal := 60
 	if v, ok := kwargs["interval"]; ok {
 		intvalInt, _ := v.(int)
@@ -79,24 +80,25 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 			intVal = intvalInt
 		}
 	}
-	conf += fmt.Sprintf("  interval = \"%ds\"\n", intVal)
-	conf += "  round_interval = true\n"
-	conf += "  metric_batch_size = 1000\n"
-	conf += "  metric_buffer_limit = 10000\n"
-	conf += "  collection_jitter = \"0s\"\n"
-	conf += "  flush_interval = \"60s\"\n"
-	conf += "  flush_jitter = \"0s\"\n"
-	conf += "  precision = \"\"\n"
-	conf += "  debug = false\n"
-	conf += "  quiet = false\n"
+	config.Agent.Options = append(config.Agent.Options,
+		telegrafutil.ConfigOption{Key: "interval", Value: fmt.Sprintf("%ds", intVal)},
+		telegrafutil.ConfigOption{Key: "round_interval", Value: true},
+		telegrafutil.ConfigOption{Key: "metric_batch_size", Value: 1000},
+		telegrafutil.ConfigOption{Key: "metric_buffer_limit", Value: 10000},
+		telegrafutil.ConfigOption{Key: "collection_jitter", Value: "0s"},
+		telegrafutil.ConfigOption{Key: "flush_interval", Value: "60s"},
+		telegrafutil.ConfigOption{Key: "flush_jitter", Value: "0s"},
+		telegrafutil.ConfigOption{Key: "precision", Value: ""},
+		telegrafutil.ConfigOption{Key: "debug", Value: false},
+		telegrafutil.ConfigOption{Key: "quiet", Value: false})
 	// conf += "  logfile = \"/var/log/telegraf/telegraf.err.log\"\n"
 	var hostname string
 	if hn, ok := kwargs["hostname"]; ok {
 		hostname, _ = hn.(string)
 	}
-	conf += fmt.Sprintf("  hostname = \"%s\"\n", hostname)
-	conf += "  omit_hostname = false\n"
-	conf += "\n"
+	config.Agent.Options = append(config.Agent.Options,
+		telegrafutil.ConfigOption{Key: "hostname", Value: hostname},
+		telegrafutil.ConfigOption{Key: "omit_hostname", Value: false})
 	if influx, ok := kwargs[apis.SERVICE_TYPE_INFLUXDB]; ok {
 		influxdb, _ := influx.(map[string]interface{})
 		inUrls, _ := influxdb["url"]
@@ -109,19 +111,16 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 			}
 		}
 		tdb, _ := inDatabase.(string)
-		urls := []string{}
-		for _, u := range tUrls {
-			urls = append(urls, fmt.Sprintf("\"%s\"", u))
-		}
-		conf += "[[outputs.influxdb]]\n"
-		conf += fmt.Sprintf("  urls = [%s]\n", strings.Join(urls, ", "))
-		conf += fmt.Sprintf("  database = \"%s\"\n", tdb)
-		conf += "  insecure_skip_verify = true\n"
+		output := telegrafutil.ConfigSection{Name: "outputs.influxdb", Array: true}
+		output.Options = append(output.Options,
+			telegrafutil.ConfigOption{Key: "urls", Value: tUrls},
+			telegrafutil.ConfigOption{Key: "database", Value: tdb},
+			telegrafutil.ConfigOption{Key: "insecure_skip_verify", Value: true})
 		if isVM {
-			conf += "  skip_database_creation = true\n"
+			output.Options = append(output.Options, telegrafutil.ConfigOption{Key: "skip_database_creation", Value: true})
 		}
-		conf += "  timeout = \"30s\"\n"
-		conf += "\n"
+		output.Options = append(output.Options, telegrafutil.ConfigOption{Key: "timeout", Value: "30s"})
+		config.Outputs = append(config.Outputs, output)
 	}
 	/*
 	 *
@@ -140,7 +139,7 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	 */
 	if kafka, ok := kwargs["kafka"]; ok {
 		kafkaConf, _ := kafka.(map[string]interface{})
-		conf += "[[outputs.kafka]]\n"
+		output := telegrafutil.ConfigSection{Name: "outputs.kafka", Array: true}
 		for _, k := range []string{
 			"brokers",
 			"topic",
@@ -151,22 +150,20 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 			if val, ok := kafkaConf[k]; ok {
 				if k == "brokers" {
 					brokers, _ := val.([]string)
-					for i := range brokers {
-						brokers[i] = fmt.Sprintf("\"%s\"", brokers[i])
-					}
-					conf += fmt.Sprintf("  brokers = [%s]\n", strings.Join(brokers, ", "))
+					output.Options = append(output.Options, telegrafutil.ConfigOption{Key: "brokers", Value: brokers})
 				} else {
-					conf += fmt.Sprintf("  %s = \"%s\"\n", k, val)
+					output.Options = append(output.Options, telegrafutil.ConfigOption{Key: k, Value: fmt.Sprint(val)})
 				}
 			}
 		}
-		conf += "  compression_codec = 0\n"
-		conf += "  required_acks = -1\n"
-		conf += "  max_retry = 3\n"
-		conf += "  data_format = \"json\"\n"
-		conf += "  json_timestamp_units = \"1ms\"\n"
-		conf += "  routing_tag = \"host\"\n"
-		conf += "\n"
+		output.Options = append(output.Options,
+			telegrafutil.ConfigOption{Key: "compression_codec", Value: 0},
+			telegrafutil.ConfigOption{Key: "required_acks", Value: -1},
+			telegrafutil.ConfigOption{Key: "max_retry", Value: 3},
+			telegrafutil.ConfigOption{Key: "data_format", Value: "json"},
+			telegrafutil.ConfigOption{Key: "json_timestamp_units", Value: "1ms"},
+			telegrafutil.ConfigOption{Key: "routing_tag", Value: "host"})
+		config.Outputs = append(config.Outputs, output)
 	}
 	/*
 	 * [[outputs.opentsdb]]
@@ -192,32 +189,32 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 					port = "443"
 				}
 			}
-			conf += "[[outputs.opentsdb]]\n"
-			conf += fmt.Sprintf("  host = \"%s://%s\"\n", urlParts.Scheme, urlParts.Hostname())
-			conf += fmt.Sprintf("  port = %s\n", urlParts.Port())
-			conf += "  http_batch_size = 50\n"
-			conf += fmt.Sprintf("  http_path = \"%s\"\n", urlParts.Path)
-			conf += "  debug = false\n"
-			conf += "  separator = \"_\"\n"
-			conf += "\n"
+			config.Outputs = append(config.Outputs, telegrafutil.ConfigSection{
+				Name: "outputs.opentsdb", Array: true,
+				Options: []telegrafutil.ConfigOption{
+					{Key: "host", Value: fmt.Sprintf("%s://%s", urlParts.Scheme, urlParts.Hostname())},
+					{Key: "port", Value: urlParts.Port(), RawValue: true},
+					{Key: "http_batch_size", Value: 50},
+					{Key: "http_path", Value: urlParts.Path},
+					{Key: "debug", Value: false},
+					{Key: "separator", Value: "_"},
+				},
+			})
 		}
 	}
-	conf += "[[inputs.cpu]]\n"
-	conf += "  percpu = true\n"
-	conf += "  totalcpu = true\n"
-	conf += "  collect_cpu_time = false\n"
-	conf += "  report_active = true\n"
-	conf += "\n"
-	conf += "[[inputs.disk]]\n"
+	config.Inputs = append(config.Inputs, telegrafutil.ConfigSection{
+		Name: "inputs.cpu", Array: true,
+		Options: []telegrafutil.ConfigOption{
+			{Key: "percpu", Value: true}, {Key: "totalcpu", Value: true},
+			{Key: "collect_cpu_time", Value: false}, {Key: "report_active", Value: true},
+		},
+	})
 	ignoreMountPoints := []string{
 		"/etc/telegraf",
 		"/etc/hosts",
 		"/etc/hostname",
 		"/etc/resolv.conf",
 		"/dev/termination-log",
-	}
-	for i := range ignoreMountPoints {
-		ignoreMountPoints[i] = fmt.Sprintf("%q", ignoreMountPoints[i])
 	}
 	ignorePathSegments := []string{
 		"/run/k3s/containerd/",
@@ -227,196 +224,160 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 	if sp, ok := kwargs["server_path"]; ok {
 		ignorePathSegments = append(ignorePathSegments, sp.(string))
 	}
-	for i := range ignorePathSegments {
-		ignorePathSegments[i] = fmt.Sprintf("%q", ignorePathSegments[i])
-	}
-	conf += "  ignore_mount_points = [" + strings.Join(ignoreMountPoints, ", ") + "]\n"
-	conf += "  ignore_path_segments = [" + strings.Join(ignorePathSegments, ", ") + "]\n"
-	conf += "  ignore_fs = [\"devtmpfs\", \"devfs\", \"overlayfs\", \"overlay\", \"squashfs\", \"iso9660\", \"rootfs\", \"hugetlbfs\", \"autofs\", \"aufs\"]\n"
-	conf += "\n"
-	conf += "[[inputs.diskio]]\n"
-	conf += "  skip_serial_number = false\n"
-	conf += "  excludes = \"^(nbd|loop)\"\n"
-	conf += "\n"
-	conf += "[[inputs.kernel]]\n"
-	conf += "\n"
-	conf += "[[inputs.kernel_vmstat]]\n"
-	conf += "\n"
-	conf += "[[inputs.mem]]\n"
-	conf += "\n"
-	conf += "[[inputs.processes]]\n"
-	conf += "\n"
-	conf += "[[inputs.swap]]\n"
-	conf += "\n"
-	conf += "[[inputs.system]]\n"
-	conf += "\n"
-	conf += "[[inputs.smart]]\n"
-	conf += "  path=\"/usr/sbin/smartctl\"\n"
-	conf += "\n"
-	conf += "[[inputs.sensors]]\n"
-	conf += "\n"
-	conf += "[[inputs.net]]\n"
+	config.Inputs = append(config.Inputs, telegrafutil.ConfigSection{
+		Name: "inputs.disk", Array: true,
+		Options: []telegrafutil.ConfigOption{
+			{Key: "ignore_mount_points", Value: ignoreMountPoints},
+			{Key: "ignore_path_segments", Value: ignorePathSegments},
+			{Key: "ignore_fs", Value: []string{"devtmpfs", "devfs", "overlayfs", "overlay", "squashfs", "iso9660", "rootfs", "hugetlbfs", "autofs", "aufs"}},
+		},
+	})
+	config.Inputs = append(config.Inputs,
+		telegrafutil.ConfigSection{Name: "inputs.diskio", Array: true, Options: []telegrafutil.ConfigOption{{Key: "skip_serial_number", Value: false}, {Key: "excludes", Value: "^(nbd|loop)"}}},
+		telegrafutil.ConfigSection{Name: "inputs.kernel", Array: true},
+		telegrafutil.ConfigSection{Name: "inputs.kernel_vmstat", Array: true},
+		telegrafutil.ConfigSection{Name: "inputs.mem", Array: true},
+		telegrafutil.ConfigSection{Name: "inputs.processes", Array: true},
+		telegrafutil.ConfigSection{Name: "inputs.swap", Array: true},
+		telegrafutil.ConfigSection{Name: "inputs.system", Array: true},
+		telegrafutil.ConfigSection{Name: "inputs.smart", Array: true, Options: []telegrafutil.ConfigOption{{Key: "path", Value: "/usr/sbin/smartctl"}}},
+		telegrafutil.ConfigSection{Name: "inputs.sensors", Array: true})
+	netInput := telegrafutil.ConfigSection{Name: "inputs.net", Array: true}
 	if nics, ok := kwargs["nics"]; ok {
 		ns, _ := nics.([]map[string]interface{})
 		infs := []string{}
 		for _, n := range ns {
 			iname, _ := n["name"]
 			name, _ := iname.(string)
-			infs = append(infs, fmt.Sprintf("\"%s\"", name))
+			infs = append(infs, name)
 		}
-		conf += fmt.Sprintf("  interfaces = [%s]\n", strings.Join(infs, ", "))
-		conf += "\n"
+		netInput.Options = append(netInput.Options, telegrafutil.ConfigOption{Key: "interfaces", Value: infs})
 		for _, n := range ns {
 			name, _ := n["name"].(string)
 			alias, _ := n["alias"].(string)
 			speed, _ := n["speed"].(int)
 
-			conf += "  [[inputs.net.interface_conf]]\n"
-			conf += fmt.Sprintf("    name = \"%s\"\n", name)
-			conf += fmt.Sprintf("    alias = \"%s\"\n", alias)
-			conf += fmt.Sprintf("    speed = %d\n", speed)
-			conf += "\n"
+			netInput.Children = append(netInput.Children, telegrafutil.ConfigSection{
+				Name: "inputs.net.interface_conf", Array: true, Nested: true,
+				Options: []telegrafutil.ConfigOption{
+					{Key: "name", Value: name}, {Key: "alias", Value: alias}, {Key: "speed", Value: speed},
+				},
+			})
 		}
 	}
-	conf += "[[inputs.netstat]]\n"
-	conf += "\n"
-	conf += "[[inputs.bond]]\n"
-	conf += "\n"
-	conf += "[[inputs.temp]]\n"
-	conf += "\n"
-	conf += "[[inputs.nstat]]\n"
-	conf += "\n"
-	conf += "[[inputs.ntpq]]\n"
-	conf += "  dns_lookup = false\n"
-	conf += "\n"
+	config.Inputs = append(config.Inputs, netInput)
+	config.Inputs = append(config.Inputs,
+		telegrafutil.ConfigSection{Name: "inputs.netstat", Array: true},
+		telegrafutil.ConfigSection{Name: "inputs.bond", Array: true},
+		telegrafutil.ConfigSection{Name: "inputs.temp", Array: true},
+		telegrafutil.ConfigSection{Name: "inputs.nstat", Array: true},
+		telegrafutil.ConfigSection{Name: "inputs.ntpq", Array: true, Options: []telegrafutil.ConfigOption{{Key: "dns_lookup", Value: false}}})
 	if pidFile, ok := kwargs["pid_file"]; ok {
 		pf, _ := pidFile.(string)
-		conf += "[[inputs.procstat]]\n"
-		conf += fmt.Sprintf("  pid_file = \"%s\"\n", pf)
-		conf += "\n"
+		config.Inputs = append(config.Inputs, telegrafutil.ConfigSection{Name: "inputs.procstat", Array: true, Options: []telegrafutil.ConfigOption{{Key: "pid_file", Value: pf}}})
 	}
-	conf += "[[inputs.internal]]\n"
-	conf += "  collect_memstats = false\n"
-	conf += "\n"
-	conf += "[[inputs.linux_sysctl_fs]]\n"
-	conf += "\n"
-	conf += "[[inputs.http_listener_v2]]\n"
-	conf += "  service_address = \"localhost:8087\"\n"
-	conf += "  path = \"/write\"\n"
-	conf += "  paths = [\"/write\"]\n" // Compatible with telegraf v1.36
-	conf += "  data_source = \"body\"\n"
-	conf += "  data_format = \"influx\"\n"
-	conf += "\n"
+	config.Inputs = append(config.Inputs,
+		telegrafutil.ConfigSection{Name: "inputs.internal", Array: true, Options: []telegrafutil.ConfigOption{{Key: "collect_memstats", Value: false}}},
+		telegrafutil.ConfigSection{Name: "inputs.linux_sysctl_fs", Array: true},
+		telegrafutil.ConfigSection{Name: "inputs.http_listener_v2", Array: true, Options: []telegrafutil.ConfigOption{
+			{Key: "service_address", Value: "localhost:8087"}, {Key: "path", Value: "/write"},
+			{Key: "paths", Value: []string{"/write"}}, {Key: "data_source", Value: "body"}, {Key: "data_format", Value: "influx"},
+		}})
 	if haproxyConf, ok := kwargs["haproxy"]; ok {
 		haproxyConfMap, _ := haproxyConf.(map[string]interface{})
 		haIntVal, _ := haproxyConfMap["interval"].(int)
 		statsSocket, _ := haproxyConfMap["stats_socket_path"].(string)
-		conf += "[[inputs.haproxy]]\n"
-		conf += fmt.Sprintf("  interval = \"%ds\"\n", haIntVal)
-		conf += fmt.Sprintf("  servers = [\"%s\"]\n", statsSocket)
-		conf += "  keep_field_names = true\n"
-		conf += "\n"
+		config.Inputs = append(config.Inputs, telegrafutil.ConfigSection{Name: "inputs.haproxy", Array: true, Options: []telegrafutil.ConfigOption{
+			{Key: "interval", Value: fmt.Sprintf("%ds", haIntVal)}, {Key: "servers", Value: []string{statsSocket}}, {Key: "keep_field_names", Value: true},
+		}})
 	}
 
+	addInput := func(name string, options ...telegrafutil.ConfigOption) {
+		config.Inputs = append(config.Inputs, telegrafutil.ConfigSection{
+			Name: "inputs." + name, Array: true, Options: options,
+		})
+	}
 	if radontop, ok := kwargs[TELEGRAF_INPUT_RADEONTOP]; ok {
 		radontopMap, _ := radontop.(map[string]interface{})
 		devPaths := radontopMap[TELEGRAF_INPUT_RADEONTOP_DEV_PATHS].([]string)
-		devPathStr := make([]string, len(devPaths))
-		for i, devPath := range devPaths {
-			devPathStr[i] = fmt.Sprintf("\"%s\"", devPath)
-		}
-		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_RADEONTOP)
-		conf += fmt.Sprintf("  bin_path = \"%s\"\n", radontopMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
-		conf += fmt.Sprintf("  %s = [%s]\n", TELEGRAF_INPUT_RADEONTOP_DEV_PATHS, strings.Join(devPathStr, ", "))
-		conf += "\n"
+		addInput(TELEGRAF_INPUT_RADEONTOP,
+			telegrafutil.ConfigOption{Key: "bin_path", Value: radontopMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string)},
+			telegrafutil.ConfigOption{Key: TELEGRAF_INPUT_RADEONTOP_DEV_PATHS, Value: devPaths})
 	}
 
 	if netdev, ok := kwargs[TELEGRAF_INPUT_NETDEV]; ok {
 		netdevMap, _ := netdev.(map[string]interface{})
-		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_NETDEV)
-		conf += fmt.Sprintf("  bin_path = \"%s\"\n", netdevMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
-		conf += "\n"
+		addInput(TELEGRAF_INPUT_NETDEV, telegrafutil.ConfigOption{Key: "bin_path", Value: netdevMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string)})
 	}
 
 	if vasmi, ok := kwargs[TELEGRAF_INPUT_VASMI]; ok {
 		vasmiMap, _ := vasmi.(map[string]interface{})
-		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_VASMI)
-		conf += fmt.Sprintf("  bin_path = \"%s\"\n", vasmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
-		conf += "\n"
+		addInput(TELEGRAF_INPUT_VASMI, telegrafutil.ConfigOption{Key: "bin_path", Value: vasmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string)})
 	}
 
 	if hysmi, ok := kwargs[TELEGRAF_INPUT_HYSMI]; ok {
 		hysmiMap, _ := hysmi.(map[string]interface{})
-		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_HYSMI)
-		conf += fmt.Sprintf("  bin_path = \"%s\"\n", hysmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
-		conf += "\n"
+		addInput(TELEGRAF_INPUT_HYSMI, telegrafutil.ConfigOption{Key: "bin_path", Value: hysmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string)})
 	}
 
 	if ixsmi, ok := kwargs[TELEGRAF_INPUT_IXSMI]; ok {
 		ixsmiMap, _ := ixsmi.(map[string]interface{})
-		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_IXSMI)
-		conf += fmt.Sprintf("  bin_path = \"%s\"\n", ixsmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
+		options := []telegrafutil.ConfigOption{{Key: "bin_path", Value: ixsmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string)}}
 		if libPath, _ := ixsmiMap[TELEGRAF_INPUT_CONF_LIB_PATH].(string); libPath != "" {
-			conf += fmt.Sprintf("  lib_path = \"%s\"\n", libPath)
+			options = append(options, telegrafutil.ConfigOption{Key: "lib_path", Value: libPath})
 		}
-		conf += "\n"
+		addInput(TELEGRAF_INPUT_IXSMI, options...)
 	}
 
 	if ppusmi, ok := kwargs[TELEGRAF_INPUT_PPUSMI]; ok {
 		ppusmiMap, _ := ppusmi.(map[string]interface{})
-		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_PPUSMI)
-		conf += fmt.Sprintf("  bin_path = \"%s\"\n", ppusmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
+		options := []telegrafutil.ConfigOption{{Key: "bin_path", Value: ppusmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string)}}
 		if libPath, _ := ppusmiMap[TELEGRAF_INPUT_CONF_LIB_PATH].(string); libPath != "" {
-			conf += fmt.Sprintf("  lib_path = \"%s\"\n", libPath)
+			options = append(options, telegrafutil.ConfigOption{Key: "lib_path", Value: libPath})
 		}
-		conf += "\n"
+		addInput(TELEGRAF_INPUT_PPUSMI, options...)
 	}
 
 	if xpusmi, ok := kwargs[TELEGRAF_INPUT_XPUSMI]; ok {
 		xpusmiMap, _ := xpusmi.(map[string]interface{})
-		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_XPUSMI)
-		conf += fmt.Sprintf("  bin_path = \"%s\"\n", xpusmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
+		options := []telegrafutil.ConfigOption{{Key: "bin_path", Value: xpusmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string)}}
 		if libPath, _ := xpusmiMap[TELEGRAF_INPUT_CONF_LIB_PATH].(string); libPath != "" {
-			conf += fmt.Sprintf("  lib_path = \"%s\"\n", libPath)
+			options = append(options, telegrafutil.ConfigOption{Key: "lib_path", Value: libPath})
 		}
-		conf += "\n"
+		addInput(TELEGRAF_INPUT_XPUSMI, options...)
 	}
 
 	if mtgmi, ok := kwargs[TELEGRAF_INPUT_MTHREADSGMI]; ok {
 		mtgmiMap, _ := mtgmi.(map[string]interface{})
-		conf += fmt.Sprintf("[[inputs.%s]]\n", TELEGRAF_INPUT_MTHREADSGMI)
-		conf += fmt.Sprintf("  bin_path = \"%s\"\n", mtgmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
-		conf += "\n"
+		addInput(TELEGRAF_INPUT_MTHREADSGMI, telegrafutil.ConfigOption{Key: "bin_path", Value: mtgmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string)})
 	}
 
 	if _, ok := kwargs[TELEGRAF_INPUT_NVIDIASMI]; ok {
-		conf += "[[inputs.nvidia_smi]]\n"
-		conf += "  timeout = \"30s\"\n" //  # timeout = "30s"
-		conf += "\n"
+		addInput("nvidia_smi", telegrafutil.ConfigOption{Key: "timeout", Value: "30s"})
 	}
 
 	if npusmi, ok := kwargs[TELEGRAF_INPUT_NPUSMI]; ok {
 		npusmiMap, _ := npusmi.(map[string]interface{})
-		conf += fmt.Sprintf("[[inputs.npu_smi]]\n")
-		conf += fmt.Sprintf("  bin_path = \"%s\"\n", npusmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
-		conf += "\n"
+		addInput("npu_smi", telegrafutil.ConfigOption{Key: "bin_path", Value: npusmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string)})
 	}
 
 	if rocmsmi, ok := kwargs[TELEGRAF_INPUT_ROCM_SMI]; ok {
 		rocmsmiMap, _ := rocmsmi.(map[string]interface{})
-		conf += fmt.Sprintf("[[inputs.amd_rocm_smi]]\n")
-		conf += fmt.Sprintf("  bin_path = \"%s\"\n", rocmsmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string))
-		conf += "\n"
+		addInput("amd_rocm_smi", telegrafutil.ConfigOption{Key: "bin_path", Value: rocmsmiMap[TELEGRAF_INPUT_CONF_BIN_PATH].(string)})
 	}
 
 	// 检查 IPMI 设备文件是否存在
 	if hasIPMIDevice() {
-		conf += "[[inputs.ipmi_sensor]]\n"
-		conf += "  metric_version = 2\n"
-		conf += "  sensors = [\"sdr\"]\n"
-		conf += "\n"
+		addInput("ipmi_sensor",
+			telegrafutil.ConfigOption{Key: "metric_version", Value: 2},
+			telegrafutil.ConfigOption{Key: "sensors", Value: []string{"sdr"}})
 	}
 
+	conf, err := telegrafutil.RenderConfig(config)
+	if err != nil {
+		log.Errorf("render telegraf config: %v", err)
+		return ""
+	}
 	return conf
 }
 
